@@ -3,6 +3,7 @@ import { GRADING_COMPANIES, getGradeFromScore, getCompanyOptions, DEFAULT_GRADIN
 import { useAuth } from "./hooks/useAuth.js";
 import { AuthModal } from "./components/Auth/AuthModal.jsx";
 import { UserMenu } from "./components/Auth/UserMenu.jsx";
+import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { saveScan } from "./services/scans.js";
 
 /* ═══════════════════════════════════════════
@@ -1734,6 +1735,7 @@ export default function SlabSense(){
   const[showDisclaimer,setShowDisclaimer]=useState(true); // Show disclaimer on first load
   const[showAuthModal,setShowAuthModal]=useState(false); // Auth modal visibility
   const[savingStatus,setSavingStatus]=useState(null); // 'saving' | 'saved' | 'error' | null
+  const[showCollection,setShowCollection]=useState(false); // Collection view visibility
 
   // Auth hook
   const auth = useAuth();
@@ -1825,6 +1827,13 @@ export default function SlabSense(){
         onAuth={auth}
       />
     )}
+    {/* Collection View */}
+    {showCollection && (
+      <CollectionView
+        userId={auth.user?.id}
+        onClose={() => setShowCollection(false)}
+      />
+    )}
     {/* Disclaimer Modal */}
     {showDisclaimer&&(
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -1857,7 +1866,7 @@ export default function SlabSense(){
         {/* Auth UI */}
         {auth.isConfigured && (
           auth.isAuthenticated ? (
-            <UserMenu user={auth.user} profile={auth.profile} onSignOut={auth.signOut} />
+            <UserMenu user={auth.user} profile={auth.profile} onSignOut={auth.signOut} onOpenCollection={() => setShowCollection(true)} />
           ) : (
             <button onClick={() => setShowAuthModal(true)} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:6,color:"#fff",fontFamily:mono,fontSize:10,padding:"6px 12px",cursor:"pointer",textTransform:"uppercase"}}>Sign In</button>
           )
