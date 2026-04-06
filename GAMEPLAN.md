@@ -77,15 +77,15 @@
 ---
 
 ## Phase 3: User Features
-> Status: IN PROGRESS
+> Status: COMPLETE (except deferred items)
 
 - [x] Save scans to user account
 - [x] View scan history/collection (CollectionView.jsx)
 - [x] Delete scans from collection
-- [ ] Export results (image, PDF, share link)
-- [ ] Profile settings (display name, preferences)
-- [ ] Default grading company preference (save to profile)
-- [ ] Delete account functionality
+- [x] Export results (PNG download, text copy) — ExportCard.jsx
+- [x] Profile settings (display name) — ProfileSettings.jsx
+- [x] Default grading company preference (save to profile, loads on app start)
+- [x] Delete account functionality (with DELETE confirmation)
 
 ### Deferred to Backend Phase
 - [ ] Card identification (OCR: name, set number) — will be part of Python backend
@@ -248,9 +248,9 @@ SlabSense/
 | Milestone | Target | Status |
 |-----------|--------|--------|
 | Phase 1 Complete | Week 1 | DONE |
-| Phase 2 Complete | Week 3 | ~80% Done |
-| Public Beta Launch | Week 4 | Not Started |
-| Phase 3 Complete | Week 6 | In Progress |
+| Phase 2 Complete | Week 3 | ~80% Done (backend API pending) |
+| Phase 3 Complete | Week 6 | DONE (card ID deferred) |
+| Public Beta Launch | Week 4 | Ready for soft launch |
 | Phase 4 (Payments) | Week 8 | Not Started |
 | Phase 5 (Hardware) | TBD | Not Started |
 
