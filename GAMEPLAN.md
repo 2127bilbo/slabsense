@@ -3,17 +3,78 @@
 ## Project Overview
 **SlabSense** - A pre-grading card analysis tool supporting multiple grading companies (TAG, PSA, BGS, CGC, SGC). Provides grade estimates based on centering, corners, edges, and surface analysis.
 
-### Business Model
-- **Free Tier**: Basic single-image analysis, no account required
-- **Beta Lifetime**: One-time payment for early supporters, lifetime pro access
-- **Pro Monthly**: Full features, multi-image, hardware integration
-
 ### Tech Stack
 - **Frontend**: React (Vite) - Mobile browser first
-- **Backend**: Python + OpenCV (centering/defect API)
+- **Backend**: Python + OpenCV + FastAPI (centering/defect API)
 - **Database**: Supabase (Postgres + Auth + Storage)
-- **Hosting**: Vercel (frontend) + Fly.io (backend)
-- **Payments**: Stripe (future)
+- **Hosting**: Vercel (frontend) + Local Dev → Fly.io (backend)
+- **Payments**: Stripe
+- **Queue**: Redis + Celery (job processing)
+
+---
+
+## Pricing & Tier Structure
+
+### Philosophy
+**Be transparent. Don't double-dip.** Users know exactly what they pay for.
+
+### Tier Comparison
+
+| Feature | Free | Pro ($15/mo) | Beta Lifetime ($99) |
+|---------|------|--------------|---------------------|
+| Client-side grading | ✓ | ✓ | ✓ |
+| **Grade number only** | ✓ | — | — |
+| **Full DINGS report** | ✗ | ✓ | ��� |
+| **Defect explanations** | ✗ | ✓ | ✓ |
+| **Subgrade breakdown** | ✗ | ✓ | ✓ |
+| Backend AI grading | ✗ | ✓ | ✓ |
+| Perspective correction | ✗ | ✓ | ✓ |
+| OCR (card name/set) | ✗ | ✓ | ✓ |
+| Save to collection | 5 scans | Unlimited | Unlimited |
+| Export grade cards | Watermark | Full quality | Full quality |
+| Queue time (backend) | N/A | 30s-2min | 30s-2min |
+| Express credits | ✗ | Can purchase | 50 included |
+
+### Free Tier Limitations
+- **Shows**: Grade number (e.g., "PSA 9") and label (e.g., "MINT")
+- **Hidden**:
+  - Detailed DINGS list (what defects were found)
+  - Why each DING was flagged (descriptions)
+  - Subgrade scores (centering, corners, edges, surface)
+  - Centering ratios (50/50, 55/45, etc.)
+  - Defect location overlays
+- **Message**: "Upgrade to Pro to see full report with DINGS breakdown"
+- **Collection**: Limited to 5 saved scans
+
+### Pro Tier ($15/month)
+- Full detailed reports with all DINGS explanations
+- Backend AI processing (better accuracy)
+- Perspective correction (flatten angled cards)
+- OCR for automatic card name/set detection
+- Unlimited saves to collection
+- Standard queue: 30 seconds - 2 minutes
+- Can purchase express credits
+
+### Beta Lifetime ($99 one-time)
+- Everything in Pro, forever
+- 50 express credits included
+- Early supporter badge
+- Input on future features
+- **Limited availability**: First 100 users only
+
+### Express Credits (Pro users only)
+Skip the queue for instant backend processing.
+
+| Credits | Price | Per Grade |
+|---------|-------|-----------|
+| 10 | $5 | $0.50 |
+| 25 | $10 | $0.40 |
+| 50 | $15 | $0.30 |
+| 100 | $25 | $0.25 |
+
+- 1 credit = 1 express grade
+- Credits never expire
+- Only available to Pro/Lifetime subscribers
 
 ---
 
@@ -64,15 +125,131 @@
 - [x] "Save to Collection" button in overview tab
 
 ### Python Centering API
-- [ ] Set up Python project with OpenCV
+
+#### Stage 1: Local Development (Your PC)
+- [ ] Set up Python project structure
+- [ ] Install dependencies (OpenCV, FastAPI, Tesseract)
 - [ ] Implement perspective correction (warp/deskew)
 - [ ] Implement border detection
 - [ ] Implement centering calculation
-- [ ] OCR for card name & set number (Google Vision or Tesseract)
-- [ ] Create API endpoint (FastAPI or Flask)
-- [ ] Dockerize the service
+- [ ] Add Tesseract OCR for card name/set
+- [ ] Create FastAPI endpoints
+- [ ] Test with real card images
+- [ ] Add "Use local backend" toggle in frontend settings
+- [ ] Use ngrok to expose local server for testing
+
+#### Stage 2: Production (Fly.io)
+- [ ] Dockerize Python app
 - [ ] Deploy to Fly.io
-- [ ] Connect frontend to backend API
+- [ ] Set up Redis for queue management
+- [ ] Implement Celery workers for job processing
+- [ ] Add auth middleware (verify Pro subscription via Supabase)
+- [ ] Implement express priority queue
+- [ ] Add WebSocket or polling for real-time status updates
+- [ ] Load testing and monitoring
+- [ ] Auto-scaling configuration
+
+### Backend Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  STAGE 1: LOCAL DEVELOPMENT                                 │
+│                                                             │
+│  Your PC                                                    │
+│  ┌─────────────┐    ┌─────────────────────────────────────┐ │
+│  │ FastAPI     │    │ Python Processing                   │ │
+│  │ localhost:  │───▶│ - OpenCV perspective transform      │ │
+│  │ 8000        │    │ - Border detection                  │ │
+│  └─────────────┘    │ - Centering calculation             │ │
+│        ▲            │ - Tesseract OCR                     │ │
+│        │            └─────────────────────────────────────┘ │
+│   ngrok tunnel                                              │
+│        │                                                    │
+└────────│────────────────────────────────────────────────────┘
+         │
+    HTTPS Request
+         │
+┌────────│────────────────────────────────────────────────────┐
+│  Frontend (Vercel)                                          │
+│  - Toggle: "Use backend grading" in settings                │
+│  - Sends image to backend API                               │
+│  - Displays enhanced results                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  STAGE 2: PRODUCTION (Fly.io)                               │
+│                                                             │
+│  ┌─────────────┐    ┌─────────────────────────────────────┐ │
+│  │ FastAPI     │    │ Celery Workers (scalable)           │ │
+│  │ api.slab    │───▶│ - Process jobs from queue           │ │
+│  │ sense.app   │    │ - Auto-scale based on load          │ │
+│  └─────────────┘    └─────────────────────────────────────┘ │
+│        │                        │                           │
+│        │                        ▼                           │
+│        │            ┌─────────────────────────────────────┐ │
+│        │            │ Redis Queue                         │ │
+│        │            │ - Standard queue (FIFO)             │ │
+│        │            │ - Express queue (priority)          │ │
+│        │            └─────────────────────────────────────┘ │
+│        │                                                    │
+│        ▼                                                    │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ Auth Middleware                                         ││
+│  │ - Verify JWT from Supabase                              ││
+│  │ - Check tier (reject free users)                        ││
+│  │ - Deduct express credits if used                        ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Queue System
+
+#### How It Works
+1. User submits card image
+2. Auth middleware verifies Pro/Lifetime subscription
+3. If express credit used → Priority Queue (next in line)
+4. Otherwise → Standard Queue (FIFO)
+5. Worker picks up job, processes image
+6. Results returned via WebSocket or polling
+7. Frontend displays enhanced results
+
+#### Estimated Wait Times
+| Queue | Typical Wait |
+|-------|--------------|
+| Express | 5-15 seconds |
+| Standard (low traffic) | 30 seconds |
+| Standard (busy) | 1-2 minutes |
+| Max wait | 5 minutes (auto-scale) |
+
+### Backend Costs (Estimated)
+| Service | Cost |
+|---------|------|
+| Fly.io (small instance) | $5-10/month |
+| Fly.io (scaled) | $20-50/month |
+| Redis (Fly.io) | $5/month |
+| Google Vision API (optional) | ~$1.50/1000 images |
+
+### Database Schema Updates Needed
+
+```sql
+-- Add express credits to profiles
+ALTER TABLE profiles ADD COLUMN express_credits INTEGER DEFAULT 0;
+
+-- Add stripe customer ID for subscription management
+ALTER TABLE profiles ADD COLUMN stripe_customer_id TEXT;
+
+-- Update tier check constraint
+ALTER TABLE profiles DROP CONSTRAINT profiles_tier_check;
+ALTER TABLE profiles ADD CONSTRAINT profiles_tier_check
+  CHECK (tier IN ('free', 'pro_monthly', 'beta_lifetime'));
+
+-- Add backend processing fields to scans
+ALTER TABLE scans ADD COLUMN processing_method TEXT DEFAULT 'client'
+  CHECK (processing_method IN ('client', 'backend'));
+ALTER TABLE scans ADD COLUMN backend_version TEXT; -- e.g., "1.0.0"
+```
 
 ---
 
@@ -96,20 +273,55 @@
 ## Phase 4: Pro Features & Payments
 > Status: NOT STARTED
 
-### Stripe Integration
-- [ ] Create Stripe account
-- [ ] Set up products (Beta Lifetime, Pro Monthly)
-- [ ] Implement checkout flow
-- [ ] Handle webhooks (subscription events)
-- [ ] Update user tier on successful payment
+### Stripe Products to Create
 
-### Pro Features
-- [ ] Multi-image upload workflow
-- [ ] Server-side enhanced processing
-- [ ] Batch grading (multiple cards)
-- [ ] Priority API access
-- [ ] Advanced analytics/stats
-- [ ] Compare to previous scans
+| Product | Type | Price ID | Price |
+|---------|------|----------|-------|
+| SlabSense Pro | Subscription | `price_pro_monthly` | $15/month |
+| Beta Lifetime | One-time | `price_beta_lifetime` | $99 |
+| 10 Express Credits | One-time | `price_credits_10` | $5 |
+| 25 Express Credits | One-time | `price_credits_25` | $10 |
+| 50 Express Credits | One-time | `price_credits_50` | $15 |
+| 100 Express Credits | One-time | `price_credits_100` | $25 |
+
+### Stripe Integration Tasks
+- [ ] Create Stripe account
+- [ ] Create products and prices in Stripe dashboard
+- [ ] Implement checkout flow (Stripe Checkout or Elements)
+- [ ] Set up webhook endpoint
+- [ ] Handle webhook events:
+  - `checkout.session.completed` (one-time purchases)
+  - `customer.subscription.created` (new Pro sub)
+  - `customer.subscription.updated` (plan changes)
+  - `customer.subscription.deleted` (cancellation)
+  - `invoice.paid` (renewal)
+  - `invoice.payment_failed` (failed payment)
+- [ ] Update database on payment:
+  - Set `profiles.tier` to `pro_monthly` or `beta_lifetime`
+  - Add credits to `profiles.express_credits`
+  - Log to `memberships` table
+- [ ] Add tier-gating in UI (show upgrade prompts)
+- [ ] Test full payment flow (test mode)
+- [ ] Go live with real payments
+
+### Free Tier Gating (UI Changes)
+- [ ] Hide DINGS details behind blur/paywall
+- [ ] Hide subgrade breakdown
+- [ ] Hide centering ratios
+- [ ] Show "Upgrade to see full report" CTA
+- [ ] Limit collection to 5 scans
+- [ ] Add watermark to exported grade cards
+
+### Pro Features to Implement
+- [ ] Full detailed DINGS report
+- [ ] Subgrade breakdown display
+- [ ] Centering ratio display
+- [ ] Defect location overlays
+- [ ] Unlimited collection saves
+- [ ] High-quality exports (no watermark)
+- [ ] Backend AI grading toggle
+- [ ] Express credit purchase flow
+- [ ] Credit balance display in UI
 
 ---
 
@@ -245,14 +457,21 @@ SlabSense/
 
 ## Milestones
 
-| Milestone | Target | Status |
-|-----------|--------|--------|
-| Phase 1 Complete | Week 1 | DONE |
-| Phase 2 Complete | Week 3 | ~80% Done (backend API pending) |
-| Phase 3 Complete | Week 6 | DONE (card ID deferred) |
-| Public Beta Launch | Week 4 | Ready for soft launch |
-| Phase 4 (Payments) | Week 8 | Not Started |
-| Phase 5 (Hardware) | TBD | Not Started |
+| Milestone | Description | Status |
+|-----------|-------------|--------|
+| Phase 1 | Foundation & Rebrand | DONE |
+| Phase 2 (Auth) | Supabase auth, user accounts | DONE |
+| Phase 3 | User features (collection, export, settings) | DONE |
+| Backend Stage 1 | Python backend running locally | NOT STARTED |
+| Phase 4 (Payments) | Stripe integration, tier gating | NOT STARTED |
+| Backend Stage 2 | Deploy to Fly.io with queue | NOT STARTED |
+| Phase 5 (Hardware) | 3D printed mount, LED system | NOT STARTED |
+
+### Recommended Order
+1. **Backend Stage 1** - Get Python processing working locally
+2. **Phase 4** - Add Stripe payments and tier gating
+3. **Backend Stage 2** - Deploy to production with queue
+4. **Phase 5** - Hardware integration (future)
 
 ---
 
