@@ -1,5 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { GRADING_COMPANIES, getGradeFromScore, getCompanyOptions, DEFAULT_GRADING_COMPANY } from "./utils/gradingScales.js";
+import { useAuth } from "./hooks/useAuth.js";
+import { AuthModal } from "./components/Auth/AuthModal.jsx";
+import { UserMenu } from "./components/Auth/UserMenu.jsx";
+import { saveScan } from "./services/scans.js";
 
 /* ═══════════════════════════════════════════
    SLABSENSE v0.1.0-beta
@@ -1728,6 +1732,11 @@ export default function SlabSense(){
   const[ignoreCentering,setIgnoreCentering]=useState(false); // Ignore centering in grade calculation
   const[gradingCompany,setGradingCompany]=useState(DEFAULT_GRADING_COMPANY); // Selected grading company
   const[showDisclaimer,setShowDisclaimer]=useState(true); // Show disclaimer on first load
+  const[showAuthModal,setShowAuthModal]=useState(false); // Auth modal visibility
+  const[savingStatus,setSavingStatus]=useState(null); // 'saving' | 'saved' | 'error' | null
+
+  // Auth hook
+  const auth = useAuth();
 
   // Re-runs analysis with manual boundary overrides, updates grade
   const applyManualCorrection = useCallback(async (side, overrideBounds, overrideCentering) => {
@@ -1771,8 +1780,32 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);};
   const handleCam=d=>{if(camTarget==="front")setFI(d);else setBI(d);setCamTarget(null);};
+
+  // Save scan to user's collection
+  const handleSaveScan = async () => {
+    if (!auth.isAuthenticated || !gradeResult) return;
+    setSavingStatus('saving');
+    try {
+      await saveScan(auth.user.id, {
+        gradingCompany,
+        rawScore: gradeResult.rawScore,
+        gradeValue: gradeResult.grade.grade,
+        gradeLabel: gradeResult.grade.label,
+        subgrades: gradeResult.subgrades,
+        frontCentering: fR?.centering,
+        backCentering: bR?.centering,
+        dings: gradeResult.allDings,
+      });
+      setSavingStatus('saved');
+      setTimeout(() => setSavingStatus(null), 2000);
+    } catch (err) {
+      console.error('Error saving scan:', err);
+      setSavingStatus('error');
+      setTimeout(() => setSavingStatus(null), 3000);
+    }
+  };
 
   const tabs=[
     {id:"overview",l:"Score",i:"◎"},{id:"dings",l:"DINGS",i:"⚠"},{id:"map",l:"Map",i:"◫"},
@@ -1784,6 +1817,14 @@ export default function SlabSense(){
   const gr = gradeResult;
 
   return(<div style={{minHeight:"100vh",maxWidth:480,margin:"0 auto",background:"#0a0b0e",color:"#e0e0e0",fontFamily:sans,display:"flex",flexDirection:"column"}}>
+    {/* Auth Modal */}
+    {showAuthModal && (
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onAuth={auth}
+      />
+    )}
     {/* Disclaimer Modal */}
     {showDisclaimer&&(
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -1813,6 +1854,14 @@ export default function SlabSense(){
           {getCompanyOptions().map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
         </select>
         {step===2&&<button onClick={reset} style={{background:"transparent",border:"1px solid #2a2d35",borderRadius:6,color:"#666",fontFamily:mono,fontSize:10,padding:"5px 10px",cursor:"pointer",textTransform:"uppercase"}}>New</button>}
+        {/* Auth UI */}
+        {auth.isConfigured && (
+          auth.isAuthenticated ? (
+            <UserMenu user={auth.user} profile={auth.profile} onSignOut={auth.signOut} />
+          ) : (
+            <button onClick={() => setShowAuthModal(true)} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:6,color:"#fff",fontFamily:mono,fontSize:10,padding:"6px 12px",cursor:"pointer",textTransform:"uppercase"}}>Sign In</button>
+          )
+        )}
       </div>
     </div>
 
@@ -1865,7 +1914,47 @@ export default function SlabSense(){
               </div>
             );})()}
           </div>
-          
+
+          {/* Save to Collection Button */}
+          {auth.isAuthenticated && (
+            <button
+              onClick={handleSaveScan}
+              disabled={savingStatus === 'saving'}
+              style={{
+                width: '100%',
+                padding: '12px 0',
+                marginBottom: 16,
+                borderRadius: 8,
+                border: savingStatus === 'saved' ? '1px solid rgba(0,255,136,0.3)' : '1px solid #2a2d35',
+                background: savingStatus === 'saving' ? '#1a1c22'
+                  : savingStatus === 'saved' ? 'rgba(0,255,136,0.1)'
+                  : savingStatus === 'error' ? 'rgba(255,68,68,0.1)'
+                  : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                color: savingStatus === 'saved' ? '#00ff88'
+                  : savingStatus === 'error' ? '#ff6666'
+                  : '#fff',
+                fontFamily: mono,
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: savingStatus === 'saving' ? 'wait' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
+              {savingStatus === 'saving' ? (
+                <>Saving...</>
+              ) : savingStatus === 'saved' ? (
+                <>✓ Saved to Collection</>
+              ) : savingStatus === 'error' ? (
+                <>✕ Failed to Save</>
+              ) : (
+                <>📁 Save to Collection</>
+              )}
+            </button>
+          )}
+
           <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
               <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>Total DINGS</span>
