@@ -18,7 +18,7 @@
 ---
 
 ## Phase 1: Foundation (Copy & Rebrand)
-> Status: MOSTLY COMPLETE
+> Status: COMPLETE
 
 - [x] Copy current TAG Pre-Grader to new folder
 - [x] Rename folder to SlabSense
@@ -33,7 +33,7 @@
 - [x] Add Privacy Policy page (docs/PRIVACY_POLICY.md)
 - [x] Update README.md
 - [x] Update index.html with new branding
-- [ ] Deploy to new Vercel project (slabsense.vercel.app or custom domain)
+- [x] Deploy to new Vercel project (GitHub → Vercel auto-deploy)
 - [x] Wire grading company selection to grade calculation
   - computeGrade() now accepts companyId parameter
   - Uses company-specific centering thresholds
@@ -44,28 +44,31 @@
 ---
 
 ## Phase 2: Backend & Auth
-> Status: NOT STARTED
+> Status: MOSTLY COMPLETE
 
 ### Supabase Setup
-- [ ] Create Supabase project
-- [ ] Set up database schema (profiles, cards, scans, memberships)
-- [ ] Configure auth providers (email, Google)
-- [ ] Set up storage buckets for card images
-- [ ] Create Row Level Security (RLS) policies
+- [x] Create Supabase project
+- [x] Set up database schema (profiles, scans, memberships)
+- [x] Configure auth providers (email)
+- [ ] Configure auth providers (Google OAuth) — optional
+- [ ] Set up storage buckets for card images — future (for storing scan images)
+- [x] Create Row Level Security (RLS) policies
 
 ### Auth Integration
-- [ ] Create Login component
-- [ ] Create Register component
-- [ ] Create Profile component
-- [ ] Add auth context/provider
-- [ ] Protect routes (collection, settings)
-- [ ] Add logout functionality
+- [x] Create Login component (AuthModal.jsx)
+- [x] Create Register component (AuthModal.jsx - handles both)
+- [ ] Create Profile/Settings component
+- [x] Add auth hook (useAuth.js)
+- [x] Protect collection view (only shows when logged in)
+- [x] Add logout functionality (UserMenu.jsx)
+- [x] "Save to Collection" button in overview tab
 
 ### Python Centering API
 - [ ] Set up Python project with OpenCV
 - [ ] Implement perspective correction (warp/deskew)
 - [ ] Implement border detection
 - [ ] Implement centering calculation
+- [ ] OCR for card name & set number (Google Vision or Tesseract)
 - [ ] Create API endpoint (FastAPI or Flask)
 - [ ] Dockerize the service
 - [ ] Deploy to Fly.io
@@ -74,16 +77,19 @@
 ---
 
 ## Phase 3: User Features
-> Status: NOT STARTED
+> Status: IN PROGRESS
 
-- [ ] Save scans to user account
-- [ ] View scan history/collection
-- [ ] Card identification (manual selection first)
-- [ ] Card database integration (TCGPlayer API or local DB)
+- [x] Save scans to user account
+- [x] View scan history/collection (CollectionView.jsx)
+- [x] Delete scans from collection
 - [ ] Export results (image, PDF, share link)
 - [ ] Profile settings (display name, preferences)
-- [ ] Default grading company preference
+- [ ] Default grading company preference (save to profile)
 - [ ] Delete account functionality
+
+### Deferred to Backend Phase
+- [ ] Card identification (OCR: name, set number) — will be part of Python backend
+- [ ] Card database integration (TCGPlayer API) — after OCR working
 
 ---
 
@@ -241,10 +247,10 @@ SlabSense/
 
 | Milestone | Target | Status |
 |-----------|--------|--------|
-| Phase 1 Complete | Week 1 | In Progress |
-| Phase 2 Complete | Week 3 | Not Started |
+| Phase 1 Complete | Week 1 | DONE |
+| Phase 2 Complete | Week 3 | ~80% Done |
 | Public Beta Launch | Week 4 | Not Started |
-| Phase 3 Complete | Week 6 | Not Started |
+| Phase 3 Complete | Week 6 | In Progress |
 | Phase 4 (Payments) | Week 8 | Not Started |
 | Phase 5 (Hardware) | TBD | Not Started |
 
@@ -257,7 +263,9 @@ SlabSense/
 - **Stripe**: https://stripe.com
 - **TCGPlayer API**: https://docs.tcgplayer.com
 - **OpenCV Python**: https://docs.opencv.org
+- **GitHub Repo**: https://github.com/2127bilbo/slabsense
+- **Live Site**: (Vercel URL)
 
 ---
 
-*Last Updated: April 6, 2025*
+*Last Updated: April 6, 2026*

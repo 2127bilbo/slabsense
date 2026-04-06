@@ -8,7 +8,7 @@ import { useState } from 'react';
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
 
-export function UserMenu({ user, profile, onSignOut, onOpenCollection }) {
+export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSettings }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
@@ -128,7 +128,7 @@ export function UserMenu({ user, profile, onSignOut, onOpenCollection }) {
               </button>
 
               <button
-                onClick={() => { /* TODO: Settings */ setIsOpen(false); }}
+                onClick={() => { onOpenSettings?.(); setIsOpen(false); }}
                 style={{
                   width: '100%',
                   padding: '10px 12px',

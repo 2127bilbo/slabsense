@@ -4,6 +4,8 @@ import { useAuth } from "./hooks/useAuth.js";
 import { AuthModal } from "./components/Auth/AuthModal.jsx";
 import { UserMenu } from "./components/Auth/UserMenu.jsx";
 import { CollectionView } from "./components/Collection/CollectionView.jsx";
+import { ExportCard } from "./components/Export/ExportCard.jsx";
+import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan } from "./services/scans.js";
 
 /* ═══════════════════════════════════════════
@@ -1736,9 +1738,18 @@ export default function SlabSense(){
   const[showAuthModal,setShowAuthModal]=useState(false); // Auth modal visibility
   const[savingStatus,setSavingStatus]=useState(null); // 'saving' | 'saved' | 'error' | null
   const[showCollection,setShowCollection]=useState(false); // Collection view visibility
+  const[showExport,setShowExport]=useState(false); // Export modal visibility
+  const[showSettings,setShowSettings]=useState(false); // Settings modal visibility
 
   // Auth hook
   const auth = useAuth();
+
+  // Load user's preferred grading company when profile loads
+  useEffect(() => {
+    if (auth.profile?.preferred_company) {
+      setGradingCompany(auth.profile.preferred_company);
+    }
+  }, [auth.profile]);
 
   // Re-runs analysis with manual boundary overrides, updates grade
   const applyManualCorrection = useCallback(async (side, overrideBounds, overrideCentering) => {
@@ -1834,6 +1845,26 @@ export default function SlabSense(){
         onClose={() => setShowCollection(false)}
       />
     )}
+    {/* Export Modal */}
+    {showExport && gradeResult && (
+      <ExportCard
+        gradeResult={gradeResult}
+        frontImage={fI}
+        backImage={bI}
+        gradingCompany={gradingCompany}
+        onClose={() => setShowExport(false)}
+      />
+    )}
+    {/* Profile Settings Modal */}
+    {showSettings && (
+      <ProfileSettings
+        user={auth.user}
+        profile={auth.profile}
+        onClose={() => setShowSettings(false)}
+        onProfileUpdate={auth.refreshProfile}
+        onSignOut={auth.signOut}
+      />
+    )}
     {/* Disclaimer Modal */}
     {showDisclaimer&&(
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -1866,7 +1897,7 @@ export default function SlabSense(){
         {/* Auth UI */}
         {auth.isConfigured && (
           auth.isAuthenticated ? (
-            <UserMenu user={auth.user} profile={auth.profile} onSignOut={auth.signOut} onOpenCollection={() => setShowCollection(true)} />
+            <UserMenu user={auth.user} profile={auth.profile} onSignOut={auth.signOut} onOpenCollection={() => setShowCollection(true)} onOpenSettings={() => setShowSettings(true)} />
           ) : (
             <button onClick={() => setShowAuthModal(true)} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:6,color:"#fff",fontFamily:mono,fontSize:10,padding:"6px 12px",cursor:"pointer",textTransform:"uppercase"}}>Sign In</button>
           )
@@ -1963,6 +1994,30 @@ export default function SlabSense(){
               )}
             </button>
           )}
+
+          {/* Share/Export Button */}
+          <button
+            onClick={() => setShowExport(true)}
+            style={{
+              width: '100%',
+              padding: '12px 0',
+              marginBottom: 16,
+              borderRadius: 8,
+              border: '1px solid #2a2d35',
+              background: 'transparent',
+              color: '#888',
+              fontFamily: mono,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            📤 Share / Export
+          </button>
 
           <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>

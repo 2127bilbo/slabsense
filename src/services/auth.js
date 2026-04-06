@@ -158,3 +158,34 @@ export async function checkProAccess(userId) {
 
   return profile?.tier === 'pro_monthly' || profile?.tier === 'beta_lifetime';
 }
+
+/**
+ * Delete user account and all associated data
+ * Note: This deletes the profile (which cascades to scans via FK),
+ * but the auth.users entry requires admin/service role to delete.
+ * For now, we just delete user data and sign them out.
+ */
+export async function deleteAccount(userId) {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Authentication not configured');
+  }
+
+  // Delete all user scans first
+  const { error: scansError } = await supabase
+    .from('scans')
+    .delete()
+    .eq('user_id', userId);
+
+  if (scansError) throw scansError;
+
+  // Delete profile (this should cascade, but being explicit)
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .delete()
+    .eq('id', userId);
+
+  if (profileError) throw profileError;
+
+  // Sign out the user
+  await supabase.auth.signOut();
+}
