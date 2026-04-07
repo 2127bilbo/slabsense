@@ -410,28 +410,57 @@ async function loadImageFromUrl(url) {
 
 /**
  * Find the 4 corners of a card from a binary mask
- * Uses contour detection to find the quadrilateral
+ * Uses edge detection to find the card boundary, then finds corners
  */
 function findCardCornersFromMask(maskData, width, height) {
   const data = maskData.data;
 
-  // Find all white/non-black pixels (the mask)
-  const points = [];
+  // Create a 2D binary array for easier processing
+  const mask = [];
   for (let y = 0; y < height; y++) {
+    mask[y] = [];
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
       // Check if pixel is part of mask (non-black)
-      if (data[i] > 128 || data[i + 1] > 128 || data[i + 2] > 128) {
-        points.push({ x, y });
+      mask[y][x] = (data[i] > 128 || data[i + 1] > 128 || data[i + 2] > 128) ? 1 : 0;
+    }
+  }
+
+  // Find EDGE pixels only (mask pixels that border non-mask pixels)
+  // This gives us the contour of the card, not the whole filled area
+  const edgePoints = [];
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      if (mask[y][x] === 1) {
+        // Check if this is an edge pixel (has at least one non-mask neighbor)
+        if (mask[y-1][x] === 0 || mask[y+1][x] === 0 ||
+            mask[y][x-1] === 0 || mask[y][x+1] === 0) {
+          edgePoints.push({ x, y });
+        }
       }
     }
   }
 
-  if (points.length < 100) {
-    return null; // Not enough mask pixels
+  if (edgePoints.length < 50) {
+    // Fallback to all mask points if edge detection fails
+    const points = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (mask[y][x] === 1) points.push({ x, y });
+      }
+    }
+    if (points.length < 100) return null;
+    return findCornersFromPoints(points, width, height);
   }
 
-  // Find bounding box first
+  return findCornersFromPoints(edgePoints, width, height);
+}
+
+/**
+ * Find corners from a set of points using convex hull approach
+ */
+function findCornersFromPoints(points, width, height) {
+  // Find bounding box
   let minX = width, maxX = 0, minY = height, maxY = 0;
   for (const p of points) {
     minX = Math.min(minX, p.x);
@@ -440,10 +469,14 @@ function findCardCornersFromMask(maskData, width, height) {
     maxY = Math.max(maxY, p.y);
   }
 
-  // Find corners by looking for extreme points in each quadrant
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
+  // Card should be at least 20% of the image in each dimension
+  const cardW = maxX - minX;
+  const cardH = maxY - minY;
+  if (cardW < width * 0.2 || cardH < height * 0.2) {
+    return null;
+  }
 
+  // Find corners by looking for extreme points
   // Top-left: minimize x+y
   // Top-right: maximize x-y
   // Bottom-left: minimize x-y (maximize y-x)
@@ -463,6 +496,24 @@ function findCardCornersFromMask(maskData, width, height) {
 
   if (!tl || !tr || !bl || !br) {
     return null;
+  }
+
+  // Sanity check: corners should form a roughly rectangular shape
+  // The card aspect ratio should be close to 5:7 (standard trading card)
+  const topWidth = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
+  const bottomWidth = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
+  const leftHeight = Math.sqrt(Math.pow(bl.x - tl.x, 2) + Math.pow(bl.y - tl.y, 2));
+  const rightHeight = Math.sqrt(Math.pow(br.x - tr.x, 2) + Math.pow(br.y - tr.y, 2));
+
+  const avgWidth = (topWidth + bottomWidth) / 2;
+  const avgHeight = (leftHeight + rightHeight) / 2;
+  const aspectRatio = avgWidth / avgHeight;
+
+  // Standard card is ~2.5x3.5 inches = 0.714 aspect ratio
+  // Allow some tolerance (0.5 to 0.9)
+  if (aspectRatio < 0.4 || aspectRatio > 1.0) {
+    console.log('Card aspect ratio out of range:', aspectRatio);
+    // Still return corners, but log warning
   }
 
   return { tl, tr, bl, br, bounds: { minX, maxX, minY, maxY } };

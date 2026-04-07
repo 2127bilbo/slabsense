@@ -50,18 +50,21 @@ export default async function handler(req, res) {
     }
 
     // Configure points based on mode
+    // Use positive points (1) on card center + negative points (0) on corners (background)
     let pointCoords, pointLabels;
 
     if (mode === 'dual') {
-      // Dual mode: front on left, back on right
-      // Points at 25% and 75% horizontally (center of each card)
-      pointCoords = points?.coords || '0.25,0.5,0.75,0.5';
-      pointLabels = points?.labels || '1,1';
+      // Dual mode: front on left (25%), back on right (75%)
+      // Positive points on each card center
+      // Negative points on corners to exclude background
+      pointCoords = points?.coords || '0.25,0.5,0.75,0.5,0.02,0.02,0.98,0.02,0.02,0.98,0.98,0.98';
+      pointLabels = points?.labels || '1,1,0,0,0,0'; // 2 positive (cards), 4 negative (corners)
     } else {
-      // Single mode: one card
+      // Single mode: positive on center, negative on all 4 corners
       const point = points || { x: 0.5, y: 0.5 };
-      pointCoords = `${point.x},${point.y}`;
-      pointLabels = '1';
+      // Center = include, corners = exclude (background)
+      pointCoords = `${point.x},${point.y},0.02,0.02,0.98,0.02,0.02,0.98,0.98,0.98`;
+      pointLabels = '1,0,0,0,0'; // 1 positive (card center), 4 negative (corners)
     }
 
     console.log(`SAM request - mode: ${mode}, points: ${pointCoords}`);
