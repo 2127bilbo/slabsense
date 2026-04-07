@@ -245,13 +245,14 @@ export async function analyzeCardWithBackend(frontImageDataUrl, backImageDataUrl
 }
 
 /**
- * AI Card Detection - Detect and crop card from image
- * Uses YOLO-World via Replicate (~$0.001/image, ~1-2 sec)
+ * AI Card Detection - Detect card using SAM 2
+ * Uses Segment Anything Model 2 via Replicate (~$0.02/image, ~5-10 sec)
  *
  * @param {string} imageDataUrl - Base64 data URL of image
- * @returns {Promise<object>} Detection result with bbox and cropped card
+ * @param {object} point - Optional click point {x, y} normalized 0-1 (default: center)
+ * @returns {Promise<object>} Detection result with mask URL
  */
-export async function detectCard(imageDataUrl) {
+export async function detectCard(imageDataUrl, point = null) {
   try {
     const response = await fetch('/api/detect-card', {
       method: 'POST',
@@ -260,6 +261,7 @@ export async function detectCard(imageDataUrl) {
       },
       body: JSON.stringify({
         image: imageDataUrl,
+        point: point || { x: 0.5, y: 0.5 },
       }),
     });
 
@@ -276,14 +278,178 @@ export async function detectCard(imageDataUrl) {
 }
 
 /**
- * Crop image to bounding box on client side
- * Uses the bbox from detectCard to crop the original image
- *
- * @param {string} imageDataUrl - Original image data URL
- * @param {object} bbox - Bounding box {x1, y1, x2, y2} (normalized 0-1 or pixels)
- * @param {number} targetWidth - Output width (default 500)
- * @param {number} targetHeight - Output height (default 700 for standard card ratio)
- * @returns {Promise<string>} Cropped image as data URL
+ * Load an image from URL and return as ImageData
+ */
+async function loadImageFromUrl(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      resolve({
+        img,
+        canvas,
+        ctx,
+        data: ctx.getImageData(0, 0, img.width, img.height),
+        width: img.width,
+        height: img.height,
+      });
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = url;
+  });
+}
+
+/**
+ * Find the 4 corners of a card from a binary mask
+ * Uses contour detection to find the quadrilateral
+ */
+function findCardCornersFromMask(maskData, width, height) {
+  const data = maskData.data;
+
+  // Find all white/non-black pixels (the mask)
+  const points = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      // Check if pixel is part of mask (non-black)
+      if (data[i] > 128 || data[i + 1] > 128 || data[i + 2] > 128) {
+        points.push({ x, y });
+      }
+    }
+  }
+
+  if (points.length < 100) {
+    return null; // Not enough mask pixels
+  }
+
+  // Find bounding box first
+  let minX = width, maxX = 0, minY = height, maxY = 0;
+  for (const p of points) {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  }
+
+  // Find corners by looking for extreme points in each quadrant
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+
+  // Top-left: minimize x+y
+  // Top-right: maximize x-y
+  // Bottom-left: minimize x-y (maximize y-x)
+  // Bottom-right: maximize x+y
+  let tl = null, tr = null, bl = null, br = null;
+  let tlScore = Infinity, trScore = -Infinity, blScore = Infinity, brScore = -Infinity;
+
+  for (const p of points) {
+    const sumScore = p.x + p.y;
+    const diffScore = p.x - p.y;
+
+    if (sumScore < tlScore) { tlScore = sumScore; tl = p; }
+    if (sumScore > brScore) { brScore = sumScore; br = p; }
+    if (diffScore > trScore) { trScore = diffScore; tr = p; }
+    if (diffScore < blScore) { blScore = diffScore; bl = p; }
+  }
+
+  if (!tl || !tr || !bl || !br) {
+    return null;
+  }
+
+  return { tl, tr, bl, br, bounds: { minX, maxX, minY, maxY } };
+}
+
+/**
+ * Apply perspective transform to flatten a card
+ * Takes 4 corner points and transforms to a rectangle
+ */
+function perspectiveTransform(sourceImg, corners, targetWidth = 500, targetHeight = 700) {
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
+
+  // Source corners (from mask detection)
+  const { tl, tr, bl, br } = corners;
+
+  // For a proper perspective transform, we need to use canvas transforms
+  // This is a simplified version using quadrilateral mapping
+
+  // Calculate the transformation matrix coefficients
+  // Using a simple approach: divide into triangles
+
+  // Draw upper triangle (tl, tr, br)
+  // Draw lower triangle (tl, bl, br)
+
+  // Actually, for simplicity let's use a grid-based approach
+  const srcW = sourceImg.width;
+  const srcH = sourceImg.height;
+
+  // Create temporary canvas for source
+  const srcCanvas = document.createElement('canvas');
+  srcCanvas.width = srcW;
+  srcCanvas.height = srcH;
+  const srcCtx = srcCanvas.getContext('2d');
+  srcCtx.drawImage(sourceImg, 0, 0);
+
+  // Sample grid points and map them
+  const gridSize = 20; // 20x20 grid for smooth transform
+
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) {
+      // Target position (normalized)
+      const tx = gx / gridSize;
+      const ty = gy / gridSize;
+      const tx2 = (gx + 1) / gridSize;
+      const ty2 = (gy + 1) / gridSize;
+
+      // Bilinear interpolation for source positions
+      const srcX1 = bilinearInterp(tl.x, tr.x, bl.x, br.x, tx, ty);
+      const srcY1 = bilinearInterp(tl.y, tr.y, bl.y, br.y, tx, ty);
+      const srcX2 = bilinearInterp(tl.x, tr.x, bl.x, br.x, tx2, ty);
+      const srcY2 = bilinearInterp(tl.y, tr.y, bl.y, br.y, tx2, ty);
+      const srcX3 = bilinearInterp(tl.x, tr.x, bl.x, br.x, tx, ty2);
+      const srcY3 = bilinearInterp(tl.y, tr.y, bl.y, br.y, tx, ty2);
+      const srcX4 = bilinearInterp(tl.x, tr.x, bl.x, br.x, tx2, ty2);
+      const srcY4 = bilinearInterp(tl.y, tr.y, bl.y, br.y, tx2, ty2);
+
+      // Source rectangle (approximate)
+      const srcLeft = Math.min(srcX1, srcX3);
+      const srcTop = Math.min(srcY1, srcY2);
+      const srcRight = Math.max(srcX2, srcX4);
+      const srcBottom = Math.max(srcY3, srcY4);
+
+      // Target rectangle
+      const dstLeft = tx * targetWidth;
+      const dstTop = ty * targetHeight;
+      const dstWidth = targetWidth / gridSize;
+      const dstHeight = targetHeight / gridSize;
+
+      // Draw this grid cell
+      ctx.drawImage(
+        srcCanvas,
+        srcLeft, srcTop, srcRight - srcLeft, srcBottom - srcTop,
+        dstLeft, dstTop, dstWidth, dstHeight
+      );
+    }
+  }
+
+  return canvas.toDataURL('image/jpeg', 0.95);
+}
+
+function bilinearInterp(tl, tr, bl, br, u, v) {
+  const top = tl + (tr - tl) * u;
+  const bottom = bl + (br - bl) * u;
+  return top + (bottom - top) * v;
+}
+
+/**
+ * Simple crop from bounding box (fallback if corners fail)
  */
 export async function cropCardFromBbox(imageDataUrl, bbox, targetWidth = 500, targetHeight = 700) {
   return new Promise((resolve, reject) => {
@@ -292,29 +458,19 @@ export async function cropCardFromBbox(imageDataUrl, bbox, targetWidth = 500, ta
       const w = img.width;
       const h = img.height;
 
-      // Convert bbox to pixels if normalized (0-1)
-      let x1 = bbox.x1 <= 1 ? bbox.x1 * w : bbox.x1;
-      let y1 = bbox.y1 <= 1 ? bbox.y1 * h : bbox.y1;
-      let x2 = bbox.x2 <= 1 ? bbox.x2 * w : bbox.x2;
-      let y2 = bbox.y2 <= 1 ? bbox.y2 * h : bbox.y2;
-
-      // Add small padding
-      const padding = Math.min(w, h) * 0.01;
-      x1 = Math.max(0, x1 - padding);
-      y1 = Math.max(0, y1 - padding);
-      x2 = Math.min(w, x2 + padding);
-      y2 = Math.min(h, y2 + padding);
+      const x1 = bbox.minX || bbox.x1 || 0;
+      const y1 = bbox.minY || bbox.y1 || 0;
+      const x2 = bbox.maxX || bbox.x2 || w;
+      const y2 = bbox.maxY || bbox.y2 || h;
 
       const cropW = x2 - x1;
       const cropH = y2 - y1;
 
-      // Create canvas and crop
       const canvas = document.createElement('canvas');
       canvas.width = targetWidth;
       canvas.height = targetHeight;
       const ctx = canvas.getContext('2d');
 
-      // Draw cropped and scaled image
       ctx.drawImage(img, x1, y1, cropW, cropH, 0, 0, targetWidth, targetHeight);
 
       resolve(canvas.toDataURL('image/jpeg', 0.95));
@@ -325,15 +481,22 @@ export async function cropCardFromBbox(imageDataUrl, bbox, targetWidth = 500, ta
 }
 
 /**
- * Full AI card detection and cropping pipeline
- * Detects card, crops to bbox, returns clean card image
+ * Full AI card detection and cropping pipeline with SAM 2
+ * 1. SAM detects exact card boundary
+ * 2. Find 4 corners from mask
+ * 3. Perspective transform to flatten
+ * 4. Return perfect card image
  *
  * @param {string} imageDataUrl - Original photo with card
+ * @param {object} options - { point: {x, y}, targetWidth, targetHeight }
  * @returns {Promise<object>} Result with croppedCard data URL and metadata
  */
-export async function detectAndCropCard(imageDataUrl) {
-  // Step 1: Detect card
-  const detection = await detectCard(imageDataUrl);
+export async function detectAndCropCard(imageDataUrl, options = {}) {
+  const { point, targetWidth = 500, targetHeight = 700 } = options;
+
+  // Step 1: Call SAM to get mask
+  console.log('Calling SAM for card detection...');
+  const detection = await detectCard(imageDataUrl, point);
 
   if (!detection.success) {
     return {
@@ -343,15 +506,66 @@ export async function detectAndCropCard(imageDataUrl) {
     };
   }
 
-  // Step 2: Crop to bbox
-  const croppedCard = await cropCardFromBbox(imageDataUrl, detection.bbox);
+  console.log('SAM returned mask:', detection.maskUrl);
+
+  // Step 2: Load the mask image
+  let maskData;
+  try {
+    maskData = await loadImageFromUrl(detection.maskUrl);
+  } catch (err) {
+    console.error('Failed to load mask:', err);
+    return {
+      success: false,
+      error: 'Failed to load mask image',
+      maskUrl: detection.maskUrl,
+    };
+  }
+
+  // Step 3: Find card corners from mask
+  const corners = findCardCornersFromMask(maskData.data, maskData.width, maskData.height);
+
+  if (!corners) {
+    console.log('Could not find corners, falling back to bounding box');
+    // Fallback: use mask bounding box
+    const croppedCard = await cropCardFromBbox(imageDataUrl, {
+      minX: 0, minY: 0,
+      maxX: maskData.width,
+      maxY: maskData.height
+    }, targetWidth, targetHeight);
+
+    return {
+      success: true,
+      croppedCard,
+      method: 'bbox-fallback',
+      cost: detection.cost_estimate,
+    };
+  }
+
+  console.log('Found corners:', corners);
+
+  // Step 4: Load original image and apply perspective transform
+  const originalImg = await loadImageFromUrl(imageDataUrl);
+
+  // Scale corners to original image size (mask might be different size)
+  const scaleX = originalImg.width / maskData.width;
+  const scaleY = originalImg.height / maskData.height;
+
+  const scaledCorners = {
+    tl: { x: corners.tl.x * scaleX, y: corners.tl.y * scaleY },
+    tr: { x: corners.tr.x * scaleX, y: corners.tr.y * scaleY },
+    bl: { x: corners.bl.x * scaleX, y: corners.bl.y * scaleY },
+    br: { x: corners.br.x * scaleX, y: corners.br.y * scaleY },
+  };
+
+  // Step 5: Perspective transform
+  const croppedCard = perspectiveTransform(originalImg.img, scaledCorners, targetWidth, targetHeight);
 
   return {
     success: true,
     croppedCard,
-    bbox: detection.bbox,
-    confidence: detection.confidence,
-    label: detection.label,
+    corners: scaledCorners,
+    method: 'perspective-transform',
     cost: detection.cost_estimate,
+    maskUrl: detection.maskUrl,
   };
 }
