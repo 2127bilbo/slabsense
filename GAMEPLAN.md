@@ -3,6 +3,66 @@
 ## Project Overview
 **SlabSense** - A pre-grading card analysis tool supporting multiple grading companies (TAG, PSA, BGS, CGC, SGC). Provides grade estimates based on centering, corners, edges, and surface analysis.
 
+---
+
+## UI Redesign Plan
+
+### App Structure (Tabs)
+| Tab | Content | Status |
+|-----|---------|--------|
+| **Home** | Portfolio value (Pro only), eBay data placeholder until TCG API | Planned |
+| **Collection** | Stacked card deck (user photos for now, TCG API ready in code), grade below | Planned |
+| **Scan** | Capture + analyze (redesigned) | Current |
+| **Settings** | Profile, default company, account | Done |
+
+### Scan Tab Redesign
+- [x] Capture front and back images
+- [x] Backend integration toggle (use AI backend vs client-side)
+- [x] Backend health indicator
+- [x] Manual centering adjustment with sliders
+- [x] Surface vision modes (Emboss, Hi-Pass, Edge)
+- [x] **Grade number display** — Shows grade prominently (9, 9.5, 10) not just label
+- [x] **Company-specific score format** — TAG shows 1000pt, BGS/CGC show subgrades, PSA/SGC show just grade
+- [x] **Free vs Pro layouts** — Different UI for each tier (see below)
+- [x] **Stack capture boxes vertically** — New CaptureCardVertical component with horizontal card layout
+- [ ] Add photo quality detection (blur warning) — future
+- [ ] Cleaner, minimal interface — future
+
+### Free vs Pro UI Differences
+| Element | Free | Pro |
+|---------|------|-----|
+| **Grade Display** | Large grade number + label + upgrade prompt | Grade + label + company-specific details |
+| **Tabs Available** | Grade, Vision only | All 8 tabs |
+| **DINGS Summary** | Hidden | Shown with category breakdown |
+| **Grade Analysis** | Hidden | Shown with tips |
+| **Confidence Notes** | Hidden | Shown |
+| **Centering Ratios** | Hidden | Shown |
+| **Subgrades** | Hidden | Shown (BGS/CGC) |
+| **TAG Score** | Hidden | 1000-point score shown |
+
+### Collection Redesign
+- [x] Grid view of saved scans
+- [x] Grade displayed on each card
+- [x] Tap to view full details
+- [x] Delete scans
+- [ ] Stacked card view (swipeable deck) — future UI enhancement
+- [ ] TCG API integration ready in code (placeholder) — after OCR
+- [ ] Search/filter collection — future
+
+### Portfolio/Home (Pro Only)
+- [ ] Total collection value
+- [ ] Value chart over time
+- [ ] Most valuable cards list
+- [ ] eBay pricing data (placeholder until TCG API)
+- [ ] Pro-only gating
+
+### Future: Cardex (Pokemon Index)
+- Filter by type (fire, water, etc.)
+- Filter by set (Surging Sparks, etc.)
+- Search by name
+- Requires OCR/card identification working first
+- May or may not implement
+
 ### Tech Stack
 - **Frontend**: React (Vite) - Mobile browser first
 - **Backend**: Python + OpenCV + FastAPI (centering/defect API)
@@ -105,7 +165,7 @@ Skip the queue for instant backend processing.
 ---
 
 ## Phase 2: Backend & Auth
-> Status: MOSTLY COMPLETE
+> Status: COMPLETE (Auth) / IN PROGRESS (Backend)
 
 ### Supabase Setup
 - [x] Create Supabase project
@@ -114,11 +174,12 @@ Skip the queue for instant backend processing.
 - [ ] Configure auth providers (Google OAuth) — optional
 - [ ] Set up storage buckets for card images — future (for storing scan images)
 - [x] Create Row Level Security (RLS) policies
+- [x] Fix signup trigger (must use `public.profiles` explicitly)
 
 ### Auth Integration
 - [x] Create Login component (AuthModal.jsx)
 - [x] Create Register component (AuthModal.jsx - handles both)
-- [ ] Create Profile/Settings component
+- [x] Create Profile/Settings component (ProfileSettings.jsx)
 - [x] Add auth hook (useAuth.js)
 - [x] Protect collection view (only shows when logged in)
 - [x] Add logout functionality (UserMenu.jsx)
@@ -127,16 +188,21 @@ Skip the queue for instant backend processing.
 ### Python Centering API
 
 #### Stage 1: Local Development (Your PC)
-- [ ] Set up Python project structure
-- [ ] Install dependencies (OpenCV, FastAPI, Tesseract)
-- [ ] Implement perspective correction (warp/deskew)
-- [ ] Implement border detection
-- [ ] Implement centering calculation
-- [ ] Add Tesseract OCR for card name/set
-- [ ] Create FastAPI endpoints
-- [ ] Test with real card images
-- [ ] Add "Use local backend" toggle in frontend settings
+- [x] Set up Python project structure
+- [x] Install dependencies (OpenCV, FastAPI)
+- [x] Implement perspective correction (warp/deskew)
+- [x] Implement border detection (NEEDS FIX - back detection wrong)
+- [x] Implement centering calculation
+- [ ] Add Tesseract OCR for card name/set — deferred
+- [x] Create FastAPI endpoints (/analyze, /centering, /perspective)
+- [x] Test with real card images
+- [x] Add "Use backend" toggle in frontend settings
 - [ ] Use ngrok to expose local server for testing
+
+#### Known Issues (Backend)
+- [ ] **CRITICAL: Back centering detection wrong** - overlay extends beyond card
+- [ ] Front centering overlay slightly misaligned
+- [ ] Need to debug `centering.py` detection methods for card backs
 
 #### Stage 2: Production (Fly.io)
 - [ ] Dockerize Python app
@@ -305,18 +371,19 @@ ALTER TABLE scans ADD COLUMN backend_version TEXT; -- e.g., "1.0.0"
 - [ ] Go live with real payments
 
 ### Free Tier Gating (UI Changes)
-- [ ] Hide DINGS details behind blur/paywall
-- [ ] Hide subgrade breakdown
-- [ ] Hide centering ratios
-- [ ] Show "Upgrade to see full report" CTA
-- [ ] Limit collection to 5 scans
-- [ ] Add watermark to exported grade cards
+- [x] **Hide DINGS details** — Free users don't see DINGS tab or summary (not blurred, just hidden)
+- [x] **Hide subgrade breakdown** — Only Pro sees subgrades for BGS/CGC
+- [x] **Hide centering ratios** — Centering tab Pro-only
+- [x] **Show "Upgrade to see full report" CTA** — Built into GradeDisplaySimple component
+- [x] **Different tab sets** — Free: Grade + Vision only; Pro: All 8 tabs
+- [ ] Limit collection to 5 scans — NOT YET (needs backend check)
+- [ ] Add watermark to exported grade cards — NOT YET
 
 ### Pro Features to Implement
-- [ ] Full detailed DINGS report
-- [ ] Subgrade breakdown display
-- [ ] Centering ratio display
-- [ ] Defect location overlays
+- [x] Full detailed DINGS report ��� DONE (DINGS tab)
+- [x] Subgrade breakdown display — DONE (in GradeDisplay for BGS/CGC)
+- [x] Centering ratio display — DONE (Centering tab)
+- [x] Defect location overlays — DONE (DINGS tab + Map tab)
 - [ ] Unlimited collection saves
 - [ ] High-quality exports (no watermark)
 - [ ] Backend AI grading toggle
@@ -353,22 +420,53 @@ ALTER TABLE scans ADD COLUMN backend_version TEXT; -- e.g., "1.0.0"
 
 ---
 
+## Grading Research Documentation
+> Status: COMPLETE
+
+Comprehensive defect weights and scoring documentation for all 5 grading companies:
+
+| File | Content | Status |
+|------|---------|--------|
+| `docs/grading-research/PSA_STANDARDS.md` | Scale, centering, grade names | DONE |
+| `docs/grading-research/PSA_DEFECT_WEIGHTS.md` | Defect impacts, "lowest wins" algorithm | DONE |
+| `docs/grading-research/BGS_STANDARDS.md` | Scale, 4 subgrades, labels | DONE |
+| `docs/grading-research/BGS_DEFECT_WEIGHTS.md` | 0.5 rule, Black/Gold label criteria | DONE |
+| `docs/grading-research/CGC_STANDARDS.md` | Scale, Pristine vs Gem Mint | DONE |
+| `docs/grading-research/CGC_DEFECT_WEIGHTS.md` | Holistic grading, AI centering | DONE |
+| `docs/grading-research/SGC_STANDARDS.md` | Scale, strict back centering | DONE |
+| `docs/grading-research/SGC_DEFECT_WEIGHTS.md` | Gold label, centering weights | DONE |
+| `docs/grading-research/TAG_STANDARDS.md` | 1000-point scale, 8 subgrades | DONE |
+| `docs/grading-research/TAG_DEFECT_WEIGHTS.md` | DINGS system, compounding algorithm | DONE |
+
+### Key Findings
+
+| Company | Algorithm | Centering for 10 | Back Centering for 10 |
+|---------|-----------|------------------|----------------------|
+| **PSA** | Lowest factor wins | 55/45 | 75/25 |
+| **BGS** | 0.5 above lowest subgrade | 50/50 | 50/50 |
+| **CGC** | Holistic (compensating) | 50/50 (Pristine) / 55/45 (Gem) | 50/50 / 75/25 |
+| **SGC** | Lowest factor + compounding | 50/50 (Pristine) / 55/45 (Gem) | 50/50 / 70/30 |
+| **TAG** | Compounding (not averaging) | 51/49 (Pristine) / 55/45 (Gem) | 52/48 / 65/35 TCG |
+
+---
+
 ## Grading Companies Reference
 
 ### Currently Implementing
 | Company | Scale | Subgrades | Half Points | Centering (Front 10) |
 |---------|-------|-----------|-------------|---------------------|
 | TAG | 1000→1-10 | Yes (8) | Yes | 55/45 |
-| PSA | 1-10 | No | No | 60/40 |
+| PSA | 1-10 | No | Yes (no 9.5) | 55/45 (updated 2025) |
 | BGS | 1-10 | Yes (4) | Yes | 50/50 |
-| CGC | 1-10 | Yes (4) | Yes | 55/45 |
-| SGC | 1-10 | No | No | 60/40 |
+| CGC | 1-10 | No | Yes | 55/45 |
+| SGC | 1-10 | No | Yes | 55/45 |
 
 ### Notes
-- PSA is most lenient on centering
+- PSA updated to 55/45 for PSA 10 in Q1 2025 (was 60/40)
 - BGS is strictest (50/50 for perfect 10)
 - TAG uses 1000-point system internally
-- CGC similar to BGS methodology
+- CGC uses holistic grading (not strictly lowest factor)
+- SGC strictest on back centering (70/30 for Gem Mint)
 
 ---
 
@@ -459,19 +557,23 @@ SlabSense/
 
 | Milestone | Description | Status |
 |-----------|-------------|--------|
-| Phase 1 | Foundation & Rebrand | DONE |
-| Phase 2 (Auth) | Supabase auth, user accounts | DONE |
-| Phase 3 | User features (collection, export, settings) | DONE |
-| Backend Stage 1 | Python backend running locally | NOT STARTED |
+| Phase 1 | Foundation & Rebrand | ✅ DONE |
+| Phase 2 (Auth) | Supabase auth, user accounts | ✅ DONE |
+| Phase 3 | User features (collection, export, settings) | ✅ DONE |
+| Backend Stage 1 | Python backend running locally | ⚠️ IN PROGRESS (centering bug) |
 | Phase 4 (Payments) | Stripe integration, tier gating | NOT STARTED |
 | Backend Stage 2 | Deploy to Fly.io with queue | NOT STARTED |
 | Phase 5 (Hardware) | 3D printed mount, LED system | NOT STARTED |
 
+### Current Blocker
+**Back centering detection** - The backend returns incorrect border bounds for card backs, causing the centering overlay to be completely wrong (extends beyond card). See `HANDOFF.md` for details.
+
 ### Recommended Order
-1. **Backend Stage 1** - Get Python processing working locally
-2. **Phase 4** - Add Stripe payments and tier gating
-3. **Backend Stage 2** - Deploy to production with queue
-4. **Phase 5** - Hardware integration (future)
+1. **Fix Backend Centering** - Debug and fix back detection in `centering.py`
+2. **Backend Stage 1 Complete** - Verify all detection working correctly
+3. **Phase 4** - Add Stripe payments and tier gating
+4. **Backend Stage 2** - Deploy to production with queue
+5. **Phase 5** - Hardware integration (future)
 
 ---
 
@@ -487,4 +589,4 @@ SlabSense/
 
 ---
 
-*Last Updated: April 6, 2026*
+*Last Updated: April 7, 2026*

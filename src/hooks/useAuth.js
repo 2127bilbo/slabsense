@@ -118,12 +118,18 @@ export function useAuth() {
     }
   }, [user, loadProfile]);
 
+  // Check if user has pro access
+  const isPro = profile?.tier === 'pro_monthly' || profile?.tier === 'beta_lifetime';
+  const tier = profile?.tier || 'free';
+
   return {
     user,
     profile,
     loading,
     error,
     isAuthenticated: !!user,
+    isPro,
+    tier,
     isConfigured: isSupabaseConfigured(),
     signUp,
     signIn,

@@ -7,6 +7,7 @@ import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan } from "./services/scans.js";
+import { checkBackendHealth, analyzeCardWithBackend } from "./services/api.js";
 
 /* ═══════════════════════════════════════════
    SLABSENSE v0.1.0-beta
@@ -41,6 +42,109 @@ const PERFECT_CENTER = { lrRatio: 50, tbRatio: 50 }; // For "ignore centering" m
 function loadImg(src,mx=1400){return new Promise(r=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>{let w=img.width,h=img.height;if(Math.max(w,h)>mx){const s=mx/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d",{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);r({canvas:c,ctx,w,h,data:ctx.getImageData(0,0,w,h)});};img.src=src;});}
 const PX=(d,w,x,y)=>{const i=(y*w+x)*4;return[d[i],d[i+1],d[i+2]];};
 const LUM=(r,g,b)=>.299*r+.587*g+.114*b;
+
+/* ═══════════════════════════════════════════
+   PHOTO QUALITY DETECTION
+   Checks for blur, lighting, and card fill
+   ═══════════════════════════════════════════ */
+async function analyzePhotoQuality(imageSrc) {
+  const { w, h, data } = await loadImg(imageSrc, 800); // Smaller for speed
+  const d = data.data;
+  const warnings = [];
+  let score = 100;
+
+  // 1. BLUR DETECTION using Laplacian variance
+  // Higher variance = sharper image
+  let laplacianSum = 0;
+  let laplacianSq = 0;
+  let laplacianN = 0;
+  const step = 2; // Sample every 2nd pixel for speed
+
+  for (let y = 1; y < h - 1; y += step) {
+    for (let x = 1; x < w - 1; x += step) {
+      // Laplacian kernel: center * 4 - neighbors
+      const center = LUM(...PX(d, w, x, y));
+      const top = LUM(...PX(d, w, x, y - 1));
+      const bottom = LUM(...PX(d, w, x, y + 1));
+      const left = LUM(...PX(d, w, x - 1, y));
+      const right = LUM(...PX(d, w, x + 1, y));
+      const laplacian = Math.abs(4 * center - top - bottom - left - right);
+      laplacianSum += laplacian;
+      laplacianSq += laplacian * laplacian;
+      laplacianN++;
+    }
+  }
+
+  const laplacianMean = laplacianSum / laplacianN;
+  const laplacianVariance = (laplacianSq / laplacianN) - (laplacianMean * laplacianMean);
+
+  // Thresholds determined empirically
+  if (laplacianVariance < 100) {
+    warnings.push({ type: 'blur', severity: 'high', message: 'Image is very blurry - retake recommended' });
+    score -= 40;
+  } else if (laplacianVariance < 300) {
+    warnings.push({ type: 'blur', severity: 'medium', message: 'Image may be slightly blurry' });
+    score -= 15;
+  }
+
+  // 2. LIGHTING CHECK - look for over/under exposure
+  let darkPixels = 0, brightPixels = 0, totalPixels = 0;
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      const lum = LUM(...PX(d, w, x, y));
+      totalPixels++;
+      if (lum < 30) darkPixels++;
+      if (lum > 240) brightPixels++;
+    }
+  }
+
+  const darkRatio = darkPixels / totalPixels;
+  const brightRatio = brightPixels / totalPixels;
+
+  if (darkRatio > 0.4) {
+    warnings.push({ type: 'dark', severity: 'high', message: 'Image is too dark - add more light' });
+    score -= 25;
+  } else if (darkRatio > 0.25) {
+    warnings.push({ type: 'dark', severity: 'medium', message: 'Image could use more light' });
+    score -= 10;
+  }
+
+  if (brightRatio > 0.3) {
+    warnings.push({ type: 'bright', severity: 'high', message: 'Image is overexposed - reduce light or glare' });
+    score -= 25;
+  } else if (brightRatio > 0.15) {
+    warnings.push({ type: 'bright', severity: 'medium', message: 'Some areas may be overexposed' });
+    score -= 10;
+  }
+
+  // 3. CONTRAST CHECK - low contrast makes edge detection harder
+  let minLum = 255, maxLum = 0;
+  for (let y = Math.floor(h * 0.2); y < h * 0.8; y += step * 2) {
+    for (let x = Math.floor(w * 0.2); x < w * 0.8; x += step * 2) {
+      const lum = LUM(...PX(d, w, x, y));
+      if (lum < minLum) minLum = lum;
+      if (lum > maxLum) maxLum = lum;
+    }
+  }
+
+  const contrast = maxLum - minLum;
+  if (contrast < 50) {
+    warnings.push({ type: 'contrast', severity: 'medium', message: 'Low contrast - may affect detection accuracy' });
+    score -= 10;
+  }
+
+  return {
+    score: Math.max(0, score),
+    warnings,
+    metrics: {
+      sharpness: Math.round(laplacianVariance),
+      darkRatio: Math.round(darkRatio * 100),
+      brightRatio: Math.round(brightRatio * 100),
+      contrast: Math.round(contrast),
+    },
+    isAcceptable: score >= 60,
+  };
+}
 
 /* ═══════════════════════════════════════════
    CARD DETECTION v2.6 — Grid-variance method
@@ -874,7 +978,300 @@ function ScoreRing({score,size=80,strokeWidth=4,label}){
     <div style={{marginTop:-size+12,position:"relative",height:size-16,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}><div style={{fontFamily:mono,fontSize:size>70?22:14,fontWeight:700,color:g.color}}>{score}</div>{label&&<div style={{fontFamily:mono,fontSize:8,color:"#555",textTransform:"uppercase",letterSpacing:".1em",marginTop:2}}>{label}</div>}</div></div>);
 }
 
+/* Grade Display - Shows grade number prominently with company-specific formatting */
+function GradeDisplay({ gradeResult, companyId, isPro = true }) {
+  const company = GRADING_COMPANIES[companyId];
+  const grade = gradeResult.grade;
+  const score = gradeResult.rawScore;
+
+  // Format grade number (handle 9.5, 10, etc.)
+  const gradeNum = grade.grade;
+  const gradeStr = Number.isInteger(gradeNum) ? gradeNum.toString() : gradeNum.toFixed(1);
+
+  return (
+    <div style={{textAlign:"center",padding:"24px 16px 20px",background:grade.bg,borderRadius:12,border:`1px solid ${grade.color}22`,marginBottom:16}}>
+      {/* Main Grade Number */}
+      <div style={{marginBottom:8}}>
+        <span style={{fontFamily:mono,fontSize:56,fontWeight:800,color:grade.color,lineHeight:1}}>{gradeStr}</span>
+      </div>
+
+      {/* Grade Label */}
+      <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:grade.color,marginBottom:8}}>{grade.label}</div>
+
+      {/* Company Name */}
+      <div style={{fontFamily:mono,fontSize:11,color:"#666",textTransform:"uppercase",letterSpacing:".1em"}}>{company?.name || 'TAG'} Estimate</div>
+
+      {/* TAG-specific: Show 1000-point score */}
+      {companyId === 'tag' && isPro && (
+        <div style={{marginTop:12,padding:"8px 16px",background:"rgba(0,0,0,.3)",borderRadius:20,display:"inline-block"}}>
+          <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>TAG Score: </span>
+          <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:grade.color}}>{score}</span>
+          <span style={{fontFamily:mono,fontSize:10,color:"#555"}}> / 1000</span>
+        </div>
+      )}
+
+      {/* BGS/CGC: Show subgrades if Pro */}
+      {(companyId === 'bgs' || companyId === 'cgc') && isPro && gradeResult.subgrades && (
+        <div style={{marginTop:16,display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,padding:"0 8px"}}>
+          {[
+            {label:"Center",score:gradeResult.subgrades.frontCenter},
+            {label:"Corners",score:gradeResult.subgrades.condition},
+            {label:"Edges",score:gradeResult.subgrades.condition},
+            {label:"Surface",score:gradeResult.subgrades.condition}
+          ].map((sub,i)=>{
+            const subGrade = getGrade(sub.score, companyId);
+            return (
+              <div key={i} style={{textAlign:"center"}}>
+                <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:subGrade.color}}>{subGrade.grade}</div>
+                <div style={{fontFamily:mono,fontSize:8,color:"#555",textTransform:"uppercase"}}>{sub.label}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Simple Grade Display for Free Users - Just grade number and label */
+function GradeDisplaySimple({ gradeResult, companyId }) {
+  const company = GRADING_COMPANIES[companyId];
+  const grade = gradeResult.grade;
+
+  const gradeNum = grade.grade;
+  const gradeStr = Number.isInteger(gradeNum) ? gradeNum.toString() : gradeNum.toFixed(1);
+
+  return (
+    <div style={{textAlign:"center",padding:"32px 16px",background:grade.bg,borderRadius:12,border:`1px solid ${grade.color}22`,marginBottom:16}}>
+      {/* Company Logo/Name */}
+      <div style={{fontFamily:mono,fontSize:12,color:"#666",textTransform:"uppercase",letterSpacing:".15em",marginBottom:16}}>{company?.name || 'TAG'}</div>
+
+      {/* Main Grade Number */}
+      <div style={{marginBottom:8}}>
+        <span style={{fontFamily:mono,fontSize:72,fontWeight:800,color:grade.color,lineHeight:1}}>{gradeStr}</span>
+      </div>
+
+      {/* Grade Label */}
+      <div style={{fontFamily:mono,fontSize:20,fontWeight:600,color:grade.color}}>{grade.label}</div>
+
+      {/* Upgrade prompt */}
+      <div style={{marginTop:24,padding:"12px 20px",background:"rgba(99,102,241,.1)",borderRadius:8,border:"1px solid rgba(99,102,241,.2)"}}>
+        <div style={{fontFamily:sans,fontSize:12,color:"#8b8fff"}}>Upgrade to Pro for full report</div>
+        <div style={{fontFamily:sans,fontSize:10,color:"#666",marginTop:4}}>DINGS breakdown • Subgrades • Centering ratios</div>
+      </div>
+    </div>
+  );
+}
+
 function SubScoreBar({label,score,icon}){const g=getGrade(score),pct=Math.min(100,Math.max(0,(score-300)/7));return(<div style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:13}}>{icon}</span><span style={{fontFamily:mono,fontSize:11,color:"#999",textTransform:"uppercase",letterSpacing:".08em"}}>{label}</span></div><span style={{fontFamily:mono,fontSize:13,fontWeight:600,color:g.color}}>{score}</span></div><div style={{height:4,background:"#1a1c22",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:g.color,borderRadius:2,transition:"width .6s ease"}}/></div></div>);}
+
+/* ═══════════════════════════════════════════
+   HOME TAB - Portfolio & Dashboard
+   ═══════════════════════════════════════════ */
+function HomeTab({ auth, onOpenCollection, onStartScan, collectionStats }) {
+  const isPro = auth?.isPro;
+
+  // Mock data for portfolio (will be replaced with real data)
+  const mockPortfolio = {
+    totalValue: 2847.50,
+    changePercent: 12.3,
+    cardCount: collectionStats?.count || 0,
+    avgGrade: 8.7,
+    topCards: [
+      { name: "Charizard VMAX", grade: 9.5, value: 450 },
+      { name: "Pikachu VMAX", grade: 10, value: 320 },
+      { name: "Umbreon V Alt Art", grade: 9, value: 280 },
+    ],
+    recentActivity: [
+      { action: "Graded", card: "Mew VMAX", grade: 9, time: "2 hours ago" },
+      { action: "Graded", card: "Rayquaza V", grade: 8.5, time: "1 day ago" },
+    ]
+  };
+
+  return (
+    <div style={{padding:16,flex:1,overflowY:"auto"}}>
+      {/* Welcome Header */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:22,fontWeight:700,color:"#fff",marginBottom:4}}>
+          {auth?.isAuthenticated ? `Hey, ${auth.profile?.display_name || 'Collector'}` : 'Welcome to SlabSense'}
+        </div>
+        <div style={{fontFamily:mono,fontSize:11,color:"#666"}}>
+          {auth?.isAuthenticated ? 'Your card grading dashboard' : 'Sign in to track your collection'}
+        </div>
+      </div>
+
+      {/* Quick Action - Scan Card */}
+      <button
+        onClick={onStartScan}
+        style={{
+          width:"100%",
+          padding:"16px 20px",
+          marginBottom:16,
+          borderRadius:12,
+          border:"none",
+          background:"linear-gradient(135deg,#6366f1,#8b5cf6)",
+          color:"#fff",
+          fontFamily:sans,
+          fontSize:14,
+          fontWeight:600,
+          cursor:"pointer",
+          display:"flex",
+          alignItems:"center",
+          justifyContent:"center",
+          gap:10,
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        Grade a Card
+      </button>
+
+      {/* Portfolio Summary - Pro Only */}
+      {auth?.isAuthenticated && (
+        <div style={{
+          padding:16,
+          background:"#0d0f13",
+          borderRadius:12,
+          border:"1px solid #1a1c22",
+          marginBottom:16,
+        }}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <span style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".1em"}}>Portfolio Value</span>
+            {!isPro && <span style={{fontFamily:mono,fontSize:8,color:"#6366f1",background:"rgba(99,102,241,.1)",padding:"2px 6px",borderRadius:4}}>PRO</span>}
+          </div>
+
+          {isPro ? (
+            <>
+              <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:4}}>
+                <span style={{fontSize:28,fontWeight:800,color:"#fff"}}>${mockPortfolio.totalValue.toLocaleString()}</span>
+                <span style={{fontFamily:mono,fontSize:12,color:"#00ff88"}}>+{mockPortfolio.changePercent}%</span>
+              </div>
+              <div style={{fontFamily:mono,fontSize:10,color:"#555"}}>Based on recent eBay sales</div>
+            </>
+          ) : (
+            <div style={{padding:"12px 0"}}>
+              <div style={{fontSize:24,fontWeight:800,color:"#333",filter:"blur(6px)",userSelect:"none"}}>$2,847.50</div>
+              <div style={{fontFamily:sans,fontSize:11,color:"#666",marginTop:8}}>Upgrade to Pro to see portfolio value</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Stats Grid */}
+      {auth?.isAuthenticated && (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12,marginBottom:16}}>
+          <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
+            <div style={{fontFamily:mono,fontSize:9,color:"#888",textTransform:"uppercase",marginBottom:6}}>Cards Graded</div>
+            <div style={{fontSize:24,fontWeight:700,color:"#fff"}}>{mockPortfolio.cardCount}</div>
+          </div>
+          <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
+            <div style={{fontFamily:mono,fontSize:9,color:"#888",textTransform:"uppercase",marginBottom:6}}>Avg Grade</div>
+            <div style={{fontSize:24,fontWeight:700,color:"#00ff88"}}>{mockPortfolio.avgGrade}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Cards - Pro Only */}
+      {auth?.isAuthenticated && isPro && (
+        <div style={{
+          padding:16,
+          background:"#0d0f13",
+          borderRadius:12,
+          border:"1px solid #1a1c22",
+          marginBottom:16,
+        }}>
+          <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}}>Top Cards by Value</div>
+          {mockPortfolio.topCards.map((card, i) => (
+            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderTop:i>0?"1px solid #1a1c22":"none"}}>
+              <div>
+                <div style={{fontSize:13,color:"#ddd"}}>{card.name}</div>
+                <div style={{fontFamily:mono,fontSize:10,color:"#00ff88"}}>Grade {card.grade}</div>
+              </div>
+              <div style={{fontFamily:mono,fontSize:14,fontWeight:600,color:"#fff"}}>${card.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Recent Activity */}
+      {auth?.isAuthenticated && (
+        <div style={{
+          padding:16,
+          background:"#0d0f13",
+          borderRadius:12,
+          border:"1px solid #1a1c22",
+          marginBottom:16,
+        }}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <span style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".1em"}}>Recent Activity</span>
+            <button onClick={onOpenCollection} style={{fontFamily:mono,fontSize:9,color:"#6366f1",background:"transparent",border:"none",cursor:"pointer"}}>View All →</button>
+          </div>
+          {mockPortfolio.recentActivity.length > 0 ? (
+            mockPortfolio.recentActivity.map((item, i) => (
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderTop:i>0?"1px solid #1a1c22":"none"}}>
+                <div>
+                  <div style={{fontSize:12,color:"#ddd"}}>{item.card}</div>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666"}}>{item.action} • Grade {item.grade}</div>
+                </div>
+                <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>{item.time}</div>
+              </div>
+            ))
+          ) : (
+            <div style={{textAlign:"center",padding:"20px 0",color:"#555",fontSize:12}}>
+              No cards graded yet. Start scanning!
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Not Signed In */}
+      {!auth?.isAuthenticated && (
+        <div style={{
+          padding:24,
+          background:"#0d0f13",
+          borderRadius:12,
+          border:"1px solid #1a1c22",
+          textAlign:"center",
+        }}>
+          <div style={{fontSize:32,marginBottom:12}}>📊</div>
+          <div style={{fontSize:14,fontWeight:600,color:"#ddd",marginBottom:8}}>Track Your Collection</div>
+          <div style={{fontSize:12,color:"#666",marginBottom:16,lineHeight:1.5}}>
+            Sign in to save your graded cards, track portfolio value, and see your grading history.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Photo Quality Warning Badge */
+function PhotoQualityBadge({ quality }) {
+  if (!quality || quality.warnings.length === 0) return null;
+
+  const hasHighSeverity = quality.warnings.some(w => w.severity === 'high');
+  const color = hasHighSeverity ? '#ff6633' : '#ffaa00';
+
+  return (
+    <div style={{
+      marginTop:8,
+      padding:"8px 12px",
+      background:`${color}15`,
+      border:`1px solid ${color}33`,
+      borderRadius:8,
+    }}>
+      <div style={{fontFamily:mono,fontSize:9,color,textTransform:"uppercase",marginBottom:4}}>
+        {hasHighSeverity ? '⚠ Quality Issues' : '⚡ Tips'}
+      </div>
+      {quality.warnings.map((w, i) => (
+        <div key={i} style={{fontFamily:sans,fontSize:11,color:"#999",marginTop:i>0?4:0}}>
+          • {w.message}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function SurfaceVision({maps,label}){
   const[mode,setMode]=useState("original"),[blend,setBlend]=useState(0);
@@ -1702,7 +2099,7 @@ function CameraViewfinder({ side, onCapture, onClose }) {
 /* Post-capture validation */
 async function validateCap(src){const{w,h,data}=await loadImg(src,600);const bn=findBounds(data.data,w,h);const fill=bn.cardW*bn.cardH/(w*h),asp=bn.cardH>0?bn.cardW/bn.cardH:0,aDiff=Math.abs(asp-2.5/3.5);const ok=bn.cardW>50&&bn.cardH>50&&fill>.2&&fill<.95&&aDiff<.15;const issues=[];if(bn.cardW<=50)issues.push("Card not detected — use contrasting background");if(fill<.2&&bn.cardW>50)issues.push("Card too small — move closer");if(fill>=.95)issues.push("Too close — back up slightly");if(aDiff>=.15&&bn.cardW>50)issues.push("Card may be tilted");return{valid:ok,fillRatio:~~(fill*100),issues};}
 
-/* Image Capture (opens viewfinder or fallback) */
+/* Image Capture (opens viewfinder or fallback) - Original horizontal layout */
 function CaptureCard({label,side,image,onImage,onOpenCamera}){
   const ref=useRef(null);
   return(<div style={{flex:1}}>
@@ -1719,11 +2116,179 @@ function CaptureCard({label,side,image,onImage,onOpenCamera}){
   </div>);
 }
 
+/* Image Capture - Vertical stack layout (horizontal card with image left, info right) */
+function CaptureCardVertical({label,side,image,onImage,onOpenCamera,quality}){
+  const isFront = side === "front";
+  const accentColor = isFront ? "#6366f1" : "#8b5cf6";
+  const hasWarnings = quality?.warnings?.length > 0;
+  const hasHighSeverity = quality?.warnings?.some(w => w.severity === 'high');
+
+  return(
+    <div style={{marginBottom:hasWarnings?0:0}}>
+      <div
+        onClick={!image ? ()=>onOpenCamera(side) : undefined}
+        style={{
+          display:"flex",
+          alignItems:"stretch",
+          background:"#0d0f13",
+          border: hasHighSeverity ? "1px solid #ff663344" : image ? `1px solid ${accentColor}44` : "1px dashed #2a2d35",
+          borderRadius: hasWarnings ? "12px 12px 0 0" : 12,
+          overflow:"hidden",
+          cursor: !image ? "pointer" : "default",
+          transition:"all .2s",
+        }}
+      >
+        {/* Image Preview Area */}
+        <div style={{
+          width:100,
+          minHeight:140,
+          background:"#0a0a0a",
+          display:"flex",
+          alignItems:"center",
+          justifyContent:"center",
+          position:"relative",
+          flexShrink:0,
+        }}>
+          {!image ? (
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="1.5">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          ) : (
+            <>
+              <img src={image} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              <div style={{position:"absolute",top:4,left:4,width:16,height:16,borderRadius:"50%",background:hasHighSeverity?"#ff6633":accentColor,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <span style={{color:"#fff",fontSize:10,fontWeight:700}}>{hasHighSeverity?"!":"✓"}</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Info Area */}
+        <div style={{flex:1,padding:"14px 16px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+            <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:image ? accentColor : "#666",textTransform:"uppercase"}}>{label}</span>
+            {image && !hasHighSeverity && <span style={{fontFamily:mono,fontSize:9,color:"#00ff88",background:"rgba(0,255,136,.1)",padding:"2px 6px",borderRadius:4}}>Ready</span>}
+            {image && hasHighSeverity && <span style={{fontFamily:mono,fontSize:9,color:"#ff6633",background:"rgba(255,102,51,.1)",padding:"2px 6px",borderRadius:4}}>Issues</span>}
+          </div>
+
+          {!image ? (
+            <>
+              <div style={{fontFamily:sans,fontSize:12,color:"#666",marginBottom:8}}>Tap to capture {label.toLowerCase()} of card</div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:"#00ff8866"}}/>
+                <span style={{fontFamily:mono,fontSize:9,color:"#00ff8866"}}>Level guide + card detection</span>
+              </div>
+            </>
+          ) : (
+          <button
+            onClick={(e)=>{e.stopPropagation();onImage(null);}}
+            style={{
+              alignSelf:"flex-start",
+              padding:"6px 12px",
+              background:"rgba(255,68,68,.1)",
+              border:"1px solid rgba(255,68,68,.2)",
+              borderRadius:6,
+              color:"#ff6666",
+              fontFamily:mono,
+              fontSize:10,
+              cursor:"pointer",
+            }}
+          >
+            ✕ Remove
+          </button>
+        )}
+      </div>
+    </div>
+
+    {/* Photo Quality Warnings */}
+    {image && hasWarnings && (
+      <div style={{
+        padding:"10px 14px",
+        background: hasHighSeverity ? "rgba(255,102,51,.08)" : "rgba(255,170,0,.08)",
+        borderTop: "none",
+        borderLeft: `1px solid ${hasHighSeverity ? "#ff663333" : "#ffaa0033"}`,
+        borderRight: `1px solid ${hasHighSeverity ? "#ff663333" : "#ffaa0033"}`,
+        borderBottom: `1px solid ${hasHighSeverity ? "#ff663333" : "#ffaa0033"}`,
+        borderRadius: "0 0 12px 12px",
+      }}>
+        {quality.warnings.map((w, i) => (
+          <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:i<quality.warnings.length-1?6:0}}>
+            <span style={{color:w.severity==='high'?"#ff6633":"#ffaa00",fontSize:12}}>⚠</span>
+            <span style={{fontFamily:sans,fontSize:11,color:"#999",lineHeight:1.4}}>{w.message}</span>
+          </div>
+        ))}
+      </div>
+    )}
+    </div>
+  );
+}
+
+/* Bottom Navigation Bar */
+function BottomNav({ activeTab, onTabChange, hasResults }) {
+  const tabs = [
+    { id: 'home', label: 'Home', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/>
+      </svg>
+    )},
+    { id: 'scan', label: 'Scan', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+      </svg>
+    )},
+    { id: 'collection', label: 'Cards', icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>
+      </svg>
+    )},
+  ];
+
+  return (
+    <div style={{
+      display:"flex",
+      borderTop:"1px solid #1a1c22",
+      background:"#0a0b0e",
+      paddingBottom:"env(safe-area-inset-bottom)",
+    }}>
+      {tabs.map(tab => {
+        const isActive = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onTabChange(tab.id)}
+            style={{
+              flex:1,
+              padding:"10px 0 8px",
+              background:"transparent",
+              border:"none",
+              color: isActive ? "#6366f1" : "#555",
+              display:"flex",
+              flexDirection:"column",
+              alignItems:"center",
+              gap:4,
+              cursor:"pointer",
+              transition:"color .2s",
+            }}
+          >
+            {tab.icon}
+            <span style={{fontFamily:mono,fontSize:9,textTransform:"uppercase",letterSpacing:".05em"}}>{tab.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 
 /* ═══════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════ */
 export default function SlabSense(){
+  // Navigation state
+  const[navTab,setNavTab]=useState("scan"); // 'home' | 'scan' | 'collection'
+
+  // Scan flow state
   const[step,setStep]=useState(0);
   const[fI,setFI]=useState(null),[bI,setBI]=useState(null);
   const[fR,setFR]=useState(null),[bR,setBR]=useState(null);
@@ -1734,6 +2299,14 @@ export default function SlabSense(){
   const[manualMode,setManualMode]=useState(null); // 'front'|'back'|null
   const[ignoreCentering,setIgnoreCentering]=useState(false); // Ignore centering in grade calculation
   const[gradingCompany,setGradingCompany]=useState(DEFAULT_GRADING_COMPANY); // Selected grading company
+  const[useBackend,setUseBackend]=useState(true); // Use Python backend for analysis
+  const[backendStatus,setBackendStatus]=useState({available:null,checking:true}); // Backend health status
+
+  // Photo quality state
+  const[frontQuality,setFrontQuality]=useState(null);
+  const[backQuality,setBackQuality]=useState(null);
+
+  // UI state
   const[showDisclaimer,setShowDisclaimer]=useState(true); // Show disclaimer on first load
   const[showAuthModal,setShowAuthModal]=useState(false); // Auth modal visibility
   const[savingStatus,setSavingStatus]=useState(null); // 'saving' | 'saved' | 'error' | null
@@ -1750,6 +2323,16 @@ export default function SlabSense(){
       setGradingCompany(auth.profile.preferred_company);
     }
   }, [auth.profile]);
+
+  // Check backend health on mount
+  useEffect(() => {
+    checkBackendHealth().then(status => {
+      setBackendStatus({...status, checking: false});
+      if (!status.available) {
+        setUseBackend(false); // Fall back to client-side if backend unavailable
+      }
+    });
+  }, []);
 
   // Re-runs analysis with manual boundary overrides, updates grade
   const applyManualCorrection = useCallback(async (side, overrideBounds, overrideCentering) => {
@@ -1768,20 +2351,68 @@ export default function SlabSense(){
   const run=useCallback(async()=>{
     if(!fI||!bI)return; setStep(1);
     try{
-      setProg("Detecting card bounds (front)...");await new Promise(r=>setTimeout(r,30));
-      const fr=await analyzeCardFull(fI,"front"); setFR(fr);
-      setProg("Detecting card bounds (back)...");await new Promise(r=>setTimeout(r,30));
-      const br=await analyzeCardFull(bI,"back"); setBR(br);
-      setProg(`Computing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
-      const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
-      const effBack = ignoreCentering ? PERFECT_CENTER : br.centering;
-      const grade=computeGrade(fr.allDings,br.allDings,effFront,effBack,gradingCompany);
-      setGradeResult(grade);
-      setProg("Generating surface vision maps...");await new Promise(r=>setTimeout(r,30));
-      setFM(await genMaps(fI)); setBM(await genMaps(bI));
-      setStep(2);
+      // Use Python backend if enabled and available
+      if (useBackend && backendStatus.available) {
+        setProg("Sending to backend for analysis...");await new Promise(r=>setTimeout(r,30));
+        const backendResult = await analyzeCardWithBackend(fI, bI, 'tcg');
+
+        // Use backend results directly for TAG grading
+        const fr = backendResult.front;
+        const br = backendResult.back;
+        fr.scaledImgUrl = fI;
+        br.scaledImgUrl = bI;
+        setFR(fr);
+        setBR(br);
+
+        // Use backend's grade directly for TAG, convert for other companies
+        const combined = backendResult.combined;
+        setProg(`Processing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
+
+        if (gradingCompany === 'tag') {
+          // Use backend TAG score directly
+          const tagGrade = getGrade(combined.tag_score, 'tag');
+          setGradeResult({
+            rawScore: combined.tag_score,
+            grade: tagGrade,
+            subgrades: {
+              frontCenter: combined.subgrades.frontCenter,
+              backCenter: combined.subgrades.backCenter,
+              corners: 990, // Backend doesn't separate these yet
+              edges: 990,
+              surface: combined.subgrades.condition,
+            },
+            allDings: combined.dings || [],
+            processingTimeMs: combined.processing_time_ms,
+            source: 'backend',
+          });
+        } else {
+          // Convert to other company scales
+          const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
+          const effBack = ignoreCentering ? PERFECT_CENTER : br.centering;
+          const grade = computeGrade(fr.allDings, br.allDings, effFront, effBack, gradingCompany);
+          setGradeResult({...grade, source: 'backend'});
+        }
+
+        setProg("Generating surface vision maps...");await new Promise(r=>setTimeout(r,30));
+        setFM(await genMaps(fI)); setBM(await genMaps(bI));
+        setStep(2);
+      } else {
+        // Fall back to client-side analysis
+        setProg("Detecting card bounds (front)...");await new Promise(r=>setTimeout(r,30));
+        const fr=await analyzeCardFull(fI,"front"); setFR(fr);
+        setProg("Detecting card bounds (back)...");await new Promise(r=>setTimeout(r,30));
+        const br=await analyzeCardFull(bI,"back"); setBR(br);
+        setProg(`Computing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
+        const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
+        const effBack = ignoreCentering ? PERFECT_CENTER : br.centering;
+        const grade=computeGrade(fr.allDings,br.allDings,effFront,effBack,gradingCompany);
+        setGradeResult({...grade, source: 'client'});
+        setProg("Generating surface vision maps...");await new Promise(r=>setTimeout(r,30));
+        setFM(await genMaps(fI)); setBM(await genMaps(bI));
+        setStep(2);
+      }
     }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);}
-  },[fI,bI,ignoreCentering,gradingCompany]);
+  },[fI,bI,ignoreCentering,gradingCompany,useBackend,backendStatus.available]);
 
   // Recompute grade when ignoreCentering or gradingCompany changes and results exist
   useEffect(()=>{
@@ -1793,7 +2424,38 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);};
+
+  // Analyze photo quality when images are captured
+  const handleSetFrontImage = useCallback(async (img) => {
+    setFI(img);
+    if (img) {
+      try {
+        const quality = await analyzePhotoQuality(img);
+        setFrontQuality(quality);
+      } catch (e) {
+        console.error('Quality analysis failed:', e);
+        setFrontQuality(null);
+      }
+    } else {
+      setFrontQuality(null);
+    }
+  }, []);
+
+  const handleSetBackImage = useCallback(async (img) => {
+    setBI(img);
+    if (img) {
+      try {
+        const quality = await analyzePhotoQuality(img);
+        setBackQuality(quality);
+      } catch (e) {
+        console.error('Quality analysis failed:', e);
+        setBackQuality(null);
+      }
+    } else {
+      setBackQuality(null);
+    }
+  }, []);
   const handleCam=d=>{if(camTarget==="front")setFI(d);else setBI(d);setCamTarget(null);};
 
   // Save scan to user's collection
@@ -1820,12 +2482,18 @@ export default function SlabSense(){
     }
   };
 
-  const tabs=[
-    {id:"overview",l:"Score",i:"◎"},{id:"dings",l:"DINGS",i:"⚠"},{id:"map",l:"Map",i:"◫"},
-    {id:"vision",l:"Vision",i:"◉"},{id:"centering",l:"Center",i:"⊞"},
-    {id:"corners",l:"Corners",i:"◤"},{id:"edges",l:"Edges",i:"▬"},
-    {id:"surface",l:"Surface",i:"◻"},
+  // Tabs - Free users only see Overview, Pro users see all
+  const allTabs=[
+    {id:"overview",l:"Grade",i:"◎",free:true},
+    {id:"dings",l:"DINGS",i:"⚠",free:false},
+    {id:"map",l:"Map",i:"◫",free:false},
+    {id:"vision",l:"Vision",i:"◉",free:true}, // Allow vision for free (helps verify card quality)
+    {id:"centering",l:"Center",i:"⊞",free:false},
+    {id:"corners",l:"Corners",i:"◤",free:false},
+    {id:"edges",l:"Edges",i:"▬",free:false},
+    {id:"surface",l:"Surface",i:"◻",free:false},
   ];
+  const tabs = auth.isPro ? allTabs : allTabs.filter(t => t.free);
 
   const gr = gradeResult;
 
@@ -1889,6 +2557,11 @@ export default function SlabSense(){
         <div><div style={{fontSize:14,fontWeight:600}}>SlabSense</div><div style={{fontFamily:mono,fontSize:9,color:"#444",textTransform:"uppercase",letterSpacing:".1em"}}>v0.1.0-beta</div></div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
+        {/* Backend Status Indicator */}
+        <div style={{display:"flex",alignItems:"center",gap:4,padding:"4px 8px",background:backendStatus.available?"rgba(0,255,136,.1)":"rgba(255,102,51,.1)",borderRadius:4,border:`1px solid ${backendStatus.available?"rgba(0,255,136,.2)":"rgba(255,102,51,.2)"}`}} title={backendStatus.available?"Backend analysis enabled":"Backend offline - using client analysis"}>
+          <span style={{width:6,height:6,borderRadius:"50%",background:backendStatus.checking?"#888":backendStatus.available?"#00ff88":"#ff6633"}}/>
+          <span style={{fontFamily:mono,fontSize:8,color:backendStatus.available?"#00ff88":"#ff6633",textTransform:"uppercase"}}>{backendStatus.checking?"...":backendStatus.available?"API":"LOCAL"}</span>
+        </div>
         {/* Grading Company Selector */}
         <select value={gradingCompany} onChange={e=>setGradingCompany(e.target.value)} style={{background:"#1a1c22",border:"1px solid #2a2d35",borderRadius:6,color:"#888",fontFamily:mono,fontSize:10,padding:"5px 8px",cursor:"pointer",textTransform:"uppercase"}}>
           {getCompanyOptions().map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
@@ -1905,11 +2578,12 @@ export default function SlabSense(){
       </div>
     </div>
 
-    {/* CAPTURE */}
-    {step===0&&(<div style={{padding:16,flex:1}}>
-      <div style={{display:"flex",gap:12,marginBottom:16}}>
-        <CaptureCard label="Front" side="front" image={fI} onImage={setFI} onOpenCamera={setCamTarget}/>
-        <CaptureCard label="Back" side="back" image={bI} onImage={setBI} onOpenCamera={setCamTarget}/>
+    {/* CAPTURE - Vertical Layout */}
+    {navTab==="scan"&&step===0&&(<div style={{padding:16,flex:1}}>
+      {/* Vertical stack of capture cards */}
+      <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+        <CaptureCardVertical label="Front" side="front" image={fI} onImage={handleSetFrontImage} onOpenCamera={setCamTarget} quality={frontQuality}/>
+        <CaptureCardVertical label="Back" side="back" image={bI} onImage={handleSetBackImage} onOpenCamera={setCamTarget} quality={backQuality}/>
       </div>
       <button onClick={run} disabled={!fI||!bI} style={{width:"100%",padding:"14px 0",borderRadius:10,border:"none",background:fI&&bI?"linear-gradient(135deg,#00ff88,#0088ff)":"#1a1c22",color:fI&&bI?"#000":"#444",fontFamily:mono,fontSize:13,fontWeight:700,cursor:fI&&bI?"pointer":"default",textTransform:"uppercase",letterSpacing:".08em",transition:"all .3s"}}>{fI&&bI?"▶  Analyze Card":"Capture both sides"}</button>
       <div style={{marginTop:16,padding:14,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
@@ -1926,14 +2600,14 @@ export default function SlabSense(){
     </div>)}
 
     {/* ANALYZING */}
-    {step===1&&(<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
+    {navTab==="scan"&&step===1&&(<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
       <div style={{width:48,height:48,borderRadius:"50%",border:"3px solid #1a1c22",borderTopColor:"#00ff88",animation:"spin .8s linear infinite"}}/>
       <div style={{fontFamily:mono,fontSize:12,color:"#666",marginTop:16}}>{prog}</div>
       <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
     </div>)}
 
     {/* RESULTS */}
-    {step===2&&gr&&(<div style={{flex:1,display:"flex",flexDirection:"column"}}>
+    {navTab==="scan"&&step===2&&gr&&(<div style={{flex:1,display:"flex",flexDirection:"column"}}>
       <div style={{display:"flex",borderBottom:"1px solid #1a1c22",overflowX:"auto",scrollbarWidth:"none"}}>
         {tabs.map(t=>(<button key={t.id} onClick={()=>setTab(t.id)} style={{flex:"0 0 auto",padding:"10px 11px",background:"transparent",border:"none",borderBottom:tab===t.id?`2px solid ${gr.grade.color}`:"2px solid transparent",color:tab===t.id?"#ddd":"#555",fontFamily:mono,fontSize:9,cursor:"pointer",textTransform:"uppercase",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span style={{fontSize:13}}>{t.i}</span>{t.l}</button>))}
       </div>
@@ -1941,19 +2615,23 @@ export default function SlabSense(){
 
         {/* OVERVIEW */}
         {tab==="overview"&&(<div>
-          <div style={{textAlign:"center",padding:"20px 0 16px",background:gr.grade.bg,borderRadius:12,border:`1px solid ${gr.grade.color}22`,marginBottom:16}}>
-            <ScoreRing score={gr.rawScore} size={100} label={`${gr.companyName || 'TAG'} Score`}/>
-            <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:gr.grade.color,marginTop:4}}>{gr.grade.label}</div>
-            <div style={{fontFamily:mono,fontSize:10,color:"#555",marginTop:4}}>{gr.companyName || 'TAG'} estimate · TCG</div>
-            {/* Confidence indicator */}
-            {(()=>{const conf=calcConfidence(gr,fR,bR);return(
-              <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:6,padding:"4px 12px",borderRadius:20,background:"rgba(0,0,0,.3)"}}>
+          {/* Grade Display - Different for Pro vs Free */}
+          {auth.isPro ? (
+            <GradeDisplay gradeResult={gr} companyId={gradingCompany} isPro={true} />
+          ) : (
+            <GradeDisplaySimple gradeResult={gr} companyId={gradingCompany} />
+          )}
+
+          {/* Confidence indicator - Pro only */}
+          {auth.isPro && (()=>{const conf=calcConfidence(gr,fR,bR);return(
+            <div style={{textAlign:"center",marginTop:-8,marginBottom:16}}>
+              <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 12px",borderRadius:20,background:"rgba(0,0,0,.3)"}}>
                 <div style={{width:6,height:6,borderRadius:"50%",background:conf.color}}/>
                 <span style={{fontFamily:mono,fontSize:9,color:conf.color}}>{conf.level} CONFIDENCE</span>
                 <span style={{fontFamily:mono,fontSize:9,color:"#444"}}>{conf.confidence}%</span>
               </div>
-            );})()}
-          </div>
+            </div>
+          );})()}
 
           {/* Save to Collection Button */}
           {auth.isAuthenticated && (
@@ -2019,37 +2697,42 @@ export default function SlabSense(){
             📤 Share / Export
           </button>
 
-          <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>Total DINGS</span>
-              <span style={{fontFamily:mono,fontSize:20,fontWeight:800,color:gr.totalDings===0?"#00ff88":gr.totalDings<=2?"#66dd44":gr.totalDings<=4?"#ffcc00":"#ff6633"}}>{gr.totalDings}</span>
-            </div>
-            {/* DINGS by category */}
-            {["CENTERING","CORNER WEAR","EDGE WEAR","SURFACE / PLAY WEAR"].map(type=>{
-              const count = gr.allDings.filter(d=>d.type===type).length;
-              const frontCount = gr.allDings.filter(d=>d.type===type&&d.side==="FRONT").length;
-              const backCount = gr.allDings.filter(d=>d.type===type&&d.side==="BACK").length;
-              if(count===0)return null;
-              return(<div key={type} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #151720"}}>
-                <span style={{fontFamily:mono,fontSize:10,color:"#ff9944"}}>{type}</span>
-                <span style={{fontFamily:mono,fontSize:10,color:"#888"}}>F:{frontCount} B:{backCount}</span>
-              </div>);
-            })}
-          </div>
-
-          {/* Next Grade Comparison */}
-          <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
-            <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:8}}>Grade Analysis</div>
-            {getNextGradeInfo(gr).map((tip,i)=>(
-              <div key={i} style={{display:"flex",gap:8,marginBottom:i<getNextGradeInfo(gr).length-1?8:0}}>
-                <div style={{width:3,borderRadius:2,background:tip.color,flexShrink:0,marginTop:2}}/>
-                <div style={{fontFamily:sans,fontSize:12,color:"#aaa",lineHeight:1.5}}>{tip.text}</div>
+          {/* PRO ONLY: DINGS Summary */}
+          {auth.isPro && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>Total DINGS</span>
+                <span style={{fontFamily:mono,fontSize:20,fontWeight:800,color:gr.totalDings===0?"#00ff88":gr.totalDings<=2?"#66dd44":gr.totalDings<=4?"#ffcc00":"#ff6633"}}>{gr.totalDings}</span>
               </div>
-            ))}
-          </div>
-          
-          {/* Confidence details (expandable) */}
-          {(()=>{const conf=calcConfidence(gr,fR,bR);return conf.reasons.length>0?(
+              {/* DINGS by category */}
+              {["CENTERING","CORNER WEAR","EDGE WEAR","SURFACE / PLAY WEAR"].map(type=>{
+                const count = gr.allDings.filter(d=>d.type===type).length;
+                const frontCount = gr.allDings.filter(d=>d.type===type&&d.side==="FRONT").length;
+                const backCount = gr.allDings.filter(d=>d.type===type&&d.side==="BACK").length;
+                if(count===0)return null;
+                return(<div key={type} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #151720"}}>
+                  <span style={{fontFamily:mono,fontSize:10,color:"#ff9944"}}>{type}</span>
+                  <span style={{fontFamily:mono,fontSize:10,color:"#888"}}>F:{frontCount} B:{backCount}</span>
+                </div>);
+              })}
+            </div>
+          )}
+
+          {/* PRO ONLY: Next Grade Comparison */}
+          {auth.isPro && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:8}}>Grade Analysis</div>
+              {getNextGradeInfo(gr).map((tip,i)=>(
+                <div key={i} style={{display:"flex",gap:8,marginBottom:i<getNextGradeInfo(gr).length-1?8:0}}>
+                  <div style={{width:3,borderRadius:2,background:tip.color,flexShrink:0,marginTop:2}}/>
+                  <div style={{fontFamily:sans,fontSize:12,color:"#aaa",lineHeight:1.5}}>{tip.text}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* PRO ONLY: Confidence details */}
+          {auth.isPro && (()=>{const conf=calcConfidence(gr,fR,bR);return conf.reasons.length>0?(
             <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${conf.color}22`,marginBottom:12}}>
               <div style={{fontFamily:mono,fontSize:10,color:conf.color,textTransform:"uppercase",marginBottom:8}}>Confidence Notes</div>
               {conf.reasons.map((r,i)=>(
@@ -2128,6 +2811,45 @@ export default function SlabSense(){
             <ManualBoundaryEditor image={bI} result={bR} side="Back"
               onApply={(bounds,centering)=>applyManualCorrection("back",bounds,centering)}/>
           )}
+
+          {/* Backend Analysis Toggle */}
+          <div style={{marginBottom:14,padding:12,background:"#0d0f13",borderRadius:8,border:`1px solid ${useBackend&&backendStatus.available?"#00ff8844":"#1a1c22"}`}}>
+            <label style={{display:"flex",alignItems:"center",gap:10,cursor:backendStatus.available?"pointer":"not-allowed",opacity:backendStatus.available?1:0.5}}>
+              <input
+                type="checkbox"
+                checked={useBackend&&backendStatus.available}
+                onChange={e=>setUseBackend(e.target.checked)}
+                disabled={!backendStatus.available}
+                style={{width:16,height:16,accentColor:"#00ff88",cursor:backendStatus.available?"pointer":"not-allowed"}}
+              />
+              <span style={{fontFamily:mono,fontSize:11,color:useBackend&&backendStatus.available?"#00ff88":"#888",textTransform:"uppercase",letterSpacing:".04em"}}>
+                Backend Analysis (Python/OpenCV)
+              </span>
+              {!backendStatus.checking && (
+                <span style={{fontFamily:mono,fontSize:9,color:backendStatus.available?"#00ff88":"#ff6633",marginLeft:"auto"}}>
+                  {backendStatus.available ? "● ONLINE" : "○ OFFLINE"}
+                </span>
+              )}
+            </label>
+            {useBackend&&backendStatus.available&&gradeResult?.source==='backend'&&(
+              <div style={{marginTop:10,padding:10,background:"rgba(0,255,136,.08)",borderRadius:6,border:"1px solid rgba(0,255,136,.2)"}}>
+                <div style={{fontFamily:mono,fontSize:10,color:"#00ff88",fontWeight:600,marginBottom:4}}>✓ BACKEND ANALYSIS</div>
+                <div style={{fontFamily:sans,fontSize:11,color:"#66aa88",lineHeight:1.4}}>
+                  Grade computed by Python/OpenCV backend with TAG-calibrated centering detection.
+                  {gradeResult.processingTimeMs && ` Processing: ${gradeResult.processingTimeMs}ms`}
+                </div>
+              </div>
+            )}
+            {!backendStatus.available&&!backendStatus.checking&&(
+              <div style={{marginTop:10,padding:10,background:"rgba(255,102,51,.08)",borderRadius:6,border:"1px solid rgba(255,102,51,.2)"}}>
+                <div style={{fontFamily:mono,fontSize:10,color:"#ff6633",fontWeight:600,marginBottom:4}}>⚠ BACKEND OFFLINE</div>
+                <div style={{fontFamily:sans,fontSize:11,color:"#aa6644",lineHeight:1.4}}>
+                  Backend server not available. Using client-side analysis.
+                  Start backend: <code style={{background:"#111",padding:"2px 6px",borderRadius:3}}>python main.py</code>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Ignore Centering Option */}
           <div style={{marginBottom:14,padding:12,background:"#0d0f13",borderRadius:8,border:`1px solid ${ignoreCentering?"#ff994444":"#1a1c22"}`}}>
@@ -2238,6 +2960,37 @@ export default function SlabSense(){
         </div>)}
       </div>
     </div>)}
+
+    {/* HOME TAB */}
+    {navTab==="home"&&(
+      <HomeTab
+        auth={auth}
+        onOpenCollection={()=>setNavTab("collection")}
+        onStartScan={()=>setNavTab("scan")}
+        collectionStats={{totalCards:0,avgGrade:0}}
+      />
+    )}
+
+    {/* COLLECTION TAB */}
+    {navTab==="collection"&&auth.isAuthenticated&&(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <CollectionView
+          userId={auth.user?.id}
+          onClose={()=>setNavTab("scan")}
+          isInline={true}
+        />
+      </div>
+    )}
+    {navTab==="collection"&&!auth.isAuthenticated&&(
+      <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
+        <div style={{fontSize:48,marginBottom:16}}>🔒</div>
+        <div style={{fontFamily:mono,fontSize:14,color:"#888",marginBottom:8}}>Sign in to view your collection</div>
+        <button onClick={()=>setShowAuthModal(true)} style={{marginTop:16,padding:"12px 24px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontFamily:mono,fontSize:12,fontWeight:600,cursor:"pointer"}}>Sign In</button>
+      </div>
+    )}
+
+    {/* BOTTOM NAVIGATION */}
+    <BottomNav activeTab={navTab} onTabChange={setNavTab} hasResults={step===2&&!!gr} />
 
     <div style={{padding:"10px 16px",borderTop:"1px solid #1a1c22",textAlign:"center"}}><div style={{fontFamily:mono,fontSize:8,color:"#333",textTransform:"uppercase",letterSpacing:".15em"}}>Pre-grade estimate · DINGS-based · Not affiliated with TAG</div></div>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>

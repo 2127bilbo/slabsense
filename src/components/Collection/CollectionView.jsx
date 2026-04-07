@@ -9,7 +9,7 @@ import { getUserScans, deleteScan } from '../../services/scans.js';
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
 
-export function CollectionView({ userId, onClose }) {
+export function CollectionView({ userId, onClose, isInline = false }) {
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -64,7 +64,11 @@ export function CollectionView({ userId, onClose }) {
   };
 
   return (
-    <div style={{
+    <div style={isInline ? {
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+    } : {
       position: 'fixed',
       inset: 0,
       background: '#0a0b0e',
@@ -72,7 +76,8 @@ export function CollectionView({ userId, onClose }) {
       display: 'flex',
       flexDirection: 'column',
     }}>
-      {/* Header */}
+      {/* Header - only show when not inline (inline uses app header) */}
+      {!isInline && (
       <div style={{
         padding: '14px 16px',
         borderBottom: '1px solid #1a1c22',
@@ -104,6 +109,21 @@ export function CollectionView({ userId, onClose }) {
           </div>
         </div>
       </div>
+      )}
+      {/* Inline header - simpler version */}
+      {isInline && (
+        <div style={{
+          padding: '12px 16px',
+          borderBottom: '1px solid #1a1c22',
+        }}>
+          <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 600, color: '#fff' }}>
+            My Collection
+          </div>
+          <div style={{ fontFamily: mono, fontSize: 10, color: '#555', marginTop: 2 }}>
+            {scans.length} {scans.length === 1 ? 'scan' : 'scans'} saved
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
