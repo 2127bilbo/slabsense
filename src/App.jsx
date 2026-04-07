@@ -7,7 +7,8 @@ import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan } from "./services/scans.js";
-import { checkBackendHealth, analyzeCardWithBackend } from "./services/api.js";
+import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards } from "./services/api.js";
+import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 
 /* ═══════════════════════════════════════════
    SLABSENSE v0.1.0-beta
@@ -2314,6 +2315,11 @@ export default function SlabSense(){
   const[showExport,setShowExport]=useState(false); // Export modal visibility
   const[showSettings,setShowSettings]=useState(false); // Settings modal visibility
 
+  // 3D Viewer / AI Enhanced Cards state
+  const[enhancedCards,setEnhancedCards]=useState(null); // { front, back } - AI cropped cards
+  const[enhancingStatus,setEnhancingStatus]=useState(null); // 'enhancing' | 'done' | 'error' | null
+  const[show3DViewer,setShow3DViewer]=useState(false); // 3D viewer modal visibility
+
   // Auth hook
   const auth = useAuth();
 
@@ -2482,6 +2488,32 @@ export default function SlabSense(){
     }
   };
 
+  // AI-Enhance cards - detect, flatten, crop both cards with SAM 2
+  const handleEnhanceCards = async () => {
+    if (!fI || !bI) return;
+    setEnhancingStatus('enhancing');
+    try {
+      console.log('Starting AI card enhancement...');
+      const result = await detectAndCropBothCards(fI, bI);
+      if (result.success) {
+        setEnhancedCards({
+          front: result.front.croppedCard,
+          back: result.back.croppedCard,
+        });
+        setEnhancingStatus('done');
+        setShow3DViewer(true); // Auto-open 3D viewer
+      } else {
+        console.error('Enhancement failed:', result.error);
+        setEnhancingStatus('error');
+        setTimeout(() => setEnhancingStatus(null), 3000);
+      }
+    } catch (err) {
+      console.error('Error enhancing cards:', err);
+      setEnhancingStatus('error');
+      setTimeout(() => setEnhancingStatus(null), 3000);
+    }
+  };
+
   // Tabs - Free users only see Overview, Pro users see all
   const allTabs=[
     {id:"overview",l:"Grade",i:"◎",free:true},
@@ -2522,6 +2554,80 @@ export default function SlabSense(){
         gradingCompany={gradingCompany}
         onClose={() => setShowExport(false)}
       />
+    )}
+    {/* 3D Card Viewer Modal */}
+    {show3DViewer && enhancedCards && (
+      <div style={{
+        position:"fixed",
+        inset:0,
+        background:"rgba(0,0,0,0.95)",
+        zIndex:1000,
+        display:"flex",
+        flexDirection:"column",
+        alignItems:"center",
+        justifyContent:"center",
+      }}>
+        {/* Close button */}
+        <button
+          onClick={() => setShow3DViewer(false)}
+          style={{
+            position:"absolute",
+            top:16,
+            right:16,
+            background:"rgba(255,255,255,0.1)",
+            border:"none",
+            borderRadius:"50%",
+            width:40,
+            height:40,
+            color:"#fff",
+            fontSize:20,
+            cursor:"pointer",
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"center",
+          }}
+        >
+          ✕
+        </button>
+        {/* Grade badge */}
+        {gradeResult && (
+          <div style={{
+            position:"absolute",
+            top:16,
+            left:16,
+            background:gradeResult.grade.bg,
+            borderRadius:8,
+            padding:"8px 16px",
+            border:`1px solid ${gradeResult.grade.color}33`,
+          }}>
+            <div style={{fontFamily:mono,fontSize:24,fontWeight:800,color:gradeResult.grade.color}}>
+              {Number.isInteger(gradeResult.grade.grade) ? gradeResult.grade.grade : gradeResult.grade.grade.toFixed(1)}
+            </div>
+            <div style={{fontFamily:mono,fontSize:9,color:gradeResult.grade.color,opacity:0.8}}>
+              {gradeResult.grade.label}
+            </div>
+          </div>
+        )}
+        {/* 3D Viewer */}
+        <CardViewer3D
+          frontImage={enhancedCards.front}
+          backImage={enhancedCards.back}
+          grade={gradeResult?.grade?.grade}
+          gradeLabel={gradeResult?.grade?.label}
+          gradingCompany={gradingCompany}
+        />
+        {/* Info text */}
+        <div style={{
+          position:"absolute",
+          bottom:20,
+          fontFamily:mono,
+          fontSize:10,
+          color:"#555",
+          textAlign:"center",
+        }}>
+          AI-Enhanced with SAM 2 • Perfect edges & perspective correction
+        </div>
+      </div>
     )}
     {/* Profile Settings Modal */}
     {showSettings && (
@@ -2695,6 +2801,44 @@ export default function SlabSense(){
             }}
           >
             📤 Share / Export
+          </button>
+
+          {/* AI Enhance / 3D View Button */}
+          <button
+            onClick={enhancedCards ? () => setShow3DViewer(true) : handleEnhanceCards}
+            disabled={enhancingStatus === 'enhancing'}
+            style={{
+              width: '100%',
+              padding: '12px 0',
+              marginBottom: 16,
+              borderRadius: 8,
+              border: enhancedCards ? '1px solid rgba(99,102,241,0.3)' : '1px solid #2a2d35',
+              background: enhancingStatus === 'enhancing' ? '#1a1c22'
+                : enhancedCards ? 'rgba(99,102,241,0.1)'
+                : enhancingStatus === 'error' ? 'rgba(255,68,68,0.1)'
+                : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              color: enhancedCards ? '#6366f1'
+                : enhancingStatus === 'error' ? '#ff6666'
+                : '#fff',
+              fontFamily: mono,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: enhancingStatus === 'enhancing' ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            {enhancingStatus === 'enhancing' ? (
+              <>⏳ AI Processing... (~10s)</>
+            ) : enhancedCards ? (
+              <>🎴 View in 3D / Slab Preview</>
+            ) : enhancingStatus === 'error' ? (
+              <>✕ Enhancement Failed - Try Again</>
+            ) : (
+              <>✨ AI Enhance + 3D View ($0.02)</>
+            )}
           </button>
 
           {/* PRO ONLY: DINGS Summary */}
