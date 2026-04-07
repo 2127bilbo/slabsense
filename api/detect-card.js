@@ -1,30 +1,29 @@
 /**
  * Vercel Serverless Function - AI Card Detection with SAM 2
- * Uses Segment Anything Model 2 via Replicate for perfect card segmentation
+ * Detects front AND back cards in a single API call for $0.02 total
  *
  * Flow:
- * 1. SAM 2 segments the card with pixel-perfect accuracy
- * 2. Returns mask and bounding polygon
- * 3. Client uses polygon corners for perspective transform
+ * 1. Receive stitched image (front + back side by side)
+ * 2. SAM 2 segments both cards with two point prompts
+ * 3. Returns masks for both cards
  *
- * Cost: ~$0.02 per image
+ * Cost: ~$0.02 per call (covers BOTH front and back)
  * Speed: ~5-10 seconds
  */
 
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb',
+      sizeLimit: '15mb', // Larger for stitched image
     },
   },
-  maxDuration: 60, // 60 second timeout for SAM
+  maxDuration: 60,
 };
 
 // SAM 2 model on Replicate
 const SAM2_VERSION = 'fe97b453a6455861e3bac769b441ca1f1086110da7466dbb65cf1eecfd60dc83';
 
 export default async function handler(req, res) {
-  // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -39,21 +38,33 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { image, point } = req.body;
+    const { image, mode = 'single', points } = req.body;
 
     if (!image) {
       return res.status(400).json({ error: 'No image provided' });
     }
 
-    // Ensure image is a data URI
     let imageUri = image;
     if (!image.startsWith('data:')) {
       imageUri = `data:image/jpeg;base64,${image}`;
     }
 
-    // Get image dimensions from base64 (approximate center point)
-    // Default to center of a typical phone photo
-    const clickPoint = point || { x: 0.5, y: 0.5 };
+    // Configure points based on mode
+    let pointCoords, pointLabels;
+
+    if (mode === 'dual') {
+      // Dual mode: front on left, back on right
+      // Points at 25% and 75% horizontally (center of each card)
+      pointCoords = points?.coords || '0.25,0.5,0.75,0.5';
+      pointLabels = points?.labels || '1,1';
+    } else {
+      // Single mode: one card
+      const point = points || { x: 0.5, y: 0.5 };
+      pointCoords = `${point.x},${point.y}`;
+      pointLabels = '1';
+    }
+
+    console.log(`SAM request - mode: ${mode}, points: ${pointCoords}`);
 
     // Call SAM 2 on Replicate
     const response = await fetch('https://api.replicate.com/v1/predictions', {
@@ -61,18 +72,14 @@ export default async function handler(req, res) {
       headers: {
         'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
         'Content-Type': 'application/json',
-        'Prefer': 'wait', // Wait for result instead of polling
       },
       body: JSON.stringify({
         version: SAM2_VERSION,
         input: {
           image: imageUri,
-          // Point in center of image to segment the main object (card)
-          point_coords: `${clickPoint.x}, ${clickPoint.y}`,
-          point_labels: '1', // Positive point (include this area)
-          // Use normalized coordinates (0-1)
-          use_m2m: true, // Better mask quality
-          multimask_output: false, // Single best mask
+          point_coords: pointCoords,
+          point_labels: pointLabels,
+          multimask_output: mode === 'dual', // Multiple masks for dual mode
         },
       }),
     });
@@ -89,60 +96,47 @@ export default async function handler(req, res) {
 
     let prediction = await response.json();
 
-    // If we got a prediction URL (async mode), poll for result
+    // Poll if async
     if (prediction.status === 'starting' || prediction.status === 'processing') {
       prediction = await pollForResult(prediction.urls.get, REPLICATE_API_TOKEN);
     }
 
-    if (prediction.error) {
-      return res.status(500).json({ error: prediction.error });
-    }
-
-    if (prediction.status === 'failed') {
+    if (prediction.error || prediction.status === 'failed') {
       return res.status(500).json({
-        error: 'SAM processing failed',
-        details: prediction.error
+        error: prediction.error || 'SAM processing failed'
       });
     }
 
-    // SAM 2 returns mask URL(s)
     const output = prediction.output;
 
     if (!output) {
       return res.status(500).json({
         error: 'No mask generated',
-        suggestion: 'Try pointing at the center of the card'
+        suggestion: 'Ensure cards are visible in the image'
       });
     }
 
-    // Output could be a single mask URL or combined_mask/individual_masks
-    let maskUrl = null;
+    // Parse output - could be single mask URL, array of masks, or object
+    let masks = [];
     if (typeof output === 'string') {
-      maskUrl = output;
+      masks = [output];
+    } else if (Array.isArray(output)) {
+      masks = output;
     } else if (output.combined_mask) {
-      maskUrl = output.combined_mask;
-    } else if (Array.isArray(output) && output.length > 0) {
-      maskUrl = output[0];
-    }
-
-    if (!maskUrl) {
-      return res.status(500).json({
-        error: 'Could not extract mask from response',
-        output: output
-      });
+      masks = [output.combined_mask];
+      if (output.individual_masks) {
+        masks = masks.concat(output.individual_masks);
+      }
     }
 
     return res.status(200).json({
       success: true,
-      maskUrl: maskUrl,
+      mode: mode,
+      masks: masks,
+      maskUrl: masks[0], // Primary mask (combined or first)
+      individualMasks: masks.slice(1), // Individual masks if available
       cost_estimate: 0.02,
       model: 'sam-2',
-      // Client will:
-      // 1. Fetch the mask image
-      // 2. Find contours
-      // 3. Get 4 corners
-      // 4. Perspective transform
-      // 5. Crop to card
     });
 
   } catch (error) {
@@ -167,13 +161,10 @@ async function pollForResult(url, token, maxAttempts = 60) {
 
     if (data.status === 'succeeded') {
       return data;
-    } else if (data.status === 'failed') {
-      return { error: data.error || 'Prediction failed', status: 'failed' };
-    } else if (data.status === 'canceled') {
-      return { error: 'Prediction was canceled', status: 'canceled' };
+    } else if (data.status === 'failed' || data.status === 'canceled') {
+      return { error: data.error || 'Prediction failed', status: data.status };
     }
 
-    // Wait 1 second before polling again
     await new Promise(r => setTimeout(r, 1000));
   }
 

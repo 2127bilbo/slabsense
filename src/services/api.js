@@ -245,14 +245,19 @@ export async function analyzeCardWithBackend(frontImageDataUrl, backImageDataUrl
 }
 
 /**
- * AI Card Detection - Detect card using SAM 2
- * Uses Segment Anything Model 2 via Replicate (~$0.02/image, ~5-10 sec)
+ * AI Card Detection - Detect card(s) using SAM 2
+ * Uses Segment Anything Model 2 via Replicate
+ *
+ * Single mode: ~$0.02 for one card
+ * Dual mode: ~$0.02 for BOTH front and back (stitched)
  *
  * @param {string} imageDataUrl - Base64 data URL of image
- * @param {object} point - Optional click point {x, y} normalized 0-1 (default: center)
- * @returns {Promise<object>} Detection result with mask URL
+ * @param {object} options - { mode: 'single'|'dual', points: {...} }
+ * @returns {Promise<object>} Detection result with mask URL(s)
  */
-export async function detectCard(imageDataUrl, point = null) {
+export async function detectCard(imageDataUrl, options = {}) {
+  const { mode = 'single', points = null } = options;
+
   try {
     const response = await fetch('/api/detect-card', {
       method: 'POST',
@@ -261,7 +266,8 @@ export async function detectCard(imageDataUrl, point = null) {
       },
       body: JSON.stringify({
         image: imageDataUrl,
-        point: point || { x: 0.5, y: 0.5 },
+        mode,
+        points: points || (mode === 'single' ? { x: 0.5, y: 0.5 } : null),
       }),
     });
 
@@ -275,6 +281,104 @@ export async function detectCard(imageDataUrl, point = null) {
     console.error('Card detection error:', error);
     throw error;
   }
+}
+
+/**
+ * Stitch two images side by side for dual-card detection
+ * @param {string} frontDataUrl - Front card image
+ * @param {string} backDataUrl - Back card image
+ * @returns {Promise<string>} Stitched image data URL
+ */
+export async function stitchImages(frontDataUrl, backDataUrl) {
+  const [frontImg, backImg] = await Promise.all([
+    loadImageFromUrl(frontDataUrl),
+    loadImageFromUrl(backDataUrl),
+  ]);
+
+  // Use the larger height, scale both to same height
+  const targetHeight = Math.max(frontImg.height, backImg.height);
+  const frontScale = targetHeight / frontImg.height;
+  const backScale = targetHeight / backImg.height;
+
+  const frontW = Math.round(frontImg.width * frontScale);
+  const backW = Math.round(backImg.width * backScale);
+
+  // Create stitched canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = frontW + backW;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
+
+  // Draw front on left
+  ctx.drawImage(frontImg.img, 0, 0, frontW, targetHeight);
+  // Draw back on right
+  ctx.drawImage(backImg.img, frontW, 0, backW, targetHeight);
+
+  return {
+    dataUrl: canvas.toDataURL('image/jpeg', 0.92),
+    frontWidth: frontW,
+    backWidth: backW,
+    height: targetHeight,
+    splitPoint: frontW, // X coordinate where front ends and back begins
+  };
+}
+
+/**
+ * Split a stitched mask into front and back portions
+ * @param {ImageData} maskData - Full mask image data
+ * @param {number} splitPoint - X coordinate to split at
+ * @returns {object} { frontMask, backMask }
+ */
+function splitMask(maskData, width, height, splitPoint) {
+  const frontWidth = splitPoint;
+  const backWidth = width - splitPoint;
+
+  // Create front mask
+  const frontCanvas = document.createElement('canvas');
+  frontCanvas.width = frontWidth;
+  frontCanvas.height = height;
+  const frontCtx = frontCanvas.getContext('2d');
+
+  // Create back mask
+  const backCanvas = document.createElement('canvas');
+  backCanvas.width = backWidth;
+  backCanvas.height = height;
+  const backCtx = backCanvas.getContext('2d');
+
+  // Copy pixel data
+  const frontData = frontCtx.createImageData(frontWidth, height);
+  const backData = backCtx.createImageData(backWidth, height);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const srcIdx = (y * width + x) * 4;
+
+      if (x < splitPoint) {
+        // Front portion
+        const dstIdx = (y * frontWidth + x) * 4;
+        frontData.data[dstIdx] = maskData.data[srcIdx];
+        frontData.data[dstIdx + 1] = maskData.data[srcIdx + 1];
+        frontData.data[dstIdx + 2] = maskData.data[srcIdx + 2];
+        frontData.data[dstIdx + 3] = maskData.data[srcIdx + 3];
+      } else {
+        // Back portion
+        const dstX = x - splitPoint;
+        const dstIdx = (y * backWidth + dstX) * 4;
+        backData.data[dstIdx] = maskData.data[srcIdx];
+        backData.data[dstIdx + 1] = maskData.data[srcIdx + 1];
+        backData.data[dstIdx + 2] = maskData.data[srcIdx + 2];
+        backData.data[dstIdx + 3] = maskData.data[srcIdx + 3];
+      }
+    }
+  }
+
+  frontCtx.putImageData(frontData, 0, 0);
+  backCtx.putImageData(backData, 0, 0);
+
+  return {
+    front: { canvas: frontCanvas, data: frontData, width: frontWidth, height },
+    back: { canvas: backCanvas, data: backData, width: backWidth, height },
+  };
 }
 
 /**
@@ -481,72 +585,26 @@ export async function cropCardFromBbox(imageDataUrl, bbox, targetWidth = 500, ta
 }
 
 /**
- * Full AI card detection and cropping pipeline with SAM 2
- * 1. SAM detects exact card boundary
- * 2. Find 4 corners from mask
- * 3. Perspective transform to flatten
- * 4. Return perfect card image
- *
- * @param {string} imageDataUrl - Original photo with card
- * @param {object} options - { point: {x, y}, targetWidth, targetHeight }
- * @returns {Promise<object>} Result with croppedCard data URL and metadata
+ * Process a single card from mask data
  */
-export async function detectAndCropCard(imageDataUrl, options = {}) {
-  const { point, targetWidth = 500, targetHeight = 700 } = options;
-
-  // Step 1: Call SAM to get mask
-  console.log('Calling SAM for card detection...');
-  const detection = await detectCard(imageDataUrl, point);
-
-  if (!detection.success) {
-    return {
-      success: false,
-      error: detection.error,
-      suggestion: detection.suggestion,
-    };
-  }
-
-  console.log('SAM returned mask:', detection.maskUrl);
-
-  // Step 2: Load the mask image
-  let maskData;
-  try {
-    maskData = await loadImageFromUrl(detection.maskUrl);
-  } catch (err) {
-    console.error('Failed to load mask:', err);
-    return {
-      success: false,
-      error: 'Failed to load mask image',
-      maskUrl: detection.maskUrl,
-    };
-  }
-
-  // Step 3: Find card corners from mask
+async function processCardFromMask(originalImg, maskData, targetWidth, targetHeight) {
   const corners = findCardCornersFromMask(maskData.data, maskData.width, maskData.height);
 
   if (!corners) {
-    console.log('Could not find corners, falling back to bounding box');
-    // Fallback: use mask bounding box
-    const croppedCard = await cropCardFromBbox(imageDataUrl, {
-      minX: 0, minY: 0,
-      maxX: maskData.width,
-      maxY: maskData.height
-    }, targetWidth, targetHeight);
-
+    // Fallback to bounding box crop
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(originalImg.img, 0, 0, originalImg.width, originalImg.height, 0, 0, targetWidth, targetHeight);
     return {
-      success: true,
-      croppedCard,
+      croppedCard: canvas.toDataURL('image/jpeg', 0.95),
       method: 'bbox-fallback',
-      cost: detection.cost_estimate,
+      corners: null,
     };
   }
 
-  console.log('Found corners:', corners);
-
-  // Step 4: Load original image and apply perspective transform
-  const originalImg = await loadImageFromUrl(imageDataUrl);
-
-  // Scale corners to original image size (mask might be different size)
+  // Scale corners to original image size
   const scaleX = originalImg.width / maskData.width;
   const scaleY = originalImg.height / maskData.height;
 
@@ -557,15 +615,189 @@ export async function detectAndCropCard(imageDataUrl, options = {}) {
     br: { x: corners.br.x * scaleX, y: corners.br.y * scaleY },
   };
 
-  // Step 5: Perspective transform
   const croppedCard = perspectiveTransform(originalImg.img, scaledCorners, targetWidth, targetHeight);
 
   return {
-    success: true,
     croppedCard,
-    corners: scaledCorners,
     method: 'perspective-transform',
+    corners: scaledCorners,
+  };
+}
+
+/**
+ * Full AI card detection and cropping pipeline with SAM 2
+ * Single card mode - processes one image
+ *
+ * @param {string} imageDataUrl - Original photo with card
+ * @param {object} options - { point: {x, y}, targetWidth, targetHeight }
+ * @returns {Promise<object>} Result with croppedCard data URL and metadata
+ */
+export async function detectAndCropCard(imageDataUrl, options = {}) {
+  const { point, targetWidth = 500, targetHeight = 700 } = options;
+
+  console.log('Calling SAM for single card detection...');
+  const detection = await detectCard(imageDataUrl, { mode: 'single', points: point });
+
+  if (!detection.success) {
+    return {
+      success: false,
+      error: detection.error,
+      suggestion: detection.suggestion,
+    };
+  }
+
+  let maskData;
+  try {
+    maskData = await loadImageFromUrl(detection.maskUrl);
+  } catch (err) {
+    return {
+      success: false,
+      error: 'Failed to load mask image',
+      maskUrl: detection.maskUrl,
+    };
+  }
+
+  const originalImg = await loadImageFromUrl(imageDataUrl);
+  const result = await processCardFromMask(originalImg, maskData, targetWidth, targetHeight);
+
+  return {
+    success: true,
+    ...result,
     cost: detection.cost_estimate,
     maskUrl: detection.maskUrl,
+  };
+}
+
+/**
+ * DUAL CARD DETECTION - Process front AND back in ONE API call
+ * Cost: $0.02 for BOTH cards (same as single!)
+ *
+ * @param {string} frontDataUrl - Front of card image
+ * @param {string} backDataUrl - Back of card image
+ * @param {object} options - { targetWidth, targetHeight }
+ * @returns {Promise<object>} Result with both croppedFront and croppedBack
+ */
+export async function detectAndCropBothCards(frontDataUrl, backDataUrl, options = {}) {
+  const { targetWidth = 500, targetHeight = 700 } = options;
+
+  console.log('Stitching front and back images...');
+
+  // Step 1: Stitch images side by side
+  const stitched = await stitchImages(frontDataUrl, backDataUrl);
+
+  console.log(`Stitched image: ${stitched.frontWidth}+${stitched.backWidth} x ${stitched.height}`);
+  console.log('Calling SAM for dual card detection...');
+
+  // Step 2: Call SAM with dual mode (two point prompts)
+  const detection = await detectCard(stitched.dataUrl, {
+    mode: 'dual',
+    points: {
+      // Points at center of each card (25% and 75% horizontally)
+      coords: '0.25,0.5,0.75,0.5',
+      labels: '1,1',
+    },
+  });
+
+  if (!detection.success) {
+    return {
+      success: false,
+      error: detection.error,
+      suggestion: detection.suggestion,
+    };
+  }
+
+  console.log('SAM returned masks:', detection.masks?.length || 1);
+
+  // Step 3: Load the mask
+  let maskData;
+  try {
+    maskData = await loadImageFromUrl(detection.maskUrl);
+  } catch (err) {
+    return {
+      success: false,
+      error: 'Failed to load mask image',
+    };
+  }
+
+  // Step 4: Split mask into front and back portions
+  // Calculate split point proportionally
+  const maskSplitPoint = Math.round(maskData.width * (stitched.frontWidth / (stitched.frontWidth + stitched.backWidth)));
+
+  const splitMasks = splitMask(maskData.data, maskData.width, maskData.height, maskSplitPoint);
+
+  // Step 5: Load original images
+  const [frontImg, backImg] = await Promise.all([
+    loadImageFromUrl(frontDataUrl),
+    loadImageFromUrl(backDataUrl),
+  ]);
+
+  // Step 6: Process each card
+  const frontResult = await processCardFromMask(frontImg, splitMasks.front, targetWidth, targetHeight);
+  const backResult = await processCardFromMask(backImg, splitMasks.back, targetWidth, targetHeight);
+
+  return {
+    success: true,
+    front: {
+      croppedCard: frontResult.croppedCard,
+      corners: frontResult.corners,
+      method: frontResult.method,
+    },
+    back: {
+      croppedCard: backResult.croppedCard,
+      corners: backResult.corners,
+      method: backResult.method,
+    },
+    cost: detection.cost_estimate, // $0.02 for BOTH!
+    model: 'sam-2-dual',
+  };
+}
+
+/**
+ * Split mask helper - extracts front and back masks from stitched mask
+ */
+function splitMask(maskData, width, height, splitPoint) {
+  const frontWidth = splitPoint;
+  const backWidth = width - splitPoint;
+
+  const frontCanvas = document.createElement('canvas');
+  frontCanvas.width = frontWidth;
+  frontCanvas.height = height;
+  const frontCtx = frontCanvas.getContext('2d');
+
+  const backCanvas = document.createElement('canvas');
+  backCanvas.width = backWidth;
+  backCanvas.height = height;
+  const backCtx = backCanvas.getContext('2d');
+
+  const frontImgData = frontCtx.createImageData(frontWidth, height);
+  const backImgData = backCtx.createImageData(backWidth, height);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const srcIdx = (y * width + x) * 4;
+
+      if (x < splitPoint) {
+        const dstIdx = (y * frontWidth + x) * 4;
+        frontImgData.data[dstIdx] = maskData.data[srcIdx];
+        frontImgData.data[dstIdx + 1] = maskData.data[srcIdx + 1];
+        frontImgData.data[dstIdx + 2] = maskData.data[srcIdx + 2];
+        frontImgData.data[dstIdx + 3] = maskData.data[srcIdx + 3];
+      } else {
+        const dstX = x - splitPoint;
+        const dstIdx = (y * backWidth + dstX) * 4;
+        backImgData.data[dstIdx] = maskData.data[srcIdx];
+        backImgData.data[dstIdx + 1] = maskData.data[srcIdx + 1];
+        backImgData.data[dstIdx + 2] = maskData.data[srcIdx + 2];
+        backImgData.data[dstIdx + 3] = maskData.data[srcIdx + 3];
+      }
+    }
+  }
+
+  frontCtx.putImageData(frontImgData, 0, 0);
+  backCtx.putImageData(backImgData, 0, 0);
+
+  return {
+    front: { data: frontImgData, width: frontWidth, height },
+    back: { data: backImgData, width: backWidth, height },
   };
 }
