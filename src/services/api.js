@@ -243,3 +243,115 @@ export async function analyzeCardWithBackend(frontImageDataUrl, backImageDataUrl
     combined: result.combined_result,
   };
 }
+
+/**
+ * AI Card Detection - Detect and crop card from image
+ * Uses YOLO-World via Replicate (~$0.001/image, ~1-2 sec)
+ *
+ * @param {string} imageDataUrl - Base64 data URL of image
+ * @returns {Promise<object>} Detection result with bbox and cropped card
+ */
+export async function detectCard(imageDataUrl) {
+  try {
+    const response = await fetch('/api/detect-card', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: imageDataUrl,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || `API error: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Card detection error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Crop image to bounding box on client side
+ * Uses the bbox from detectCard to crop the original image
+ *
+ * @param {string} imageDataUrl - Original image data URL
+ * @param {object} bbox - Bounding box {x1, y1, x2, y2} (normalized 0-1 or pixels)
+ * @param {number} targetWidth - Output width (default 500)
+ * @param {number} targetHeight - Output height (default 700 for standard card ratio)
+ * @returns {Promise<string>} Cropped image as data URL
+ */
+export async function cropCardFromBbox(imageDataUrl, bbox, targetWidth = 500, targetHeight = 700) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.width;
+      const h = img.height;
+
+      // Convert bbox to pixels if normalized (0-1)
+      let x1 = bbox.x1 <= 1 ? bbox.x1 * w : bbox.x1;
+      let y1 = bbox.y1 <= 1 ? bbox.y1 * h : bbox.y1;
+      let x2 = bbox.x2 <= 1 ? bbox.x2 * w : bbox.x2;
+      let y2 = bbox.y2 <= 1 ? bbox.y2 * h : bbox.y2;
+
+      // Add small padding
+      const padding = Math.min(w, h) * 0.01;
+      x1 = Math.max(0, x1 - padding);
+      y1 = Math.max(0, y1 - padding);
+      x2 = Math.min(w, x2 + padding);
+      y2 = Math.min(h, y2 + padding);
+
+      const cropW = x2 - x1;
+      const cropH = y2 - y1;
+
+      // Create canvas and crop
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+
+      // Draw cropped and scaled image
+      ctx.drawImage(img, x1, y1, cropW, cropH, 0, 0, targetWidth, targetHeight);
+
+      resolve(canvas.toDataURL('image/jpeg', 0.95));
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = imageDataUrl;
+  });
+}
+
+/**
+ * Full AI card detection and cropping pipeline
+ * Detects card, crops to bbox, returns clean card image
+ *
+ * @param {string} imageDataUrl - Original photo with card
+ * @returns {Promise<object>} Result with croppedCard data URL and metadata
+ */
+export async function detectAndCropCard(imageDataUrl) {
+  // Step 1: Detect card
+  const detection = await detectCard(imageDataUrl);
+
+  if (!detection.success) {
+    return {
+      success: false,
+      error: detection.error,
+      suggestion: detection.suggestion,
+    };
+  }
+
+  // Step 2: Crop to bbox
+  const croppedCard = await cropCardFromBbox(imageDataUrl, detection.bbox);
+
+  return {
+    success: true,
+    croppedCard,
+    bbox: detection.bbox,
+    confidence: detection.confidence,
+    label: detection.label,
+    cost: detection.cost_estimate,
+  };
+}
