@@ -449,19 +449,22 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
     // If we have both images, stitch them side-by-side for a single Claude call
     // This halves the API cost (~$0.02-0.05 instead of ~$0.04-0.10)
     let imageToSend = compressedFront;
+    let stitchedImage = null; // Keep reference to stitch for cropping
     let stitchInfo = null;
 
     if (compressedBack) {
       console.log('[Unified AI] Stitching front + back for single Claude call...');
       const stitched = await stitchImages(compressedFront, compressedBack);
       imageToSend = stitched.dataUrl;
+      stitchedImage = stitched.dataUrl; // Save for cropping later
       stitchInfo = {
         frontWidth: stitched.frontWidth,
         backWidth: stitched.backWidth,
         splitPoint: stitched.splitPoint,
         height: stitched.height,
+        totalWidth: stitched.frontWidth + stitched.backWidth,
       };
-      console.log(`[Unified AI] Stitched: ${stitchInfo.frontWidth} + ${stitchInfo.backWidth}px`);
+      console.log(`[Unified AI] Stitched: ${stitchInfo.frontWidth} + ${stitchInfo.backWidth} = ${stitchInfo.totalWidth}x${stitchInfo.height}px`);
     }
 
     const response = await fetch('/api/ai-analyze', {
@@ -510,18 +513,60 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
     });
 
     // Apply cropping based on Claude's coordinates
+    // IMPORTANT: Claude analyzed the STITCHED image, so we must crop from the STITCHED image
+    // (not the individual compressed images, which have different dimensions)
     let croppedFront = compressedFront;
     let croppedBack = compressedBack;
 
-    // Crop FRONT image
-    if (analysis.front?.boundingBox) {
+    if (stitchedImage && analysis.front?.boundingBox) {
+      // We have a stitched image - crop BOTH cards from it using Claude's coordinates directly
+      console.log('[Unified AI] Cropping from stitched image...');
+
+      // Crop FRONT from stitched image
       try {
         const bb = analysis.front.boundingBox;
         console.log('[Unified AI] Front bounding box:', JSON.stringify(bb));
 
         if (bb.topLeft?.x != null && bb.topRight?.x != null &&
             bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
-          // Front coordinates are already correct (front is at x=0 in stitched image)
+          croppedFront = await cropAndRotateCard(
+            stitchedImage, // Crop from stitched image!
+            bb,
+            analysis.front.rotationAngle || 0
+          );
+          console.log('[Unified AI] Front cropped from stitched image');
+        }
+      } catch (cropError) {
+        console.error('[Unified AI] Failed to crop front:', cropError.message);
+      }
+
+      // Crop BACK from stitched image
+      if (analysis.back?.boundingBox) {
+        try {
+          const bb = analysis.back.boundingBox;
+          console.log('[Unified AI] Back bounding box:', JSON.stringify(bb));
+
+          if (bb.topLeft?.x != null && bb.topRight?.x != null &&
+              bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
+            croppedBack = await cropAndRotateCard(
+              stitchedImage, // Crop from stitched image!
+              bb,
+              analysis.back.rotationAngle || 0
+            );
+            console.log('[Unified AI] Back cropped from stitched image');
+          }
+        } catch (cropError) {
+          console.error('[Unified AI] Failed to crop back:', cropError.message);
+        }
+      }
+    } else if (analysis.front?.boundingBox) {
+      // No stitched image (front only) - crop from compressed front
+      try {
+        const bb = analysis.front.boundingBox;
+        console.log('[Unified AI] Front bounding box:', JSON.stringify(bb));
+
+        if (bb.topLeft?.x != null && bb.topRight?.x != null &&
+            bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
           croppedFront = await cropAndRotateCard(
             compressedFront,
             bb,
@@ -531,50 +576,6 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
         }
       } catch (cropError) {
         console.error('[Unified AI] Failed to crop front image:', cropError.message);
-      }
-    }
-
-    // Crop BACK image
-    if (compressedBack && analysis.back?.boundingBox) {
-      try {
-        const bb = analysis.back.boundingBox;
-        console.log('[Unified AI] Back bounding box (raw):', JSON.stringify(bb));
-
-        if (bb.topLeft?.x != null && bb.topRight?.x != null &&
-            bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
-
-          // Back coordinates are relative to STITCHED image
-          // Need to subtract frontWidth to get coordinates for individual back image
-          const offsetX = stitchInfo?.frontWidth || 0;
-          const adjustedBb = {
-            topLeft: { x: bb.topLeft.x - offsetX, y: bb.topLeft.y },
-            topRight: { x: bb.topRight.x - offsetX, y: bb.topRight.y },
-            bottomLeft: { x: bb.bottomLeft.x - offsetX, y: bb.bottomLeft.y },
-            bottomRight: { x: bb.bottomRight.x - offsetX, y: bb.bottomRight.y },
-          };
-          console.log('[Unified AI] Back bounding box (adjusted):', JSON.stringify(adjustedBb));
-
-          croppedBack = await cropAndRotateCard(
-            compressedBack,
-            adjustedBb,
-            analysis.back.rotationAngle || 0
-          );
-          console.log('[Unified AI] Back image cropped successfully');
-        }
-      } catch (cropError) {
-        console.error('[Unified AI] Failed to crop back image:', cropError.message);
-      }
-    } else if (compressedBack && analysis.front?.boundingBox) {
-      // Fallback: use front bounding box as template
-      console.log('[Unified AI] No back bounding box, using front as template');
-      try {
-        croppedBack = await cropAndRotateCard(
-          compressedBack,
-          analysis.front.boundingBox,
-          analysis.front.rotationAngle || 0
-        );
-      } catch (cropError) {
-        console.error('[Unified AI] Failed to crop back with template:', cropError.message);
       }
     }
 
