@@ -437,7 +437,7 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
   const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout
 
   try {
-    console.log('[Unified AI] Starting comprehensive analysis via Claude...');
+    console.log('[Unified AI] Starting analysis via Claude (separate calls for front/back)...');
 
     // Compress images to avoid Vercel's 4.5MB payload limit
     console.log('[Unified AI] Compressing images for API...');
@@ -446,35 +446,16 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
       ? await compressImageForAPI(backImageDataUrl)
       : null;
 
-    // If we have both images, stitch them side-by-side for a single Claude call
-    // This halves the API cost (~$0.02-0.05 instead of ~$0.04-0.10)
-    let imageToSend = compressedFront;
-    let stitchedImage = null; // Keep reference to stitch for cropping
-    let stitchInfo = null;
-
-    if (compressedBack) {
-      console.log('[Unified AI] Stitching front + back for single Claude call...');
-      const stitched = await stitchImages(compressedFront, compressedBack);
-      imageToSend = stitched.dataUrl;
-      stitchedImage = stitched.dataUrl; // Save for cropping later
-      stitchInfo = {
-        frontWidth: stitched.frontWidth,
-        backWidth: stitched.backWidth,
-        splitPoint: stitched.splitPoint,
-        height: stitched.height,
-        totalWidth: stitched.frontWidth + stitched.backWidth,
-      };
-      console.log(`[Unified AI] Stitched: ${stitchInfo.frontWidth} + ${stitchInfo.backWidth} = ${stitchInfo.totalWidth}x${stitchInfo.height}px`);
-    }
-
+    // Send front and back as separate calls for accurate coordinates
+    // Cost: ~$0.02-0.05 per image, but coordinates are exact
     const response = await fetch('/api/ai-analyze', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        image: imageToSend,
-        stitchInfo: stitchInfo, // null if front-only, object if stitched
+        frontImage: compressedFront,
+        backImage: compressedBack,
         cardType,
       }),
       signal: controller.signal,
@@ -509,58 +490,15 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
       frontBoundingBox: analysis.front?.boundingBox,
       backBoundingBox: analysis.back?.boundingBox,
       hasCardInfo: !!analysis.cardInfo,
-      stitchInfo: stitchInfo,
     });
 
     // Apply cropping based on Claude's coordinates
-    // IMPORTANT: Claude analyzed the STITCHED image, so we must crop from the STITCHED image
-    // (not the individual compressed images, which have different dimensions)
+    // Each image was analyzed separately, so coordinates match directly
     let croppedFront = compressedFront;
     let croppedBack = compressedBack;
 
-    if (stitchedImage && analysis.front?.boundingBox) {
-      // We have a stitched image - crop BOTH cards from it using Claude's coordinates directly
-      console.log('[Unified AI] Cropping from stitched image...');
-
-      // Crop FRONT from stitched image
-      try {
-        const bb = analysis.front.boundingBox;
-        console.log('[Unified AI] Front bounding box:', JSON.stringify(bb));
-
-        if (bb.topLeft?.x != null && bb.topRight?.x != null &&
-            bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
-          croppedFront = await cropAndRotateCard(
-            stitchedImage, // Crop from stitched image!
-            bb,
-            analysis.front.rotationAngle || 0
-          );
-          console.log('[Unified AI] Front cropped from stitched image');
-        }
-      } catch (cropError) {
-        console.error('[Unified AI] Failed to crop front:', cropError.message);
-      }
-
-      // Crop BACK from stitched image
-      if (analysis.back?.boundingBox) {
-        try {
-          const bb = analysis.back.boundingBox;
-          console.log('[Unified AI] Back bounding box:', JSON.stringify(bb));
-
-          if (bb.topLeft?.x != null && bb.topRight?.x != null &&
-              bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
-            croppedBack = await cropAndRotateCard(
-              stitchedImage, // Crop from stitched image!
-              bb,
-              analysis.back.rotationAngle || 0
-            );
-            console.log('[Unified AI] Back cropped from stitched image');
-          }
-        } catch (cropError) {
-          console.error('[Unified AI] Failed to crop back:', cropError.message);
-        }
-      }
-    } else if (analysis.front?.boundingBox) {
-      // No stitched image (front only) - crop from compressed front
+    // Crop FRONT image
+    if (analysis.front?.boundingBox) {
       try {
         const bb = analysis.front.boundingBox;
         console.log('[Unified AI] Front bounding box:', JSON.stringify(bb));
@@ -575,7 +513,27 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
           console.log('[Unified AI] Front image cropped successfully');
         }
       } catch (cropError) {
-        console.error('[Unified AI] Failed to crop front image:', cropError.message);
+        console.error('[Unified AI] Failed to crop front:', cropError.message);
+      }
+    }
+
+    // Crop BACK image
+    if (compressedBack && analysis.back?.boundingBox) {
+      try {
+        const bb = analysis.back.boundingBox;
+        console.log('[Unified AI] Back bounding box:', JSON.stringify(bb));
+
+        if (bb.topLeft?.x != null && bb.topRight?.x != null &&
+            bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
+          croppedBack = await cropAndRotateCard(
+            compressedBack,
+            bb,
+            analysis.back.rotationAngle || 0
+          );
+          console.log('[Unified AI] Back image cropped successfully');
+        }
+      } catch (cropError) {
+        console.error('[Unified AI] Failed to crop back:', cropError.message);
       }
     }
 

@@ -39,21 +39,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { image, stitchInfo, cardType = 'pokemon' } = req.body;
+    const { frontImage, backImage, cardType = 'pokemon' } = req.body;
 
-    if (!image) {
-      return res.status(400).json({ error: 'No image provided' });
+    if (!frontImage) {
+      return res.status(400).json({ error: 'No front image provided' });
     }
 
-    const isStitched = !!stitchInfo;
     console.log('[Claude Vision] Analyzing card via Replicate...');
-    console.log('[Claude Vision] Stitched (front+back):', isStitched);
-    if (isStitched) {
-      console.log(`[Claude Vision] Layout: front=${stitchInfo.frontWidth}px, back=${stitchInfo.backWidth}px`);
-    }
+    console.log('[Claude Vision] Has back image:', !!backImage);
 
-    // Build the comprehensive analysis prompt
-    const prompt = buildUnifiedPrompt(cardType, isStitched, stitchInfo);
+    // Build the prompt for front image analysis
+    const prompt = buildUnifiedPrompt(cardType, false, null);
 
     // Call Claude via Replicate using the models endpoint
     const apiUrl = `https://api.replicate.com/v1/models/${CLAUDE_MODEL}/predictions`;
@@ -69,7 +65,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         input: {
           prompt: prompt,
-          image: image,
+          image: frontImage,
           max_tokens: 4096,
           temperature: 0.1, // Low temperature for consistent structured output
         }
@@ -125,24 +121,75 @@ export default async function handler(req, res) {
     console.log('[Claude] Response length:', responseText?.length);
     console.log('[Claude] Response preview:', responseText?.substring(0, 300));
 
-    // Extract JSON from response
+    // Extract JSON from front response
     let analysisResult = null;
     try {
-      // Try to find JSON in the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         analysisResult = JSON.parse(jsonMatch[0]);
-        console.log('[Claude] Successfully parsed JSON response');
+        console.log('[Claude] Front analysis parsed successfully');
       } else {
-        console.warn('[Claude] No JSON found in response');
+        console.warn('[Claude] No JSON found in front response');
         analysisResult = { raw: responseText, parseError: 'No JSON found' };
       }
     } catch (parseError) {
-      console.error('[Claude] JSON parse error:', parseError.message);
+      console.error('[Claude] Front JSON parse error:', parseError.message);
       analysisResult = { raw: responseText, parseError: parseError.message };
     }
 
-    // Include stitch info in response so client can split coordinates
+    // If we have a back image, analyze it separately
+    if (backImage) {
+      console.log('[Claude] Analyzing back image...');
+      try {
+        const backPrompt = buildBackImagePrompt();
+
+        const backResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'wait',
+          },
+          body: JSON.stringify({
+            input: {
+              prompt: backPrompt,
+              image: backImage,
+              max_tokens: 2048,
+              temperature: 0.1,
+            }
+          }),
+        });
+
+        if (backResponse.ok) {
+          let backPrediction = await backResponse.json();
+          console.log('[Claude] Back prediction created:', backPrediction.id);
+
+          if (backPrediction.status === 'starting' || backPrediction.status === 'processing') {
+            backPrediction = await pollForResult(backPrediction.urls.get, REPLICATE_API_TOKEN);
+          }
+
+          if (backPrediction.status === 'succeeded') {
+            const backText = Array.isArray(backPrediction.output)
+              ? backPrediction.output.join('')
+              : backPrediction.output;
+
+            const backJsonMatch = backText.match(/\{[\s\S]*\}/);
+            if (backJsonMatch) {
+              const backAnalysis = JSON.parse(backJsonMatch[0]);
+              // Merge back analysis into result
+              analysisResult.back = backAnalysis.back || backAnalysis;
+              console.log('[Claude] Back analysis complete');
+            }
+          } else {
+            console.error('[Claude] Back prediction failed:', backPrediction.error);
+          }
+        }
+      } catch (backError) {
+        console.error('[Claude] Back analysis error:', backError.message);
+        // Continue without back - front is more important
+      }
+    }
+
     return res.status(200).json({
       success: true,
       analysis: analysisResult,
@@ -190,125 +237,22 @@ async function pollForResult(url, token, maxAttempts = 45) {
   return { status: 'failed', error: 'Timeout waiting for Claude response (90s)' };
 }
 
-function buildUnifiedPrompt(cardType, isStitched, stitchInfo) {
-  // Build layout description for stitched images
-  const layoutDesc = isStitched
-    ? `
-**IMAGE LAYOUT:** This image contains TWO cards side-by-side:
-- LEFT SIDE (x: 0 to ${stitchInfo?.frontWidth || 'half'}): FRONT of the card
-- RIGHT SIDE (x: ${stitchInfo?.frontWidth || 'half'} to end): BACK of the card
-
-You MUST provide bounding boxes for BOTH cards. All coordinates are ABSOLUTE (relative to the full image).`
-    : '';
-
-  const responseFormat = isStitched
-    ? `{
-  "front": {
-    "boundingBox": {
-      "topLeft": {"x": 50, "y": 30},
-      "topRight": {"x": 350, "y": 32},
-      "bottomLeft": {"x": 48, "y": 480},
-      "bottomRight": {"x": 348, "y": 482}
-    },
-    "rotationAngle": -0.5,
-    "borders": {"left": 15, "right": 18, "top": 12, "bottom": 14},
-    "centeringLR": "45/55",
-    "centeringTB": "46/54"
-  },
-  "back": {
-    "boundingBox": {
-      "topLeft": {"x": 400, "y": 28},
-      "topRight": {"x": 700, "y": 30},
-      "bottomLeft": {"x": 398, "y": 478},
-      "bottomRight": {"x": 698, "y": 480}
-    },
-    "rotationAngle": -0.3,
-    "borders": {"left": 14, "right": 16, "top": 13, "bottom": 15},
-    "centeringLR": "47/53",
-    "centeringTB": "48/52"
-  },
-  "cardInfo": {
-    "name": "Pikachu",
-    "hp": "60",
-    "cardNumber": "025/198",
-    "setName": "Scarlet & Violet Base",
-    "rarity": "Common",
-    "year": "2023",
-    "variant": null,
-    "language": "English"
-  },
-  "condition": {
-    "corners": 9.5,
-    "edges": 9.0,
-    "surface": 9.5,
-    "centering": 8.5,
-    "overall": 9.0,
-    "notes": "Minor edge whitening on top"
-  },
-  "gradingNotes": {
-    "positives": ["Sharp corners", "Clean holo surface"],
-    "concerns": ["Slight off-center to right"],
-    "estimatedGrade": "9.0",
-    "confidence": "high"
-  }
-}`
-    : `{
-  "front": {
-    "boundingBox": {
-      "topLeft": {"x": 50, "y": 30},
-      "topRight": {"x": 350, "y": 32},
-      "bottomLeft": {"x": 48, "y": 480},
-      "bottomRight": {"x": 348, "y": 482}
-    },
-    "rotationAngle": -0.5,
-    "borders": {"left": 15, "right": 18, "top": 12, "bottom": 14},
-    "centeringLR": "45/55",
-    "centeringTB": "46/54"
-  },
-  "cardInfo": {
-    "name": "Pikachu",
-    "hp": "60",
-    "cardNumber": "025/198",
-    "setName": "Scarlet & Violet Base",
-    "rarity": "Common",
-    "year": "2023",
-    "variant": null,
-    "language": "English"
-  },
-  "condition": {
-    "corners": 9.5,
-    "edges": 9.0,
-    "surface": 9.5,
-    "centering": 8.5,
-    "overall": 9.0,
-    "notes": "Minor edge whitening on top"
-  },
-  "gradingNotes": {
-    "positives": ["Sharp corners", "Clean holo surface"],
-    "concerns": ["Slight off-center to right"],
-    "estimatedGrade": "9.0",
-    "confidence": "high"
-  }
-}`;
-
-  return `You are an expert trading card analyst and professional grader. Analyze this ${cardType} card image with EXTREME PRECISION.
-${layoutDesc}
+function buildUnifiedPrompt(cardType) {
+  return `You are an expert trading card analyst and professional grader. Analyze this ${cardType} card FRONT image with EXTREME PRECISION.
 
 ## YOUR TASKS:
 
 ### 1. CARD BOUNDARY DETECTION
-Find the EXACT card boundaries in the image. The card(s) may be rotated or tilted.
-- Identify all 4 corners of ${isStitched ? 'EACH card' : 'the card'} precisely (in pixels)
-- Calculate the rotation angle needed to make ${isStitched ? 'each card' : 'the card'} perfectly straight
-- All coordinates are ABSOLUTE pixel positions from the top-left of the image
+Find the EXACT card boundaries in the image. The card may be rotated or tilted.
+- Identify all 4 corners of the card precisely (in pixels from top-left of image)
+- Calculate the rotation angle needed to make the card perfectly straight (degrees)
 
 ### 2. CENTERING ANALYSIS
 Measure the border widths on all 4 sides (space between card edge and printed area):
 - Left, Right, Top, Bottom border widths in pixels
 - Calculate centering ratios (e.g., "60/40" for left-right)
-${isStitched ? '- Do this for BOTH front and back cards' : ''}
 
-### 3. CARD INFORMATION (OCR) - From the FRONT
+### 3. CARD INFORMATION (OCR)
 - Pokemon/Character name
 - HP value
 - Card number (e.g., "025/198" or "SV049")
@@ -317,7 +261,6 @@ ${isStitched ? '- Do this for BOTH front and back cards' : ''}
 ### 4. CONDITION ASSESSMENT
 Score each category 1-10 (10 = perfect):
 - Corners, Edges, Surface, Centering
-${isStitched ? '- Assess BOTH sides of the card' : ''}
 
 **CRITICAL - IGNORE PHOTOGRAPHIC ARTIFACTS:**
 - DO NOT count glare, reflections, or lighting as defects
@@ -331,14 +274,50 @@ ${isStitched ? '- Assess BOTH sides of the card' : ''}
 
 ## RESPONSE FORMAT - Return ONLY this JSON:
 
-${responseFormat}
+{
+  "front": {
+    "boundingBox": {
+      "topLeft": {"x": 50, "y": 30},
+      "topRight": {"x": 350, "y": 32},
+      "bottomLeft": {"x": 48, "y": 480},
+      "bottomRight": {"x": 348, "y": 482}
+    },
+    "rotationAngle": -0.5,
+    "borders": {"left": 15, "right": 18, "top": 12, "bottom": 14},
+    "centeringLR": "45/55",
+    "centeringTB": "46/54"
+  },
+  "cardInfo": {
+    "name": "Pikachu",
+    "hp": "60",
+    "cardNumber": "025/198",
+    "setName": "Scarlet & Violet Base",
+    "rarity": "Common",
+    "year": "2023",
+    "variant": null,
+    "language": "English"
+  },
+  "condition": {
+    "corners": 9.5,
+    "edges": 9.0,
+    "surface": 9.5,
+    "centering": 8.5,
+    "overall": 9.0,
+    "notes": "Minor edge whitening on top"
+  },
+  "gradingNotes": {
+    "positives": ["Sharp corners", "Clean holo surface"],
+    "concerns": ["Slight off-center to right"],
+    "estimatedGrade": "9.0",
+    "confidence": "high"
+  }
+}
 
 CRITICAL RULES:
-- All coordinates are in PIXELS (absolute from image top-left)
+- All coordinates are in PIXELS (from image top-left corner)
 - Rotation angle in DEGREES (positive = clockwise needed)
 - Return ONLY valid JSON, no other text
-- Be PRECISE - coordinates are used for automated cropping
-${isStitched ? '- MUST include both "front" and "back" bounding boxes' : ''}`;
+- Be PRECISE - coordinates are used for automated cropping`;
 }
 
 function buildBackImagePrompt() {
