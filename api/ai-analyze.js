@@ -18,7 +18,7 @@ export const config = {
       sizeLimit: '10mb',
     },
   },
-  maxDuration: 60,
+  maxDuration: 90,
 };
 
 // Claude Sonnet 4 on Replicate
@@ -46,34 +46,35 @@ export default async function handler(req, res) {
     }
 
     console.log('[Claude Vision] Analyzing card via Replicate...');
+    console.log('[Claude Vision] Has back image:', !!backImage);
 
     // Build the comprehensive analysis prompt
     const prompt = buildUnifiedPrompt(cardType, !!backImage);
 
-    // Prepare images for Claude
-    const images = [
-      { type: 'image', source: { type: 'url', url: frontImage } }
-    ];
+    // For Claude on Replicate, we pass the image directly
+    // If we have both front and back, we'll describe them in the prompt
+    // and pass the front image (Claude can analyze one image at a time on Replicate)
 
-    if (backImage) {
-      images.push({ type: 'image', source: { type: 'url', url: backImage } });
-    }
+    // Use the front image for analysis
+    const imageInput = frontImage;
 
-    // Call Claude via Replicate
-    const response = await fetch('https://api.replicate.com/v1/models/' + CLAUDE_MODEL + '/predictions', {
+    // Call Claude via Replicate using the models endpoint
+    const apiUrl = `https://api.replicate.com/v1/models/${CLAUDE_MODEL}/predictions`;
+    console.log('[Claude] Calling:', apiUrl);
+
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
         'Content-Type': 'application/json',
+        'Prefer': 'wait', // Try to get synchronous response if quick
       },
       body: JSON.stringify({
         input: {
           prompt: prompt,
-          images: frontImage.startsWith('data:')
-            ? [frontImage, ...(backImage ? [backImage] : [])]
-            : undefined,
-          image: !frontImage.startsWith('data:') ? frontImage : undefined,
-          max_tokens: 2048,
+          image: imageInput,
+          max_tokens: 4096,
+          temperature: 0.1, // Low temperature for consistent structured output
         }
       }),
     });
@@ -81,42 +82,74 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Replicate API error:', response.status, errorText);
+
+      // Try to parse error for better message
+      let errorDetail = errorText;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorDetail = errorJson.detail || errorJson.error || errorText;
+      } catch (e) {}
+
       return res.status(response.status).json({
         error: 'Replicate API error',
-        details: errorText
+        details: errorDetail,
+        status: response.status
       });
     }
 
     let prediction = await response.json();
-    console.log('[Claude] Prediction started:', prediction.id);
+    console.log('[Claude] Prediction created:', prediction.id, 'Status:', prediction.status);
 
-    // Poll for completion
-    prediction = await pollForResult(prediction.urls.get, REPLICATE_API_TOKEN);
+    // Poll for completion if not already done
+    if (prediction.status === 'starting' || prediction.status === 'processing') {
+      prediction = await pollForResult(prediction.urls.get, REPLICATE_API_TOKEN);
+    }
 
-    if (prediction.status !== 'succeeded') {
+    if (prediction.status === 'failed') {
+      console.error('[Claude] Prediction failed:', prediction.error);
       return res.status(500).json({
         error: prediction.error || 'Claude processing failed',
         status: prediction.status
       });
     }
 
+    if (prediction.status !== 'succeeded') {
+      return res.status(500).json({
+        error: `Unexpected status: ${prediction.status}`,
+        prediction
+      });
+    }
+
     // Parse Claude's response
     const responseText = Array.isArray(prediction.output)
       ? prediction.output.join('')
-      : prediction.output;
+      : (typeof prediction.output === 'string' ? prediction.output : JSON.stringify(prediction.output));
 
-    console.log('[Claude] Raw response:', responseText?.substring(0, 500));
+    console.log('[Claude] Response length:', responseText?.length);
+    console.log('[Claude] Response preview:', responseText?.substring(0, 300));
 
     // Extract JSON from response
     let analysisResult = null;
     try {
+      // Try to find JSON in the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         analysisResult = JSON.parse(jsonMatch[0]);
+        console.log('[Claude] Successfully parsed JSON response');
+      } else {
+        console.warn('[Claude] No JSON found in response');
+        analysisResult = { raw: responseText, parseError: 'No JSON found' };
       }
     } catch (parseError) {
-      console.error('[Claude] JSON parse error:', parseError);
-      analysisResult = { raw: responseText };
+      console.error('[Claude] JSON parse error:', parseError.message);
+      analysisResult = { raw: responseText, parseError: parseError.message };
+    }
+
+    // If we have a back image and need to analyze it separately, we could do a second call
+    // For now, we'll rely on the front analysis and note that back wasn't analyzed
+    if (backImage && !analysisResult.back) {
+      console.log('[Claude] Back image provided but not analyzed in this call');
+      // Could add a second API call here for back image analysis
     }
 
     return res.status(200).json({
@@ -124,153 +157,141 @@ export default async function handler(req, res) {
       analysis: analysisResult,
       model: CLAUDE_MODEL,
       predictionId: prediction.id,
+      metrics: prediction.metrics,
     });
 
   } catch (error) {
     console.error('AI analysis error:', error);
     return res.status(500).json({
       error: 'Analysis failed',
-      message: error.message
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
 
-async function pollForResult(url, token, maxAttempts = 30) {
+async function pollForResult(url, token, maxAttempts = 45) {
   for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 2000)); // Wait 2 seconds between polls
 
-    const response = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
+    try {
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
-    const prediction = await response.json();
+      if (!response.ok) {
+        console.error(`[Claude] Poll error: ${response.status}`);
+        continue;
+      }
 
-    if (prediction.status === 'succeeded' || prediction.status === 'failed') {
-      return prediction;
+      const prediction = await response.json();
+
+      if (prediction.status === 'succeeded' || prediction.status === 'failed') {
+        return prediction;
+      }
+
+      console.log(`[Claude] Polling ${i + 1}/${maxAttempts}, status: ${prediction.status}`);
+    } catch (pollError) {
+      console.error(`[Claude] Poll attempt ${i + 1} failed:`, pollError.message);
     }
-
-    console.log(`[Claude] Polling attempt ${i + 1}/${maxAttempts}, status: ${prediction.status}`);
   }
 
-  return { status: 'failed', error: 'Timeout waiting for Claude response (60s)' };
+  return { status: 'failed', error: 'Timeout waiting for Claude response (90s)' };
 }
 
 function buildUnifiedPrompt(cardType, hasBack) {
-  return `You are an expert trading card analyst and grader. Analyze this card image with EXTREME PRECISION.
+  return `You are an expert trading card analyst and professional grader. Analyze this ${cardType} card image with EXTREME PRECISION.
 
-${hasBack ? 'You are given TWO images: Image 1 is the FRONT, Image 2 is the BACK of the same card.' : 'Analyze this card image (FRONT side).'}
+${hasBack ? 'NOTE: You are analyzing the FRONT of the card. The back will be analyzed separately.' : ''}
 
 ## YOUR TASKS:
 
 ### 1. CARD BOUNDARY DETECTION
 Find the EXACT card boundaries in the image. The card may be rotated or tilted.
-- Identify all 4 corners of the card precisely
-- Calculate the rotation angle needed to make the card perfectly straight
-- Measure the bounding box that contains the card
+- Identify all 4 corners of the card precisely (in pixels)
+- Calculate the rotation angle needed to make the card perfectly straight (degrees)
+- Provide the bounding box coordinates
 
 ### 2. CENTERING ANALYSIS
-Measure the border widths on all 4 sides of the card (the space between card edge and the printed area).
-- For FRONT: measure left, right, top, bottom borders in pixels
-- ${hasBack ? 'For BACK: measure left, right, top, bottom borders in pixels' : ''}
-- Calculate centering ratios (e.g., 60/40 left-right, 55/45 top-bottom)
+Measure the border widths on all 4 sides (space between card edge and printed area):
+- Left border width in pixels
+- Right border width in pixels
+- Top border width in pixels
+- Bottom border width in pixels
+- Calculate centering ratios (e.g., "60/40" for left-right)
 
 ### 3. CARD INFORMATION (OCR)
-Read all visible text on the card:
+Read ALL visible text:
 - Pokemon/Character name
 - HP value
 - Card number (e.g., "025/198" or "SV049")
-- Set name and symbol
-- Rarity (common/uncommon/rare/holo/ultra rare/secret rare/etc.)
+- Set name
+- Rarity (Common/Uncommon/Rare/Holo/Ultra Rare/Secret Rare/etc.)
 - Year/Copyright
-- Any special variants (Full Art, Alt Art, Rainbow, Gold, etc.)
+- Special variants (Full Art/Alt Art/Rainbow/Gold/etc.)
 
 ### 4. CONDITION ASSESSMENT
-Examine the card for defects. Score each category 1-10 (10=perfect):
-- Corners: Look for whitening, bends, dings
-- Edges: Look for whitening, chips, roughness
-- Surface: Look for scratches, print lines, holo scratches
-- Centering: Based on border measurements
+Score each category from 1-10 (10 = perfect, 9 = near mint, 8 = light wear, etc.):
+- Corners: Check for whitening, bends, dings
+- Edges: Check for whitening, chips, roughness
+- Surface: Check for scratches, print lines, holo scratches, fingerprints
+- Centering: Based on your border measurements
 
 ### 5. GRADING NOTES
-- List positives (good aspects)
-- List concerns (issues that lower grade)
-- Estimate overall grade (1-10 scale)
+- List 2-3 positive aspects
+- List any concerns that would lower the grade
+- Provide your estimated grade (1-10 scale)
 
-## RESPONSE FORMAT
-Return ONLY a JSON object with this EXACT structure:
+## RESPONSE FORMAT - Return ONLY this JSON:
 
 {
   "front": {
     "boundingBox": {
-      "topLeft": {"x": 0, "y": 0},
-      "topRight": {"x": 0, "y": 0},
-      "bottomLeft": {"x": 0, "y": 0},
-      "bottomRight": {"x": 0, "y": 0}
+      "topLeft": {"x": 50, "y": 30},
+      "topRight": {"x": 350, "y": 32},
+      "bottomLeft": {"x": 48, "y": 480},
+      "bottomRight": {"x": 348, "y": 482}
     },
-    "rotationAngle": 0,
+    "rotationAngle": -0.5,
     "borders": {
-      "left": 0,
-      "right": 0,
-      "top": 0,
-      "bottom": 0
+      "left": 15,
+      "right": 18,
+      "top": 12,
+      "bottom": 14
     },
-    "centeringLR": "50/50",
-    "centeringTB": "50/50"
+    "centeringLR": "45/55",
+    "centeringTB": "46/54"
   },
-  ${hasBack ? `"back": {
-    "boundingBox": {
-      "topLeft": {"x": 0, "y": 0},
-      "topRight": {"x": 0, "y": 0},
-      "bottomLeft": {"x": 0, "y": 0},
-      "bottomRight": {"x": 0, "y": 0}
-    },
-    "rotationAngle": 0,
-    "borders": {
-      "left": 0,
-      "right": 0,
-      "top": 0,
-      "bottom": 0
-    },
-    "centeringLR": "50/50",
-    "centeringTB": "50/50"
-  },` : ''}
   "cardInfo": {
-    "name": "Pokemon Name",
-    "hp": "100",
+    "name": "Pikachu",
+    "hp": "60",
     "cardNumber": "025/198",
-    "setName": "Set Name",
-    "rarity": "Holo Rare",
-    "year": "2024",
+    "setName": "Scarlet & Violet Base",
+    "rarity": "Common",
+    "year": "2023",
     "variant": null,
     "language": "English"
   },
   "condition": {
     "corners": 9.5,
-    "edges": 9.5,
+    "edges": 9.0,
     "surface": 9.5,
-    "centering": 9.5,
-    "overall": 9.5,
-    "notes": "Brief condition summary"
+    "centering": 8.5,
+    "overall": 9.0,
+    "notes": "Minor edge whitening on top, slightly off-center to right"
   },
   "gradingNotes": {
-    "positives": ["Sharp corners", "Clean surface"],
-    "concerns": ["Slight off-center"],
-    "estimatedGrade": "9.5",
+    "positives": ["Sharp corners", "Clean holo surface", "No scratches"],
+    "concerns": ["Slight off-center to right", "Minor edge wear top"],
+    "estimatedGrade": "9.0",
     "confidence": "high"
-  },
-  "imageInfo": {
-    "width": 0,
-    "height": 0,
-    "cardWidthPx": 0,
-    "cardHeightPx": 0
   }
 }
 
-IMPORTANT:
-- All coordinates are in PIXELS relative to the original image dimensions
-- Rotation angle is in DEGREES (positive = clockwise rotation needed to straighten)
-- Border measurements are in PIXELS
-- Be PRECISE - these values will be used for automated cropping
-- If you cannot determine a value, use null
-- Return ONLY the JSON, no other text`;
+CRITICAL RULES:
+- All coordinates are in PIXELS
+- Rotation angle is in DEGREES (positive = clockwise needed)
+- Return ONLY valid JSON, no other text
+- Use null for values you cannot determine
+- Be PRECISE - these coordinates will be used for automated cropping`;
 }

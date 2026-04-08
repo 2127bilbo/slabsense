@@ -415,24 +415,54 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
 
     const analysis = result.analysis;
 
-    // Apply cropping and rotation client-side based on Claude's coordinates
-    let croppedFront = null;
-    let croppedBack = null;
-
-    if (analysis.front?.boundingBox) {
-      croppedFront = await cropAndRotateCard(
-        frontImageDataUrl,
-        analysis.front.boundingBox,
-        analysis.front.rotationAngle || 0
-      );
+    // Handle parse errors gracefully
+    if (analysis.parseError) {
+      console.warn('[Unified AI] Claude response parsing issue:', analysis.parseError);
     }
 
+    // Apply cropping and rotation client-side based on Claude's coordinates
+    let croppedFront = frontImageDataUrl; // Default to original
+    let croppedBack = backImageDataUrl; // Default to original
+
+    // Try to crop front image if we have valid bounding box
+    if (analysis.front?.boundingBox) {
+      try {
+        const bb = analysis.front.boundingBox;
+        // Validate bounding box has required properties
+        if (bb.topLeft?.x != null && bb.topRight?.x != null &&
+            bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
+          croppedFront = await cropAndRotateCard(
+            frontImageDataUrl,
+            bb,
+            analysis.front.rotationAngle || 0
+          );
+          console.log('[Unified AI] Front image cropped successfully');
+        } else {
+          console.warn('[Unified AI] Invalid bounding box format, using original image');
+        }
+      } catch (cropError) {
+        console.error('[Unified AI] Failed to crop front image:', cropError);
+        croppedFront = frontImageDataUrl; // Fallback to original
+      }
+    }
+
+    // Try to crop back image if we have valid bounding box
     if (backImageDataUrl && analysis.back?.boundingBox) {
-      croppedBack = await cropAndRotateCard(
-        backImageDataUrl,
-        analysis.back.boundingBox,
-        analysis.back.rotationAngle || 0
-      );
+      try {
+        const bb = analysis.back.boundingBox;
+        if (bb.topLeft?.x != null && bb.topRight?.x != null &&
+            bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
+          croppedBack = await cropAndRotateCard(
+            backImageDataUrl,
+            bb,
+            analysis.back.rotationAngle || 0
+          );
+          console.log('[Unified AI] Back image cropped successfully');
+        }
+      } catch (cropError) {
+        console.error('[Unified AI] Failed to crop back image:', cropError);
+        croppedBack = backImageDataUrl; // Fallback to original
+      }
     }
 
     return {
@@ -490,13 +520,30 @@ async function cropAndRotateCard(imageDataUrl, boundingBox, rotationAngle = 0) {
   // Calculate card dimensions from bounding box
   const { topLeft, topRight, bottomLeft, bottomRight } = boundingBox;
 
-  // Calculate width and height from corners
+  // Validate all corners exist and have valid coordinates
+  if (!topLeft || !topRight || !bottomLeft || !bottomRight) {
+    throw new Error('Invalid bounding box: missing corners');
+  }
+
+  // Ensure coordinates are within image bounds
+  const clamp = (val, max) => Math.max(0, Math.min(val, max));
+  const tl = { x: clamp(topLeft.x, img.width), y: clamp(topLeft.y, img.height) };
+  const tr = { x: clamp(topRight.x, img.width), y: clamp(topRight.y, img.height) };
+  const bl = { x: clamp(bottomLeft.x, img.width), y: clamp(bottomLeft.y, img.height) };
+  const br = { x: clamp(bottomRight.x, img.width), y: clamp(bottomRight.y, img.height) };
+
+  // Calculate width and height from clamped corners
   const width = Math.sqrt(
-    Math.pow(topRight.x - topLeft.x, 2) + Math.pow(topRight.y - topLeft.y, 2)
+    Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2)
   );
   const height = Math.sqrt(
-    Math.pow(bottomLeft.x - topLeft.x, 2) + Math.pow(bottomLeft.y - topLeft.y, 2)
+    Math.pow(bl.x - tl.x, 2) + Math.pow(bl.y - tl.y, 2)
   );
+
+  // Sanity check dimensions
+  if (width < 50 || height < 50 || width > img.width || height > img.height) {
+    throw new Error(`Invalid crop dimensions: ${width}x${height}`);
+  }
 
   // Standard card aspect ratio is 2.5:3.5
   const standardRatio = 2.5 / 3.5;
@@ -531,11 +578,11 @@ async function cropAndRotateCard(imageDataUrl, boundingBox, rotationAngle = 0) {
     ctx.translate(-centerX, -centerY);
   }
 
-  // Calculate source rectangle (use top-left corner as origin)
-  const srcX = Math.min(topLeft.x, bottomLeft.x);
-  const srcY = Math.min(topLeft.y, topRight.y);
-  const srcWidth = Math.max(topRight.x, bottomRight.x) - srcX;
-  const srcHeight = Math.max(bottomLeft.y, bottomRight.y) - srcY;
+  // Calculate source rectangle (use clamped corners)
+  const srcX = Math.min(tl.x, bl.x);
+  const srcY = Math.min(tl.y, tr.y);
+  const srcWidth = Math.max(tr.x, br.x) - srcX;
+  const srcHeight = Math.max(bl.y, br.y) - srcY;
 
   // Add small padding to ensure we capture full card (4%)
   const padX = srcWidth * 0.02;
