@@ -2489,7 +2489,8 @@ export default function SlabSense(){
   };
 
   // AI-Enhance cards - detect, flatten, crop both cards with SAM 2
-  // This UPDATES the actual images and re-runs analysis for accurate grading
+  // Creates clean cropped images for 3D viewer/collection display
+  // Does NOT replace analysis images - original photos with background needed for centering detection
   const handleEnhanceCards = async () => {
     if (!fI || !bI) return;
     setEnhancingStatus('enhancing');
@@ -2502,46 +2503,22 @@ export default function SlabSense(){
         const enhancedFront = result.front.croppedCard;
         const enhancedBack = result.back.croppedCard;
 
-        // Store enhanced images for 3D viewer
+        // Store enhanced images for 3D viewer and collection display ONLY
+        // These are tight crops - perfect for display but NOT for centering analysis
         setEnhancedCards({
           front: enhancedFront,
           back: enhancedBack,
         });
 
-        // UPDATE the actual card images with AI-enhanced versions
-        setFI(enhancedFront);
-        setBI(enhancedBack);
-
-        // Re-run full analysis on the enhanced/flattened images
-        setProg('Re-analyzing enhanced front...');
-        await new Promise(r => setTimeout(r, 30));
-        const fr = await analyzeCardFull(enhancedFront, 'front');
-        setFR(fr);
-
-        setProg('Re-analyzing enhanced back...');
-        await new Promise(r => setTimeout(r, 30));
-        const br = await analyzeCardFull(enhancedBack, 'back');
-        setBR(br);
-
-        // Recompute grade with new centering data
-        setProg('Computing updated grade...');
-        await new Promise(r => setTimeout(r, 30));
-        const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
-        const effBack = ignoreCentering ? PERFECT_CENTER : br.centering;
-        const grade = computeGrade(fr.allDings, br.allDings, effFront, effBack, gradingCompany);
-        setGradeResult({ ...grade, source: 'ai-enhanced' });
-
-        // Regenerate vision maps for enhanced images
-        setProg('Generating updated vision maps...');
-        await new Promise(r => setTimeout(r, 30));
-        setFM(await genMaps(enhancedFront));
-        setBM(await genMaps(enhancedBack));
+        // NOTE: We do NOT update fI/bI or re-run analysis here
+        // Original images with background are required for accurate centering/edge detection
+        // The tight AI crop would give false 50/50 centering (no background reference)
 
         setEnhancingStatus('done');
         setProg('');
         setShow3DViewer(true); // Auto-open 3D viewer
 
-        console.log('AI enhancement complete - images and grade updated');
+        console.log('AI enhancement complete - display images ready, analysis unchanged');
       } else {
         console.error('Enhancement failed:', result.error);
         setEnhancingStatus('error');
@@ -2873,13 +2850,13 @@ export default function SlabSense(){
             }}
           >
             {enhancingStatus === 'enhancing' ? (
-              <>⏳ AI Enhancing & Re-grading...</>
+              <>⏳ AI Processing...</>
             ) : enhancedCards ? (
-              <>✓ AI Enhanced • View 3D / Slab</>
+              <>✓ View 3D Card / Slab Preview</>
             ) : enhancingStatus === 'error' ? (
               <>✕ Enhancement Failed - Try Again</>
             ) : (
-              <>✨ AI Enhance + Regrade ($0.02)</>
+              <>✨ AI Clean Crop + 3D View ($0.02)</>
             )}
           </button>
 
@@ -3023,14 +3000,6 @@ export default function SlabSense(){
                 <div style={{fontFamily:sans,fontSize:11,color:"#66aa88",lineHeight:1.4}}>
                   Grade computed by Python/OpenCV backend with TAG-calibrated centering detection.
                   {gradeResult.processingTimeMs && ` Processing: ${gradeResult.processingTimeMs}ms`}
-                </div>
-              </div>
-            )}
-            {gradeResult?.source==='ai-enhanced'&&(
-              <div style={{marginTop:10,padding:10,background:"rgba(99,102,241,.08)",borderRadius:6,border:"1px solid rgba(99,102,241,.3)"}}>
-                <div style={{fontFamily:mono,fontSize:10,color:"#6366f1",fontWeight:600,marginBottom:4}}>✓ AI-ENHANCED ANALYSIS</div>
-                <div style={{fontFamily:sans,fontSize:11,color:"#8888cc",lineHeight:1.4}}>
-                  Images flattened and cropped by SAM 2 AI. Centering detection runs on corrected images for improved accuracy.
                 </div>
               </div>
             )}
