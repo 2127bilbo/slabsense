@@ -2540,10 +2540,85 @@ export default function SlabSense(){
           setAiGradingNotes(result.gradingNotes);
         }
 
-        // Log centering data (could be used for verification)
+        // Apply Claude's centering data to override our calculated centering
         if (result.centering) {
           console.log('AI Centering:', result.centering);
+
+          // Parse Claude's centering ratios (e.g., "45/55" -> { left: 45, right: 55 })
+          const parseCentering = (str) => {
+            if (!str) return null;
+            const parts = str.split('/').map(s => parseFloat(s.trim()));
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+              return { left: parts[0], right: parts[1] };
+            }
+            return null;
+          };
+
+          // Update front centering if we have data
+          if (result.centering.front && fR) {
+            const lrParsed = parseCentering(result.centering.front.lr);
+            const tbParsed = parseCentering(result.centering.front.tb);
+
+            if (lrParsed || tbParsed) {
+              const updatedFR = { ...fR };
+              if (lrParsed) {
+                updatedFR.centering = {
+                  ...updatedFR.centering,
+                  lrRatio: `${lrParsed.left}/${lrParsed.right}`,
+                  leftPct: lrParsed.left,
+                  rightPct: lrParsed.right,
+                };
+              }
+              if (tbParsed) {
+                updatedFR.centering = {
+                  ...updatedFR.centering,
+                  tbRatio: `${tbParsed.left}/${tbParsed.right}`,
+                  topPct: tbParsed.left,
+                  bottomPct: tbParsed.right,
+                };
+              }
+              updatedFR.centering.source = 'claude-ai';
+              setFR(updatedFR);
+              console.log('Applied AI centering to front:', updatedFR.centering);
+            }
+          }
+
+          // Update back centering if we have data
+          if (result.centering.back && bR) {
+            const lrParsed = parseCentering(result.centering.back.lr);
+            const tbParsed = parseCentering(result.centering.back.tb);
+
+            if (lrParsed || tbParsed) {
+              const updatedBR = { ...bR };
+              if (lrParsed) {
+                updatedBR.centering = {
+                  ...updatedBR.centering,
+                  lrRatio: `${lrParsed.left}/${lrParsed.right}`,
+                  leftPct: lrParsed.left,
+                  rightPct: lrParsed.right,
+                };
+              }
+              if (tbParsed) {
+                updatedBR.centering = {
+                  ...updatedBR.centering,
+                  tbRatio: `${tbParsed.left}/${tbParsed.right}`,
+                  topPct: tbParsed.left,
+                  bottomPct: tbParsed.right,
+                };
+              }
+              updatedBR.centering.source = 'claude-ai';
+              setBR(updatedBR);
+              console.log('Applied AI centering to back:', updatedBR.centering);
+            }
+          }
         }
+
+        // Log cropping status
+        console.log('Cropped images:', {
+          frontCropped: result.croppedFront !== fI,
+          backCropped: result.croppedBack !== bI,
+          hasBoundingBox: !!result.rawAnalysis?.front?.boundingBox
+        });
 
         setEnhancingStatus('done');
         setExtractingInfo(false);

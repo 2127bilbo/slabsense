@@ -420,6 +420,16 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
       console.warn('[Unified AI] Claude response parsing issue:', analysis.parseError);
     }
 
+    // Log what Claude returned for debugging
+    console.log('[Unified AI] Raw analysis structure:', {
+      hasFront: !!analysis.front,
+      hasBoundingBox: !!analysis.front?.boundingBox,
+      boundingBox: analysis.front?.boundingBox,
+      rotationAngle: analysis.front?.rotationAngle,
+      hasCardInfo: !!analysis.cardInfo,
+      hasCondition: !!analysis.condition,
+    });
+
     // Apply cropping and rotation client-side based on Claude's coordinates
     let croppedFront = frontImageDataUrl; // Default to original
     let croppedBack = backImageDataUrl; // Default to original
@@ -428,6 +438,8 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
     if (analysis.front?.boundingBox) {
       try {
         const bb = analysis.front.boundingBox;
+        console.log('[Unified AI] Bounding box data:', JSON.stringify(bb));
+
         // Validate bounding box has required properties
         if (bb.topLeft?.x != null && bb.topRight?.x != null &&
             bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
@@ -438,12 +450,15 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
           );
           console.log('[Unified AI] Front image cropped successfully');
         } else {
-          console.warn('[Unified AI] Invalid bounding box format, using original image');
+          console.warn('[Unified AI] Invalid bounding box format:', bb);
+          console.warn('[Unified AI] Using original image');
         }
       } catch (cropError) {
-        console.error('[Unified AI] Failed to crop front image:', cropError);
+        console.error('[Unified AI] Failed to crop front image:', cropError.message);
         croppedFront = frontImageDataUrl; // Fallback to original
       }
+    } else {
+      console.warn('[Unified AI] No bounding box in response, using original image');
     }
 
     // Try to crop back image if we have valid bounding box
