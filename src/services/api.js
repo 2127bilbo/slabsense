@@ -682,7 +682,44 @@ async function processCardFromMask(originalImg, maskData, targetWidth, targetHei
     br: { x: corners.br.x * scaleX, y: corners.br.y * scaleY },
   };
 
-  const croppedCard = perspectiveTransform(originalImg.img, scaledCorners, targetWidth, targetHeight);
+  // Add small outward padding to corners to avoid cutting card edges
+  // SAM masks can be slightly inside the actual card boundary
+  // Padding moves corners ~1.5% outward from card center
+  const centerX = (scaledCorners.tl.x + scaledCorners.tr.x + scaledCorners.bl.x + scaledCorners.br.x) / 4;
+  const centerY = (scaledCorners.tl.y + scaledCorners.tr.y + scaledCorners.bl.y + scaledCorners.br.y) / 4;
+  const paddingFactor = 1.015; // 1.5% outward expansion
+
+  const paddedCorners = {
+    tl: {
+      x: centerX + (scaledCorners.tl.x - centerX) * paddingFactor,
+      y: centerY + (scaledCorners.tl.y - centerY) * paddingFactor,
+    },
+    tr: {
+      x: centerX + (scaledCorners.tr.x - centerX) * paddingFactor,
+      y: centerY + (scaledCorners.tr.y - centerY) * paddingFactor,
+    },
+    bl: {
+      x: centerX + (scaledCorners.bl.x - centerX) * paddingFactor,
+      y: centerY + (scaledCorners.bl.y - centerY) * paddingFactor,
+    },
+    br: {
+      x: centerX + (scaledCorners.br.x - centerX) * paddingFactor,
+      y: centerY + (scaledCorners.br.y - centerY) * paddingFactor,
+    },
+  };
+
+  // Clamp corners to image bounds
+  const clamp = (val, max) => Math.max(0, Math.min(val, max));
+  paddedCorners.tl.x = clamp(paddedCorners.tl.x, originalImg.width);
+  paddedCorners.tl.y = clamp(paddedCorners.tl.y, originalImg.height);
+  paddedCorners.tr.x = clamp(paddedCorners.tr.x, originalImg.width);
+  paddedCorners.tr.y = clamp(paddedCorners.tr.y, originalImg.height);
+  paddedCorners.bl.x = clamp(paddedCorners.bl.x, originalImg.width);
+  paddedCorners.bl.y = clamp(paddedCorners.bl.y, originalImg.height);
+  paddedCorners.br.x = clamp(paddedCorners.br.x, originalImg.width);
+  paddedCorners.br.y = clamp(paddedCorners.br.y, originalImg.height);
+
+  const croppedCard = perspectiveTransform(originalImg.img, paddedCorners, targetWidth, targetHeight);
 
   return {
     croppedCard,
