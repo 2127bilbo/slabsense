@@ -145,11 +145,53 @@ export default async function handler(req, res) {
       analysisResult = { raw: responseText, parseError: parseError.message };
     }
 
-    // If we have a back image and need to analyze it separately, we could do a second call
-    // For now, we'll rely on the front analysis and note that back wasn't analyzed
-    if (backImage && !analysisResult.back) {
-      console.log('[Claude] Back image provided but not analyzed in this call');
-      // Could add a second API call here for back image analysis
+    // Analyze back image with a second Claude call if provided
+    if (backImage) {
+      console.log('[Claude] Analyzing back image...');
+      try {
+        const backPrompt = buildBackImagePrompt();
+
+        const backResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'wait',
+          },
+          body: JSON.stringify({
+            input: {
+              prompt: backPrompt,
+              image: backImage,
+              max_tokens: 2048,
+              temperature: 0.1,
+            }
+          }),
+        });
+
+        if (backResponse.ok) {
+          let backPrediction = await backResponse.json();
+
+          if (backPrediction.status === 'starting' || backPrediction.status === 'processing') {
+            backPrediction = await pollForResult(backPrediction.urls.get, REPLICATE_API_TOKEN);
+          }
+
+          if (backPrediction.status === 'succeeded') {
+            const backText = Array.isArray(backPrediction.output)
+              ? backPrediction.output.join('')
+              : backPrediction.output;
+
+            const backJsonMatch = backText.match(/\{[\s\S]*\}/);
+            if (backJsonMatch) {
+              const backAnalysis = JSON.parse(backJsonMatch[0]);
+              analysisResult.back = backAnalysis.back || backAnalysis;
+              console.log('[Claude] Back image analyzed successfully');
+            }
+          }
+        }
+      } catch (backError) {
+        console.error('[Claude] Back image analysis failed:', backError.message);
+        // Continue without back analysis - front is more important
+      }
     }
 
     return res.status(200).json({
@@ -301,5 +343,53 @@ CRITICAL RULES:
 - Rotation angle is in DEGREES (positive = clockwise needed)
 - Return ONLY valid JSON, no other text
 - Use null for values you cannot determine
+- Be PRECISE - these coordinates will be used for automated cropping`;
+}
+
+function buildBackImagePrompt() {
+  return `You are analyzing the BACK of a trading card. Find the card boundaries with EXTREME PRECISION.
+
+## YOUR TASK:
+
+### CARD BOUNDARY DETECTION
+Find the EXACT card boundaries in the image. The card may be rotated or tilted.
+- Identify all 4 corners of the card precisely (in pixels from top-left of image)
+- Calculate the rotation angle needed to make the card perfectly straight (degrees)
+
+### CENTERING (for card backs)
+For Pokemon/TCG backs with the standard pattern:
+- Measure the border widths on all 4 sides
+- Calculate centering ratios
+
+**CRITICAL - IGNORE PHOTOGRAPHIC ARTIFACTS:**
+- DO NOT include glare, reflections, or shadows in your measurements
+- Find the PHYSICAL edge of the card, not lighting artifacts
+
+## RESPONSE FORMAT - Return ONLY this JSON:
+
+{
+  "back": {
+    "boundingBox": {
+      "topLeft": {"x": 50, "y": 30},
+      "topRight": {"x": 350, "y": 32},
+      "bottomLeft": {"x": 48, "y": 480},
+      "bottomRight": {"x": 348, "y": 482}
+    },
+    "rotationAngle": -0.5,
+    "borders": {
+      "left": 15,
+      "right": 18,
+      "top": 12,
+      "bottom": 14
+    },
+    "centeringLR": "48/52",
+    "centeringTB": "50/50"
+  }
+}
+
+CRITICAL RULES:
+- All coordinates are in PIXELS from image top-left corner
+- Rotation angle is in DEGREES (positive = clockwise needed)
+- Return ONLY valid JSON, no other text
 - Be PRECISE - these coordinates will be used for automated cropping`;
 }
