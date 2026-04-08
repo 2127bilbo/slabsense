@@ -18,7 +18,7 @@ export const config = {
       sizeLimit: '10mb',
     },
   },
-  maxDuration: 90,
+  maxDuration: 120, // Increased for parallel front+back analysis
 };
 
 // Claude Sonnet 4 on Replicate
@@ -48,147 +48,89 @@ export default async function handler(req, res) {
     console.log('[Claude Vision] Analyzing card via Replicate...');
     console.log('[Claude Vision] Has back image:', !!backImage);
 
-    // Build the prompt for front image analysis
-    const prompt = buildUnifiedPrompt(cardType, false, null);
-
-    // Call Claude via Replicate using the models endpoint
     const apiUrl = `https://api.replicate.com/v1/models/${CLAUDE_MODEL}/predictions`;
-    console.log('[Claude] Calling:', apiUrl);
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'wait', // Try to get synchronous response if quick
-      },
-      body: JSON.stringify({
-        input: {
-          prompt: prompt,
-          image: frontImage,
-          max_tokens: 4096,
-          temperature: 0.1, // Low temperature for consistent structured output
-        }
-      }),
-    });
+    // Helper to call Claude and get result
+    const analyzeImage = async (image, prompt, label) => {
+      console.log(`[Claude] Starting ${label} analysis...`);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Replicate API error:', response.status, errorText);
-
-      // Try to parse error for better message
-      let errorDetail = errorText;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorDetail = errorJson.detail || errorJson.error || errorText;
-      } catch (e) {}
-
-      return res.status(response.status).json({
-        error: 'Replicate API error',
-        details: errorDetail,
-        status: response.status
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'wait',
+        },
+        body: JSON.stringify({
+          input: {
+            prompt,
+            image,
+            max_tokens: 4096,
+            temperature: 0.1,
+          }
+        }),
       });
-    }
 
-    let prediction = await response.json();
-    console.log('[Claude] Prediction created:', prediction.id, 'Status:', prediction.status);
-
-    // Poll for completion if not already done
-    if (prediction.status === 'starting' || prediction.status === 'processing') {
-      prediction = await pollForResult(prediction.urls.get, REPLICATE_API_TOKEN);
-    }
-
-    if (prediction.status === 'failed') {
-      console.error('[Claude] Prediction failed:', prediction.error);
-      return res.status(500).json({
-        error: prediction.error || 'Claude processing failed',
-        status: prediction.status
-      });
-    }
-
-    if (prediction.status !== 'succeeded') {
-      return res.status(500).json({
-        error: `Unexpected status: ${prediction.status}`,
-        prediction
-      });
-    }
-
-    // Parse Claude's response
-    const responseText = Array.isArray(prediction.output)
-      ? prediction.output.join('')
-      : (typeof prediction.output === 'string' ? prediction.output : JSON.stringify(prediction.output));
-
-    console.log('[Claude] Response length:', responseText?.length);
-    console.log('[Claude] Response preview:', responseText?.substring(0, 300));
-
-    // Extract JSON from front response
-    let analysisResult = null;
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        analysisResult = JSON.parse(jsonMatch[0]);
-        console.log('[Claude] Front analysis parsed successfully');
-      } else {
-        console.warn('[Claude] No JSON found in front response');
-        analysisResult = { raw: responseText, parseError: 'No JSON found' };
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Claude] ${label} API error:`, response.status);
+        throw new Error(`API error: ${response.status}`);
       }
-    } catch (parseError) {
-      console.error('[Claude] Front JSON parse error:', parseError.message);
-      analysisResult = { raw: responseText, parseError: parseError.message };
-    }
 
-    // If we have a back image, analyze it separately
+      let prediction = await response.json();
+      console.log(`[Claude] ${label} prediction:`, prediction.id, prediction.status);
+
+      if (prediction.status === 'starting' || prediction.status === 'processing') {
+        prediction = await pollForResult(prediction.urls.get, REPLICATE_API_TOKEN);
+      }
+
+      if (prediction.status !== 'succeeded') {
+        throw new Error(`${label} failed: ${prediction.error || prediction.status}`);
+      }
+
+      const text = Array.isArray(prediction.output)
+        ? prediction.output.join('')
+        : prediction.output;
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error(`No JSON in ${label} response`);
+      }
+
+      console.log(`[Claude] ${label} analysis complete`);
+      return JSON.parse(jsonMatch[0]);
+    };
+
+    // Run front and back analysis IN PARALLEL for speed
+    const frontPrompt = buildUnifiedPrompt(cardType);
+    const backPrompt = buildBackImagePrompt();
+
+    const analysisPromises = [
+      analyzeImage(frontImage, frontPrompt, 'Front')
+    ];
+
     if (backImage) {
-      console.log('[Claude] Analyzing back image...');
-      try {
-        const backPrompt = buildBackImagePrompt();
-
-        const backResponse = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'wait',
-          },
-          body: JSON.stringify({
-            input: {
-              prompt: backPrompt,
-              image: backImage,
-              max_tokens: 2048,
-              temperature: 0.1,
-            }
-          }),
-        });
-
-        if (backResponse.ok) {
-          let backPrediction = await backResponse.json();
-          console.log('[Claude] Back prediction created:', backPrediction.id);
-
-          if (backPrediction.status === 'starting' || backPrediction.status === 'processing') {
-            backPrediction = await pollForResult(backPrediction.urls.get, REPLICATE_API_TOKEN);
-          }
-
-          if (backPrediction.status === 'succeeded') {
-            const backText = Array.isArray(backPrediction.output)
-              ? backPrediction.output.join('')
-              : backPrediction.output;
-
-            const backJsonMatch = backText.match(/\{[\s\S]*\}/);
-            if (backJsonMatch) {
-              const backAnalysis = JSON.parse(backJsonMatch[0]);
-              // Merge back analysis into result
-              analysisResult.back = backAnalysis.back || backAnalysis;
-              console.log('[Claude] Back analysis complete');
-            }
-          } else {
-            console.error('[Claude] Back prediction failed:', backPrediction.error);
-          }
-        }
-      } catch (backError) {
-        console.error('[Claude] Back analysis error:', backError.message);
-        // Continue without back - front is more important
-      }
+      analysisPromises.push(
+        analyzeImage(backImage, backPrompt, 'Back').catch(err => {
+          console.error('[Claude] Back analysis failed:', err.message);
+          return null; // Don't fail entire request if back fails
+        })
+      );
     }
+
+    console.log(`[Claude] Running ${analysisPromises.length} analysis calls in parallel...`);
+    const results = await Promise.all(analysisPromises);
+
+    const frontResult = results[0];
+    const backResult = results[1] || null;
+
+    // Merge results
+    const analysisResult = {
+      ...frontResult,
+      back: backResult?.back || backResult || null,
+    };
+
+    console.log('[Claude] All analysis complete');
 
     return res.status(200).json({
       success: true,
