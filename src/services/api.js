@@ -300,6 +300,51 @@ export async function detectCard(imageDataUrl, options = {}) {
 }
 
 /**
+ * Extract card information using AI vision (OCR)
+ * @param {string} imageDataUrl - Clean cropped card image
+ * @param {string} cardType - 'pokemon' | 'sports' | 'tcg'
+ * @returns {Promise<object>} Extracted card info
+ */
+export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    console.log(`[OCR] Starting ${cardType} card info extraction...`);
+
+    const response = await fetch('/api/extract-card-info', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: imageDataUrl,
+        cardType,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || `API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('[OCR] Extracted card info:', result.cardInfo);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Card info extraction timed out');
+    }
+    console.error('[OCR] Error:', error);
+    throw error;
+  }
+}
+
+/**
  * Stitch two images side by side for dual-card detection
  * @param {string} frontDataUrl - Front card image
  * @param {string} backDataUrl - Back card image

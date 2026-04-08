@@ -7,7 +7,7 @@ import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan } from "./services/scans.js";
-import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards } from "./services/api.js";
+import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards, extractCardInfo } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 
 /* ═══════════════════════════════════════════
@@ -2319,6 +2319,8 @@ export default function SlabSense(){
   const[enhancedCards,setEnhancedCards]=useState(null); // { front, back } - AI cropped cards
   const[enhancingStatus,setEnhancingStatus]=useState(null); // 'enhancing' | 'done' | 'error' | null
   const[show3DViewer,setShow3DViewer]=useState(false); // 3D viewer modal visibility
+  const[cardInfo,setCardInfo]=useState(null); // OCR extracted: { name, cardNumber, setName, etc. }
+  const[extractingInfo,setExtractingInfo]=useState(false); // OCR in progress
 
   // Auth hook
   const auth = useAuth();
@@ -2430,7 +2432,7 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setExtractingInfo(false);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -2481,6 +2483,11 @@ export default function SlabSense(){
         // Include AI-enhanced images if available (for 3D viewer in collection)
         enhancedFront: enhancedCards?.front || null,
         enhancedBack: enhancedCards?.back || null,
+        // Include OCR-extracted card info if available
+        cardName: cardInfo?.name || null,
+        cardSet: cardInfo?.setName || null,
+        cardNumber: cardInfo?.cardNumber || null,
+        cardGame: 'pokemon', // TODO: make this selectable
       });
       setSavingStatus('saved');
       setTimeout(() => setSavingStatus(null), 2000);
@@ -2533,6 +2540,27 @@ export default function SlabSense(){
       setEnhancingStatus('error');
       setProg('');
       setTimeout(() => setEnhancingStatus(null), 3000);
+    }
+  };
+
+  // Extract card info using OCR (name, number, set, etc.)
+  const handleExtractCardInfo = async () => {
+    // Use enhanced front image if available, otherwise original
+    const imageToScan = enhancedCards?.front || fI;
+    if (!imageToScan) return;
+
+    setExtractingInfo(true);
+    try {
+      console.log('Starting OCR card info extraction...');
+      const result = await extractCardInfo(imageToScan, 'pokemon');
+      if (result.success && result.cardInfo) {
+        setCardInfo(result.cardInfo);
+        console.log('Card info extracted:', result.cardInfo);
+      }
+    } catch (err) {
+      console.error('OCR extraction failed:', err);
+    } finally {
+      setExtractingInfo(false);
     }
   };
 
@@ -2862,6 +2890,99 @@ export default function SlabSense(){
               <>✨ AI Clean Crop + 3D View ($0.02)</>
             )}
           </button>
+
+          {/* OCR Extract Card Info Button */}
+          <button
+            onClick={handleExtractCardInfo}
+            disabled={extractingInfo || (!fI && !enhancedCards)}
+            style={{
+              width: '100%',
+              padding: '12px 0',
+              marginBottom: 16,
+              borderRadius: 8,
+              border: cardInfo ? '1px solid rgba(0,255,136,0.3)' : '1px solid #2a2d35',
+              background: extractingInfo ? '#1a1c22'
+                : cardInfo ? 'rgba(0,255,136,0.1)'
+                : 'transparent',
+              color: cardInfo ? '#00ff88' : '#888',
+              fontFamily: mono,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: extractingInfo ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            {extractingInfo ? (
+              <>⏳ Reading Card Text...</>
+            ) : cardInfo ? (
+              <>✓ {cardInfo.name || 'Card Info Extracted'}</>
+            ) : (
+              <>📝 Extract Card Info ($0.01)</>
+            )}
+          </button>
+
+          {/* Display Extracted Card Info */}
+          {cardInfo && (
+            <div style={{
+              padding: 14,
+              background: '#0d0f13',
+              borderRadius: 10,
+              border: '1px solid rgba(0,255,136,0.2)',
+              marginBottom: 16,
+            }}>
+              <div style={{
+                fontFamily: mono,
+                fontSize: 10,
+                color: '#00ff88',
+                textTransform: 'uppercase',
+                marginBottom: 10,
+                letterSpacing: '0.05em',
+              }}>
+                Card Details (AI Extracted)
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {cardInfo.name && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>Name</span>
+                    <span style={{ fontFamily: sans, fontSize: 12, color: '#fff', fontWeight: 600 }}>{cardInfo.name}</span>
+                  </div>
+                )}
+                {cardInfo.hp && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>HP</span>
+                    <span style={{ fontFamily: mono, fontSize: 12, color: '#ff6b6b' }}>{cardInfo.hp}</span>
+                  </div>
+                )}
+                {cardInfo.cardNumber && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>Card #</span>
+                    <span style={{ fontFamily: mono, fontSize: 12, color: '#aaa' }}>{cardInfo.cardNumber}</span>
+                  </div>
+                )}
+                {cardInfo.setName && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>Set</span>
+                    <span style={{ fontFamily: sans, fontSize: 11, color: '#888' }}>{cardInfo.setName}</span>
+                  </div>
+                )}
+                {cardInfo.rarity && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>Rarity</span>
+                    <span style={{ fontFamily: mono, fontSize: 11, color: '#fbbf24' }}>{cardInfo.rarity}</span>
+                  </div>
+                )}
+                {cardInfo.year && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>Year</span>
+                    <span style={{ fontFamily: mono, fontSize: 11, color: '#666' }}>{cardInfo.year}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* PRO ONLY: DINGS Summary */}
           {auth.isPro && (
