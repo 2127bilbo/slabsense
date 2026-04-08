@@ -39,6 +39,52 @@ function dataURLtoBlob(dataURL) {
 }
 
 /**
+ * Compress an image to reduce payload size for API calls
+ * Prevents Vercel's 4.5MB payload limit errors (FUNCTION_PAYLOAD_TOO_LARGE)
+ * @param {string} dataUrl - Original image data URL
+ * @param {number} maxDimension - Max width or height (default 1500px)
+ * @param {number} quality - JPEG quality 0-1 (default 0.85)
+ * @returns {Promise<string>} Compressed image data URL
+ */
+async function compressImageForAPI(dataUrl, maxDimension = 1500, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+
+      // Calculate new dimensions maintaining aspect ratio
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Return as JPEG with compression
+      const compressed = canvas.toDataURL('image/jpeg', quality);
+
+      // Log compression results
+      const originalSize = Math.round(dataUrl.length / 1024);
+      const compressedSize = Math.round(compressed.length / 1024);
+      console.log(`[Compress] ${originalSize}KB -> ${compressedSize}KB (${Math.round(compressedSize/originalSize*100)}%)`);
+
+      resolve(compressed);
+    };
+    img.onerror = () => reject(new Error('Failed to load image for compression'));
+    img.src = dataUrl;
+  });
+}
+
+/**
  * Analyze card images using the backend
  * @param {string} frontImageDataUrl - Base64 data URL of front image
  * @param {string} backImageDataUrl - Base64 data URL of back image (optional)
@@ -264,13 +310,18 @@ export async function detectCard(imageDataUrl, options = {}) {
 
   try {
     console.log(`[detectCard] Starting ${mode} mode detection...`);
+
+    // Compress image to avoid Vercel's 4.5MB payload limit
+    // Use 2000px max for SAM detection (needs more detail for accurate masks)
+    const compressedImage = await compressImageForAPI(imageDataUrl, 2000, 0.9);
+
     const response = await fetch('/api/detect-card', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        image: imageDataUrl,
+        image: compressedImage,
         mode,
         points: points || (mode === 'single' ? { x: 0.5, y: 0.5 } : null),
       }),
@@ -314,13 +365,16 @@ export async function analyzeCardWithVision(imageDataUrl, cardType = 'pokemon', 
   try {
     console.log(`[Claude Vision] Starting ${cardType} card analysis...`);
 
+    // Compress image to avoid Vercel's 4.5MB payload limit
+    const compressedImage = await compressImageForAPI(imageDataUrl);
+
     const response = await fetch('/api/analyze-card', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        image: imageDataUrl,
+        image: compressedImage,
         cardType,
         includeGrading,
       }),
@@ -385,14 +439,21 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
   try {
     console.log('[Unified AI] Starting comprehensive analysis via Claude...');
 
+    // Compress images to avoid Vercel's 4.5MB payload limit
+    console.log('[Unified AI] Compressing images for API...');
+    const compressedFront = await compressImageForAPI(frontImageDataUrl);
+    const compressedBack = backImageDataUrl
+      ? await compressImageForAPI(backImageDataUrl)
+      : null;
+
     const response = await fetch('/api/ai-analyze', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        frontImage: frontImageDataUrl,
-        backImage: backImageDataUrl,
+        frontImage: compressedFront,
+        backImage: compressedBack,
         cardType,
       }),
       signal: controller.signal,
@@ -521,16 +582,15 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
 
 /**
  * Crop and rotate card image based on Claude's detected coordinates
+ * Uses perspective transform for accurate corner-to-corner mapping
  * @param {string} imageDataUrl - Original image
  * @param {object} boundingBox - {topLeft, topRight, bottomLeft, bottomRight} with {x, y}
- * @param {number} rotationAngle - Degrees to rotate (positive = clockwise)
- * @returns {Promise<string>} Cropped and rotated image data URL
+ * @param {number} rotationAngle - Degrees to rotate (unused - perspective handles this)
+ * @returns {Promise<string>} Cropped and perspective-corrected image data URL
  */
 async function cropAndRotateCard(imageDataUrl, boundingBox, rotationAngle = 0) {
-  const img = await loadImageFromUrl(imageDataUrl);
-
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  const imgData = await loadImageFromUrl(imageDataUrl);
+  const img = imgData.img; // Get the actual Image element
 
   // Calculate card dimensions from bounding box
   const { topLeft, topRight, bottomLeft, bottomRight } = boundingBox;
@@ -542,80 +602,124 @@ async function cropAndRotateCard(imageDataUrl, boundingBox, rotationAngle = 0) {
 
   // Ensure coordinates are within image bounds
   const clamp = (val, max) => Math.max(0, Math.min(val, max));
-  const tl = { x: clamp(topLeft.x, img.width), y: clamp(topLeft.y, img.height) };
-  const tr = { x: clamp(topRight.x, img.width), y: clamp(topRight.y, img.height) };
-  const bl = { x: clamp(bottomLeft.x, img.width), y: clamp(bottomLeft.y, img.height) };
-  const br = { x: clamp(bottomRight.x, img.width), y: clamp(bottomRight.y, img.height) };
+  const corners = {
+    tl: { x: clamp(topLeft.x, imgData.width), y: clamp(topLeft.y, imgData.height) },
+    tr: { x: clamp(topRight.x, imgData.width), y: clamp(topRight.y, imgData.height) },
+    bl: { x: clamp(bottomLeft.x, imgData.width), y: clamp(bottomLeft.y, imgData.height) },
+    br: { x: clamp(bottomRight.x, imgData.width), y: clamp(bottomRight.y, imgData.height) },
+  };
 
-  // Calculate width and height from clamped corners
-  const width = Math.sqrt(
-    Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2)
+  // Calculate width and height from corners
+  const topWidth = Math.sqrt(
+    Math.pow(corners.tr.x - corners.tl.x, 2) + Math.pow(corners.tr.y - corners.tl.y, 2)
   );
-  const height = Math.sqrt(
-    Math.pow(bl.x - tl.x, 2) + Math.pow(bl.y - tl.y, 2)
+  const bottomWidth = Math.sqrt(
+    Math.pow(corners.br.x - corners.bl.x, 2) + Math.pow(corners.br.y - corners.bl.y, 2)
   );
+  const leftHeight = Math.sqrt(
+    Math.pow(corners.bl.x - corners.tl.x, 2) + Math.pow(corners.bl.y - corners.tl.y, 2)
+  );
+  const rightHeight = Math.sqrt(
+    Math.pow(corners.br.x - corners.tr.x, 2) + Math.pow(corners.br.y - corners.tr.y, 2)
+  );
+
+  const avgWidth = (topWidth + bottomWidth) / 2;
+  const avgHeight = (leftHeight + rightHeight) / 2;
 
   // Sanity check dimensions
-  if (width < 50 || height < 50 || width > img.width || height > img.height) {
-    throw new Error(`Invalid crop dimensions: ${width}x${height}`);
+  if (avgWidth < 50 || avgHeight < 50) {
+    throw new Error(`Invalid crop dimensions: ${avgWidth}x${avgHeight}`);
   }
 
-  // Standard card aspect ratio is 2.5:3.5
+  // Standard card aspect ratio is 2.5:3.5 = 0.714
   const standardRatio = 2.5 / 3.5;
-  let finalWidth = Math.round(width);
-  let finalHeight = Math.round(height);
+  let finalWidth = Math.round(avgWidth);
+  let finalHeight = Math.round(avgHeight);
 
-  // Adjust to standard ratio if close
+  // Enforce standard card ratio
   const currentRatio = finalWidth / finalHeight;
-  if (Math.abs(currentRatio - standardRatio) < 0.1) {
+  if (currentRatio > standardRatio) {
+    // Too wide, adjust width
+    finalWidth = Math.round(finalHeight * standardRatio);
+  } else {
+    // Too tall, adjust height
     finalHeight = Math.round(finalWidth / standardRatio);
   }
 
-  canvas.width = finalWidth;
-  canvas.height = finalHeight;
+  // Ensure minimum output size for quality
+  if (finalWidth < 400) {
+    finalWidth = 400;
+    finalHeight = Math.round(400 / standardRatio);
+  }
+
+  console.log(`[Crop] Corners: TL(${Math.round(corners.tl.x)},${Math.round(corners.tl.y)}) TR(${Math.round(corners.tr.x)},${Math.round(corners.tr.y)}) BL(${Math.round(corners.bl.x)},${Math.round(corners.bl.y)}) BR(${Math.round(corners.br.x)},${Math.round(corners.br.y)})`);
+  console.log(`[Crop] Output: ${finalWidth}x${finalHeight}`);
+
+  // Use perspective transform for accurate mapping
+  return perspectiveTransformFromCorners(img, corners, finalWidth, finalHeight);
+}
+
+/**
+ * Perspective transform using grid-based sampling
+ * Maps a quadrilateral (4 corners) to a rectangle
+ */
+function perspectiveTransformFromCorners(sourceImg, corners, targetWidth, targetHeight) {
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
 
   // Clear with white background
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, finalWidth, finalHeight);
+  ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-  // Apply perspective transform using the 4 corners
-  // For simplicity, we'll use a basic crop + rotation approach
-  // A full perspective transform would need a matrix library
+  const { tl, tr, bl, br } = corners;
 
-  ctx.save();
+  // Grid-based sampling for smooth perspective transform
+  const gridSize = 25; // Higher = smoother but slower
 
-  // Move to center, rotate, move back
-  if (Math.abs(rotationAngle) > 0.1) {
-    const centerX = finalWidth / 2;
-    const centerY = finalHeight / 2;
-    ctx.translate(centerX, centerY);
-    ctx.rotate((rotationAngle * Math.PI) / 180);
-    ctx.translate(-centerX, -centerY);
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) {
+      // Normalized target positions (0-1)
+      const u1 = gx / gridSize;
+      const v1 = gy / gridSize;
+      const u2 = (gx + 1) / gridSize;
+      const v2 = (gy + 1) / gridSize;
+
+      // Bilinear interpolation to find source positions
+      const srcX1 = bilinearInterp(tl.x, tr.x, bl.x, br.x, u1, v1);
+      const srcY1 = bilinearInterp(tl.y, tr.y, bl.y, br.y, u1, v1);
+      const srcX2 = bilinearInterp(tl.x, tr.x, bl.x, br.x, u2, v1);
+      const srcY2 = bilinearInterp(tl.y, tr.y, bl.y, br.y, u2, v1);
+      const srcX3 = bilinearInterp(tl.x, tr.x, bl.x, br.x, u1, v2);
+      const srcY3 = bilinearInterp(tl.y, tr.y, bl.y, br.y, u1, v2);
+      const srcX4 = bilinearInterp(tl.x, tr.x, bl.x, br.x, u2, v2);
+      const srcY4 = bilinearInterp(tl.y, tr.y, bl.y, br.y, u2, v2);
+
+      // Source rectangle bounds
+      const srcLeft = Math.min(srcX1, srcX3);
+      const srcTop = Math.min(srcY1, srcY2);
+      const srcRight = Math.max(srcX2, srcX4);
+      const srcBottom = Math.max(srcY3, srcY4);
+      const srcWidth = srcRight - srcLeft;
+      const srcHeight = srcBottom - srcTop;
+
+      // Target rectangle
+      const dstX = u1 * targetWidth;
+      const dstY = v1 * targetHeight;
+      const dstW = targetWidth / gridSize;
+      const dstH = targetHeight / gridSize;
+
+      // Draw grid cell
+      if (srcWidth > 0 && srcHeight > 0) {
+        ctx.drawImage(
+          sourceImg,
+          srcLeft, srcTop, srcWidth, srcHeight,
+          dstX, dstY, dstW, dstH
+        );
+      }
+    }
   }
-
-  // Calculate source rectangle (use clamped corners)
-  const srcX = Math.min(tl.x, bl.x);
-  const srcY = Math.min(tl.y, tr.y);
-  const srcWidth = Math.max(tr.x, br.x) - srcX;
-  const srcHeight = Math.max(bl.y, br.y) - srcY;
-
-  // Add small padding to ensure we capture full card (4%)
-  const padX = srcWidth * 0.02;
-  const padY = srcHeight * 0.02;
-
-  ctx.drawImage(
-    img,
-    srcX - padX,
-    srcY - padY,
-    srcWidth + padX * 2,
-    srcHeight + padY * 2,
-    0,
-    0,
-    finalWidth,
-    finalHeight
-  );
-
-  ctx.restore();
 
   return canvas.toDataURL('image/jpeg', 0.95);
 }

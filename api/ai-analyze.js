@@ -237,6 +237,14 @@ Score each category from 1-10 (10 = perfect, 9 = near mint, 8 = light wear, etc.
 - Surface: Check for scratches, print lines, holo scratches, fingerprints
 - Centering: Based on your border measurements
 
+**CRITICAL - IGNORE PHOTOGRAPHIC ARTIFACTS:**
+- DO NOT count glare, reflections, or lighting artifacts as defects
+- DO NOT count camera flash spots or shine as surface issues
+- DO NOT count shadows from photography setup as defects
+- ONLY count ACTUAL PHYSICAL defects on the card itself
+- If unsure whether something is glare vs a scratch, assume it's glare
+- Holo cards will naturally show rainbow reflections - this is NOT damage
+
 ### 5. GRADING NOTES
 - List 2-3 positive aspects
 - List any concerns that would lower the grade
