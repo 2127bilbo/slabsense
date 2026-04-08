@@ -2665,6 +2665,8 @@ export default function SlabSense(){
           grade={gradeResult?.grade?.grade}
           gradeLabel={gradeResult?.grade?.label}
           gradingCompany={gradingCompany}
+          cardInfo={cardInfo}
+          subgrades={gradeResult?.subgrades}
         />
         {/* Info text */}
         <div style={{
