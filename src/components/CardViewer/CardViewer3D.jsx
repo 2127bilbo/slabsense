@@ -1,55 +1,90 @@
 /**
- * CardViewer3D - Interactive 3D card viewer with flip, spin, and slab preview
+ * CardViewer3D - Interactive 3D card viewer with flip, spin, and realistic slab preview
  *
  * Features:
  * - Tap to flip between front/back
  * - Drag to rotate 360
- * - Slab preview mode (show card in graded slab)
+ * - Realistic slab preview with authentic styling per company
+ * - Card thickness simulation for real 3D appearance
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
 
-// Slab templates (placeholder colors - can be replaced with real images)
+// Realistic slab templates based on actual grading company cases
 const SLAB_TEMPLATES = {
   psa: {
     name: 'PSA',
-    bgColor: '#1a1a1a',
-    borderColor: '#c41e3a',
-    labelBg: '#c41e3a',
+    fullName: 'Professional Sports Authenticator',
+    // PSA: Red label on clear case, red accent line
+    labelBg: 'linear-gradient(180deg, #b91c1c 0%, #991b1b 100%)',
     labelColor: '#fff',
+    labelBorder: '#7f1d1d',
+    caseBg: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 50%, rgba(0,0,0,0.1) 100%)',
+    caseEdge: '#d1d5db',
+    accentColor: '#dc2626',
+    gradeStyle: { fontSize: 22, fontWeight: 900 },
+    certPrefix: 'Cert #',
   },
   bgs: {
     name: 'BGS',
-    bgColor: '#1a1a1a',
-    borderColor: '#000',
-    labelBg: '#000',
-    labelColor: '#ffd700',
+    fullName: 'Beckett Grading Services',
+    // BGS: Black label with gold accents (for high grades), or silver
+    labelBg: 'linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%)',
+    labelColor: '#fbbf24',
+    labelBorder: '#374151',
+    caseBg: 'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 50%, rgba(0,0,0,0.15) 100%)',
+    caseEdge: '#9ca3af',
+    accentColor: '#fbbf24',
+    gradeStyle: { fontSize: 20, fontWeight: 800 },
+    hasSubgrades: true,
+    certPrefix: '',
   },
   cgc: {
     name: 'CGC',
-    bgColor: '#1a1a1a',
-    borderColor: '#1e90ff',
-    labelBg: '#1e90ff',
+    fullName: 'Certified Guaranty Company',
+    // CGC: Blue label, clean modern look
+    labelBg: 'linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%)',
     labelColor: '#fff',
+    labelBorder: '#1e3a8a',
+    caseBg: 'linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.05) 50%, rgba(0,0,0,0.08) 100%)',
+    caseEdge: '#e5e7eb',
+    accentColor: '#3b82f6',
+    gradeStyle: { fontSize: 24, fontWeight: 900 },
+    certPrefix: 'CGC #',
   },
   sgc: {
     name: 'SGC',
-    bgColor: '#1a1a1a',
-    borderColor: '#228b22',
-    labelBg: '#228b22',
+    fullName: 'Sportscard Guaranty',
+    // SGC: Green/teal label with tuxedo case design
+    labelBg: 'linear-gradient(180deg, #047857 0%, #065f46 100%)',
     labelColor: '#fff',
+    labelBorder: '#064e3b',
+    caseBg: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(0,0,0,0.05) 50%, rgba(0,0,0,0.2) 100%)',
+    caseEdge: '#1f2937',
+    accentColor: '#10b981',
+    gradeStyle: { fontSize: 22, fontWeight: 800 },
+    certPrefix: 'SGC ',
   },
   tag: {
     name: 'TAG',
-    bgColor: '#1a1a1a',
-    borderColor: '#6366f1',
-    labelBg: '#6366f1',
+    fullName: 'The Authentication Group',
+    // TAG: Purple/indigo modern design
+    labelBg: 'linear-gradient(180deg, #6366f1 0%, #4f46e5 100%)',
     labelColor: '#fff',
+    labelBorder: '#4338ca',
+    caseBg: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(99,102,241,0.05) 50%, rgba(0,0,0,0.1) 100%)',
+    caseEdge: '#c7d2fe',
+    accentColor: '#818cf8',
+    gradeStyle: { fontSize: 24, fontWeight: 900, letterSpacing: '0.05em' },
+    certPrefix: 'TAG-',
   },
 };
+
+// Card edge color (white cardstock)
+const CARD_EDGE_COLOR = '#f5f5f0';
 
 export function CardViewer3D({
   frontImage,
@@ -57,6 +92,9 @@ export function CardViewer3D({
   grade = null,
   gradeLabel = null,
   gradingCompany = 'tag',
+  subgrades = null,
+  certNumber = null,
+  cardName = null,
   onClose,
   style = {},
 }) {
@@ -107,6 +145,12 @@ export function CardViewer3D({
 
   const slabTemplate = SLAB_TEMPLATES[gradingCompany] || SLAB_TEMPLATES.tag;
 
+  // Card dimensions
+  const cardWidth = viewMode === 'slab' ? 200 : 250;
+  const cardHeight = viewMode === 'slab' ? 280 : 350;
+  const cardThickness = 3; // Thickness in pixels for 3D edge effect
+  const slabThickness = viewMode === 'slab' ? 8 : 0;
+
   return (
     <div style={{
       display: 'flex',
@@ -135,7 +179,7 @@ export function CardViewer3D({
             transition: 'all .2s',
           }}
         >
-          Card View
+          Raw Card
         </button>
         <button
           onClick={() => setViewMode('slab')}
@@ -143,7 +187,7 @@ export function CardViewer3D({
             padding: '8px 16px',
             borderRadius: 8,
             border: 'none',
-            background: viewMode === 'slab' ? '#6366f1' : '#1a1c22',
+            background: viewMode === 'slab' ? slabTemplate.accentColor : '#1a1c22',
             color: viewMode === 'slab' ? '#fff' : '#666',
             fontFamily: mono,
             fontSize: 11,
@@ -151,11 +195,11 @@ export function CardViewer3D({
             transition: 'all .2s',
           }}
         >
-          Slab Preview
+          {slabTemplate.name} Slab
         </button>
       </div>
 
-      {/* 3D Card Container */}
+      {/* 3D Card/Slab Container */}
       <div
         ref={containerRef}
         onMouseDown={onMouseDown}
@@ -167,15 +211,15 @@ export function CardViewer3D({
         onTouchEnd={onTouchEnd}
         onClick={handleTap}
         style={{
-          perspective: '1000px',
+          perspective: '1200px',
           cursor: isDragging ? 'grabbing' : 'grab',
           userSelect: 'none',
         }}
       >
         <div style={{
           position: 'relative',
-          width: viewMode === 'slab' ? 280 : 250,
-          height: viewMode === 'slab' ? 420 : 350,
+          width: viewMode === 'slab' ? 240 : cardWidth,
+          height: viewMode === 'slab' ? 380 : cardHeight,
           transformStyle: 'preserve-3d',
           transform: `rotateY(${rotateY}deg)`,
           transition: isDragging ? 'none' : 'transform 0.6s ease-out',
@@ -188,29 +232,39 @@ export function CardViewer3D({
             backfaceVisibility: 'hidden',
             borderRadius: viewMode === 'slab' ? 12 : 8,
             overflow: 'hidden',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+            boxShadow: '0 15px 50px rgba(0,0,0,0.5)',
           }}>
             {viewMode === 'slab' ? (
-              <SlabView
+              <RealisticSlabView
                 cardImage={frontImage}
                 template={slabTemplate}
                 grade={grade}
                 gradeLabel={gradeLabel}
+                subgrades={subgrades}
+                certNumber={certNumber}
+                cardName={cardName}
                 side="front"
               />
             ) : (
-              <img
-                src={frontImage}
-                alt="Card front"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                }}
-                draggable={false}
-              />
+              <Card3D image={frontImage} thickness={cardThickness} side="front" />
             )}
           </div>
+
+          {/* Card/Slab Edge (visible during rotation) */}
+          {cardThickness > 0 && (
+            <div style={{
+              position: 'absolute',
+              width: cardThickness + slabThickness,
+              height: '100%',
+              left: '100%',
+              transformOrigin: 'left center',
+              transform: 'rotateY(90deg)',
+              background: viewMode === 'slab'
+                ? `linear-gradient(180deg, ${slabTemplate.caseEdge} 0%, #999 50%, ${slabTemplate.caseEdge} 100%)`
+                : `linear-gradient(180deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
+              borderRadius: '0 2px 2px 0',
+            }} />
+          )}
 
           {/* Back Face */}
           <div style={{
@@ -221,27 +275,21 @@ export function CardViewer3D({
             transform: 'rotateY(180deg)',
             borderRadius: viewMode === 'slab' ? 12 : 8,
             overflow: 'hidden',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+            boxShadow: '0 15px 50px rgba(0,0,0,0.5)',
           }}>
             {viewMode === 'slab' ? (
-              <SlabView
+              <RealisticSlabView
                 cardImage={backImage}
                 template={slabTemplate}
                 grade={grade}
                 gradeLabel={gradeLabel}
+                subgrades={subgrades}
+                certNumber={certNumber}
+                cardName={cardName}
                 side="back"
               />
             ) : (
-              <img
-                src={backImage}
-                alt="Card back"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                }}
-                draggable={false}
-              />
+              <Card3D image={backImage} thickness={cardThickness} side="back" />
             )}
           </div>
         </div>
@@ -296,7 +344,6 @@ export function CardViewer3D({
         </button>
         <button
           onClick={() => {
-            // Spin animation
             let angle = rotateY;
             const spin = setInterval(() => {
               angle += 10;
@@ -326,87 +373,217 @@ export function CardViewer3D({
 }
 
 /**
- * Slab View - Shows card inside a graded slab mockup
+ * Card3D - Raw card with thickness effect
  */
-function SlabView({ cardImage, template, grade, gradeLabel, side }) {
+function Card3D({ image, thickness, side }) {
   return (
     <div style={{
       width: '100%',
       height: '100%',
-      background: template.bgColor,
+      position: 'relative',
+      background: CARD_EDGE_COLOR,
+    }}>
+      {/* Card image */}
+      <img
+        src={image}
+        alt={`Card ${side}`}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
+        }}
+        draggable={false}
+      />
+      {/* Subtle gloss overlay */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%, rgba(0,0,0,0.05) 100%)',
+        pointerEvents: 'none',
+      }} />
+    </div>
+  );
+}
+
+/**
+ * RealisticSlabView - Authentic grading slab mockup
+ */
+function RealisticSlabView({ cardImage, template, grade, gradeLabel, subgrades, certNumber, cardName, side }) {
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      background: template.caseBg,
       display: 'flex',
       flexDirection: 'column',
-      padding: 8,
-      boxSizing: 'border-box',
+      position: 'relative',
+      border: `2px solid ${template.caseEdge}`,
+      borderRadius: 10,
+      overflow: 'hidden',
     }}>
-      {/* Slab Label */}
+      {/* Clear plastic case effect */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 30%, transparent 70%, rgba(255,255,255,0.1) 100%)',
+        pointerEvents: 'none',
+        zIndex: 10,
+      }} />
+
+      {/* Top Label */}
       <div style={{
         background: template.labelBg,
-        borderRadius: '8px 8px 0 0',
-        padding: '8px 12px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        padding: '10px 12px 8px',
+        borderBottom: `2px solid ${template.labelBorder}`,
+        position: 'relative',
       }}>
-        <span style={{
-          fontFamily: sans,
-          fontSize: 12,
-          fontWeight: 700,
-          color: template.labelColor,
+        {/* Company Name */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: 4,
         }}>
-          {template.name}
-        </span>
-        {grade && (
-          <span style={{
-            fontFamily: mono,
-            fontSize: 16,
-            fontWeight: 800,
-            color: template.labelColor,
+          <div>
+            <div style={{
+              fontFamily: sans,
+              fontSize: 14,
+              fontWeight: 800,
+              color: template.labelColor,
+              letterSpacing: '0.05em',
+            }}>
+              {template.name}
+            </div>
+            {cardName && (
+              <div style={{
+                fontFamily: sans,
+                fontSize: 8,
+                color: template.labelColor,
+                opacity: 0.8,
+                marginTop: 2,
+                maxWidth: 120,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {cardName}
+              </div>
+            )}
+          </div>
+          {/* Grade Display */}
+          {grade && (
+            <div style={{
+              background: 'rgba(255,255,255,0.15)',
+              borderRadius: 6,
+              padding: '4px 10px',
+              textAlign: 'center',
+            }}>
+              <div style={{
+                fontFamily: mono,
+                color: template.labelColor,
+                ...template.gradeStyle,
+              }}>
+                {grade}
+              </div>
+              {gradeLabel && (
+                <div style={{
+                  fontFamily: mono,
+                  fontSize: 7,
+                  color: template.labelColor,
+                  opacity: 0.9,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                }}>
+                  {gradeLabel}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* BGS Subgrades (if applicable) */}
+        {template.hasSubgrades && subgrades && (
+          <div style={{
+            display: 'flex',
+            gap: 8,
+            marginTop: 6,
+            justifyContent: 'center',
           }}>
-            {grade}
-          </span>
+            {[
+              { key: 'centering', label: 'CEN' },
+              { key: 'corners', label: 'COR' },
+              { key: 'edges', label: 'EDG' },
+              { key: 'surface', label: 'SUR' },
+            ].map(({ key, label }) => (
+              <div key={key} style={{
+                background: 'rgba(0,0,0,0.3)',
+                borderRadius: 3,
+                padding: '2px 6px',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontFamily: mono, fontSize: 7, color: '#888' }}>{label}</div>
+                <div style={{ fontFamily: mono, fontSize: 10, color: template.labelColor, fontWeight: 700 }}>
+                  {subgrades[key] ? (subgrades[key] / 100).toFixed(1) : '-'}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Card Window */}
+      {/* Card Window (clear plastic area) */}
       <div style={{
         flex: 1,
-        background: '#000',
-        borderLeft: `3px solid ${template.borderColor}`,
-        borderRight: `3px solid ${template.borderColor}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 8,
+        padding: 12,
+        background: 'rgba(0,0,0,0.02)',
+        position: 'relative',
       }}>
-        <img
-          src={cardImage}
-          alt={`Card ${side}`}
-          style={{
-            maxWidth: '100%',
-            maxHeight: '100%',
-            objectFit: 'contain',
-            borderRadius: 4,
-          }}
-          draggable={false}
-        />
+        {/* Inner holder */}
+        <div style={{
+          width: '90%',
+          height: '92%',
+          background: '#000',
+          borderRadius: 4,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 4,
+          boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.3)',
+        }}>
+          <img
+            src={cardImage}
+            alt={`Card ${side}`}
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+              borderRadius: 3,
+            }}
+            draggable={false}
+          />
+        </div>
       </div>
 
       {/* Bottom Label */}
       <div style={{
         background: template.labelBg,
-        borderRadius: '0 0 8px 8px',
         padding: '6px 12px',
+        borderTop: `2px solid ${template.labelBorder}`,
         textAlign: 'center',
       }}>
-        <span style={{
+        <div style={{
           fontFamily: mono,
-          fontSize: 9,
+          fontSize: 8,
           color: template.labelColor,
-          opacity: 0.8,
+          opacity: 0.9,
+          letterSpacing: '0.1em',
         }}>
-          {gradeLabel || 'GRADE PREVIEW'}
-        </span>
+          {certNumber ? `${template.certPrefix}${certNumber}` : template.fullName}
+        </div>
       </div>
     </div>
   );
