@@ -446,14 +446,32 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
       ? await compressImageForAPI(backImageDataUrl)
       : null;
 
+    // If we have both images, stitch them side-by-side for a single Claude call
+    // This halves the API cost (~$0.02-0.05 instead of ~$0.04-0.10)
+    let imageToSend = compressedFront;
+    let stitchInfo = null;
+
+    if (compressedBack) {
+      console.log('[Unified AI] Stitching front + back for single Claude call...');
+      const stitched = await stitchImages(compressedFront, compressedBack);
+      imageToSend = stitched.dataUrl;
+      stitchInfo = {
+        frontWidth: stitched.frontWidth,
+        backWidth: stitched.backWidth,
+        splitPoint: stitched.splitPoint,
+        height: stitched.height,
+      };
+      console.log(`[Unified AI] Stitched: ${stitchInfo.frontWidth} + ${stitchInfo.backWidth}px`);
+    }
+
     const response = await fetch('/api/ai-analyze', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        frontImage: compressedFront,
-        backImage: compressedBack,
+        image: imageToSend,
+        stitchInfo: stitchInfo, // null if front-only, object if stitched
         cardType,
       }),
       signal: controller.signal,
@@ -484,82 +502,79 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
     // Log what Claude returned for debugging
     console.log('[Unified AI] Raw analysis structure:', {
       hasFront: !!analysis.front,
-      hasBoundingBox: !!analysis.front?.boundingBox,
-      boundingBox: analysis.front?.boundingBox,
-      rotationAngle: analysis.front?.rotationAngle,
+      hasBack: !!analysis.back,
+      frontBoundingBox: analysis.front?.boundingBox,
+      backBoundingBox: analysis.back?.boundingBox,
       hasCardInfo: !!analysis.cardInfo,
-      hasCondition: !!analysis.condition,
+      stitchInfo: stitchInfo,
     });
 
-    // Apply cropping and rotation client-side based on Claude's coordinates
-    // IMPORTANT: Use the COMPRESSED images for cropping since Claude's coordinates
-    // are relative to the compressed 1500px image, not the original
-    let croppedFront = compressedFront; // Default to compressed
-    let croppedBack = compressedBack; // Default to compressed
+    // Apply cropping based on Claude's coordinates
+    let croppedFront = compressedFront;
+    let croppedBack = compressedBack;
 
-    // Try to crop front image if we have valid bounding box
+    // Crop FRONT image
     if (analysis.front?.boundingBox) {
       try {
         const bb = analysis.front.boundingBox;
         console.log('[Unified AI] Front bounding box:', JSON.stringify(bb));
 
-        // Validate bounding box has required properties
         if (bb.topLeft?.x != null && bb.topRight?.x != null &&
             bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
+          // Front coordinates are already correct (front is at x=0 in stitched image)
           croppedFront = await cropAndRotateCard(
-            compressedFront, // Use compressed image - coordinates match!
+            compressedFront,
             bb,
             analysis.front.rotationAngle || 0
           );
           console.log('[Unified AI] Front image cropped successfully');
-        } else {
-          console.warn('[Unified AI] Invalid bounding box format:', bb);
-          console.warn('[Unified AI] Using compressed image');
         }
       } catch (cropError) {
         console.error('[Unified AI] Failed to crop front image:', cropError.message);
-        croppedFront = compressedFront; // Fallback to compressed
       }
-    } else {
-      console.warn('[Unified AI] No bounding box in response, using compressed image');
     }
 
-    // For back image: Claude only analyzes front, so we need to use front's box
-    // as a template (cards are same size) or make a separate call
-    if (compressedBack) {
-      if (analysis.back?.boundingBox) {
-        // If we have back-specific coordinates (from a dual analysis)
-        try {
-          const bb = analysis.back.boundingBox;
-          console.log('[Unified AI] Back bounding box:', JSON.stringify(bb));
-          if (bb.topLeft?.x != null && bb.topRight?.x != null &&
-              bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
-            croppedBack = await cropAndRotateCard(
-              compressedBack,
-              bb,
-              analysis.back.rotationAngle || 0
-            );
-            console.log('[Unified AI] Back image cropped successfully');
-          }
-        } catch (cropError) {
-          console.error('[Unified AI] Failed to crop back image:', cropError);
-          croppedBack = compressedBack;
-        }
-      } else if (analysis.front?.boundingBox) {
-        // Use front bounding box as template for back (same card dimensions)
-        // This is an approximation - works if photos are taken similarly
-        try {
-          console.log('[Unified AI] Using front bounding box for back crop');
+    // Crop BACK image
+    if (compressedBack && analysis.back?.boundingBox) {
+      try {
+        const bb = analysis.back.boundingBox;
+        console.log('[Unified AI] Back bounding box (raw):', JSON.stringify(bb));
+
+        if (bb.topLeft?.x != null && bb.topRight?.x != null &&
+            bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
+
+          // Back coordinates are relative to STITCHED image
+          // Need to subtract frontWidth to get coordinates for individual back image
+          const offsetX = stitchInfo?.frontWidth || 0;
+          const adjustedBb = {
+            topLeft: { x: bb.topLeft.x - offsetX, y: bb.topLeft.y },
+            topRight: { x: bb.topRight.x - offsetX, y: bb.topRight.y },
+            bottomLeft: { x: bb.bottomLeft.x - offsetX, y: bb.bottomLeft.y },
+            bottomRight: { x: bb.bottomRight.x - offsetX, y: bb.bottomRight.y },
+          };
+          console.log('[Unified AI] Back bounding box (adjusted):', JSON.stringify(adjustedBb));
+
           croppedBack = await cropAndRotateCard(
             compressedBack,
-            analysis.front.boundingBox,
-            analysis.front.rotationAngle || 0
+            adjustedBb,
+            analysis.back.rotationAngle || 0
           );
-          console.log('[Unified AI] Back image cropped using front template');
-        } catch (cropError) {
-          console.error('[Unified AI] Failed to crop back with front template:', cropError);
-          croppedBack = compressedBack;
+          console.log('[Unified AI] Back image cropped successfully');
         }
+      } catch (cropError) {
+        console.error('[Unified AI] Failed to crop back image:', cropError.message);
+      }
+    } else if (compressedBack && analysis.front?.boundingBox) {
+      // Fallback: use front bounding box as template
+      console.log('[Unified AI] No back bounding box, using front as template');
+      try {
+        croppedBack = await cropAndRotateCard(
+          compressedBack,
+          analysis.front.boundingBox,
+          analysis.front.rotationAngle || 0
+        );
+      } catch (cropError) {
+        console.error('[Unified AI] Failed to crop back with template:', cropError.message);
       }
     }
 

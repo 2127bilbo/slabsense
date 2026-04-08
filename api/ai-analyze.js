@@ -39,24 +39,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { frontImage, backImage, cardType = 'pokemon' } = req.body;
+    const { image, stitchInfo, cardType = 'pokemon' } = req.body;
 
-    if (!frontImage) {
-      return res.status(400).json({ error: 'No front image provided' });
+    if (!image) {
+      return res.status(400).json({ error: 'No image provided' });
     }
 
+    const isStitched = !!stitchInfo;
     console.log('[Claude Vision] Analyzing card via Replicate...');
-    console.log('[Claude Vision] Has back image:', !!backImage);
+    console.log('[Claude Vision] Stitched (front+back):', isStitched);
+    if (isStitched) {
+      console.log(`[Claude Vision] Layout: front=${stitchInfo.frontWidth}px, back=${stitchInfo.backWidth}px`);
+    }
 
     // Build the comprehensive analysis prompt
-    const prompt = buildUnifiedPrompt(cardType, !!backImage);
-
-    // For Claude on Replicate, we pass the image directly
-    // If we have both front and back, we'll describe them in the prompt
-    // and pass the front image (Claude can analyze one image at a time on Replicate)
-
-    // Use the front image for analysis
-    const imageInput = frontImage;
+    const prompt = buildUnifiedPrompt(cardType, isStitched, stitchInfo);
 
     // Call Claude via Replicate using the models endpoint
     const apiUrl = `https://api.replicate.com/v1/models/${CLAUDE_MODEL}/predictions`;
@@ -72,7 +69,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         input: {
           prompt: prompt,
-          image: imageInput,
+          image: image,
           max_tokens: 4096,
           temperature: 0.1, // Low temperature for consistent structured output
         }
@@ -145,55 +142,7 @@ export default async function handler(req, res) {
       analysisResult = { raw: responseText, parseError: parseError.message };
     }
 
-    // Analyze back image with a second Claude call if provided
-    if (backImage) {
-      console.log('[Claude] Analyzing back image...');
-      try {
-        const backPrompt = buildBackImagePrompt();
-
-        const backResponse = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'wait',
-          },
-          body: JSON.stringify({
-            input: {
-              prompt: backPrompt,
-              image: backImage,
-              max_tokens: 2048,
-              temperature: 0.1,
-            }
-          }),
-        });
-
-        if (backResponse.ok) {
-          let backPrediction = await backResponse.json();
-
-          if (backPrediction.status === 'starting' || backPrediction.status === 'processing') {
-            backPrediction = await pollForResult(backPrediction.urls.get, REPLICATE_API_TOKEN);
-          }
-
-          if (backPrediction.status === 'succeeded') {
-            const backText = Array.isArray(backPrediction.output)
-              ? backPrediction.output.join('')
-              : backPrediction.output;
-
-            const backJsonMatch = backText.match(/\{[\s\S]*\}/);
-            if (backJsonMatch) {
-              const backAnalysis = JSON.parse(backJsonMatch[0]);
-              analysisResult.back = backAnalysis.back || backAnalysis;
-              console.log('[Claude] Back image analyzed successfully');
-            }
-          }
-        }
-      } catch (backError) {
-        console.error('[Claude] Back image analysis failed:', backError.message);
-        // Continue without back analysis - front is more important
-      }
-    }
-
+    // Include stitch info in response so client can split coordinates
     return res.status(200).json({
       success: true,
       analysis: analysisResult,
@@ -241,60 +190,19 @@ async function pollForResult(url, token, maxAttempts = 45) {
   return { status: 'failed', error: 'Timeout waiting for Claude response (90s)' };
 }
 
-function buildUnifiedPrompt(cardType, hasBack) {
-  return `You are an expert trading card analyst and professional grader. Analyze this ${cardType} card image with EXTREME PRECISION.
+function buildUnifiedPrompt(cardType, isStitched, stitchInfo) {
+  // Build layout description for stitched images
+  const layoutDesc = isStitched
+    ? `
+**IMAGE LAYOUT:** This image contains TWO cards side-by-side:
+- LEFT SIDE (x: 0 to ${stitchInfo?.frontWidth || 'half'}): FRONT of the card
+- RIGHT SIDE (x: ${stitchInfo?.frontWidth || 'half'} to end): BACK of the card
 
-${hasBack ? 'NOTE: You are analyzing the FRONT of the card. The back will be analyzed separately.' : ''}
+You MUST provide bounding boxes for BOTH cards. All coordinates are ABSOLUTE (relative to the full image).`
+    : '';
 
-## YOUR TASKS:
-
-### 1. CARD BOUNDARY DETECTION
-Find the EXACT card boundaries in the image. The card may be rotated or tilted.
-- Identify all 4 corners of the card precisely (in pixels)
-- Calculate the rotation angle needed to make the card perfectly straight (degrees)
-- Provide the bounding box coordinates
-
-### 2. CENTERING ANALYSIS
-Measure the border widths on all 4 sides (space between card edge and printed area):
-- Left border width in pixels
-- Right border width in pixels
-- Top border width in pixels
-- Bottom border width in pixels
-- Calculate centering ratios (e.g., "60/40" for left-right)
-
-### 3. CARD INFORMATION (OCR)
-Read ALL visible text:
-- Pokemon/Character name
-- HP value
-- Card number (e.g., "025/198" or "SV049")
-- Set name
-- Rarity (Common/Uncommon/Rare/Holo/Ultra Rare/Secret Rare/etc.)
-- Year/Copyright
-- Special variants (Full Art/Alt Art/Rainbow/Gold/etc.)
-
-### 4. CONDITION ASSESSMENT
-Score each category from 1-10 (10 = perfect, 9 = near mint, 8 = light wear, etc.):
-- Corners: Check for whitening, bends, dings
-- Edges: Check for whitening, chips, roughness
-- Surface: Check for scratches, print lines, holo scratches, fingerprints
-- Centering: Based on your border measurements
-
-**CRITICAL - IGNORE PHOTOGRAPHIC ARTIFACTS:**
-- DO NOT count glare, reflections, or lighting artifacts as defects
-- DO NOT count camera flash spots or shine as surface issues
-- DO NOT count shadows from photography setup as defects
-- ONLY count ACTUAL PHYSICAL defects on the card itself
-- If unsure whether something is glare vs a scratch, assume it's glare
-- Holo cards will naturally show rainbow reflections - this is NOT damage
-
-### 5. GRADING NOTES
-- List 2-3 positive aspects
-- List any concerns that would lower the grade
-- Provide your estimated grade (1-10 scale)
-
-## RESPONSE FORMAT - Return ONLY this JSON:
-
-{
+  const responseFormat = isStitched
+    ? `{
   "front": {
     "boundingBox": {
       "topLeft": {"x": 50, "y": 30},
@@ -303,12 +211,57 @@ Score each category from 1-10 (10 = perfect, 9 = near mint, 8 = light wear, etc.
       "bottomRight": {"x": 348, "y": 482}
     },
     "rotationAngle": -0.5,
-    "borders": {
-      "left": 15,
-      "right": 18,
-      "top": 12,
-      "bottom": 14
+    "borders": {"left": 15, "right": 18, "top": 12, "bottom": 14},
+    "centeringLR": "45/55",
+    "centeringTB": "46/54"
+  },
+  "back": {
+    "boundingBox": {
+      "topLeft": {"x": 400, "y": 28},
+      "topRight": {"x": 700, "y": 30},
+      "bottomLeft": {"x": 398, "y": 478},
+      "bottomRight": {"x": 698, "y": 480}
     },
+    "rotationAngle": -0.3,
+    "borders": {"left": 14, "right": 16, "top": 13, "bottom": 15},
+    "centeringLR": "47/53",
+    "centeringTB": "48/52"
+  },
+  "cardInfo": {
+    "name": "Pikachu",
+    "hp": "60",
+    "cardNumber": "025/198",
+    "setName": "Scarlet & Violet Base",
+    "rarity": "Common",
+    "year": "2023",
+    "variant": null,
+    "language": "English"
+  },
+  "condition": {
+    "corners": 9.5,
+    "edges": 9.0,
+    "surface": 9.5,
+    "centering": 8.5,
+    "overall": 9.0,
+    "notes": "Minor edge whitening on top"
+  },
+  "gradingNotes": {
+    "positives": ["Sharp corners", "Clean holo surface"],
+    "concerns": ["Slight off-center to right"],
+    "estimatedGrade": "9.0",
+    "confidence": "high"
+  }
+}`
+    : `{
+  "front": {
+    "boundingBox": {
+      "topLeft": {"x": 50, "y": 30},
+      "topRight": {"x": 350, "y": 32},
+      "bottomLeft": {"x": 48, "y": 480},
+      "bottomRight": {"x": 348, "y": 482}
+    },
+    "rotationAngle": -0.5,
+    "borders": {"left": 15, "right": 18, "top": 12, "bottom": 14},
     "centeringLR": "45/55",
     "centeringTB": "46/54"
   },
@@ -328,22 +281,64 @@ Score each category from 1-10 (10 = perfect, 9 = near mint, 8 = light wear, etc.
     "surface": 9.5,
     "centering": 8.5,
     "overall": 9.0,
-    "notes": "Minor edge whitening on top, slightly off-center to right"
+    "notes": "Minor edge whitening on top"
   },
   "gradingNotes": {
-    "positives": ["Sharp corners", "Clean holo surface", "No scratches"],
-    "concerns": ["Slight off-center to right", "Minor edge wear top"],
+    "positives": ["Sharp corners", "Clean holo surface"],
+    "concerns": ["Slight off-center to right"],
     "estimatedGrade": "9.0",
     "confidence": "high"
   }
-}
+}`;
+
+  return `You are an expert trading card analyst and professional grader. Analyze this ${cardType} card image with EXTREME PRECISION.
+${layoutDesc}
+
+## YOUR TASKS:
+
+### 1. CARD BOUNDARY DETECTION
+Find the EXACT card boundaries in the image. The card(s) may be rotated or tilted.
+- Identify all 4 corners of ${isStitched ? 'EACH card' : 'the card'} precisely (in pixels)
+- Calculate the rotation angle needed to make ${isStitched ? 'each card' : 'the card'} perfectly straight
+- All coordinates are ABSOLUTE pixel positions from the top-left of the image
+
+### 2. CENTERING ANALYSIS
+Measure the border widths on all 4 sides (space between card edge and printed area):
+- Left, Right, Top, Bottom border widths in pixels
+- Calculate centering ratios (e.g., "60/40" for left-right)
+${isStitched ? '- Do this for BOTH front and back cards' : ''}
+
+### 3. CARD INFORMATION (OCR) - From the FRONT
+- Pokemon/Character name
+- HP value
+- Card number (e.g., "025/198" or "SV049")
+- Set name, Rarity, Year, Special variants
+
+### 4. CONDITION ASSESSMENT
+Score each category 1-10 (10 = perfect):
+- Corners, Edges, Surface, Centering
+${isStitched ? '- Assess BOTH sides of the card' : ''}
+
+**CRITICAL - IGNORE PHOTOGRAPHIC ARTIFACTS:**
+- DO NOT count glare, reflections, or lighting as defects
+- DO NOT count camera flash spots or shine as surface issues
+- ONLY count ACTUAL PHYSICAL defects on the card
+- Holo reflections are NOT damage
+
+### 5. GRADING NOTES
+- List positives and concerns
+- Estimated grade (1-10 scale)
+
+## RESPONSE FORMAT - Return ONLY this JSON:
+
+${responseFormat}
 
 CRITICAL RULES:
-- All coordinates are in PIXELS
-- Rotation angle is in DEGREES (positive = clockwise needed)
+- All coordinates are in PIXELS (absolute from image top-left)
+- Rotation angle in DEGREES (positive = clockwise needed)
 - Return ONLY valid JSON, no other text
-- Use null for values you cannot determine
-- Be PRECISE - these coordinates will be used for automated cropping`;
+- Be PRECISE - coordinates are used for automated cropping
+${isStitched ? '- MUST include both "front" and "back" bounding boxes' : ''}`;
 }
 
 function buildBackImagePrompt() {
