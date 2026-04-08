@@ -362,6 +362,203 @@ export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
 }
 
 /**
+ * UNIFIED AI CARD ANALYSIS - Single Claude call does EVERYTHING
+ * - Card boundary detection with precise coordinates
+ * - Rotation/deskew angle detection
+ * - Border measurements for centering (front & back)
+ * - Card info extraction (OCR)
+ * - Condition assessment with numeric scores
+ * - Grading notes
+ *
+ * Uses Claude Sonnet 4 via Replicate (your prepaid balance)
+ * Cost: ~$0.02-0.05 per card
+ *
+ * @param {string} frontImageDataUrl - Front card image
+ * @param {string} backImageDataUrl - Back card image (optional)
+ * @param {string} cardType - 'pokemon' | 'sports'
+ * @returns {Promise<object>} Complete analysis with cropped images
+ */
+export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = null, cardType = 'pokemon') {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout
+
+  try {
+    console.log('[Unified AI] Starting comprehensive analysis via Claude...');
+
+    const response = await fetch('/api/ai-analyze', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        frontImage: frontImageDataUrl,
+        backImage: backImageDataUrl,
+        cardType,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || `API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (!result.success || !result.analysis) {
+      throw new Error('AI analysis returned no data');
+    }
+
+    console.log('[Unified AI] Claude analysis complete, processing images...');
+
+    const analysis = result.analysis;
+
+    // Apply cropping and rotation client-side based on Claude's coordinates
+    let croppedFront = null;
+    let croppedBack = null;
+
+    if (analysis.front?.boundingBox) {
+      croppedFront = await cropAndRotateCard(
+        frontImageDataUrl,
+        analysis.front.boundingBox,
+        analysis.front.rotationAngle || 0
+      );
+    }
+
+    if (backImageDataUrl && analysis.back?.boundingBox) {
+      croppedBack = await cropAndRotateCard(
+        backImageDataUrl,
+        analysis.back.boundingBox,
+        analysis.back.rotationAngle || 0
+      );
+    }
+
+    return {
+      success: true,
+      // Cropped/rotated images ready for display
+      croppedFront: croppedFront || frontImageDataUrl,
+      croppedBack: croppedBack || backImageDataUrl,
+      // Card info from OCR
+      cardInfo: analysis.cardInfo || null,
+      // Centering data
+      centering: {
+        front: {
+          lr: analysis.front?.centeringLR || '50/50',
+          tb: analysis.front?.centeringTB || '50/50',
+          borders: analysis.front?.borders || null,
+        },
+        back: analysis.back ? {
+          lr: analysis.back?.centeringLR || '50/50',
+          tb: analysis.back?.centeringTB || '50/50',
+          borders: analysis.back?.borders || null,
+        } : null,
+      },
+      // Condition assessment
+      condition: analysis.condition || null,
+      // Grading notes
+      gradingNotes: analysis.gradingNotes || null,
+      // Raw analysis for debugging
+      rawAnalysis: analysis,
+      model: result.model,
+    };
+
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('AI analysis timed out - please try again');
+    }
+    console.error('[Unified AI] Error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Crop and rotate card image based on Claude's detected coordinates
+ * @param {string} imageDataUrl - Original image
+ * @param {object} boundingBox - {topLeft, topRight, bottomLeft, bottomRight} with {x, y}
+ * @param {number} rotationAngle - Degrees to rotate (positive = clockwise)
+ * @returns {Promise<string>} Cropped and rotated image data URL
+ */
+async function cropAndRotateCard(imageDataUrl, boundingBox, rotationAngle = 0) {
+  const img = await loadImageFromUrl(imageDataUrl);
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Calculate card dimensions from bounding box
+  const { topLeft, topRight, bottomLeft, bottomRight } = boundingBox;
+
+  // Calculate width and height from corners
+  const width = Math.sqrt(
+    Math.pow(topRight.x - topLeft.x, 2) + Math.pow(topRight.y - topLeft.y, 2)
+  );
+  const height = Math.sqrt(
+    Math.pow(bottomLeft.x - topLeft.x, 2) + Math.pow(bottomLeft.y - topLeft.y, 2)
+  );
+
+  // Standard card aspect ratio is 2.5:3.5
+  const standardRatio = 2.5 / 3.5;
+  let finalWidth = Math.round(width);
+  let finalHeight = Math.round(height);
+
+  // Adjust to standard ratio if close
+  const currentRatio = finalWidth / finalHeight;
+  if (Math.abs(currentRatio - standardRatio) < 0.1) {
+    finalHeight = Math.round(finalWidth / standardRatio);
+  }
+
+  canvas.width = finalWidth;
+  canvas.height = finalHeight;
+
+  // Clear with white background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, finalWidth, finalHeight);
+
+  // Apply perspective transform using the 4 corners
+  // For simplicity, we'll use a basic crop + rotation approach
+  // A full perspective transform would need a matrix library
+
+  ctx.save();
+
+  // Move to center, rotate, move back
+  if (Math.abs(rotationAngle) > 0.1) {
+    const centerX = finalWidth / 2;
+    const centerY = finalHeight / 2;
+    ctx.translate(centerX, centerY);
+    ctx.rotate((rotationAngle * Math.PI) / 180);
+    ctx.translate(-centerX, -centerY);
+  }
+
+  // Calculate source rectangle (use top-left corner as origin)
+  const srcX = Math.min(topLeft.x, bottomLeft.x);
+  const srcY = Math.min(topLeft.y, topRight.y);
+  const srcWidth = Math.max(topRight.x, bottomRight.x) - srcX;
+  const srcHeight = Math.max(bottomLeft.y, bottomRight.y) - srcY;
+
+  // Add small padding to ensure we capture full card (4%)
+  const padX = srcWidth * 0.02;
+  const padY = srcHeight * 0.02;
+
+  ctx.drawImage(
+    img,
+    srcX - padX,
+    srcY - padY,
+    srcWidth + padX * 2,
+    srcHeight + padY * 2,
+    0,
+    0,
+    finalWidth,
+    finalHeight
+  );
+
+  ctx.restore();
+
+  return canvas.toDataURL('image/jpeg', 0.95);
+}
+
+/**
  * Stitch two images side by side for dual-card detection
  * @param {string} frontDataUrl - Front card image
  * @param {string} backDataUrl - Back card image

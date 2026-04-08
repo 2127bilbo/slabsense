@@ -7,7 +7,7 @@ import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan } from "./services/scans.js";
-import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards, analyzeCardWithVision } from "./services/api.js";
+import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards, analyzeCardWithVision, unifiedCardAnalysis } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 
 /* ═══════════════════════════════════════════
@@ -2500,44 +2500,49 @@ export default function SlabSense(){
     }
   };
 
-  // AI-Enhance cards + OCR extraction - single button for full AI processing ($0.03)
-  // 1. Crops both cards with SAM 2 for clean 3D display
-  // 2. Extracts card info (name, set, number) via OCR
-  // Does NOT replace analysis images - original photos needed for centering detection
+  // AI-Enhance cards - SINGLE Claude call does EVERYTHING via Replicate
+  // - Card boundary detection + rotation correction
+  // - Perfect cropping with coordinates
+  // - Border measurements for centering
+  // - Card info extraction (OCR)
+  // - Condition assessment + grading notes
+  // Cost: ~$0.02-0.05 per card (uses your Replicate prepaid balance)
   const handleEnhanceCards = async () => {
     if (!fI || !bI) return;
     setEnhancingStatus('enhancing');
     setExtractingInfo(true);
     try {
-      // Step 1: AI crop both cards
-      console.log('Starting AI card enhancement...');
-      setProg('AI detecting card boundaries...');
-      const result = await detectAndCropBothCards(fI, bI);
+      console.log('Starting unified AI analysis via Claude...');
+      setProg('AI analyzing card (detection + OCR + grading)...');
+
+      // Single Claude call does everything
+      const result = await unifiedCardAnalysis(fI, bI, 'pokemon');
 
       if (result.success) {
-        const enhancedFront = result.front.croppedCard;
-        const enhancedBack = result.back.croppedCard;
-
-        // Store enhanced images for 3D viewer
+        // Store cropped/rotated images for 3D viewer
         setEnhancedCards({
-          front: enhancedFront,
-          back: enhancedBack,
+          front: result.croppedFront,
+          back: result.croppedBack,
         });
 
-        // Step 2: Claude Vision AI analysis (card info + condition assessment)
-        setProg('AI analyzing card...');
-        try {
-          const visionResult = await analyzeCardWithVision(enhancedFront, 'pokemon', true);
-          if (visionResult.success && visionResult.analysis) {
-            const { cardInfo: info, condition, gradingNotes } = visionResult.analysis;
-            if (info) setCardInfo(info);
-            if (condition) setAiCondition(condition);
-            if (gradingNotes) setAiGradingNotes(gradingNotes);
-            console.log('AI analysis complete:', info?.name, 'Grade estimate:', gradingNotes?.estimatedGrade);
-          }
-        } catch (aiErr) {
-          console.error('AI analysis failed (continuing anyway):', aiErr);
-          // Don't fail the whole process if AI analysis fails
+        // Card info from OCR
+        if (result.cardInfo) {
+          setCardInfo(result.cardInfo);
+        }
+
+        // Condition assessment
+        if (result.condition) {
+          setAiCondition(result.condition);
+        }
+
+        // Grading notes
+        if (result.gradingNotes) {
+          setAiGradingNotes(result.gradingNotes);
+        }
+
+        // Log centering data (could be used for verification)
+        if (result.centering) {
+          console.log('AI Centering:', result.centering);
         }
 
         setEnhancingStatus('done');
@@ -2545,16 +2550,16 @@ export default function SlabSense(){
         setProg('');
         setShow3DViewer(true); // Auto-open 3D viewer
 
-        console.log('AI enhancement + analysis complete');
+        console.log('AI analysis complete:', result.cardInfo?.name, 'Grade:', result.gradingNotes?.estimatedGrade);
       } else {
-        console.error('Enhancement failed:', result.error);
+        console.error('AI analysis failed:', result.error);
         setEnhancingStatus('error');
         setExtractingInfo(false);
         setProg('');
         setTimeout(() => setEnhancingStatus(null), 3000);
       }
     } catch (err) {
-      console.error('Error enhancing cards:', err);
+      console.error('Error in AI analysis:', err);
       setEnhancingStatus('error');
       setExtractingInfo(false);
       setProg('');
