@@ -7,7 +7,7 @@ import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan } from "./services/scans.js";
-import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards, extractCardInfo } from "./services/api.js";
+import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards, analyzeCardWithVision } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 
 /* ═══════════════════════════════════════════
@@ -2319,8 +2319,10 @@ export default function SlabSense(){
   const[enhancedCards,setEnhancedCards]=useState(null); // { front, back } - AI cropped cards
   const[enhancingStatus,setEnhancingStatus]=useState(null); // 'enhancing' | 'done' | 'error' | null
   const[show3DViewer,setShow3DViewer]=useState(false); // 3D viewer modal visibility
-  const[cardInfo,setCardInfo]=useState(null); // OCR extracted: { name, cardNumber, setName, etc. }
-  const[extractingInfo,setExtractingInfo]=useState(false); // OCR in progress
+  const[cardInfo,setCardInfo]=useState(null); // Card info: { name, cardNumber, setName, etc. }
+  const[aiCondition,setAiCondition]=useState(null); // AI condition assessment: { overall, corners, edges, surface, notes }
+  const[aiGradingNotes,setAiGradingNotes]=useState(null); // AI grading notes: { positives, concerns, estimatedGrade }
+  const[extractingInfo,setExtractingInfo]=useState(false); // AI analysis in progress
 
   // Auth hook
   const auth = useAuth();
@@ -2432,7 +2434,7 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setExtractingInfo(false);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setExtractingInfo(false);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -2522,17 +2524,20 @@ export default function SlabSense(){
           back: enhancedBack,
         });
 
-        // Step 2: OCR extract card info from the clean cropped image
-        setProg('Reading card text (OCR)...');
+        // Step 2: Claude Vision AI analysis (card info + condition assessment)
+        setProg('AI analyzing card...');
         try {
-          const ocrResult = await extractCardInfo(enhancedFront, 'pokemon');
-          if (ocrResult.success && ocrResult.cardInfo) {
-            setCardInfo(ocrResult.cardInfo);
-            console.log('Card info extracted:', ocrResult.cardInfo);
+          const visionResult = await analyzeCardWithVision(enhancedFront, 'pokemon', true);
+          if (visionResult.success && visionResult.analysis) {
+            const { cardInfo: info, condition, gradingNotes } = visionResult.analysis;
+            if (info) setCardInfo(info);
+            if (condition) setAiCondition(condition);
+            if (gradingNotes) setAiGradingNotes(gradingNotes);
+            console.log('AI analysis complete:', info?.name, 'Grade estimate:', gradingNotes?.estimatedGrade);
           }
-        } catch (ocrErr) {
-          console.error('OCR extraction failed (continuing anyway):', ocrErr);
-          // Don't fail the whole process if OCR fails
+        } catch (aiErr) {
+          console.error('AI analysis failed (continuing anyway):', aiErr);
+          // Don't fail the whole process if AI analysis fails
         }
 
         setEnhancingStatus('done');
@@ -2540,7 +2545,7 @@ export default function SlabSense(){
         setProg('');
         setShow3DViewer(true); // Auto-open 3D viewer
 
-        console.log('AI enhancement + OCR complete');
+        console.log('AI enhancement + analysis complete');
       } else {
         console.error('Enhancement failed:', result.error);
         setEnhancingStatus('error');
@@ -2944,6 +2949,132 @@ export default function SlabSense(){
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* AI Condition Assessment & Grading Notes */}
+          {(aiCondition || aiGradingNotes) && (
+            <div style={{
+              padding: 14,
+              background: 'linear-gradient(135deg, #0d0f13 0%, #12141a 100%)',
+              borderRadius: 10,
+              border: '1px solid rgba(139,92,246,0.3)',
+              marginBottom: 16,
+            }}>
+              <div style={{
+                fontFamily: mono,
+                fontSize: 10,
+                color: '#8b5cf6',
+                textTransform: 'uppercase',
+                marginBottom: 12,
+                letterSpacing: '0.05em',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}>
+                <span style={{ fontSize: 14 }}>🤖</span> AI Grading Analysis
+              </div>
+
+              {/* AI Estimated Grade */}
+              {aiGradingNotes?.estimatedGrade && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '10px 12px',
+                  background: 'rgba(139,92,246,0.1)',
+                  borderRadius: 8,
+                  marginBottom: 12,
+                }}>
+                  <span style={{ fontFamily: mono, fontSize: 10, color: '#888' }}>AI Estimated Grade</span>
+                  <span style={{ fontFamily: mono, fontSize: 18, fontWeight: 800, color: '#8b5cf6' }}>
+                    {aiGradingNotes.estimatedGrade}
+                  </span>
+                </div>
+              )}
+
+              {/* Condition Breakdown */}
+              {aiCondition && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontFamily: mono, fontSize: 9, color: '#666', marginBottom: 8 }}>CONDITION BREAKDOWN</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {aiCondition.corners && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#0a0c0f', borderRadius: 6 }}>
+                        <span style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>Corners</span>
+                        <span style={{ fontFamily: mono, fontSize: 10, color: aiCondition.corners >= 9 ? '#00ff88' : aiCondition.corners >= 7 ? '#ffcc00' : '#ff6633' }}>{aiCondition.corners}/10</span>
+                      </div>
+                    )}
+                    {aiCondition.edges && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#0a0c0f', borderRadius: 6 }}>
+                        <span style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>Edges</span>
+                        <span style={{ fontFamily: mono, fontSize: 10, color: aiCondition.edges >= 9 ? '#00ff88' : aiCondition.edges >= 7 ? '#ffcc00' : '#ff6633' }}>{aiCondition.edges}/10</span>
+                      </div>
+                    )}
+                    {aiCondition.surface && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#0a0c0f', borderRadius: 6 }}>
+                        <span style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>Surface</span>
+                        <span style={{ fontFamily: mono, fontSize: 10, color: aiCondition.surface >= 9 ? '#00ff88' : aiCondition.surface >= 7 ? '#ffcc00' : '#ff6633' }}>{aiCondition.surface}/10</span>
+                      </div>
+                    )}
+                    {aiCondition.centering && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#0a0c0f', borderRadius: 6 }}>
+                        <span style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>Centering</span>
+                        <span style={{ fontFamily: mono, fontSize: 10, color: aiCondition.centering >= 9 ? '#00ff88' : aiCondition.centering >= 7 ? '#ffcc00' : '#ff6633' }}>{aiCondition.centering}/10</span>
+                      </div>
+                    )}
+                  </div>
+                  {aiCondition.overall && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#0a0c0f', borderRadius: 6, marginTop: 8 }}>
+                      <span style={{ fontFamily: mono, fontSize: 10, color: '#888' }}>Overall Condition</span>
+                      <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: aiCondition.overall >= 9 ? '#00ff88' : aiCondition.overall >= 7 ? '#ffcc00' : '#ff6633' }}>{aiCondition.overall}/10</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Positives */}
+              {aiGradingNotes?.positives && aiGradingNotes.positives.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontFamily: mono, fontSize: 9, color: '#00ff88', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>✓</span> POSITIVES
+                  </div>
+                  {aiGradingNotes.positives.map((p, i) => (
+                    <div key={i} style={{ fontFamily: sans, fontSize: 11, color: '#aaa', marginBottom: 4, paddingLeft: 12 }}>
+                      • {p}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Concerns */}
+              {aiGradingNotes?.concerns && aiGradingNotes.concerns.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontFamily: mono, fontSize: 9, color: '#ff9944', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>⚠</span> CONCERNS
+                  </div>
+                  {aiGradingNotes.concerns.map((c, i) => (
+                    <div key={i} style={{ fontFamily: sans, fontSize: 11, color: '#999', marginBottom: 4, paddingLeft: 12 }}>
+                      • {c}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* AI Notes */}
+              {aiCondition?.notes && (
+                <div style={{
+                  fontFamily: sans,
+                  fontSize: 11,
+                  color: '#777',
+                  fontStyle: 'italic',
+                  padding: '8px 10px',
+                  background: 'rgba(0,0,0,0.2)',
+                  borderRadius: 6,
+                  borderLeft: '2px solid #8b5cf6',
+                }}>
+                  {aiCondition.notes}
+                </div>
+              )}
             </div>
           )}
 

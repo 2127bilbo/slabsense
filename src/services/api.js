@@ -300,19 +300,21 @@ export async function detectCard(imageDataUrl, options = {}) {
 }
 
 /**
- * Extract card information using AI vision (OCR)
- * @param {string} imageDataUrl - Clean cropped card image
+ * Analyze card using Claude Vision AI
+ * Extracts card info, condition assessment, and grading notes
+ * @param {string} imageDataUrl - Card image (cropped preferred)
  * @param {string} cardType - 'pokemon' | 'sports' | 'tcg'
- * @returns {Promise<object>} Extracted card info
+ * @param {boolean} includeGrading - Include condition/grading analysis
+ * @returns {Promise<object>} Full analysis result
  */
-export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
+export async function analyzeCardWithVision(imageDataUrl, cardType = 'pokemon', includeGrading = true) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for vision
 
   try {
-    console.log(`[OCR] Starting ${cardType} card info extraction...`);
+    console.log(`[Claude Vision] Starting ${cardType} card analysis...`);
 
-    const response = await fetch('/api/extract-card-info', {
+    const response = await fetch('/api/analyze-card', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -320,6 +322,7 @@ export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
       body: JSON.stringify({
         image: imageDataUrl,
         cardType,
+        includeGrading,
       }),
       signal: controller.signal,
     });
@@ -332,16 +335,30 @@ export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
     }
 
     const result = await response.json();
-    console.log('[OCR] Extracted card info:', result.cardInfo);
+    console.log('[Claude Vision] Analysis complete:', result.analysis?.cardInfo?.name);
     return result;
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
-      throw new Error('Card info extraction timed out');
+      throw new Error('Card analysis timed out - please try again');
     }
-    console.error('[OCR] Error:', error);
+    console.error('[Claude Vision] Error:', error);
     throw error;
   }
+}
+
+/**
+ * Legacy function - redirects to new Claude Vision API
+ * @deprecated Use analyzeCardWithVision instead
+ */
+export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
+  const result = await analyzeCardWithVision(imageDataUrl, cardType, false);
+  // Transform to legacy format for backwards compatibility
+  return {
+    success: result.success,
+    cardInfo: result.analysis?.cardInfo || null,
+    rawResponse: result.rawResponse,
+  };
 }
 
 /**
@@ -732,7 +749,7 @@ async function processCardFromMask(originalImg, maskData, targetWidth, targetHei
   // Padding moves corners ~1.5% outward from card center
   const centerX = (scaledCorners.tl.x + scaledCorners.tr.x + scaledCorners.bl.x + scaledCorners.br.x) / 4;
   const centerY = (scaledCorners.tl.y + scaledCorners.tr.y + scaledCorners.bl.y + scaledCorners.br.y) / 4;
-  const paddingFactor = 1.015; // 1.5% outward expansion
+  const paddingFactor = 1.04; // 4% outward expansion to ensure full card edges captured
 
   const paddedCorners = {
     tl: {
