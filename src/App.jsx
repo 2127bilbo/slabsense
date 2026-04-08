@@ -2464,7 +2464,7 @@ export default function SlabSense(){
   }, []);
   const handleCam=d=>{if(camTarget==="front")setFI(d);else setBI(d);setCamTarget(null);};
 
-  // Save scan to user's collection
+  // Save scan to user's collection (includes enhanced images for 3D viewing)
   const handleSaveScan = async () => {
     if (!auth.isAuthenticated || !gradeResult) return;
     setSavingStatus('saving');
@@ -2478,6 +2478,9 @@ export default function SlabSense(){
         frontCentering: fR?.centering,
         backCentering: bR?.centering,
         dings: gradeResult.allDings,
+        // Include AI-enhanced images if available (for 3D viewer in collection)
+        enhancedFront: enhancedCards?.front || null,
+        enhancedBack: enhancedCards?.back || null,
       });
       setSavingStatus('saved');
       setTimeout(() => setSavingStatus(null), 2000);

@@ -6,14 +6,61 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
 
 /**
+ * Upload an image to Supabase Storage
+ * @param {string} userId - User ID
+ * @param {string} scanId - Scan ID (or 'pending' for new scans)
+ * @param {string} dataUrl - Base64 data URL of image
+ * @param {string} type - 'front' | 'back' | 'enhanced_front' | 'enhanced_back'
+ * @returns {Promise<string|null>} Public URL of uploaded image
+ */
+export async function uploadCardImage(userId, scanId, dataUrl, type) {
+  if (!isSupabaseConfigured() || !dataUrl) return null;
+
+  try {
+    // Convert data URL to blob
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const filename = `${userId}/${scanId}/${type}_${timestamp}.jpg`;
+
+    // Upload to storage bucket
+    const { data, error } = await supabase.storage
+      .from('card-images')
+      .upload(filename, blob, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (error) {
+      console.error('Image upload error:', error);
+      return null;
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('card-images')
+      .getPublicUrl(filename);
+
+    return urlData?.publicUrl || null;
+  } catch (err) {
+    console.error('Upload error:', err);
+    return null;
+  }
+}
+
+/**
  * Save a new scan to the database
+ * Optionally uploads enhanced card images for 3D viewing
  */
 export async function saveScan(userId, scanData) {
   if (!isSupabaseConfigured()) {
     throw new Error('Database not configured');
   }
 
-  const { data, error } = await supabase
+  // First insert the scan to get an ID
+  const { data: scan, error } = await supabase
     .from('scans')
     .insert({
       user_id: userId,
@@ -37,7 +84,33 @@ export async function saveScan(userId, scanData) {
     .single();
 
   if (error) throw error;
-  return data;
+
+  // If enhanced images provided, upload them and update the scan
+  if (scanData.enhancedFront || scanData.enhancedBack) {
+    const updates = {};
+
+    if (scanData.enhancedFront) {
+      const url = await uploadCardImage(userId, scan.id, scanData.enhancedFront, 'enhanced_front');
+      if (url) updates.enhanced_front_path = url;
+    }
+
+    if (scanData.enhancedBack) {
+      const url = await uploadCardImage(userId, scan.id, scanData.enhancedBack, 'enhanced_back');
+      if (url) updates.enhanced_back_path = url;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const { data: updated } = await supabase
+        .from('scans')
+        .update(updates)
+        .eq('id', scan.id)
+        .select()
+        .single();
+      return updated || scan;
+    }
+  }
+
+  return scan;
 }
 
 /**
