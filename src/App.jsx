@@ -2498,13 +2498,16 @@ export default function SlabSense(){
     }
   };
 
-  // AI-Enhance cards - detect, flatten, crop both cards with SAM 2
-  // Creates clean cropped images for 3D viewer/collection display
-  // Does NOT replace analysis images - original photos with background needed for centering detection
+  // AI-Enhance cards + OCR extraction - single button for full AI processing ($0.03)
+  // 1. Crops both cards with SAM 2 for clean 3D display
+  // 2. Extracts card info (name, set, number) via OCR
+  // Does NOT replace analysis images - original photos needed for centering detection
   const handleEnhanceCards = async () => {
     if (!fI || !bI) return;
     setEnhancingStatus('enhancing');
+    setExtractingInfo(true);
     try {
+      // Step 1: AI crop both cards
       console.log('Starting AI card enhancement...');
       setProg('AI detecting card boundaries...');
       const result = await detectAndCropBothCards(fI, bI);
@@ -2513,56 +2516,47 @@ export default function SlabSense(){
         const enhancedFront = result.front.croppedCard;
         const enhancedBack = result.back.croppedCard;
 
-        // Store enhanced images for 3D viewer and collection display ONLY
-        // These are tight crops - perfect for display but NOT for centering analysis
+        // Store enhanced images for 3D viewer
         setEnhancedCards({
           front: enhancedFront,
           back: enhancedBack,
         });
 
-        // NOTE: We do NOT update fI/bI or re-run analysis here
-        // Original images with background are required for accurate centering/edge detection
-        // The tight AI crop would give false 50/50 centering (no background reference)
+        // Step 2: OCR extract card info from the clean cropped image
+        setProg('Reading card text (OCR)...');
+        try {
+          const ocrResult = await extractCardInfo(enhancedFront, 'pokemon');
+          if (ocrResult.success && ocrResult.cardInfo) {
+            setCardInfo(ocrResult.cardInfo);
+            console.log('Card info extracted:', ocrResult.cardInfo);
+          }
+        } catch (ocrErr) {
+          console.error('OCR extraction failed (continuing anyway):', ocrErr);
+          // Don't fail the whole process if OCR fails
+        }
 
         setEnhancingStatus('done');
+        setExtractingInfo(false);
         setProg('');
         setShow3DViewer(true); // Auto-open 3D viewer
 
-        console.log('AI enhancement complete - display images ready, analysis unchanged');
+        console.log('AI enhancement + OCR complete');
       } else {
         console.error('Enhancement failed:', result.error);
         setEnhancingStatus('error');
+        setExtractingInfo(false);
         setProg('');
         setTimeout(() => setEnhancingStatus(null), 3000);
       }
     } catch (err) {
       console.error('Error enhancing cards:', err);
       setEnhancingStatus('error');
+      setExtractingInfo(false);
       setProg('');
       setTimeout(() => setEnhancingStatus(null), 3000);
     }
   };
 
-  // Extract card info using OCR (name, number, set, etc.)
-  const handleExtractCardInfo = async () => {
-    // Use enhanced front image if available, otherwise original
-    const imageToScan = enhancedCards?.front || fI;
-    if (!imageToScan) return;
-
-    setExtractingInfo(true);
-    try {
-      console.log('Starting OCR card info extraction...');
-      const result = await extractCardInfo(imageToScan, 'pokemon');
-      if (result.success && result.cardInfo) {
-        setCardInfo(result.cardInfo);
-        console.log('Card info extracted:', result.cardInfo);
-      }
-    } catch (err) {
-      console.error('OCR extraction failed:', err);
-    } finally {
-      setExtractingInfo(false);
-    }
-  };
 
   // Tabs - Free users only see Overview, Pro users see all
   const allTabs=[
@@ -2885,44 +2879,11 @@ export default function SlabSense(){
             {enhancingStatus === 'enhancing' ? (
               <>⏳ AI Processing...</>
             ) : enhancedCards ? (
-              <>✓ View 3D Card / Slab Preview</>
+              <>✓ View 3D / Slab{cardInfo?.name ? ` • ${cardInfo.name}` : ''}</>
             ) : enhancingStatus === 'error' ? (
-              <>✕ Enhancement Failed - Try Again</>
+              <>✕ AI Failed - Try Again</>
             ) : (
-              <>✨ AI Clean Crop + 3D View ($0.02)</>
-            )}
-          </button>
-
-          {/* OCR Extract Card Info Button */}
-          <button
-            onClick={handleExtractCardInfo}
-            disabled={extractingInfo || (!fI && !enhancedCards)}
-            style={{
-              width: '100%',
-              padding: '12px 0',
-              marginBottom: 16,
-              borderRadius: 8,
-              border: cardInfo ? '1px solid rgba(0,255,136,0.3)' : '1px solid #2a2d35',
-              background: extractingInfo ? '#1a1c22'
-                : cardInfo ? 'rgba(0,255,136,0.1)'
-                : 'transparent',
-              color: cardInfo ? '#00ff88' : '#888',
-              fontFamily: mono,
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: extractingInfo ? 'wait' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-            }}
-          >
-            {extractingInfo ? (
-              <>⏳ Reading Card Text...</>
-            ) : cardInfo ? (
-              <>✓ {cardInfo.name || 'Card Info Extracted'}</>
-            ) : (
-              <>📝 Extract Card Info ($0.01)</>
+              <>✨ AI Enhance + 3D Slab ($0.03)</>
             )}
           </button>
 
