@@ -136,8 +136,6 @@ export default async function handler(req, res) {
       success: true,
       analysis: analysisResult,
       model: CLAUDE_MODEL,
-      predictionId: prediction.id,
-      metrics: prediction.metrics,
     });
 
   } catch (error) {
