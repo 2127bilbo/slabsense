@@ -151,25 +151,34 @@ export default async function handler(req, res) {
   }
 }
 
-async function pollForResult(url, token, maxAttempts = 60) {
+async function pollForResult(url, token, maxAttempts = 45) {
+  // Poll for up to 45 seconds (leaving buffer before Vercel's 60s timeout)
   for (let i = 0; i < maxAttempts; i++) {
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    const data = await response.json();
+      const data = await response.json();
+      console.log(`Poll attempt ${i + 1}/${maxAttempts}: status=${data.status}`);
 
-    if (data.status === 'succeeded') {
-      return data;
-    } else if (data.status === 'failed' || data.status === 'canceled') {
-      return { error: data.error || 'Prediction failed', status: data.status };
+      if (data.status === 'succeeded') {
+        return data;
+      } else if (data.status === 'failed' || data.status === 'canceled') {
+        return { error: data.error || 'Prediction failed', status: data.status };
+      }
+
+      // Wait 1 second before next poll
+      await new Promise(r => setTimeout(r, 1000));
+    } catch (pollError) {
+      console.error(`Poll attempt ${i + 1} failed:`, pollError.message);
+      // Continue polling on network errors
+      await new Promise(r => setTimeout(r, 1000));
     }
-
-    await new Promise(r => setTimeout(r, 1000));
   }
 
-  return { error: 'Timeout waiting for SAM result' };
+  return { error: 'Timeout waiting for SAM result (45s)' };
 }

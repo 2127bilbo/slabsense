@@ -256,9 +256,14 @@ export async function analyzeCardWithBackend(frontImageDataUrl, backImageDataUrl
  * @returns {Promise<object>} Detection result with mask URL(s)
  */
 export async function detectCard(imageDataUrl, options = {}) {
-  const { mode = 'single', points = null } = options;
+  const { mode = 'single', points = null, timeout = 55000 } = options;
+
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    console.log(`[detectCard] Starting ${mode} mode detection...`);
     const response = await fetch('/api/detect-card', {
       method: 'POST',
       headers: {
@@ -269,16 +274,27 @@ export async function detectCard(imageDataUrl, options = {}) {
         mode,
         points: points || (mode === 'single' ? { x: 0.5, y: 0.5 } : null),
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('[detectCard] API error:', error);
       throw new Error(error.error || `API error: ${response.status}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('[detectCard] Success:', result.success, 'masks:', result.masks?.length);
+    return result;
   } catch (error) {
-    console.error('Card detection error:', error);
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error('[detectCard] Request timed out after', timeout, 'ms');
+      throw new Error('Detection timed out - Replicate may be slow. Try again.');
+    }
+    console.error('[detectCard] Error:', error);
     throw error;
   }
 }

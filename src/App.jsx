@@ -2430,7 +2430,7 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
