@@ -41,33 +41,38 @@ function dataURLtoBlob(dataURL) {
 /**
  * Compress an image to reduce payload size for API calls
  * Prevents Vercel's 4.5MB payload limit errors (FUNCTION_PAYLOAD_TOO_LARGE)
+ * Returns both the compressed image AND scale info for coordinate conversion
  * @param {string} dataUrl - Original image data URL
  * @param {number} maxDimension - Max width or height (default 1500px)
  * @param {number} quality - JPEG quality 0-1 (default 0.85)
- * @returns {Promise<string>} Compressed image data URL
+ * @returns {Promise<object>} { dataUrl, originalWidth, originalHeight, scale, scaleBack }
  */
 async function compressImageForAPI(dataUrl, maxDimension = 1500, quality = 0.85) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      let { width, height } = img;
+      const originalWidth = img.width;
+      const originalHeight = img.height;
+      let newWidth = originalWidth;
+      let newHeight = originalHeight;
+      let scale = 1.0;
 
       // Calculate new dimensions maintaining aspect ratio
-      if (width > maxDimension || height > maxDimension) {
-        if (width > height) {
-          height = Math.round((height * maxDimension) / width);
-          width = maxDimension;
+      if (originalWidth > maxDimension || originalHeight > maxDimension) {
+        if (originalWidth > originalHeight) {
+          scale = maxDimension / originalWidth;
         } else {
-          width = Math.round((width * maxDimension) / height);
-          height = maxDimension;
+          scale = maxDimension / originalHeight;
         }
+        newWidth = Math.round(originalWidth * scale);
+        newHeight = Math.round(originalHeight * scale);
       }
 
       const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = newWidth;
+      canvas.height = newHeight;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
+      ctx.drawImage(img, 0, 0, newWidth, newHeight);
 
       // Return as JPEG with compression
       const compressed = canvas.toDataURL('image/jpeg', quality);
@@ -75,9 +80,18 @@ async function compressImageForAPI(dataUrl, maxDimension = 1500, quality = 0.85)
       // Log compression results
       const originalSize = Math.round(dataUrl.length / 1024);
       const compressedSize = Math.round(compressed.length / 1024);
-      console.log(`[Compress] ${originalSize}KB -> ${compressedSize}KB (${Math.round(compressedSize/originalSize*100)}%)`);
+      console.log(`[Compress] ${originalWidth}x${originalHeight} -> ${newWidth}x${newHeight} (scale: ${scale.toFixed(3)})`);
+      console.log(`[Compress] ${originalSize}KB -> ${compressedSize}KB`);
 
-      resolve(compressed);
+      resolve({
+        dataUrl: compressed,
+        originalWidth,
+        originalHeight,
+        compressedWidth: newWidth,
+        compressedHeight: newHeight,
+        scale,
+        scaleBack: 1 / scale, // Multiply compressed coords by this to get original coords
+      });
     };
     img.onerror = () => reject(new Error('Failed to load image for compression'));
     img.src = dataUrl;
@@ -439,23 +453,27 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
   try {
     console.log('[Unified AI] Starting analysis via Claude (separate calls for front/back)...');
 
-    // Compress images to avoid Vercel's 4.5MB payload limit
+    // Compress images for API - also get scale info for coordinate conversion
     console.log('[Unified AI] Compressing images for API...');
-    const compressedFront = await compressImageForAPI(frontImageDataUrl);
-    const compressedBack = backImageDataUrl
+    const frontCompressed = await compressImageForAPI(frontImageDataUrl);
+    const backCompressed = backImageDataUrl
       ? await compressImageForAPI(backImageDataUrl)
       : null;
 
-    // Send front and back as separate calls for accurate coordinates
-    // Cost: ~$0.02-0.05 per image, but coordinates are exact
+    console.log(`[Unified AI] Front scale: ${frontCompressed.scale.toFixed(3)} (scaleBack: ${frontCompressed.scaleBack.toFixed(3)})`);
+    if (backCompressed) {
+      console.log(`[Unified AI] Back scale: ${backCompressed.scale.toFixed(3)} (scaleBack: ${backCompressed.scaleBack.toFixed(3)})`);
+    }
+
+    // Send compressed images to Claude (coordinates will be for compressed size)
     const response = await fetch('/api/ai-analyze', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        frontImage: compressedFront,
-        backImage: compressedBack,
+        frontImage: frontCompressed.dataUrl,
+        backImage: backCompressed?.dataUrl || null,
         cardType,
       }),
       signal: controller.signal,
@@ -492,25 +510,38 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
       hasCardInfo: !!analysis.cardInfo,
     });
 
-    // Apply cropping based on Claude's coordinates
-    // Each image was analyzed separately, so coordinates match directly
-    let croppedFront = compressedFront;
-    let croppedBack = compressedBack;
+    // Helper to scale bounding box coordinates from compressed to original
+    const scaleBoundingBox = (bb, scaleBack) => ({
+      topLeft: { x: Math.round(bb.topLeft.x * scaleBack), y: Math.round(bb.topLeft.y * scaleBack) },
+      topRight: { x: Math.round(bb.topRight.x * scaleBack), y: Math.round(bb.topRight.y * scaleBack) },
+      bottomLeft: { x: Math.round(bb.bottomLeft.x * scaleBack), y: Math.round(bb.bottomLeft.y * scaleBack) },
+      bottomRight: { x: Math.round(bb.bottomRight.x * scaleBack), y: Math.round(bb.bottomRight.y * scaleBack) },
+    });
+
+    // Apply cropping - scale coordinates to original size and crop from ORIGINAL images
+    let croppedFront = frontImageDataUrl; // Default to original
+    let croppedBack = backImageDataUrl;
 
     // Crop FRONT image
     if (analysis.front?.boundingBox) {
       try {
-        const bb = analysis.front.boundingBox;
-        console.log('[Unified AI] Front bounding box:', JSON.stringify(bb));
+        const bbCompressed = analysis.front.boundingBox;
+        console.log('[Unified AI] Front bbox (compressed):', JSON.stringify(bbCompressed));
 
-        if (bb.topLeft?.x != null && bb.topRight?.x != null &&
-            bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
+        if (bbCompressed.topLeft?.x != null && bbCompressed.topRight?.x != null &&
+            bbCompressed.bottomLeft?.x != null && bbCompressed.bottomRight?.x != null) {
+
+          // Scale coordinates back to original image dimensions
+          const bbOriginal = scaleBoundingBox(bbCompressed, frontCompressed.scaleBack);
+          console.log('[Unified AI] Front bbox (original):  ', JSON.stringify(bbOriginal));
+
+          // Crop from ORIGINAL image using scaled coordinates
           croppedFront = await cropAndRotateCard(
-            compressedFront,
-            bb,
+            frontImageDataUrl, // Original, not compressed!
+            bbOriginal,
             analysis.front.rotationAngle || 0
           );
-          console.log('[Unified AI] Front image cropped successfully');
+          console.log('[Unified AI] Front cropped from original image');
         }
       } catch (cropError) {
         console.error('[Unified AI] Failed to crop front:', cropError.message);
@@ -518,19 +549,25 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
     }
 
     // Crop BACK image
-    if (compressedBack && analysis.back?.boundingBox) {
+    if (backImageDataUrl && backCompressed && analysis.back?.boundingBox) {
       try {
-        const bb = analysis.back.boundingBox;
-        console.log('[Unified AI] Back bounding box:', JSON.stringify(bb));
+        const bbCompressed = analysis.back.boundingBox;
+        console.log('[Unified AI] Back bbox (compressed):', JSON.stringify(bbCompressed));
 
-        if (bb.topLeft?.x != null && bb.topRight?.x != null &&
-            bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
+        if (bbCompressed.topLeft?.x != null && bbCompressed.topRight?.x != null &&
+            bbCompressed.bottomLeft?.x != null && bbCompressed.bottomRight?.x != null) {
+
+          // Scale coordinates back to original image dimensions
+          const bbOriginal = scaleBoundingBox(bbCompressed, backCompressed.scaleBack);
+          console.log('[Unified AI] Back bbox (original):  ', JSON.stringify(bbOriginal));
+
+          // Crop from ORIGINAL image using scaled coordinates
           croppedBack = await cropAndRotateCard(
-            compressedBack,
-            bb,
+            backImageDataUrl, // Original, not compressed!
+            bbOriginal,
             analysis.back.rotationAngle || 0
           );
-          console.log('[Unified AI] Back image cropped successfully');
+          console.log('[Unified AI] Back cropped from original image');
         }
       } catch (cropError) {
         console.error('[Unified AI] Failed to crop back:', cropError.message);
