@@ -1,13 +1,14 @@
 /**
  * Unified AI Card Analysis via Claude Sonnet 4 on Replicate
  *
- * STANDARDIZED IMAGE APPROACH:
- * - All images are standardized to 1400x1960 before sending
- * - If front+back: images are stitched side-by-side (2800x1960)
- * - Front is always left half (0-1400), Back is right half (1400-2800)
- * - ONE Claude call analyzes everything - no scaling math needed
+ * Analyzes front and back card images in parallel:
+ * - Card boundary detection with precise coordinates
+ * - Rotation angle detection
+ * - Centering analysis
+ * - Card info extraction (OCR) from front
+ * - Condition assessment
  *
- * Cost: ~$0.02-0.05 per card (uses your Replicate prepaid balance)
+ * Cost: ~$0.02-0.05 per card
  */
 
 export const config = {
@@ -19,7 +20,6 @@ export const config = {
   maxDuration: 120,
 };
 
-// Claude Sonnet 4 on Replicate
 const CLAUDE_MODEL = 'anthropic/claude-4-sonnet';
 
 export default async function handler(req, res) {
@@ -37,71 +37,109 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { image, isStitched = false, cardType = 'pokemon' } = req.body;
+    const {
+      frontImage,
+      backImage,
+      frontDimensions,
+      backDimensions,
+      cardType = 'pokemon'
+    } = req.body;
 
-    if (!image) {
-      return res.status(400).json({ error: 'No image provided' });
+    if (!frontImage) {
+      return res.status(400).json({ error: 'No front image provided' });
     }
 
-    console.log('[Claude Vision] Analyzing card via Replicate...');
-    console.log('[Claude Vision] Stitched image:', isStitched);
-    console.log('[Claude Vision] Image size:', Math.round(image.length / 1024), 'KB');
+    console.log('[Claude] Starting card analysis...');
+    console.log('[Claude] Front dimensions:', frontDimensions);
+    console.log('[Claude] Has back image:', !!backImage);
+    if (backDimensions) console.log('[Claude] Back dimensions:', backDimensions);
 
     const apiUrl = `https://api.replicate.com/v1/models/${CLAUDE_MODEL}/predictions`;
 
-    // Build prompt based on whether image is stitched (front+back) or single (front only)
-    const prompt = isStitched
-      ? buildStitchedPrompt(cardType)
-      : buildFrontOnlyPrompt(cardType);
+    // Helper to call Claude
+    const analyzeImage = async (image, prompt, label) => {
+      console.log(`[Claude] Starting ${label} analysis...`);
 
-    console.log('[Claude] Starting analysis...');
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'wait',
+        },
+        body: JSON.stringify({
+          input: {
+            prompt,
+            image,
+            max_tokens: 4096,
+            temperature: 0.1,
+          }
+        }),
+      });
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'wait',
-      },
-      body: JSON.stringify({
-        input: {
-          prompt,
-          image,
-          max_tokens: 4096,
-          temperature: 0.1,
-        }
-      }),
-    });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Claude] ${label} API error:`, response.status, errorText);
+        throw new Error(`API error: ${response.status}`);
+      }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Claude] API error:', response.status, errorText);
-      throw new Error(`API error: ${response.status}`);
+      let prediction = await response.json();
+      console.log(`[Claude] ${label} prediction ID:`, prediction.id, 'status:', prediction.status);
+
+      if (prediction.status === 'starting' || prediction.status === 'processing') {
+        prediction = await pollForResult(prediction.urls.get, REPLICATE_API_TOKEN);
+      }
+
+      if (prediction.status !== 'succeeded') {
+        throw new Error(`${label} failed: ${prediction.error || prediction.status}`);
+      }
+
+      const text = Array.isArray(prediction.output)
+        ? prediction.output.join('')
+        : prediction.output;
+
+      console.log(`[Claude] ${label} raw response length:`, text.length);
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error(`[Claude] ${label} - No JSON found in response:`, text.substring(0, 500));
+        throw new Error(`No JSON in ${label} response`);
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      console.log(`[Claude] ${label} analysis complete`);
+      return parsed;
+    };
+
+    // Build prompts with actual dimensions
+    const frontPrompt = buildFrontPrompt(cardType, frontDimensions);
+    const backPrompt = backImage && backDimensions ? buildBackPrompt(backDimensions) : null;
+
+    // Run analysis in parallel
+    const promises = [analyzeImage(frontImage, frontPrompt, 'Front')];
+
+    if (backImage && backPrompt) {
+      promises.push(
+        analyzeImage(backImage, backPrompt, 'Back').catch(err => {
+          console.error('[Claude] Back analysis failed:', err.message);
+          return null;
+        })
+      );
     }
 
-    let prediction = await response.json();
-    console.log('[Claude] Prediction:', prediction.id, prediction.status);
+    console.log(`[Claude] Running ${promises.length} analysis call(s) in parallel...`);
+    const results = await Promise.all(promises);
 
-    if (prediction.status === 'starting' || prediction.status === 'processing') {
-      prediction = await pollForResult(prediction.urls.get, REPLICATE_API_TOKEN);
-    }
+    const frontResult = results[0];
+    const backResult = results[1] || null;
 
-    if (prediction.status !== 'succeeded') {
-      throw new Error(`Analysis failed: ${prediction.error || prediction.status}`);
-    }
+    // Merge results
+    const analysisResult = {
+      ...frontResult,
+      back: backResult?.back || null,
+    };
 
-    const text = Array.isArray(prediction.output)
-      ? prediction.output.join('')
-      : prediction.output;
-
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('[Claude] No JSON in response:', text.substring(0, 500));
-      throw new Error('No JSON in response');
-    }
-
-    const analysisResult = JSON.parse(jsonMatch[0]);
-    console.log('[Claude] Analysis complete');
+    console.log('[Claude] All analysis complete');
 
     return res.status(200).json({
       success: true,
@@ -114,12 +152,11 @@ export default async function handler(req, res) {
     return res.status(500).json({
       error: 'Analysis failed',
       message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
 
-async function pollForResult(url, token, maxAttempts = 45) {
+async function pollForResult(url, token, maxAttempts = 60) {
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 2000));
 
@@ -145,201 +182,139 @@ async function pollForResult(url, token, maxAttempts = 45) {
     }
   }
 
-  return { status: 'failed', error: 'Timeout waiting for Claude response (90s)' };
+  return { status: 'failed', error: 'Timeout waiting for response' };
 }
 
-/**
- * Prompt for STITCHED image (front+back side-by-side)
- * Image layout: 2800x1960 total
- *   - Left half (0-1400): Card FRONT
- *   - Right half (1400-2800): Card BACK
- */
-function buildStitchedPrompt(cardType) {
-  return `You are an expert trading card analyst and professional grader. This image shows BOTH sides of a ${cardType} card STITCHED SIDE-BY-SIDE.
+function buildFrontPrompt(cardType, dimensions) {
+  const { width, height } = dimensions || { width: 1500, height: 2100 };
 
-## IMAGE LAYOUT (IMPORTANT!):
-- Total image size: 2800 x 1960 pixels
-- LEFT HALF (x: 0 to 1400): Card FRONT
-- RIGHT HALF (x: 1400 to 2800): Card BACK
+  return `You are an expert trading card analyst. Analyze this ${cardType} card FRONT image.
 
-## YOUR TASKS:
+## IMAGE SIZE: ${width} x ${height} pixels
 
-### 1. CARD FRONT (LEFT HALF, x: 0-1400)
-Find the EXACT card boundaries in the LEFT half of the image:
-- Identify all 4 corners precisely (in pixels from image top-left)
-- Calculate rotation angle needed to straighten the card
-- Measure border widths and centering ratios
+## CRITICAL TASK 1: FIND THE COMPLETE CARD BOUNDARIES
 
-### 2. CARD BACK (RIGHT HALF, x: 1400-2800)
-Find the EXACT card boundaries in the RIGHT half of the image:
-- Identify all 4 corners precisely (x coordinates will be 1400-2800 range)
-- Calculate rotation angle needed to straighten the card
-- Measure border widths and centering ratios for the back
+You MUST find where the ENTIRE card is located in this image. The card is a rectangular trading card (2.5 x 3.5 inch aspect ratio = roughly 5:7).
 
-### 3. CARD INFORMATION (from FRONT only)
-- Pokemon/Character name
-- HP value, Card number, Set name, Rarity, Year, Variant
+Look for:
+- The card's outer edges (the physical card boundary, NOT the printed border inside)
+- The card may be tilted/rotated - detect the angle
+- The card should take up a LARGE portion of the image (typically 60-90%)
 
-### 4. CONDITION ASSESSMENT
-Score each category 1-10 (10 = perfect):
-- Corners, Edges, Surface, Centering
+Return PIXEL COORDINATES for all 4 corners of the card:
+- topLeft: upper-left corner of the card
+- topRight: upper-right corner of the card
+- bottomLeft: lower-left corner of the card
+- bottomRight: lower-right corner of the card
 
-**CRITICAL - IGNORE PHOTOGRAPHIC ARTIFACTS:**
-- DO NOT count glare, reflections, or lighting as defects
-- DO NOT count camera flash spots or shine as surface issues
-- ONLY count ACTUAL PHYSICAL defects on the card
-- Holo reflections are NOT damage
+## TASK 2: CENTERING ANALYSIS
+Measure the border widths (space between card edge and printed area inside):
+- Calculate centering ratios (e.g., "55/45" means 55% border on left, 45% on right)
 
-### 5. GRADING NOTES
-- List positives and concerns
-- Estimated grade (1-10 scale)
+## TASK 3: CARD INFORMATION
+- Pokemon/Character name, HP, Card number, Set name, Rarity, Year, Variant
+
+## TASK 4: CONDITION ASSESSMENT (1-10 scale)
+Score: Corners, Edges, Surface, Centering
+
+**IGNORE PHOTOGRAPHIC ARTIFACTS:**
+- Glare, reflections, lighting = NOT defects
+- Camera flash, shine = NOT surface issues
+- Only count ACTUAL PHYSICAL damage
 
 ## RESPONSE FORMAT - Return ONLY this JSON:
 
 {
   "front": {
     "boundingBox": {
-      "topLeft": {"x": 50, "y": 30},
-      "topRight": {"x": 350, "y": 32},
-      "bottomLeft": {"x": 48, "y": 480},
-      "bottomRight": {"x": 348, "y": 482}
+      "topLeft": {"x": NUMBER, "y": NUMBER},
+      "topRight": {"x": NUMBER, "y": NUMBER},
+      "bottomLeft": {"x": NUMBER, "y": NUMBER},
+      "bottomRight": {"x": NUMBER, "y": NUMBER}
     },
-    "rotationAngle": 0,
-    "borders": {"left": 15, "right": 18, "top": 12, "bottom": 14},
-    "centeringLR": "45/55",
-    "centeringTB": "46/54"
-  },
-  "back": {
-    "boundingBox": {
-      "topLeft": {"x": 1450, "y": 30},
-      "topRight": {"x": 1750, "y": 32},
-      "bottomLeft": {"x": 1448, "y": 480},
-      "bottomRight": {"x": 1748, "y": 482}
-    },
-    "rotationAngle": 0,
-    "borders": {"left": 15, "right": 15, "top": 14, "bottom": 14},
+    "rotationAngle": NUMBER,
+    "borders": {"left": NUMBER, "right": NUMBER, "top": NUMBER, "bottom": NUMBER},
     "centeringLR": "50/50",
     "centeringTB": "50/50"
   },
   "cardInfo": {
-    "name": "Pikachu",
-    "hp": "60",
-    "cardNumber": "025/198",
-    "setName": "Scarlet & Violet Base",
-    "rarity": "Common",
-    "year": "2023",
-    "variant": null,
+    "name": "STRING",
+    "hp": "STRING",
+    "cardNumber": "STRING",
+    "setName": "STRING",
+    "rarity": "STRING",
+    "year": "STRING",
+    "variant": "STRING or null",
     "language": "English"
   },
   "condition": {
-    "corners": 9.5,
-    "edges": 9.0,
-    "surface": 9.5,
-    "centering": 8.5,
-    "overall": 9.0,
-    "notes": "Minor edge whitening on top"
+    "corners": NUMBER,
+    "edges": NUMBER,
+    "surface": NUMBER,
+    "centering": NUMBER,
+    "overall": NUMBER,
+    "notes": "STRING"
   },
   "gradingNotes": {
-    "positives": ["Sharp corners", "Clean holo surface"],
-    "concerns": ["Slight off-center to right"],
-    "estimatedGrade": "9.0",
-    "confidence": "high"
+    "positives": ["STRING"],
+    "concerns": ["STRING"],
+    "estimatedGrade": "STRING",
+    "confidence": "high/medium/low"
   }
 }
 
 CRITICAL RULES:
-- FRONT bounding box x values: 0-1400 range
-- BACK bounding box x values: 1400-2800 range
-- All coordinates are in PIXELS from image top-left
-- Return ONLY valid JSON, no other text
-- Be PRECISE - coordinates are used for automated cropping`;
+- The bounding box should encompass the ENTIRE card (typically 60-90% of the image)
+- Coordinates are in PIXELS from image top-left (0,0)
+- For a ${width}x${height} image, expect card corners to span most of that range
+- If the card is tilted, corners won't form a perfect rectangle
+- rotationAngle: degrees needed to straighten (positive = clockwise)
+- Return ONLY valid JSON`;
 }
 
-/**
- * Prompt for FRONT ONLY image (single card)
- * Image layout: 1400x1960
- */
-function buildFrontOnlyPrompt(cardType) {
-  return `You are an expert trading card analyst and professional grader. Analyze this ${cardType} card FRONT image with EXTREME PRECISION.
+function buildBackPrompt(dimensions) {
+  const { width, height } = dimensions || { width: 1500, height: 2100 };
 
-## IMAGE SIZE: 1400 x 1960 pixels
+  return `You are analyzing the BACK of a trading card.
 
-## YOUR TASKS:
+## IMAGE SIZE: ${width} x ${height} pixels
 
-### 1. CARD BOUNDARY DETECTION
-Find the EXACT card boundaries in the image. The card may be rotated or tilted.
-- Identify all 4 corners of the card precisely (in pixels from top-left of image)
-- Calculate the rotation angle needed to make the card perfectly straight (degrees)
+## CRITICAL TASK: FIND THE COMPLETE CARD BOUNDARIES
 
-### 2. CENTERING ANALYSIS
-Measure the border widths on all 4 sides (space between card edge and printed area):
-- Left, Right, Top, Bottom border widths in pixels
-- Calculate centering ratios (e.g., "60/40" for left-right)
+Find where the ENTIRE card is in this image. This is the back of a trading card showing the standard Pokemon/TCG pattern.
 
-### 3. CARD INFORMATION (OCR)
-- Pokemon/Character name
-- HP value
-- Card number (e.g., "025/198" or "SV049")
-- Set name, Rarity, Year, Special variants
+Look for:
+- The card's physical outer edges (the full rectangle of the card)
+- The card may be tilted/rotated
+- The card should take up most of the image (60-90%)
 
-### 4. CONDITION ASSESSMENT
-Score each category 1-10 (10 = perfect):
-- Corners, Edges, Surface, Centering
+Return PIXEL COORDINATES for all 4 corners:
 
-**CRITICAL - IGNORE PHOTOGRAPHIC ARTIFACTS:**
-- DO NOT count glare, reflections, or lighting as defects
-- DO NOT count camera flash spots or shine as surface issues
-- ONLY count ACTUAL PHYSICAL defects on the card
-- Holo reflections are NOT damage
-
-### 5. GRADING NOTES
-- List positives and concerns
-- Estimated grade (1-10 scale)
+## CENTERING
+Measure border widths on all 4 sides of the back pattern.
 
 ## RESPONSE FORMAT - Return ONLY this JSON:
 
 {
-  "front": {
+  "back": {
     "boundingBox": {
-      "topLeft": {"x": 50, "y": 30},
-      "topRight": {"x": 350, "y": 32},
-      "bottomLeft": {"x": 48, "y": 480},
-      "bottomRight": {"x": 348, "y": 482}
+      "topLeft": {"x": NUMBER, "y": NUMBER},
+      "topRight": {"x": NUMBER, "y": NUMBER},
+      "bottomLeft": {"x": NUMBER, "y": NUMBER},
+      "bottomRight": {"x": NUMBER, "y": NUMBER}
     },
-    "rotationAngle": -0.5,
-    "borders": {"left": 15, "right": 18, "top": 12, "bottom": 14},
-    "centeringLR": "45/55",
-    "centeringTB": "46/54"
-  },
-  "cardInfo": {
-    "name": "Pikachu",
-    "hp": "60",
-    "cardNumber": "025/198",
-    "setName": "Scarlet & Violet Base",
-    "rarity": "Common",
-    "year": "2023",
-    "variant": null,
-    "language": "English"
-  },
-  "condition": {
-    "corners": 9.5,
-    "edges": 9.0,
-    "surface": 9.5,
-    "centering": 8.5,
-    "overall": 9.0,
-    "notes": "Minor edge whitening on top"
-  },
-  "gradingNotes": {
-    "positives": ["Sharp corners", "Clean holo surface"],
-    "concerns": ["Slight off-center to right"],
-    "estimatedGrade": "9.0",
-    "confidence": "high"
+    "rotationAngle": NUMBER,
+    "borders": {"left": NUMBER, "right": NUMBER, "top": NUMBER, "bottom": NUMBER},
+    "centeringLR": "50/50",
+    "centeringTB": "50/50"
   }
 }
 
 CRITICAL RULES:
-- All coordinates are in PIXELS (from image top-left corner)
-- Rotation angle in DEGREES (positive = clockwise needed)
-- Return ONLY valid JSON, no other text
-- Be PRECISE - coordinates are used for automated cropping`;
+- Bounding box should encompass the ENTIRE card (60-90% of image typically)
+- Coordinates in PIXELS from image top-left (0,0)
+- For ${width}x${height} image, card corners should span most of that
+- rotationAngle: degrees to straighten (positive = clockwise)
+- IGNORE glare, reflections, shadows - find the PHYSICAL card edges
+- Return ONLY valid JSON`;
 }

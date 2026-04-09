@@ -38,91 +38,8 @@ function dataURLtoBlob(dataURL) {
   return new Blob([u8arr], { type: mime });
 }
 
-// Standard card dimensions (5:7 aspect ratio)
-const STANDARD_CARD_WIDTH = 1400;
-const STANDARD_CARD_HEIGHT = 1960;
-
-/**
- * Standardize an image to fixed card dimensions
- * This ensures all images sent to Claude are the same size = no scaling math needed
- * @param {string} dataUrl - Original image data URL
- * @returns {Promise<string>} Standardized image data URL (1400x1960)
- */
-async function standardizeImage(dataUrl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = STANDARD_CARD_WIDTH;
-      canvas.height = STANDARD_CARD_HEIGHT;
-      const ctx = canvas.getContext('2d');
-
-      // Fill with white background
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, STANDARD_CARD_WIDTH, STANDARD_CARD_HEIGHT);
-
-      // Calculate scaling to fit image within standard dimensions while maintaining aspect ratio
-      const imgAspect = img.width / img.height;
-      const targetAspect = STANDARD_CARD_WIDTH / STANDARD_CARD_HEIGHT;
-
-      let drawWidth, drawHeight, offsetX, offsetY;
-
-      if (imgAspect > targetAspect) {
-        // Image is wider - fit to width
-        drawWidth = STANDARD_CARD_WIDTH;
-        drawHeight = STANDARD_CARD_WIDTH / imgAspect;
-        offsetX = 0;
-        offsetY = (STANDARD_CARD_HEIGHT - drawHeight) / 2;
-      } else {
-        // Image is taller - fit to height
-        drawHeight = STANDARD_CARD_HEIGHT;
-        drawWidth = STANDARD_CARD_HEIGHT * imgAspect;
-        offsetX = (STANDARD_CARD_WIDTH - drawWidth) / 2;
-        offsetY = 0;
-      }
-
-      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-
-      const standardized = canvas.toDataURL('image/jpeg', 0.92);
-
-      const originalSize = Math.round(dataUrl.length / 1024);
-      const newSize = Math.round(standardized.length / 1024);
-      console.log(`[Standardize] ${img.width}x${img.height} -> ${STANDARD_CARD_WIDTH}x${STANDARD_CARD_HEIGHT}`);
-      console.log(`[Standardize] ${originalSize}KB -> ${newSize}KB`);
-
-      resolve(standardized);
-    };
-    img.onerror = () => reject(new Error('Failed to load image for standardization'));
-    img.src = dataUrl;
-  });
-}
-
-/**
- * Stitch two standardized images side-by-side for single Claude call
- * @param {string} frontDataUrl - Standardized front image
- * @param {string} backDataUrl - Standardized back image
- * @returns {Promise<string>} Stitched image (2800x1960)
- */
-async function stitchStandardizedImages(frontDataUrl, backDataUrl) {
-  const [frontImg, backImg] = await Promise.all([
-    loadImageFromUrl(frontDataUrl),
-    loadImageFromUrl(backDataUrl),
-  ]);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = STANDARD_CARD_WIDTH * 2; // 2800
-  canvas.height = STANDARD_CARD_HEIGHT;   // 1960
-  const ctx = canvas.getContext('2d');
-
-  // Draw front on left, back on right
-  ctx.drawImage(frontImg.img, 0, 0);
-  ctx.drawImage(backImg.img, STANDARD_CARD_WIDTH, 0);
-
-  const stitched = canvas.toDataURL('image/jpeg', 0.90);
-  console.log(`[Stitch] Created ${canvas.width}x${canvas.height} stitched image (${Math.round(stitched.length/1024)}KB)`);
-
-  return stitched;
-}
+// Max dimension for images sent to Claude (balance quality vs payload size)
+const MAX_CLAUDE_DIMENSION = 1500;
 
 /**
  * Compress image for API calls to stay under Vercel's 4.5MB payload limit
@@ -500,7 +417,96 @@ export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
 }
 
 /**
- * UNIFIED AI CARD ANALYSIS - Single Claude call does EVERYTHING
+ * Compress image for Claude API and track scale factor
+ * @param {string} dataUrl - Original image
+ * @param {number} maxDim - Maximum dimension
+ * @returns {Promise<{compressed: string, scale: number, originalWidth: number, originalHeight: number}>}
+ */
+async function compressForClaude(dataUrl, maxDim = MAX_CLAUDE_DIMENSION) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const originalWidth = img.width;
+      const originalHeight = img.height;
+
+      let width = originalWidth;
+      let height = originalHeight;
+      let scale = 1;
+
+      // Scale down if larger than max dimension
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          scale = maxDim / width;
+          width = maxDim;
+          height = Math.round(originalHeight * scale);
+        } else {
+          scale = maxDim / height;
+          height = maxDim;
+          width = Math.round(originalWidth * scale);
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const compressed = canvas.toDataURL('image/jpeg', 0.88);
+      console.log(`[Compress] ${originalWidth}x${originalHeight} -> ${width}x${height} (scale: ${scale.toFixed(3)}, size: ${Math.round(compressed.length/1024)}KB)`);
+
+      resolve({
+        compressed,
+        scale,
+        scaleBack: 1 / scale, // Multiply coordinates by this to get original coords
+        originalWidth,
+        originalHeight,
+        compressedWidth: width,
+        compressedHeight: height,
+      });
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * Validate bounding box makes sense (card should be significant portion of image)
+ */
+function validateBoundingBox(bb, imgWidth, imgHeight, label) {
+  if (!bb?.topLeft || !bb?.topRight || !bb?.bottomLeft || !bb?.bottomRight) {
+    console.error(`[Validate] ${label}: Missing corners`);
+    return false;
+  }
+
+  const width = Math.abs(bb.topRight.x - bb.topLeft.x);
+  const height = Math.abs(bb.bottomLeft.y - bb.topLeft.y);
+
+  // Card should be at least 30% of image in each dimension
+  const minWidth = imgWidth * 0.3;
+  const minHeight = imgHeight * 0.3;
+
+  if (width < minWidth || height < minHeight) {
+    console.error(`[Validate] ${label}: Bounding box too small (${width}x${height}), expected at least ${minWidth}x${minHeight}`);
+    console.error(`[Validate] ${label}: Raw bbox:`, JSON.stringify(bb));
+    return false;
+  }
+
+  // Check coordinates are within reasonable bounds
+  const maxX = Math.max(bb.topLeft.x, bb.topRight.x, bb.bottomLeft.x, bb.bottomRight.x);
+  const maxY = Math.max(bb.topLeft.y, bb.topRight.y, bb.bottomLeft.y, bb.bottomRight.y);
+
+  if (maxX > imgWidth * 1.1 || maxY > imgHeight * 1.1) {
+    console.error(`[Validate] ${label}: Coordinates out of bounds (max: ${maxX},${maxY} vs image: ${imgWidth}x${imgHeight})`);
+    return false;
+  }
+
+  console.log(`[Validate] ${label}: Bounding box OK (${Math.round(width)}x${Math.round(height)} in ${imgWidth}x${imgHeight} image)`);
+  return true;
+}
+
+/**
+ * UNIFIED AI CARD ANALYSIS - Claude analyzes everything
  * - Card boundary detection with precise coordinates
  * - Rotation/deskew angle detection
  * - Border measurements for centering (front & back)
@@ -508,49 +514,31 @@ export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
  * - Condition assessment with numeric scores
  * - Grading notes
  *
- * Uses Claude Sonnet 4 via Replicate (your prepaid balance)
+ * Uses Claude Sonnet 4 via Replicate
  * Cost: ~$0.02-0.05 per card
- *
- * @param {string} frontImageDataUrl - Front card image
- * @param {string} backImageDataUrl - Back card image (optional)
- * @param {string} cardType - 'pokemon' | 'sports'
- * @returns {Promise<object>} Complete analysis with cropped images
  */
 export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = null, cardType = 'pokemon') {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
 
   try {
     console.log('[Unified AI] Starting analysis via Claude...');
+    console.log('[Unified AI] Has back image:', !!backImageDataUrl);
 
-    // Standardize images to fixed size (1400x1960) - no scaling math needed
-    console.log('[Unified AI] Standardizing images to fixed size...');
-    const frontStandard = await standardizeImage(frontImageDataUrl);
-    const backStandard = backImageDataUrl
-      ? await standardizeImage(backImageDataUrl)
-      : null;
+    // Compress images and track scale factors
+    console.log('[Unified AI] Compressing images...');
+    const frontData = await compressForClaude(frontImageDataUrl);
+    const backData = backImageDataUrl ? await compressForClaude(backImageDataUrl) : null;
 
-    // Stitch images side-by-side if we have both (one Claude call, guaranteed both analyzed)
-    let imageToSend;
-    let isStitched = false;
-
-    if (backStandard) {
-      console.log('[Unified AI] Stitching front + back into single image...');
-      imageToSend = await stitchStandardizedImages(frontStandard, backStandard);
-      isStitched = true;
-    } else {
-      imageToSend = frontStandard;
-    }
-
-    // Send to Claude
+    // Send to Claude API (front and back as separate images)
     const response = await fetch('/api/ai-analyze', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        image: imageToSend,
-        isStitched,
+        frontImage: frontData.compressed,
+        backImage: backData?.compressed || null,
+        frontDimensions: { width: frontData.compressedWidth, height: frontData.compressedHeight },
+        backDimensions: backData ? { width: backData.compressedWidth, height: backData.compressedHeight } : null,
         cardType,
       }),
       signal: controller.signal,
@@ -569,100 +557,83 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
       throw new Error('AI analysis returned no data');
     }
 
-    console.log('[Unified AI] Claude analysis complete, processing images...');
-
+    console.log('[Unified AI] Claude analysis complete');
     const analysis = result.analysis;
 
-    // Handle parse errors gracefully
-    if (analysis.parseError) {
-      console.warn('[Unified AI] Claude response parsing issue:', analysis.parseError);
+    // Log raw response for debugging
+    console.log('[Unified AI] Front bbox from Claude:', JSON.stringify(analysis.front?.boundingBox));
+    console.log('[Unified AI] Front rotation:', analysis.front?.rotationAngle);
+    if (analysis.back) {
+      console.log('[Unified AI] Back bbox from Claude:', JSON.stringify(analysis.back?.boundingBox));
     }
 
-    // Log what Claude returned for debugging
-    console.log('[Unified AI] Raw analysis structure:', {
-      hasFront: !!analysis.front,
-      hasBack: !!analysis.back,
-      frontBoundingBox: analysis.front?.boundingBox,
-      backBoundingBox: analysis.back?.boundingBox,
-      hasCardInfo: !!analysis.cardInfo,
-      isStitched,
-    });
-
-    // STANDARDIZED APPROACH: No scaling needed!
-    // - All images are standardized to 1400x1960
-    // - If stitched: front is 0-1400, back is 1400-2800
-    // - Claude coordinates map directly to standardized image
-    // - Crop from standardized image = exact match
-
-    let croppedFront = frontStandard; // Default to standardized
-    let croppedBack = backStandard;
-
-    // Crop FRONT image (coordinates from Claude match standardized image directly)
+    // Process FRONT image
+    let croppedFront = frontImageDataUrl;
     if (analysis.front?.boundingBox) {
-      try {
-        const bb = analysis.front.boundingBox;
-        console.log('[Unified AI] Front bbox (standardized):', JSON.stringify(bb));
+      const bbCompressed = analysis.front.boundingBox;
 
-        if (bb.topLeft?.x != null && bb.topRight?.x != null &&
-            bb.bottomLeft?.x != null && bb.bottomRight?.x != null) {
+      // Validate the bounding box
+      if (validateBoundingBox(bbCompressed, frontData.compressedWidth, frontData.compressedHeight, 'Front')) {
+        // Scale coordinates back to original image dimensions
+        const bbOriginal = {
+          topLeft: { x: bbCompressed.topLeft.x * frontData.scaleBack, y: bbCompressed.topLeft.y * frontData.scaleBack },
+          topRight: { x: bbCompressed.topRight.x * frontData.scaleBack, y: bbCompressed.topRight.y * frontData.scaleBack },
+          bottomLeft: { x: bbCompressed.bottomLeft.x * frontData.scaleBack, y: bbCompressed.bottomLeft.y * frontData.scaleBack },
+          bottomRight: { x: bbCompressed.bottomRight.x * frontData.scaleBack, y: bbCompressed.bottomRight.y * frontData.scaleBack },
+        };
 
-          // Use coordinates directly - no scaling needed!
+        console.log('[Unified AI] Front bbox scaled to original:', JSON.stringify(bbOriginal));
+
+        try {
           croppedFront = await cropAndRotateCard(
-            frontStandard, // Standardized image
-            bb,
+            frontImageDataUrl,
+            bbOriginal,
             analysis.front.rotationAngle || 0
           );
           console.log('[Unified AI] Front cropped successfully');
+        } catch (cropError) {
+          console.error('[Unified AI] Failed to crop front:', cropError.message);
         }
-      } catch (cropError) {
-        console.error('[Unified AI] Failed to crop front:', cropError.message);
+      } else {
+        console.warn('[Unified AI] Front bounding box validation failed, using original image');
       }
     }
 
-    // Crop BACK image
-    if (backStandard && analysis.back?.boundingBox) {
-      try {
-        const bbRaw = analysis.back.boundingBox;
-        console.log('[Unified AI] Back bbox (raw from Claude):', JSON.stringify(bbRaw));
+    // Process BACK image
+    let croppedBack = backImageDataUrl;
+    if (backData && analysis.back?.boundingBox) {
+      const bbCompressed = analysis.back.boundingBox;
 
-        if (bbRaw.topLeft?.x != null && bbRaw.topRight?.x != null &&
-            bbRaw.bottomLeft?.x != null && bbRaw.bottomRight?.x != null) {
+      if (validateBoundingBox(bbCompressed, backData.compressedWidth, backData.compressedHeight, 'Back')) {
+        const bbOriginal = {
+          topLeft: { x: bbCompressed.topLeft.x * backData.scaleBack, y: bbCompressed.topLeft.y * backData.scaleBack },
+          topRight: { x: bbCompressed.topRight.x * backData.scaleBack, y: bbCompressed.topRight.y * backData.scaleBack },
+          bottomLeft: { x: bbCompressed.bottomLeft.x * backData.scaleBack, y: bbCompressed.bottomLeft.y * backData.scaleBack },
+          bottomRight: { x: bbCompressed.bottomRight.x * backData.scaleBack, y: bbCompressed.bottomRight.y * backData.scaleBack },
+        };
 
-          // If stitched, back image coordinates need offset subtracted
-          // Claude sees: front at 0-1400, back at 1400-2800
-          // Our back image is standalone 0-1400, so subtract 1400 from X values
-          let bb = bbRaw;
-          if (isStitched) {
-            bb = {
-              topLeft: { x: bbRaw.topLeft.x - STANDARD_CARD_WIDTH, y: bbRaw.topLeft.y },
-              topRight: { x: bbRaw.topRight.x - STANDARD_CARD_WIDTH, y: bbRaw.topRight.y },
-              bottomLeft: { x: bbRaw.bottomLeft.x - STANDARD_CARD_WIDTH, y: bbRaw.bottomLeft.y },
-              bottomRight: { x: bbRaw.bottomRight.x - STANDARD_CARD_WIDTH, y: bbRaw.bottomRight.y },
-            };
-            console.log('[Unified AI] Back bbox (adjusted for stitching):', JSON.stringify(bb));
-          }
+        console.log('[Unified AI] Back bbox scaled to original:', JSON.stringify(bbOriginal));
 
-          // Use coordinates directly - no scaling needed!
+        try {
           croppedBack = await cropAndRotateCard(
-            backStandard, // Standardized image
-            bb,
+            backImageDataUrl,
+            bbOriginal,
             analysis.back.rotationAngle || 0
           );
           console.log('[Unified AI] Back cropped successfully');
+        } catch (cropError) {
+          console.error('[Unified AI] Failed to crop back:', cropError.message);
         }
-      } catch (cropError) {
-        console.error('[Unified AI] Failed to crop back:', cropError.message);
+      } else {
+        console.warn('[Unified AI] Back bounding box validation failed, using original image');
       }
     }
 
     return {
       success: true,
-      // Cropped/rotated images ready for display
-      croppedFront: croppedFront || frontImageDataUrl,
-      croppedBack: croppedBack || backImageDataUrl,
-      // Card info from OCR
+      croppedFront,
+      croppedBack,
       cardInfo: analysis.cardInfo || null,
-      // Centering data
       centering: {
         front: {
           lr: analysis.front?.centeringLR || '50/50',
@@ -675,11 +646,8 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
           borders: analysis.back?.borders || null,
         } : null,
       },
-      // Condition assessment
       condition: analysis.condition || null,
-      // Grading notes
       gradingNotes: analysis.gradingNotes || null,
-      // Raw analysis for debugging
       rawAnalysis: analysis,
       model: result.model,
     };
