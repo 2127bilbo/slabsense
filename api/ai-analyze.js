@@ -78,7 +78,11 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[Claude] API error:', response.status, errorText);
-      throw new Error(`Replicate API error: ${response.status}`);
+      return res.status(500).json({
+        error: 'Replicate API error',
+        status: response.status,
+        details: errorText.substring(0, 500),
+      });
     }
 
     let prediction = await response.json();
@@ -95,19 +99,46 @@ export default async function handler(req, res) {
     }
 
     // Parse response
+    if (!prediction.output) {
+      console.error('[Claude] No output in prediction:', JSON.stringify(prediction));
+      return res.status(500).json({
+        error: 'No output from Claude',
+        prediction: { id: prediction.id, status: prediction.status, error: prediction.error },
+      });
+    }
+
     const text = Array.isArray(prediction.output)
       ? prediction.output.join('')
       : prediction.output;
 
-    console.log('[Claude] Response length:', text.length);
+    console.log('[Claude] Response length:', text?.length || 0);
+
+    if (!text) {
+      return res.status(500).json({
+        error: 'Empty response from Claude',
+        output: prediction.output,
+      });
+    }
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error('[Claude] No JSON found in response:', text.substring(0, 500));
-      throw new Error('No JSON in Claude response');
+      return res.status(500).json({
+        error: 'No JSON in Claude response',
+        response: text.substring(0, 1000),
+      });
     }
 
-    const analysis = JSON.parse(jsonMatch[0]);
+    let analysis;
+    try {
+      analysis = JSON.parse(jsonMatch[0]);
+    } catch (parseError) {
+      return res.status(500).json({
+        error: 'Failed to parse Claude JSON',
+        parseError: parseError.message,
+        json: jsonMatch[0].substring(0, 500),
+      });
+    }
     console.log('[Claude] Analysis complete');
 
     return res.status(200).json({
@@ -121,6 +152,7 @@ export default async function handler(req, res) {
     return res.status(500).json({
       error: 'Analysis failed',
       message: error.message,
+      stack: error.stack,
     });
   }
 }

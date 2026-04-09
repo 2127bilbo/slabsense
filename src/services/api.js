@@ -537,14 +537,17 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(error.error || `Claude API error: ${response.status}`);
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('[Hybrid AI] Claude API error response:', errorData);
+      throw new Error(errorData.error || errorData.message || `Claude API error: ${response.status}`);
     }
 
     const claudeResult = await response.json();
+    console.log('[Hybrid AI] Claude response received:', claudeResult.success);
 
     if (!claudeResult.success) {
-      throw new Error('Claude analysis failed');
+      console.error('[Hybrid AI] Claude failed:', claudeResult);
+      throw new Error(claudeResult.error || claudeResult.message || 'Claude analysis failed');
     }
 
     console.log('[Hybrid AI] Claude analysis complete');
