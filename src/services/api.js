@@ -456,77 +456,35 @@ async function stitchCroppedCards(frontDataUrl, backDataUrl) {
 }
 
 /**
- * HYBRID AI CARD ANALYSIS - SAM for cropping, Claude for grading
+ * HYBRID AI CARD ANALYSIS - Claude for grading, SAM for 3D view
  *
- * Step 1: SAM 2 detects and crops both cards (ONE Replicate call)
- * Step 2: Claude analyzes the cropped cards (ONE Replicate call)
+ * Step 1: Claude analyzes ORIGINAL images for accurate grading (ONE Replicate call)
+ * Step 2: SAM crops cards for 3D display (ONE Replicate call)
+ *
+ * Claude sees high-quality originals = better grading
+ * SAM provides clean crops = nice 3D view
  *
  * Total cost: ~$0.04 per card (both sides)
  */
 export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = null, cardType = 'pokemon') {
-  console.log('[Hybrid AI] Starting SAM + Claude analysis...');
+  console.log('[Hybrid AI] Starting Claude + SAM analysis...');
   console.log('[Hybrid AI] Has back image:', !!backImageDataUrl);
 
   try {
-    // ========== STEP 1: SAM for Detection/Cropping ==========
-    let croppedFront = frontImageDataUrl;
-    let croppedBack = backImageDataUrl;
-    let samResult = null;
+    // ========== STEP 1: Claude for Grading (ORIGINAL images) ==========
+    console.log('[Hybrid AI] Step 1: Sending ORIGINAL images to Claude for grading...');
 
-    if (backImageDataUrl) {
-      // Use dual mode - ONE SAM call for both cards
-      console.log('[Hybrid AI] Step 1: Calling SAM for dual card detection...');
-
-      samResult = await detectAndCropBothCards(frontImageDataUrl, backImageDataUrl, {
-        targetWidth: 600,  // Good quality for Claude analysis
-        targetHeight: 840, // 5:7 aspect ratio
-      });
-
-      if (samResult.success) {
-        croppedFront = samResult.front.croppedCard;
-        croppedBack = samResult.back.croppedCard;
-        console.log('[Hybrid AI] SAM cropping successful');
-        console.log('[Hybrid AI] Front method:', samResult.front.method);
-        console.log('[Hybrid AI] Back method:', samResult.back.method);
-      } else {
-        console.warn('[Hybrid AI] SAM failed, using original images:', samResult.error);
-        // Continue with original images - Claude can still analyze them
-      }
-    } else {
-      // Single card mode
-      console.log('[Hybrid AI] Step 1: Calling SAM for single card detection...');
-
-      samResult = await detectAndCropCard(frontImageDataUrl, {
-        targetWidth: 600,
-        targetHeight: 840,
-      });
-
-      if (samResult.success) {
-        croppedFront = samResult.croppedCard;
-        console.log('[Hybrid AI] SAM cropping successful, method:', samResult.method);
-      } else {
-        console.warn('[Hybrid AI] SAM failed, using original image:', samResult.error);
-      }
-    }
-
-    // ========== STEP 2: Claude for Grading ==========
-    // Add delay to avoid Replicate rate limiting (SAM and Claude are both on Replicate)
-    console.log('[Hybrid AI] Waiting 2s before Claude call (rate limit buffer)...');
-    await new Promise(r => setTimeout(r, 2000));
-
-    console.log('[Hybrid AI] Step 2: Calling Claude for grading analysis...');
-
-    // Stitch cropped images for single Claude call
+    // Stitch ORIGINAL images for Claude (high quality for accurate grading)
     let imageForClaude;
     let isStitched = false;
 
-    if (croppedBack) {
-      const stitched = await stitchCroppedCards(croppedFront, croppedBack);
+    if (backImageDataUrl) {
+      const stitched = await stitchCroppedCards(frontImageDataUrl, backImageDataUrl);
       imageForClaude = stitched.dataUrl;
       isStitched = true;
-      console.log('[Hybrid AI] Stitched cropped cards for Claude');
+      console.log(`[Hybrid AI] Stitched originals: ${stitched.width}x${stitched.height} (${Math.round(stitched.dataUrl.length/1024)}KB)`);
     } else {
-      imageForClaude = croppedFront;
+      imageForClaude = frontImageDataUrl;
     }
 
     // Call Claude API with retry logic for rate limits
@@ -549,7 +507,7 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
       if (response.ok) {
         claudeResult = await response.json();
         if (claudeResult.success) {
-          console.log('[Hybrid AI] Claude response received successfully');
+          console.log('[Hybrid AI] Claude grading complete!');
           break;
         }
       }
@@ -561,33 +519,78 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
 
       // If rate limited (429), wait and retry
       if (response.status === 429 || errorData.status === 429) {
-        const waitTime = (errorData.retry_after || 2) * 1000 + 500; // Add 500ms buffer
+        const waitTime = (errorData.retry_after || 2) * 1000 + 500;
         console.log(`[Hybrid AI] Rate limited, waiting ${waitTime}ms before retry...`);
         await new Promise(r => setTimeout(r, waitTime));
         continue;
       }
 
-      // For other errors, don't retry
       break;
     }
 
     if (!claudeResult?.success) {
-      console.error('[Hybrid AI] Claude failed after retries:', lastError);
-      throw new Error(lastError?.error || lastError?.message || 'Claude analysis failed');
+      console.error('[Hybrid AI] Claude failed:', lastError);
+      throw new Error(lastError?.error || lastError?.message || 'Claude grading failed');
     }
 
-    console.log('[Hybrid AI] Claude analysis complete');
     const analysis = claudeResult.analysis;
+    console.log('[Hybrid AI] Card identified:', analysis.cardInfo?.name);
 
-    // ========== RETURN COMBINED RESULTS ==========
+    // ========== STEP 2: SAM for 3D Cropping ==========
+    // Add delay to avoid Replicate rate limiting
+    console.log('[Hybrid AI] Waiting 2s before SAM call (rate limit buffer)...');
+    await new Promise(r => setTimeout(r, 2000));
+
+    console.log('[Hybrid AI] Step 2: Calling SAM for 3D card cropping...');
+
+    let croppedFront = null;
+    let croppedBack = null;
+    let samResult = null;
+
+    if (backImageDataUrl) {
+      // Dual mode - ONE SAM call for both cards
+      samResult = await detectAndCropBothCards(frontImageDataUrl, backImageDataUrl, {
+        targetWidth: 600,
+        targetHeight: 840,
+      });
+
+      if (samResult.success) {
+        croppedFront = samResult.front.croppedCard;
+        croppedBack = samResult.back.croppedCard;
+        console.log('[Hybrid AI] SAM cropping successful (front:', samResult.front.method, ', back:', samResult.back.method, ')');
+      } else {
+        console.warn('[Hybrid AI] SAM failed:', samResult.error);
+        // Fall back to originals for 3D view
+        croppedFront = frontImageDataUrl;
+        croppedBack = backImageDataUrl;
+      }
+    } else {
+      // Single card mode
+      samResult = await detectAndCropCard(frontImageDataUrl, {
+        targetWidth: 600,
+        targetHeight: 840,
+      });
+
+      if (samResult.success) {
+        croppedFront = samResult.croppedCard;
+        console.log('[Hybrid AI] SAM cropping successful:', samResult.method);
+      } else {
+        console.warn('[Hybrid AI] SAM failed:', samResult.error);
+        croppedFront = frontImageDataUrl;
+      }
+    }
+
+    // ========== RETURN RESULTS ==========
+    console.log('[Hybrid AI] Analysis complete!');
+
     return {
       success: true,
-      // Cropped images from SAM (ready for 3D card display)
+      // Cropped images from SAM (for 3D card display)
       croppedFront,
       croppedBack,
       // Card info from Claude
       cardInfo: analysis.cardInfo || null,
-      // Centering from Claude (analyzing the cropped card borders)
+      // Centering from Claude
       centering: {
         front: {
           lr: analysis.front?.centeringLR || '50/50',
@@ -608,9 +611,9 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
       model: claudeResult.model,
       samModel: samResult?.model || 'sam-2',
       cost: {
-        sam: samResult?.cost || 0.02,
         claude: 0.02,
-        total: (samResult?.cost || 0.02) + 0.02,
+        sam: samResult?.cost || 0.02,
+        total: 0.04,
       },
     };
 
