@@ -2298,6 +2298,9 @@ export default function SlabSense(){
   const[tab,setTab]=useState("overview"),[prog,setProg]=useState("");
   const[camTarget,setCamTarget]=useState(null);
   const[manualMode,setManualMode]=useState(null); // 'front'|'back'|null
+  const[frontRotation,setFrontRotation]=useState(0); // Rotation in degrees for front card
+  const[backRotation,setBackRotation]=useState(0); // Rotation in degrees for back card
+  const[centeringConfirmed,setCenteringConfirmed]=useState(false); // User confirmed edge alignment
   const[ignoreCentering,setIgnoreCentering]=useState(false); // Ignore centering in grade calculation
   const[gradingCompany,setGradingCompany]=useState(DEFAULT_GRADING_COMPANY); // Selected grading company
   const[useBackend,setUseBackend]=useState(true); // Use Python backend for analysis
@@ -2436,7 +2439,7 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setFrontRotation(0);setBackRotation(0);setCenteringConfirmed(false);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -2470,16 +2473,21 @@ export default function SlabSense(){
   }, []);
   const handleCam=d=>{if(camTarget==="front")setFI(d);else setBI(d);setCamTarget(null);};
 
-  // Save scan to user's collection (includes enhanced images for 3D viewing)
+  // Save scan to user's collection (includes AI data and enhanced images)
   const handleSaveScan = async () => {
     if (!auth.isAuthenticated || !gradeResult) return;
     setSavingStatus('saving');
     try {
+      // Determine grade to save (prefer AI grade if available)
+      const aiGradeForCompany = aiGrades?.[gradingCompany];
+      const gradeValue = aiGradeForCompany?.grade ?? gradeResult.grade.grade;
+      const gradeLabel = aiGradeForCompany?.label ?? gradeResult.grade.label;
+
       await saveScan(auth.user.id, {
         gradingCompany,
         rawScore: gradeResult.rawScore,
-        gradeValue: gradeResult.grade.grade,
-        gradeLabel: gradeResult.grade.label,
+        gradeValue,
+        gradeLabel,
         subgrades: gradeResult.subgrades,
         frontCentering: fR?.centering,
         backCentering: bR?.centering,
@@ -2487,11 +2495,20 @@ export default function SlabSense(){
         // Include AI-enhanced images if available (for 3D viewer in collection)
         enhancedFront: enhancedCards?.front || null,
         enhancedBack: enhancedCards?.back || null,
-        // Include OCR-extracted card info if available
+        // Include OCR-extracted card info
         cardName: cardInfo?.name || null,
         cardSet: cardInfo?.setName || null,
         cardNumber: cardInfo?.cardNumber || null,
-        cardGame: 'pokemon', // TODO: make this selectable
+        cardGame: 'pokemon',
+        // AI grading data (from Claude)
+        aiGrades: aiGrades || null,
+        aiCondition: aiCondition || null,
+        aiSummary: aiSummary || null,
+        aiCentering: fR?.centering?.source === 'claude-ai' ? {
+          front: { leftRight: fR?.centering?.lrRatio, topBottom: fR?.centering?.tbRatio },
+          back: bR?.centering ? { leftRight: bR?.centering?.lrRatio, topBottom: bR?.centering?.tbRatio } : null,
+        } : null,
+        cardInfo: cardInfo || null,
       });
       setSavingStatus('saved');
       setTimeout(() => setSavingStatus(null), 2000);
@@ -3461,9 +3478,62 @@ export default function SlabSense(){
 
         {/* CENTERING */}
         {tab==="centering"&&fR&&bR&&(<div>
-          {/* Measurement Annotation Overlays */}
-          <MeasurementOverlay image={fI} result={fR} label="Front — Detection Overlay"/>
-          <MeasurementOverlay image={bI} result={bR} label="Back — Detection Overlay"/>
+          {/* Rotation Controls */}
+          {[["Front", frontRotation, setFrontRotation, fI], ["Back", backRotation, setBackRotation, bI]].map(([label, rotation, setRotation, image]) => (
+            <div key={label} style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
+              <div style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase",marginBottom:12}}>{label} Alignment</div>
+
+              {/* Rotated Image Preview */}
+              <div style={{position:"relative",marginBottom:12,borderRadius:8,overflow:"hidden",background:"#000"}}>
+                <img
+                  src={image}
+                  alt={label}
+                  style={{
+                    width:"100%",
+                    display:"block",
+                    transform:`rotate(${rotation}deg)`,
+                    transition:"transform 0.15s ease",
+                  }}
+                />
+                {/* Crosshair overlay */}
+                <div style={{position:"absolute",inset:0,pointerEvents:"none"}}>
+                  <div style={{position:"absolute",left:"50%",top:0,bottom:0,width:1,background:"rgba(0,255,136,0.3)"}}/>
+                  <div style={{position:"absolute",top:"50%",left:0,right:0,height:1,background:"rgba(0,255,136,0.3)"}}/>
+                </div>
+              </div>
+
+              {/* Rotation Controls */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:12}}>
+                {/* Coarse left */}
+                <button onClick={()=>setRotation(r=>r-1)} style={{width:36,height:36,borderRadius:6,background:"#1a1c22",border:"1px solid #2a2d35",color:"#888",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  ‹‹
+                </button>
+                {/* Fine left */}
+                <button onClick={()=>setRotation(r=>Math.round((r-0.05)*100)/100)} style={{width:36,height:36,borderRadius:6,background:"#1a1c22",border:"1px solid #2a2d35",color:"#666",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  ‹
+                </button>
+
+                {/* Current rotation display */}
+                <div style={{minWidth:80,textAlign:"center",padding:"8px 12px",background:"#0a0b0e",borderRadius:6}}>
+                  <div style={{fontFamily:mono,fontSize:16,fontWeight:700,color:"#00ff88"}}>{rotation.toFixed(2)}°</div>
+                  <div style={{fontFamily:mono,fontSize:8,color:"#555"}}>ROTATION</div>
+                </div>
+
+                {/* Fine right */}
+                <button onClick={()=>setRotation(r=>Math.round((r+0.05)*100)/100)} style={{width:36,height:36,borderRadius:6,background:"#1a1c22",border:"1px solid #2a2d35",color:"#666",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  ›
+                </button>
+                {/* Coarse right */}
+                <button onClick={()=>setRotation(r=>r+1)} style={{width:36,height:36,borderRadius:6,background:"#1a1c22",border:"1px solid #2a2d35",color:"#888",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  ››
+                </button>
+              </div>
+
+              <div style={{textAlign:"center",fontFamily:mono,fontSize:9,color:"#444"}}>
+                ‹‹ / ›› = 1° · ‹ / › = 0.05°
+              </div>
+            </div>
+          ))}
 
           {/* Manual Adjust toggle buttons */}
           <div style={{display:"flex",gap:8,marginBottom:14}}>
@@ -3474,7 +3544,7 @@ export default function SlabSense(){
                   background:manualMode===s?"rgba(255,153,68,.1)":"transparent",
                   color:manualMode===s?"#ff9944":"#666",
                   fontFamily:mono,fontSize:10,cursor:"pointer",textTransform:"uppercase",letterSpacing:".06em"}}>
-                {manualMode===s?"✕ Close":"✦ Adjust"} {sl}
+                {manualMode===s?"✕ Close":"✦ Adjust Borders"} {sl}
               </button>
             ))}
           </div>
@@ -3482,51 +3552,89 @@ export default function SlabSense(){
           {/* Manual editors */}
           {manualMode==="front"&&fR&&fI&&(
             <ManualBoundaryEditor image={fI} result={fR} side="Front"
-              onApply={(bounds,centering)=>applyManualCorrection("front",bounds,centering)}/>
+              onApply={(bounds,centering)=>{applyManualCorrection("front",bounds,centering);setCenteringConfirmed(true);}}/>
           )}
           {manualMode==="back"&&bR&&bI&&(
             <ManualBoundaryEditor image={bI} result={bR} side="Back"
-              onApply={(bounds,centering)=>applyManualCorrection("back",bounds,centering)}/>
+              onApply={(bounds,centering)=>{applyManualCorrection("back",bounds,centering);setCenteringConfirmed(true);}}/>
           )}
 
-          {/* Backend Analysis Toggle */}
-          <div style={{marginBottom:14,padding:12,background:"#0d0f13",borderRadius:8,border:`1px solid ${useBackend&&backendStatus.available?"#00ff8844":"#1a1c22"}`}}>
-            <label style={{display:"flex",alignItems:"center",gap:10,cursor:backendStatus.available?"pointer":"not-allowed",opacity:backendStatus.available?1:0.5}}>
-              <input
-                type="checkbox"
-                checked={useBackend&&backendStatus.available}
-                onChange={e=>setUseBackend(e.target.checked)}
-                disabled={!backendStatus.available}
-                style={{width:16,height:16,accentColor:"#00ff88",cursor:backendStatus.available?"pointer":"not-allowed"}}
-              />
-              <span style={{fontFamily:mono,fontSize:11,color:useBackend&&backendStatus.available?"#00ff88":"#888",textTransform:"uppercase",letterSpacing:".04em"}}>
-                Backend Analysis (Python/OpenCV)
-              </span>
-              {!backendStatus.checking && (
-                <span style={{fontFamily:mono,fontSize:9,color:backendStatus.available?"#00ff88":"#ff6633",marginLeft:"auto"}}>
-                  {backendStatus.available ? "● ONLINE" : "○ OFFLINE"}
-                </span>
-              )}
-            </label>
-            {useBackend&&backendStatus.available&&gradeResult?.source==='backend'&&(
-              <div style={{marginTop:10,padding:10,background:"rgba(0,255,136,.08)",borderRadius:6,border:"1px solid rgba(0,255,136,.2)"}}>
-                <div style={{fontFamily:mono,fontSize:10,color:"#00ff88",fontWeight:600,marginBottom:4}}>✓ BACKEND ANALYSIS</div>
-                <div style={{fontFamily:sans,fontSize:11,color:"#66aa88",lineHeight:1.4}}>
-                  Grade computed by Python/OpenCV backend with TAG-calibrated centering detection.
-                  {gradeResult.processingTimeMs && ` Processing: ${gradeResult.processingTimeMs}ms`}
-                </div>
+          {/* Confirm Alignment Button */}
+          {!centeringConfirmed && (
+            <button
+              onClick={()=>setCenteringConfirmed(true)}
+              style={{
+                width:"100%",
+                padding:"14px 0",
+                marginBottom:16,
+                borderRadius:8,
+                border:"1px solid #00ff8844",
+                background:"linear-gradient(135deg,rgba(0,255,136,0.1),rgba(0,255,136,0.05))",
+                color:"#00ff88",
+                fontFamily:mono,
+                fontSize:12,
+                fontWeight:600,
+                cursor:"pointer",
+                textTransform:"uppercase",
+                letterSpacing:".05em",
+              }}
+            >
+              ✓ Confirm Alignment & Calculate
+            </button>
+          )}
+
+          {/* Centering Results - Only show after confirmation */}
+          {centeringConfirmed ? (
+            <>
+              {[["Front",fR,"front"],["Back",bR,"back"]].map(([s,r,side])=>{
+                const maxOff=Math.max(Math.max(r.centering.lrRatio,100-r.centering.lrRatio),Math.max(r.centering.tbRatio,100-r.centering.tbRatio));
+                const hasDing=r.centerDings.length>0;
+                const companyThresh = GRADING_COMPANIES[gradingCompany]?.centeringThresholds?.[side]?.[10];
+                const threshVal = typeof companyThresh === 'object' ? (companyThresh.gem || companyThresh.pristine) : companyThresh;
+                const threshDisplay = threshVal ? `${threshVal}/${100-threshVal}` : (side==="front"?"55/45":"65/35");
+                return(<div key={s} style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${hasDing?"#ff663344":"#00ff8822"}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+                    <span style={{fontFamily:mono,fontSize:11,color:"#00ff88",textTransform:"uppercase"}}>✓ {s} Centering</span>
+                    {hasDing&&<span style={{fontFamily:mono,fontSize:10,color:"#ff6633",fontWeight:600}}>⚠ DING</span>}
+                  </div>
+                  <div style={{display:"flex",gap:16}}>
+                    <div style={{flex:1}}><div style={{fontFamily:mono,fontSize:9,color:"#555",marginBottom:4}}>L / R</div><div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:"#ccc"}}>{r.centering.lrRatio}/{Math.round((100-r.centering.lrRatio)*10)/10}</div></div>
+                    <div style={{width:1,background:"#1a1c22"}}/>
+                    <div style={{flex:1}}><div style={{fontFamily:mono,fontSize:9,color:"#555",marginBottom:4}}>T / B</div><div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:"#ccc"}}>{r.centering.tbRatio}/{Math.round((100-r.centering.tbRatio)*10)/10}</div></div>
+                  </div>
+                  <div style={{marginTop:8,fontFamily:mono,fontSize:9,color:"#555"}}>
+                    Worst axis: {maxOff.toFixed(1)}/{(100-maxOff).toFixed(1)} · {GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} 10 threshold: {threshDisplay}
+                  </div>
+                </div>);
+              })}
+
+              {/* Reset Alignment */}
+              <button
+                onClick={()=>setCenteringConfirmed(false)}
+                style={{
+                  width:"100%",
+                  padding:"10px 0",
+                  marginBottom:14,
+                  borderRadius:6,
+                  border:"1px solid #333",
+                  background:"transparent",
+                  color:"#666",
+                  fontFamily:mono,
+                  fontSize:10,
+                  cursor:"pointer",
+                }}
+              >
+                ↺ Re-adjust Alignment
+              </button>
+            </>
+          ) : (
+            <div style={{padding:20,background:"rgba(255,153,68,0.05)",borderRadius:10,border:"1px solid rgba(255,153,68,0.2)",textAlign:"center",marginBottom:16}}>
+              <div style={{fontFamily:mono,fontSize:11,color:"#ff9944",marginBottom:8}}>⚠ ALIGNMENT REQUIRED</div>
+              <div style={{fontFamily:sans,fontSize:12,color:"#888",lineHeight:1.5}}>
+                Adjust rotation and borders above, then click "Confirm Alignment" to calculate centering score.
               </div>
-            )}
-            {!backendStatus.available&&!backendStatus.checking&&(
-              <div style={{marginTop:10,padding:10,background:"rgba(255,102,51,.08)",borderRadius:6,border:"1px solid rgba(255,102,51,.2)"}}>
-                <div style={{fontFamily:mono,fontSize:10,color:"#ff6633",fontWeight:600,marginBottom:4}}>⚠ BACKEND OFFLINE</div>
-                <div style={{fontFamily:sans,fontSize:11,color:"#aa6644",lineHeight:1.4}}>
-                  Backend server not available. Using client-side analysis.
-                  Start backend: <code style={{background:"#111",padding:"2px 6px",borderRadius:3}}>python main.py</code>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Ignore Centering Option */}
           <div style={{marginBottom:14,padding:12,background:"#0d0f13",borderRadius:8,border:`1px solid ${ignoreCentering?"#ff994444":"#1a1c22"}`}}>
@@ -3546,33 +3654,10 @@ export default function SlabSense(){
                 <div style={{fontFamily:mono,fontSize:10,color:"#ff9944",fontWeight:600,marginBottom:4}}>⚠ WARNING</div>
                 <div style={{fontFamily:sans,fontSize:11,color:"#aa7744",lineHeight:1.4}}>
                   Centering is set to 50/50 (perfect) and will NOT affect the grade.
-                  Use this when centering detection is unreliable or you want to grade based on condition only.
                 </div>
               </div>
             )}
           </div>
-
-          {[["Front",fR,"front"],["Back",bR,"back"]].map(([s,r,side])=>{
-            const maxOff=Math.max(Math.max(r.centering.lrRatio,100-r.centering.lrRatio),Math.max(r.centering.tbRatio,100-r.centering.tbRatio));
-            const hasDing=r.centerDings.length>0;
-            const companyThresh = GRADING_COMPANIES[gradingCompany]?.centeringThresholds?.[side]?.[10];
-            const threshVal = typeof companyThresh === 'object' ? (companyThresh.gem || companyThresh.pristine) : companyThresh;
-            const threshDisplay = threshVal ? `${threshVal}/${100-threshVal}` : (side==="front"?"55/45":"65/35");
-            return(<div key={s} style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${hasDing?"#ff663344":"#1a1c22"}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
-                <span style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase"}}>{s}</span>
-                {hasDing&&<span style={{fontFamily:mono,fontSize:10,color:"#ff6633",fontWeight:600}}>⚠ DING</span>}
-              </div>
-              <div style={{display:"flex",gap:16}}>
-                <div style={{flex:1}}><div style={{fontFamily:mono,fontSize:9,color:"#555",marginBottom:4}}>L / R</div><div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:"#ccc"}}>{r.centering.lrRatio}/{Math.round((100-r.centering.lrRatio)*10)/10}</div></div>
-                <div style={{width:1,background:"#1a1c22"}}/>
-                <div style={{flex:1}}><div style={{fontFamily:mono,fontSize:9,color:"#555",marginBottom:4}}>T / B</div><div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:"#ccc"}}>{r.centering.tbRatio}/{Math.round((100-r.centering.tbRatio)*10)/10}</div></div>
-              </div>
-              <div style={{marginTop:8,fontFamily:mono,fontSize:9,color:"#555"}}>
-                Worst axis: {maxOff.toFixed(1)}/{(100-maxOff).toFixed(1)} · {GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} 10 threshold: {threshDisplay}
-              </div>
-            </div>);
-          })}
         </div>)}
 
         {/* CORNERS */}

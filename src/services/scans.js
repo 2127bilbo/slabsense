@@ -79,6 +79,12 @@ export async function saveScan(userId, scanData) {
       back_centering: scanData.backCentering || {},
       dings: scanData.dings || [],
       notes: scanData.notes || null,
+      // AI grading data (from Claude)
+      ai_grades: scanData.aiGrades || null,        // Multi-company grades { psa, bgs, sgc, cgc, tag }
+      ai_condition: scanData.aiCondition || null,  // { corners, edges, surface, defects }
+      ai_summary: scanData.aiSummary || null,      // { positives, concerns, recommendation }
+      ai_centering: scanData.aiCentering || null,  // { front: {leftRight, topBottom}, back: {...} }
+      card_info: scanData.cardInfo || null,        // { name, hp, cardNumber, setName, rarity, year, variant, language }
     })
     .select()
     .single();

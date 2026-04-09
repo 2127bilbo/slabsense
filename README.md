@@ -1,91 +1,169 @@
-# SlabSense v0.1.0-beta
+# SlabSense v0.2.0-beta
 
-**Multi-Company Card Pre-Grading Analysis Tool**
+**AI-Powered Multi-Company Card Pre-Grading Tool**
 
-Analyze your trading cards against multiple professional grading standards including PSA, BGS, CGC, SGC, and TAG.
+Analyze your trading cards against multiple professional grading standards including PSA, BGS, CGC, SGC, and TAG using **Claude AI** for accurate grading.
 
 > **DISCLAIMER**: SlabSense is NOT affiliated with any professional grading company. All grades are estimates only. See [docs/DISCLAIMERS.md](docs/DISCLAIMERS.md) for full details.
 
 ## Features
 
-- **Multi-Company Support** — Compare grades across PSA, BGS, CGC, SGC, and TAG scales
-- **DINGS-Based Scoring** — Defect classification for Surface, Corners, Edges, and Centering
-- **Live Camera Viewfinder** — Bubble level + card framing guide (requires HTTPS)
-- **Surface Vision Modes** — Emboss, Hi-Pass, Edge Detection with transparency slider
-- **DINGS Map Schematic** — Card outline with defect markers and severity scores
-- **Auto-Crop Defect Previews** — Normal + enhanced side-by-side for detected defects
-- **Holo Detection** — Automatically adjusts thresholds for foil/holographic cards
-- **Manual Adjustment** — Fine-tune boundary detection for accuracy
-- **PWA Ready** — Add to home screen for app-like experience
+### AI Grading (Claude Sonnet 4)
+- **Multi-Company Grades** — Get PSA, BGS, SGC, CGC, and TAG grades in ONE API call
+- **Card Recognition** — Automatically extracts name, set, number, rarity, year
+- **Centering Measurement** — L/R and T/B ratios for front and back
+- **Condition Assessment** — Corners, edges, surface scores with defect notes
+- **Detailed Summary** — Positives, concerns, and grading recommendation
+- **Subgrades** — BGS 4 subgrades, TAG 8 subgrades when selected
+
+### 3D Card View (SAM 2)
+- **Clean Card Cropping** — AI-powered perspective correction
+- **Rotating Slab Preview** — See your card in a realistic slab
+- **Separate from Grading** — Avoids rate limits, user controls timing
+
+### Collection
+- **Card Stack View** — Swipe through your collection like a deck
+- **Full Detail Modal** — Tap any card for complete AI report
+- **Company Switching** — Toggle between grading company views
+- **AI vs Software Toggle** — Compare AI grade to client-side grade
+
+### Centering Tools
+- **Rotation Controls** — 1° and 0.05° fine-tune adjustments
+- **Manual Border Adjustment** — Drag handles for precise alignment
+- **Confirm Before Score** — No grade until you verify alignment
 
 ## Supported Grading Companies
 
-| Company | Scale | Subgrades | Front Centering (10) |
-|---------|-------|-----------|---------------------|
-| TAG | 1000-point → 1-10 | Yes (8) | 55/45 |
-| PSA | 1-10 | No | 60/40 |
-| BGS | 1-10 | Yes (4) | 50/50 |
-| CGC | 1-10 | Yes (4) | 55/45 |
-| SGC | 1-10 | No | 60/40 |
+| Company | Scale | Subgrades | AI Supported |
+|---------|-------|-----------|--------------|
+| TAG | 1000-point → 1-10 | Yes (8) | ✅ |
+| PSA | 1-10 | No | ✅ |
+| BGS | 1-10 | Yes (4) | ✅ |
+| CGC | 1-10 | Yes (4) | ✅ |
+| SGC | 1-10 | No | ✅ |
 
-## Deploy to Vercel
+## Quick Start
 
-1. Push this repo to GitHub
-2. Go to vercel.com → Import Project → select your repo
-3. Vercel auto-detects Vite — click Deploy
-4. Get your `https://your-project.vercel.app` URL
-5. Open on any phone — camera, level, everything works over HTTPS
-
-## Local Development
-
+### 1. Clone and Install
 ```bash
+git clone https://github.com/yourusername/slabsense.git
+cd slabsense
 npm install
-npm run dev
 ```
+
+### 2. Set Environment Variables
+Create `.env.local`:
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+REPLICATE_API_TOKEN=your_replicate_token
+```
+
+### 3. Run Development Server
+```bash
+npm run dev
+# Opens at http://localhost:5173
+```
+
+### 4. Deploy to Vercel
+```bash
+vercel --prod
+```
+
+## Cost Per Card
+
+| Feature | Cost | API |
+|---------|------|-----|
+| AI Grade | ~$0.03 | Claude Sonnet 4 |
+| 3D View | ~$0.02 | SAM 2 |
+| **Total** | **~$0.05** | |
 
 ## Architecture
 
-Currently 100% client-side — all image processing runs in the browser. No server required for basic functionality.
-
-Future versions will include:
-- Backend API for enhanced centering detection
-- User accounts and scan history
-- Card database integration
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Frontend (React/Vite)                                      │
+│  - Camera capture & viewfinder                              │
+│  - AI grading UI with multi-company display                 │
+│  - Collection card stack                                    │
+│  - Centering with rotation controls                         │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  API Routes (Vercel Serverless)                             │
+│  - /api/ai-analyze → Claude Sonnet 4 (Replicate)            │
+│  - /api/detect-card → SAM 2 (Replicate)                     │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Database (Supabase)                                        │
+│  - User authentication                                      │
+│  - Scan collection with AI data                             │
+│  - Profiles & memberships                                   │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Project Structure
 
 ```
 SlabSense/
 ├── src/
-│   ├── components/     # UI components (planned)
-│   ├── services/       # API services (planned)
+│   ├── components/
+│   │   ├── Auth/              # Login, Register
+│   │   ├── Collection/        # Card stack view
+│   │   ├── CardViewer/        # 3D slab viewer
+│   │   └── Export/            # Grade card export
+│   ├── services/
+│   │   ├── api.js             # AI grading & SAM functions
+│   │   ├── auth.js            # Supabase auth
+│   │   └── scans.js           # Save/load with AI data
 │   ├── utils/
-│   │   └── gradingScales.js  # Multi-company grading scales
-│   ├── App.jsx         # Main application
-│   └── main.jsx
+│   │   └── gradingScales.js   # Multi-company scales
+│   └── App.jsx                # Main application
+├── api/
+│   ├── ai-analyze.js          # Claude grading endpoint
+│   └── detect-card.js         # SAM cropping endpoint
 ├── docs/
-│   ├── DISCLAIMERS.md
-│   ├── PRIVACY_POLICY.md
-│   └── TERMS_OF_SERVICE.md
-├── backend/            # Python API (planned)
-├── supabase/           # Database migrations (planned)
-├── GAMEPLAN.md         # Development roadmap
+│   └── grading-research/      # Company standards
+├── HANDOFF.md                 # Development state
 └── README.md
 ```
 
-## Roadmap
+## Key Functions
 
-See [GAMEPLAN.md](GAMEPLAN.md) for full development roadmap including:
-- Phase 1: Foundation & Rebranding ✓
-- Phase 2: Backend & Auth
-- Phase 3: User Features
-- Phase 4: Pro Features & Payments
-- Phase 5: Hardware Integration
+### AI Grading
+```javascript
+import { claudeGradingAnalysis } from './services/api.js';
+
+const result = await claudeGradingAnalysis(frontImage, backImage, 'pokemon');
+// Returns: { cardInfo, centering, condition, grades, summary }
+```
+
+### 3D Cropping
+```javascript
+import { samCardCropping } from './services/api.js';
+
+const result = await samCardCropping(frontImage, backImage);
+// Returns: { croppedFront, croppedBack }
+```
+
+## Development Status
+
+| Feature | Status |
+|---------|--------|
+| Claude AI Grading | ✅ Complete |
+| SAM 2 3D View | ✅ Complete |
+| Collection Card Stack | ✅ Complete |
+| Centering Rotation | ✅ Complete |
+| Multi-Company Display | ✅ Complete |
+| Stripe Payments | 🔄 Planned |
 
 ## License
 
 MIT
 
-## Status
+## Contributing
 
-**Beta** - Active development
+See [HANDOFF.md](HANDOFF.md) for current development state and next steps.
