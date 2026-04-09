@@ -510,6 +510,10 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
     }
 
     // ========== STEP 2: Claude for Grading ==========
+    // Add delay to avoid Replicate rate limiting (SAM and Claude are both on Replicate)
+    console.log('[Hybrid AI] Waiting 2s before Claude call (rate limit buffer)...');
+    await new Promise(r => setTimeout(r, 2000));
+
     console.log('[Hybrid AI] Step 2: Calling Claude for grading analysis...');
 
     // Stitch cropped images for single Claude call
@@ -525,29 +529,51 @@ export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = 
       imageForClaude = croppedFront;
     }
 
-    // Call Claude API (single call)
-    const response = await fetch('/api/ai-analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image: imageForClaude,
-        isStitched,
-        cardType,
-      }),
-    });
+    // Call Claude API with retry logic for rate limits
+    let claudeResult = null;
+    let lastError = null;
 
-    if (!response.ok) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      console.log(`[Hybrid AI] Claude API attempt ${attempt}/3...`);
+
+      const response = await fetch('/api/ai-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: imageForClaude,
+          isStitched,
+          cardType,
+        }),
+      });
+
+      if (response.ok) {
+        claudeResult = await response.json();
+        if (claudeResult.success) {
+          console.log('[Hybrid AI] Claude response received successfully');
+          break;
+        }
+      }
+
+      // Handle errors
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('[Hybrid AI] Claude API error response:', errorData);
-      throw new Error(errorData.error || errorData.message || `Claude API error: ${response.status}`);
+      lastError = errorData;
+      console.error(`[Hybrid AI] Attempt ${attempt} failed:`, errorData);
+
+      // If rate limited (429), wait and retry
+      if (response.status === 429 || errorData.status === 429) {
+        const waitTime = (errorData.retry_after || 2) * 1000 + 500; // Add 500ms buffer
+        console.log(`[Hybrid AI] Rate limited, waiting ${waitTime}ms before retry...`);
+        await new Promise(r => setTimeout(r, waitTime));
+        continue;
+      }
+
+      // For other errors, don't retry
+      break;
     }
 
-    const claudeResult = await response.json();
-    console.log('[Hybrid AI] Claude response received:', claudeResult.success);
-
-    if (!claudeResult.success) {
-      console.error('[Hybrid AI] Claude failed:', claudeResult);
-      throw new Error(claudeResult.error || claudeResult.message || 'Claude analysis failed');
+    if (!claudeResult?.success) {
+      console.error('[Hybrid AI] Claude failed after retries:', lastError);
+      throw new Error(lastError?.error || lastError?.message || 'Claude analysis failed');
     }
 
     console.log('[Hybrid AI] Claude analysis complete');
