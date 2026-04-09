@@ -7,7 +7,7 @@ import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan } from "./services/scans.js";
-import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards, analyzeCardWithVision, unifiedCardAnalysis } from "./services/api.js";
+import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards, analyzeCardWithVision, claudeGradingAnalysis, samCardCropping } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 
 /* ═══════════════════════════════════════════
@@ -2322,6 +2322,8 @@ export default function SlabSense(){
   const[cardInfo,setCardInfo]=useState(null); // Card info: { name, cardNumber, setName, etc. }
   const[aiCondition,setAiCondition]=useState(null); // AI condition assessment: { overall, corners, edges, surface, notes }
   const[aiGradingNotes,setAiGradingNotes]=useState(null); // AI grading notes: { positives, concerns, estimatedGrade }
+  const[aiGrades,setAiGrades]=useState(null); // Multi-company grades from Claude: { psa, bgs, sgc, cgc, tag }
+  const[aiSummary,setAiSummary]=useState(null); // AI summary: { positives, concerns, recommendation }
   const[extractingInfo,setExtractingInfo]=useState(false); // AI analysis in progress
 
   // Auth hook
@@ -2434,7 +2436,7 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setExtractingInfo(false);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -2500,31 +2502,19 @@ export default function SlabSense(){
     }
   };
 
-  // AI-Enhance cards - SINGLE Claude call does EVERYTHING via Replicate
-  // - Card boundary detection + rotation correction
-  // - Perfect cropping with coordinates
-  // - Border measurements for centering
-  // - Card info extraction (OCR)
-  // - Condition assessment + grading notes
-  // Cost: ~$0.02-0.05 per card (uses your Replicate prepaid balance)
+  // AI Grade - Claude analyzes card and returns grades (no SAM, no 3D)
+  // Cost: ~$0.03 per card
   const handleEnhanceCards = async () => {
     if (!fI || !bI) return;
     setEnhancingStatus('enhancing');
     setExtractingInfo(true);
     try {
-      console.log('Starting unified AI analysis via Claude...');
-      setProg('AI analyzing card (detection + OCR + grading)...');
+      console.log('Starting Claude grading analysis...');
+      setProg('AI grading card...');
 
-      // Single Claude call does everything
-      const result = await unifiedCardAnalysis(fI, bI, 'pokemon');
+      const result = await claudeGradingAnalysis(fI, bI, 'pokemon');
 
       if (result.success) {
-        // Store cropped/rotated images for 3D viewer
-        setEnhancedCards({
-          front: result.croppedFront,
-          back: result.croppedBack,
-        });
-
         // Card info from OCR
         if (result.cardInfo) {
           setCardInfo(result.cardInfo);
@@ -2535,16 +2525,27 @@ export default function SlabSense(){
           setAiCondition(result.condition);
         }
 
-        // Grading notes
-        if (result.gradingNotes) {
-          setAiGradingNotes(result.gradingNotes);
+        // Multi-company grades from Claude
+        if (result.grades) {
+          setAiGrades(result.grades);
+          console.log('AI Multi-company grades:', result.grades);
         }
 
-        // Apply Claude's centering data to override our calculated centering
+        // Summary with positives/concerns/recommendation
+        if (result.summary) {
+          setAiSummary(result.summary);
+          setAiGradingNotes({
+            positives: result.summary.positives || [],
+            concerns: result.summary.concerns || [],
+            estimatedGrade: result.grades?.[gradingCompany]?.grade || result.grades?.tag?.grade,
+            recommendation: result.summary.recommendation,
+          });
+        }
+
+        // Apply Claude's centering data
         if (result.centering) {
           console.log('AI Centering:', result.centering);
 
-          // Parse Claude's centering ratios (e.g., "45/55" -> { left: 45, right: 55 })
           const parseCentering = (str) => {
             if (!str) return null;
             const parts = str.split('/').map(s => parseFloat(s.trim()));
@@ -2554,10 +2555,9 @@ export default function SlabSense(){
             return null;
           };
 
-          // Update front centering if we have data
           if (result.centering.front && fR) {
-            const lrParsed = parseCentering(result.centering.front.lr);
-            const tbParsed = parseCentering(result.centering.front.tb);
+            const lrParsed = parseCentering(result.centering.front.leftRight || result.centering.front.lr);
+            const tbParsed = parseCentering(result.centering.front.topBottom || result.centering.front.tb);
 
             if (lrParsed || tbParsed) {
               const updatedFR = { ...fR };
@@ -2579,14 +2579,12 @@ export default function SlabSense(){
               }
               updatedFR.centering.source = 'claude-ai';
               setFR(updatedFR);
-              console.log('Applied AI centering to front:', updatedFR.centering);
             }
           }
 
-          // Update back centering if we have data
           if (result.centering.back && bR) {
-            const lrParsed = parseCentering(result.centering.back.lr);
-            const tbParsed = parseCentering(result.centering.back.tb);
+            const lrParsed = parseCentering(result.centering.back.leftRight || result.centering.back.lr);
+            const tbParsed = parseCentering(result.centering.back.topBottom || result.centering.back.tb);
 
             if (lrParsed || tbParsed) {
               const updatedBR = { ...bR };
@@ -2608,24 +2606,15 @@ export default function SlabSense(){
               }
               updatedBR.centering.source = 'claude-ai';
               setBR(updatedBR);
-              console.log('Applied AI centering to back:', updatedBR.centering);
             }
           }
         }
 
-        // Log cropping status
-        console.log('Cropped images:', {
-          frontCropped: result.croppedFront !== fI,
-          backCropped: result.croppedBack !== bI,
-          hasBoundingBox: !!result.rawAnalysis?.front?.boundingBox
-        });
-
         setEnhancingStatus('done');
         setExtractingInfo(false);
         setProg('');
-        setShow3DViewer(true); // Auto-open 3D viewer
+        console.log('Claude analysis complete:', result.cardInfo?.name);
 
-        console.log('AI analysis complete:', result.cardInfo?.name, 'Grade:', result.gradingNotes?.estimatedGrade);
       } else {
         console.error('AI analysis failed:', result.error);
         setEnhancingStatus('error');
@@ -2639,6 +2628,49 @@ export default function SlabSense(){
       setExtractingInfo(false);
       setProg('');
       setTimeout(() => setEnhancingStatus(null), 3000);
+    }
+  };
+
+  // 3D View - SAM crops cards for 3D display (separate from grading)
+  // Cost: ~$0.02 per card
+  const [croppingFor3D, setCroppingFor3D] = useState(false);
+  const handle3DView = async () => {
+    if (!fI || !bI) return;
+
+    // If already have cropped images, just show viewer
+    if (enhancedCards?.front) {
+      setShow3DViewer(true);
+      return;
+    }
+
+    setCroppingFor3D(true);
+    setProg('Preparing 3D view...');
+
+    try {
+      console.log('Starting SAM cropping for 3D view...');
+      const samResult = await samCardCropping(fI, bI);
+
+      if (samResult.success || samResult.croppedFront) {
+        setEnhancedCards({
+          front: samResult.croppedFront,
+          back: samResult.croppedBack,
+        });
+        console.log('SAM cropping complete - 3D view ready');
+        setShow3DViewer(true);
+      } else {
+        // Fall back to original images
+        setEnhancedCards({ front: fI, back: bI });
+        console.warn('SAM failed, using original images');
+        setShow3DViewer(true);
+      }
+    } catch (err) {
+      console.error('SAM error:', err);
+      // Fall back to original images
+      setEnhancedCards({ front: fI, back: bI });
+      setShow3DViewer(true);
+    } finally {
+      setCroppingFor3D(false);
+      setProg('');
     }
   };
 
@@ -2934,27 +2966,28 @@ export default function SlabSense(){
             📤 Share / Export
           </button>
 
-          {/* AI Enhance / 3D View Button */}
+          {/* AI Grade Button */}
           <button
-            onClick={enhancedCards ? () => setShow3DViewer(true) : handleEnhanceCards}
-            disabled={enhancingStatus === 'enhancing'}
+            onClick={handleEnhanceCards}
+            disabled={enhancingStatus === 'enhancing' || enhancingStatus === 'done'}
             style={{
               width: '100%',
               padding: '12px 0',
-              marginBottom: 16,
+              marginBottom: 8,
               borderRadius: 8,
-              border: enhancedCards ? '1px solid rgba(99,102,241,0.3)' : '1px solid #2a2d35',
+              border: enhancingStatus === 'done' ? '1px solid rgba(0,255,136,0.3)' : '1px solid #2a2d35',
               background: enhancingStatus === 'enhancing' ? '#1a1c22'
-                : enhancedCards ? 'rgba(99,102,241,0.1)'
+                : enhancingStatus === 'done' ? 'rgba(0,255,136,0.1)'
                 : enhancingStatus === 'error' ? 'rgba(255,68,68,0.1)'
                 : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-              color: enhancedCards ? '#6366f1'
+              color: enhancingStatus === 'done' ? '#00ff88'
                 : enhancingStatus === 'error' ? '#ff6666'
                 : '#fff',
               fontFamily: mono,
               fontSize: 11,
               fontWeight: 600,
-              cursor: enhancingStatus === 'enhancing' ? 'wait' : 'pointer',
+              cursor: enhancingStatus === 'enhancing' || enhancingStatus === 'done' ? 'default' : 'pointer',
+              opacity: enhancingStatus === 'done' ? 0.8 : 1,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -2962,13 +2995,46 @@ export default function SlabSense(){
             }}
           >
             {enhancingStatus === 'enhancing' ? (
-              <>⏳ AI Processing...</>
-            ) : enhancedCards ? (
-              <>✓ View 3D / Slab{cardInfo?.name ? ` • ${cardInfo.name}` : ''}</>
+              <>⏳ AI Grading...</>
+            ) : enhancingStatus === 'done' ? (
+              <>✓ AI Grade Complete{cardInfo?.name ? ` • ${cardInfo.name}` : ''}</>
             ) : enhancingStatus === 'error' ? (
               <>✕ AI Failed - Try Again</>
             ) : (
-              <>✨ AI Enhance + 3D Slab ($0.03)</>
+              <>✨ AI Grade Card ($0.03)</>
+            )}
+          </button>
+
+          {/* 3D View Button - Separate from AI grading */}
+          <button
+            onClick={handle3DView}
+            disabled={croppingFor3D}
+            style={{
+              width: '100%',
+              padding: '12px 0',
+              marginBottom: 16,
+              borderRadius: 8,
+              border: enhancedCards ? '1px solid rgba(99,102,241,0.3)' : '1px solid #2a2d35',
+              background: croppingFor3D ? '#1a1c22'
+                : enhancedCards ? 'rgba(99,102,241,0.15)'
+                : '#1a1c22',
+              color: enhancedCards ? '#8b5cf6' : '#666',
+              fontFamily: mono,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: croppingFor3D ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            {croppingFor3D ? (
+              <>⏳ Preparing 3D View...</>
+            ) : enhancedCards ? (
+              <>🎴 View 3D Slab</>
+            ) : (
+              <>🎴 3D Slab View ($0.02)</>
             )}
           </button>
 
@@ -3055,21 +3121,153 @@ export default function SlabSense(){
                 <span style={{ fontSize: 14 }}>🤖</span> AI Grading Analysis
               </div>
 
-              {/* AI Estimated Grade */}
-              {aiGradingNotes?.estimatedGrade && (
+              {/* AI Estimated Grade - Shows grade for selected company */}
+              {aiGrades?.[gradingCompany] && (
                 <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '10px 12px',
+                  padding: '12px',
                   background: 'rgba(139,92,246,0.1)',
                   borderRadius: 8,
                   marginBottom: 12,
                 }}>
-                  <span style={{ fontFamily: mono, fontSize: 10, color: '#888' }}>AI Estimated Grade</span>
-                  <span style={{ fontFamily: mono, fontSize: 18, fontWeight: 800, color: '#8b5cf6' }}>
-                    {aiGradingNotes.estimatedGrade}
-                  </span>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                  }}>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: '#888' }}>
+                      {GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} Estimate
+                    </span>
+                    <span style={{ fontFamily: mono, fontSize: 22, fontWeight: 800, color: '#8b5cf6' }}>
+                      {gradingCompany === 'tag' && aiGrades.tag?.score
+                        ? `${aiGrades.tag.grade} (${aiGrades.tag.score})`
+                        : aiGrades[gradingCompany]?.grade}
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: mono, fontSize: 11, color: '#a78bfa' }}>
+                    {aiGrades[gradingCompany]?.label}
+                  </div>
+                  {aiGrades[gradingCompany]?.notes && (
+                    <div style={{ fontFamily: sans, fontSize: 10, color: '#666', marginTop: 6, fontStyle: 'italic' }}>
+                      {aiGrades[gradingCompany].notes}
+                    </div>
+                  )}
+                  {/* BGS/TAG Subgrades */}
+                  {(gradingCompany === 'bgs' || gradingCompany === 'tag') && aiGrades[gradingCompany]?.subgrades && (
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(139,92,246,0.2)' }}>
+                      <div style={{ fontFamily: mono, fontSize: 8, color: '#666', marginBottom: 6 }}>SUBGRADES</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: gradingCompany === 'bgs' ? 'repeat(4,1fr)' : 'repeat(4,1fr)', gap: 6 }}>
+                        {gradingCompany === 'bgs' && (
+                          <>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.bgs.subgrades.centering}</div>
+                              <div style={{ fontFamily: mono, fontSize: 7, color: '#555' }}>CENTER</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.bgs.subgrades.corners}</div>
+                              <div style={{ fontFamily: mono, fontSize: 7, color: '#555' }}>CORNERS</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.bgs.subgrades.edges}</div>
+                              <div style={{ fontFamily: mono, fontSize: 7, color: '#555' }}>EDGES</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.bgs.subgrades.surface}</div>
+                              <div style={{ fontFamily: mono, fontSize: 7, color: '#555' }}>SURFACE</div>
+                            </div>
+                          </>
+                        )}
+                        {gradingCompany === 'tag' && (
+                          <>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.tag.subgrades.frontCentering}</div>
+                              <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>F-CENTER</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.tag.subgrades.frontCorners}</div>
+                              <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>F-CORNER</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.tag.subgrades.frontEdges}</div>
+                              <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>F-EDGE</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.tag.subgrades.frontSurface}</div>
+                              <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>F-SURF</div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      {gradingCompany === 'tag' && aiGrades.tag.subgrades.backCentering && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginTop: 6 }}>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>{aiGrades.tag.subgrades.backCentering}</div>
+                            <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>B-CENTER</div>
+                          </div>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>{aiGrades.tag.subgrades.backCorners}</div>
+                            <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>B-CORNER</div>
+                          </div>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>{aiGrades.tag.subgrades.backEdges}</div>
+                            <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>B-EDGE</div>
+                          </div>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>{aiGrades.tag.subgrades.backSurface}</div>
+                            <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>B-SURF</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Centering Measurements - Always visible */}
+              {fR?.centering && (
+                <div style={{
+                  padding: '10px 12px',
+                  background: '#0a0c0f',
+                  borderRadius: 8,
+                  marginBottom: 12,
+                }}>
+                  <div style={{ fontFamily: mono, fontSize: 9, color: '#666', marginBottom: 8 }}>CENTERING MEASUREMENTS</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    {/* Front Centering */}
+                    <div>
+                      <div style={{ fontFamily: mono, fontSize: 8, color: '#888', marginBottom: 4 }}>FRONT</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <span style={{ fontFamily: mono, fontSize: 9, color: '#555' }}>L/R</span>
+                        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: '#00ff88' }}>
+                          {fR.centering.lrRatio || `${fR.centering.leftPct?.toFixed(0) || 50}/${fR.centering.rightPct?.toFixed(0) || 50}`}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontFamily: mono, fontSize: 9, color: '#555' }}>T/B</span>
+                        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: '#00ff88' }}>
+                          {fR.centering.tbRatio || `${fR.centering.topPct?.toFixed(0) || 50}/${fR.centering.bottomPct?.toFixed(0) || 50}`}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Back Centering */}
+                    {bR?.centering && (
+                      <div>
+                        <div style={{ fontFamily: mono, fontSize: 8, color: '#888', marginBottom: 4 }}>BACK</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                          <span style={{ fontFamily: mono, fontSize: 9, color: '#555' }}>L/R</span>
+                          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: '#66dd44' }}>
+                            {bR.centering.lrRatio || `${bR.centering.leftPct?.toFixed(0) || 50}/${bR.centering.rightPct?.toFixed(0) || 50}`}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontFamily: mono, fontSize: 9, color: '#555' }}>T/B</span>
+                          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: '#66dd44' }}>
+                            {bR.centering.tbRatio || `${bR.centering.topPct?.toFixed(0) || 50}/${bR.centering.bottomPct?.toFixed(0) || 50}`}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -3153,6 +3351,24 @@ export default function SlabSense(){
                   borderLeft: '2px solid #8b5cf6',
                 }}>
                   {aiCondition.notes}
+                </div>
+              )}
+
+              {/* AI Recommendation */}
+              {aiSummary?.recommendation && (
+                <div style={{
+                  marginTop: 10,
+                  padding: '10px 12px',
+                  background: 'rgba(0,255,136,0.05)',
+                  borderRadius: 8,
+                  border: '1px solid rgba(0,255,136,0.2)',
+                }}>
+                  <div style={{ fontFamily: mono, fontSize: 9, color: '#00ff88', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>💡</span> RECOMMENDATION
+                  </div>
+                  <div style={{ fontFamily: sans, fontSize: 12, color: '#aaa' }}>
+                    {aiSummary.recommendation}
+                  </div>
                 </div>
               )}
             </div>

@@ -1,16 +1,11 @@
 /**
- * Claude AI Card Grading Analysis
+ * Claude AI Card Grading Analysis - Multi-Company Format
  *
- * Receives PRE-CROPPED card images (from SAM) and analyzes:
- * - Card info (OCR)
- * - Centering analysis
- * - Condition assessment
- * - Grading notes
+ * Returns grades for ALL major grading companies:
+ * - PSA, BGS, SGC, CGC, TAG
  *
- * Input: Single image or stitched (front+back side-by-side)
- * Output: Full grading analysis JSON
- *
- * Cost: ~$0.02-0.03 per call
+ * Each company has different standards - Claude applies them all
+ * and returns grades in each format for easy tab switching.
  */
 
 export const config = {
@@ -45,13 +40,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No image provided' });
     }
 
-    console.log('[Claude] Starting grading analysis...');
-    console.log('[Claude] Stitched image (front+back):', isStitched);
+    console.log('[Claude] Starting multi-company grading analysis...');
+    console.log('[Claude] Stitched (front+back):', isStitched);
+    console.log('[Claude] Card type:', cardType);
     console.log('[Claude] Image size:', Math.round(image.length / 1024), 'KB');
 
     const apiUrl = `https://api.replicate.com/v1/models/${CLAUDE_MODEL}/predictions`;
 
-    // Build prompt based on whether image is stitched
     const prompt = isStitched
       ? buildStitchedGradingPrompt(cardType)
       : buildSingleGradingPrompt(cardType);
@@ -69,7 +64,7 @@ export default async function handler(req, res) {
         input: {
           prompt,
           image,
-          max_tokens: 4096,
+          max_tokens: 6000,
           temperature: 0.1,
         }
       }),
@@ -88,22 +83,23 @@ export default async function handler(req, res) {
     let prediction = await response.json();
     console.log('[Claude] Prediction ID:', prediction.id, 'Status:', prediction.status);
 
-    // Poll if not immediately complete
     if (prediction.status === 'starting' || prediction.status === 'processing') {
       console.log('[Claude] Polling for result...');
       prediction = await pollForResult(prediction.urls.get, REPLICATE_API_TOKEN);
     }
 
     if (prediction.status !== 'succeeded') {
-      throw new Error(`Claude analysis failed: ${prediction.error || prediction.status}`);
+      return res.status(500).json({
+        error: 'Claude analysis failed',
+        status: prediction.status,
+        details: prediction.error,
+      });
     }
 
-    // Parse response
     if (!prediction.output) {
-      console.error('[Claude] No output in prediction:', JSON.stringify(prediction));
       return res.status(500).json({
         error: 'No output from Claude',
-        prediction: { id: prediction.id, status: prediction.status, error: prediction.error },
+        prediction: { id: prediction.id, status: prediction.status },
       });
     }
 
@@ -116,15 +112,14 @@ export default async function handler(req, res) {
     if (!text) {
       return res.status(500).json({
         error: 'Empty response from Claude',
-        output: prediction.output,
       });
     }
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error('[Claude] No JSON found in response:', text.substring(0, 500));
+      console.error('[Claude] No JSON found:', text.substring(0, 500));
       return res.status(500).json({
-        error: 'No JSON in Claude response',
+        error: 'No JSON in response',
         response: text.substring(0, 1000),
       });
     }
@@ -134,11 +129,12 @@ export default async function handler(req, res) {
       analysis = JSON.parse(jsonMatch[0]);
     } catch (parseError) {
       return res.status(500).json({
-        error: 'Failed to parse Claude JSON',
+        error: 'Failed to parse JSON',
         parseError: parseError.message,
         json: jsonMatch[0].substring(0, 500),
       });
     }
+
     console.log('[Claude] Analysis complete');
 
     return res.status(200).json({
@@ -152,7 +148,6 @@ export default async function handler(req, res) {
     return res.status(500).json({
       error: 'Analysis failed',
       message: error.message,
-      stack: error.stack,
     });
   }
 }
@@ -166,10 +161,7 @@ async function pollForResult(url, token, maxAttempts = 45) {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) {
-        console.error(`[Claude] Poll error: ${response.status}`);
-        continue;
-      }
+      if (!response.ok) continue;
 
       const prediction = await response.json();
 
@@ -178,177 +170,245 @@ async function pollForResult(url, token, maxAttempts = 45) {
       }
 
       console.log(`[Claude] Poll ${i + 1}/${maxAttempts}: ${prediction.status}`);
-    } catch (pollError) {
-      console.error(`[Claude] Poll ${i + 1} failed:`, pollError.message);
+    } catch (e) {
+      console.error(`[Claude] Poll ${i + 1} failed:`, e.message);
     }
   }
 
-  return { status: 'failed', error: 'Timeout waiting for Claude (90s)' };
+  return { status: 'failed', error: 'Timeout (90s)' };
 }
 
 /**
- * Prompt for STITCHED image (front on left, back on right)
- * The cards are already cropped by SAM - Claude just needs to analyze them
+ * Comprehensive grading prompt for STITCHED image (front+back)
  */
 function buildStitchedGradingPrompt(cardType) {
-  return `You are an expert ${cardType} card grader. This image shows BOTH sides of a card that have been PRE-CROPPED and placed side-by-side.
+  return `You are an expert trading card grader with deep knowledge of PSA, BGS, SGC, CGC, and TAG grading standards. Analyze this ${cardType} card image.
 
-## IMAGE LAYOUT:
+## IMAGE LAYOUT
 - LEFT HALF: Card FRONT (artwork side)
 - RIGHT HALF: Card BACK
+Both sides are shown. Analyze BOTH.
 
-The cards are already cropped to their edges. Analyze BOTH sides.
+## TASK 1: MEASURE CENTERING (Critical - be precise!)
 
-## YOUR TASKS:
+For BOTH front and back, measure the border widths and calculate ratios:
+- Left/Right ratio (e.g., "55/45" means 55% of total LR border is on left)
+- Top/Bottom ratio (e.g., "48/52" means 48% of total TB border is on top)
 
-### 1. CARD INFORMATION (from FRONT - left half)
-Extract:
-- Card name / Pokemon name
-- HP value
-- Card number (e.g., "025/198", "SV049", "SVP EN 085")
-- Set name
-- Rarity (Common, Uncommon, Rare, Holo Rare, etc.)
-- Year
-- Special variant (if any: Full Art, Alt Art, etc.)
-- Language
+## TASK 2: ASSESS CONDITION
 
-### 2. CENTERING ANALYSIS (BOTH sides)
-Look at the borders (space between card edge and printed area):
-- For FRONT: Measure left vs right border ratio, top vs bottom ratio
-- For BACK: Measure left vs right border ratio, top vs bottom ratio
-- Express as ratios like "55/45" (55% on left, 45% on right)
+Examine and score (1-10 scale):
+- Corners: whitening, dings, bends, softness
+- Edges: whitening, chips, rough spots, fraying
+- Surface: scratches, print lines, holo damage, scuffs, dents
 
-### 3. CONDITION ASSESSMENT
-Score each 1-10 (10 = perfect gem mint):
-- Corners: Check all 4 corners for whitening, dings, bends
-- Edges: Check for whitening, chips, rough spots
-- Surface: Check for scratches, print lines, holo damage
-- Centering: Based on your measurements above
+**IGNORE photographic artifacts - only grade ACTUAL physical defects**
 
-**CRITICAL - These are CROPPED photos:**
-- The cards fill the frame - this is intentional
-- Focus on the actual card condition
-- Ignore any JPEG artifacts from cropping
+## TASK 3: EXTRACT CARD INFO
 
-### 4. GRADING NOTES
-- List positives (what's good about this card)
-- List concerns (any issues found)
-- Estimated grade (PSA/BGS scale: 1-10)
-- Confidence level
+From the front: name, HP, card number, set, rarity, year, variant, language
 
-## RESPONSE FORMAT - Return ONLY this JSON:
+## TASK 4: APPLY GRADING STANDARDS
 
-{
-  "front": {
-    "borders": {"left": 15, "right": 18, "top": 12, "bottom": 14},
-    "centeringLR": "45/55",
-    "centeringTB": "46/54"
-  },
-  "back": {
-    "borders": {"left": 16, "right": 16, "top": 14, "bottom": 14},
-    "centeringLR": "50/50",
-    "centeringTB": "50/50"
-  },
-  "cardInfo": {
-    "name": "Pikachu",
-    "hp": "60",
-    "cardNumber": "025/198",
-    "setName": "Scarlet & Violet Base",
-    "rarity": "Illustration Rare",
-    "year": "2023",
-    "variant": "Special Art",
-    "language": "English"
-  },
-  "condition": {
-    "corners": 9.5,
-    "edges": 9.0,
-    "surface": 9.5,
-    "centering": 8.5,
-    "overall": 9.0,
-    "notes": "Minor centering to right on front"
-  },
-  "gradingNotes": {
-    "positives": ["Sharp corners", "Clean holo", "No whitening"],
-    "concerns": ["Slight off-center front"],
-    "estimatedGrade": "9.0",
-    "confidence": "high"
-  }
-}
+Using your centering measurements and condition assessment, determine grades for each company:
 
-IMPORTANT:
-- Return ONLY valid JSON, no other text
-- Analyze BOTH halves of the image (front AND back)
-- Be accurate - this affects the card's grade and value`;
-}
+### PSA Standards (no 9.5, lowest-factor wins):
+- PSA 10: Front 55/45, Back 75/25, virtually perfect
+- PSA 9: Front 60/40, Back 90/10, one minor flaw allowed
+- PSA 8: Front 65/35, Back 90/10, slight wear allowed
 
-/**
- * Prompt for SINGLE card image (front only)
- */
-function buildSingleGradingPrompt(cardType) {
-  return `You are an expert ${cardType} card grader. This image shows a SINGLE card (FRONT only) that has been PRE-CROPPED to its edges.
+### BGS Standards (shows 4 subgrades, strictest centering):
+- BGS 10 Pristine: 50/50 both sides, flawless
+- BGS 9.5 Gem Mint: Front 55/45, Back 60/40
+- BGS 9 Mint: Front 60/40, Back 65/35
+- Final grade can only be 0.5 above lowest subgrade
 
-## YOUR TASKS:
+### SGC Standards (strict back centering):
+- SGC 10 Pristine: 50/50 both sides
+- SGC 10 Gem Mint: Front 55/45, Back 70/30
+- SGC 9.5: Front 55/45, Back 55/45
 
-### 1. CARD INFORMATION
-Extract:
-- Card name / Pokemon name
-- HP value
-- Card number
-- Set name
-- Rarity
-- Year
-- Variant (if special)
-- Language
+### CGC Standards (holistic, more forgiving on centering):
+- CGC 10 Pristine: 50/50 both sides, flawless
+- CGC 10 Gem Mint: Front 55/45, Back 75/25
+- CGC 9.5: Front 60/40, Back 90/10
 
-### 2. CENTERING ANALYSIS
-Look at the borders (space between card edge and printed area):
-- Left vs right border ratio
-- Top vs bottom border ratio
-- Express as "55/45" format
-
-### 3. CONDITION ASSESSMENT
-Score each 1-10 (10 = gem mint):
-- Corners: whitening, dings, bends
-- Edges: whitening, chips, rough spots
-- Surface: scratches, print lines, damage
-- Centering: based on border measurements
-
-### 4. GRADING NOTES
-- Positives and concerns
-- Estimated grade (1-10)
-- Confidence level
+### TAG Standards (1000-point system, 8 subgrades):
+- TAG 10 Pristine (990-1000): Front 52/48, Back 52/48 for TCG
+- TAG 10 Gem Mint (950-989): Front 55/45, Back 65/35 for TCG
+- TAG 9 Mint (900-949): Front 57/43, Back 70/30 for TCG
+- Front defects weighted ~1.5x more than back
 
 ## RESPONSE FORMAT - Return ONLY this JSON:
 
 {
-  "front": {
-    "borders": {"left": 15, "right": 18, "top": 12, "bottom": 14},
-    "centeringLR": "45/55",
-    "centeringTB": "46/54"
-  },
   "cardInfo": {
-    "name": "Pikachu",
+    "name": "Pokemon Name",
     "hp": "60",
     "cardNumber": "025/198",
-    "setName": "Scarlet & Violet Base",
-    "rarity": "Common",
+    "setName": "Set Name",
+    "rarity": "Rare Holo",
     "year": "2023",
     "variant": null,
     "language": "English"
   },
+  "centering": {
+    "front": {
+      "leftRight": "55/45",
+      "topBottom": "50/50"
+    },
+    "back": {
+      "leftRight": "52/48",
+      "topBottom": "50/50"
+    }
+  },
   "condition": {
     "corners": 9.5,
     "edges": 9.0,
     "surface": 9.5,
-    "centering": 8.5,
-    "overall": 9.0,
-    "notes": "Minor centering variance"
+    "defects": ["Minor edge whitening on top right"]
   },
-  "gradingNotes": {
-    "positives": ["Sharp corners", "Clean surface"],
-    "concerns": ["Slight off-center"],
-    "estimatedGrade": "9.0",
-    "confidence": "high"
+  "grades": {
+    "psa": {
+      "grade": 9,
+      "label": "Mint",
+      "notes": "Centering within PSA 9 tolerance. Minor edge issue prevents 10."
+    },
+    "bgs": {
+      "grade": 9.5,
+      "label": "Gem Mint",
+      "subgrades": {
+        "centering": 9.5,
+        "corners": 9.5,
+        "edges": 9.0,
+        "surface": 9.5
+      },
+      "notes": "Edge subgrade limits final to 9.5"
+    },
+    "sgc": {
+      "grade": 9.5,
+      "label": "Mint+",
+      "notes": "Back centering within SGC tolerance for 9.5"
+    },
+    "cgc": {
+      "grade": 9.5,
+      "label": "Mint+",
+      "notes": "Holistic assessment, minor edge issue noted"
+    },
+    "tag": {
+      "score": 955,
+      "grade": 10,
+      "label": "Gem Mint",
+      "subgrades": {
+        "frontCentering": 118,
+        "backCentering": 120,
+        "frontCorners": 120,
+        "backCorners": 118,
+        "frontEdges": 115,
+        "backEdges": 120,
+        "frontSurface": 122,
+        "backSurface": 122
+      },
+      "notes": "Score 955 = Gem Mint range (950-989)"
+    }
+  },
+  "summary": {
+    "positives": ["Sharp corners", "Clean surface", "Good centering"],
+    "concerns": ["Minor edge whitening"],
+    "recommendation": "Strong candidate for grading"
+  }
+}
+
+CRITICAL RULES:
+- Centering ratios must be based on actual visible borders
+- All grades must follow that company's specific standards
+- TAG score must be 100-1000 and match the grade range
+- BGS subgrades must mathematically support the final grade
+- Return ONLY valid JSON`;
+}
+
+/**
+ * Grading prompt for SINGLE card (front only)
+ */
+function buildSingleGradingPrompt(cardType) {
+  return `You are an expert trading card grader. Analyze this ${cardType} card FRONT image.
+
+## TASK 1: MEASURE CENTERING
+- Left/Right ratio (e.g., "55/45")
+- Top/Bottom ratio (e.g., "50/50")
+
+## TASK 2: ASSESS CONDITION (1-10 scale)
+- Corners, Edges, Surface
+- List any defects found
+
+## TASK 3: EXTRACT CARD INFO
+Name, HP, card number, set, rarity, year, variant, language
+
+## TASK 4: APPLY GRADING STANDARDS
+
+### PSA: No 9.5. 10 needs 55/45 front centering.
+### BGS: Shows 4 subgrades. 10 needs 50/50. Final = lowest + 0.5 max.
+### SGC: Has Pristine 10 (50/50) and Gem Mint 10 (55/45).
+### CGC: Holistic. Pristine 10 needs 50/50, Gem Mint 10 needs 55/45.
+### TAG: 1000-point system. Gem Mint 10 = 950-989, Pristine = 990-1000.
+
+## RESPONSE FORMAT - Return ONLY this JSON:
+
+{
+  "cardInfo": {
+    "name": "Pokemon Name",
+    "hp": "60",
+    "cardNumber": "025/198",
+    "setName": "Set Name",
+    "rarity": "Rare",
+    "year": "2023",
+    "variant": null,
+    "language": "English"
+  },
+  "centering": {
+    "front": {
+      "leftRight": "55/45",
+      "topBottom": "50/50"
+    },
+    "back": null
+  },
+  "condition": {
+    "corners": 9.5,
+    "edges": 9.0,
+    "surface": 9.5,
+    "defects": []
+  },
+  "grades": {
+    "psa": { "grade": 9, "label": "Mint", "notes": "..." },
+    "bgs": {
+      "grade": 9.5,
+      "label": "Gem Mint",
+      "subgrades": { "centering": 9.5, "corners": 9.5, "edges": 9.0, "surface": 9.5 },
+      "notes": "..."
+    },
+    "sgc": { "grade": 9.5, "label": "Mint+", "notes": "..." },
+    "cgc": { "grade": 9.5, "label": "Mint+", "notes": "..." },
+    "tag": {
+      "score": 955,
+      "grade": 10,
+      "label": "Gem Mint",
+      "subgrades": {
+        "frontCentering": 118,
+        "backCentering": null,
+        "frontCorners": 120,
+        "backCorners": null,
+        "frontEdges": 115,
+        "backEdges": null,
+        "frontSurface": 122,
+        "backSurface": null
+      },
+      "notes": "..."
+    }
+  },
+  "summary": {
+    "positives": ["..."],
+    "concerns": ["..."],
+    "recommendation": "..."
   }
 }
 
