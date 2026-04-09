@@ -1652,6 +1652,7 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
 
   const [outer, setOuter] = useState(initOuter);
   const [inner, setInner] = useState(initInner);
+  const [rotation, setRotation] = useState(0); // Rotation in degrees
   const [applying, setApplying] = useState(false);
   const [saved, setSaved] = useState(false);
   const svgRef = useRef(null);
@@ -1747,8 +1748,41 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
       {/* Header */}
       <div style={{padding:'10px 12px',borderBottom:'1px solid #1a1c22',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <span style={{fontFamily:mono,fontSize:11,color:'#ff9944',textTransform:'uppercase',letterSpacing:'.06em'}}>Manual Adjust — {side}</span>
-        <button onClick={handleReset} style={{fontFamily:mono,fontSize:9,color:'#555',background:'transparent',border:'1px solid #333',borderRadius:4,padding:'3px 8px',cursor:'pointer'}}>Reset to Auto</button>
+        <button onClick={()=>{handleReset();setRotation(0);}} style={{fontFamily:mono,fontSize:9,color:'#555',background:'transparent',border:'1px solid #333',borderRadius:4,padding:'3px 8px',cursor:'pointer'}}>Reset All</button>
       </div>
+
+      {/* Rotation Controls */}
+      <div style={{padding:'10px 12px',background:'rgba(0,0,0,.3)',borderBottom:'1px solid #1a1c22'}}>
+        <div style={{fontFamily:mono,fontSize:9,color:'#666',marginBottom:8,textTransform:'uppercase'}}>Step 1: Straighten Card</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+          {/* Coarse left -1° */}
+          <button onClick={()=>setRotation(r=>Math.round((r-1)*100)/100)}
+            style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#888',fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            ‹‹
+          </button>
+          {/* Fine left -0.05° */}
+          <button onClick={()=>setRotation(r=>Math.round((r-0.05)*100)/100)}
+            style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#555',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            ‹
+          </button>
+          {/* Current rotation */}
+          <div style={{minWidth:70,textAlign:'center',padding:'6px 10px',background:'#0a0b0e',borderRadius:6}}>
+            <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:rotation===0?'#00ff88':'#ff9944'}}>{rotation.toFixed(2)}°</div>
+          </div>
+          {/* Fine right +0.05° */}
+          <button onClick={()=>setRotation(r=>Math.round((r+0.05)*100)/100)}
+            style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#555',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            ›
+          </button>
+          {/* Coarse right +1° */}
+          <button onClick={()=>setRotation(r=>Math.round((r+1)*100)/100)}
+            style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#888',fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            ››
+          </button>
+        </div>
+        <div style={{textAlign:'center',fontFamily:mono,fontSize:8,color:'#444',marginTop:6}}>‹‹/›› = 1° · ‹/› = 0.05°</div>
+      </div>
+
       {/* Live centering readout */}
       <div style={{padding:'8px 12px',background:'rgba(0,0,0,.4)',display:'flex',justifyContent:'space-around',borderBottom:'1px solid #1a1c22'}}>
         <div style={{textAlign:'center'}}>
@@ -1778,11 +1812,21 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
         </div>
         <span style={{fontFamily:mono,fontSize:9,color:'#444',marginLeft:'auto'}}>Drag handles</span>
       </div>
+      {/* Step 2 label */}
+      <div style={{padding:'8px 12px',background:'rgba(0,0,0,.2)',borderBottom:'1px solid #0d0f13'}}>
+        <div style={{fontFamily:mono,fontSize:9,color:'#666',textTransform:'uppercase'}}>Step 2: Adjust Borders</div>
+      </div>
+
       {/* Image + drag canvas — touch-action:none prevents iOS scroll hijack during drag */}
-      <div style={{position:'relative',lineHeight:0,touchAction:'none'}}
+      <div style={{position:'relative',lineHeight:0,touchAction:'none',overflow:'hidden'}}
            onTouchMove={e=>{if(dragging.current)e.preventDefault();}}
            onTouchStart={e=>{if(dragging.current)e.preventDefault();}}>
-        <img src={image} style={{width:'100%',display:'block'}} draggable={false}/>
+        <img src={image} style={{width:'100%',display:'block',transform:`rotate(${rotation}deg)`,transformOrigin:'center center',transition:'transform 0.15s ease'}} draggable={false}/>
+        {/* Crosshair overlay for alignment */}
+        <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
+          <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'rgba(0,255,136,0.2)'}}/>
+          <div style={{position:'absolute',top:'50%',left:0,right:0,height:1,background:'rgba(0,255,136,0.2)'}}/>
+        </div>
         <svg ref={svgRef} viewBox={`0 0 ${imgW} ${imgH}`}
              style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',overflow:'visible',touchAction:'none'}}>
           {/* Outer boundary */}
@@ -2298,8 +2342,6 @@ export default function SlabSense(){
   const[tab,setTab]=useState("overview"),[prog,setProg]=useState("");
   const[camTarget,setCamTarget]=useState(null);
   const[manualMode,setManualMode]=useState(null); // 'front'|'back'|null
-  const[frontRotation,setFrontRotation]=useState(0); // Rotation in degrees for front card
-  const[backRotation,setBackRotation]=useState(0); // Rotation in degrees for back card
   const[centeringConfirmed,setCenteringConfirmed]=useState(false); // User confirmed edge alignment
   const[ignoreCentering,setIgnoreCentering]=useState(false); // Ignore centering in grade calculation
   const[gradingCompany,setGradingCompany]=useState(DEFAULT_GRADING_COMPANY); // Selected grading company
@@ -3478,63 +3520,6 @@ export default function SlabSense(){
 
         {/* CENTERING */}
         {tab==="centering"&&fR&&bR&&(<div>
-          {/* Rotation Controls */}
-          {[["Front", frontRotation, setFrontRotation, fI], ["Back", backRotation, setBackRotation, bI]].map(([label, rotation, setRotation, image]) => (
-            <div key={label} style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
-              <div style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase",marginBottom:12}}>{label} Alignment</div>
-
-              {/* Rotated Image Preview */}
-              <div style={{position:"relative",marginBottom:12,borderRadius:8,overflow:"hidden",background:"#000"}}>
-                <img
-                  src={image}
-                  alt={label}
-                  style={{
-                    width:"100%",
-                    display:"block",
-                    transform:`rotate(${rotation}deg)`,
-                    transition:"transform 0.15s ease",
-                  }}
-                />
-                {/* Crosshair overlay */}
-                <div style={{position:"absolute",inset:0,pointerEvents:"none"}}>
-                  <div style={{position:"absolute",left:"50%",top:0,bottom:0,width:1,background:"rgba(0,255,136,0.3)"}}/>
-                  <div style={{position:"absolute",top:"50%",left:0,right:0,height:1,background:"rgba(0,255,136,0.3)"}}/>
-                </div>
-              </div>
-
-              {/* Rotation Controls */}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:12}}>
-                {/* Coarse left */}
-                <button onClick={()=>setRotation(r=>r-1)} style={{width:36,height:36,borderRadius:6,background:"#1a1c22",border:"1px solid #2a2d35",color:"#888",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  ‹‹
-                </button>
-                {/* Fine left */}
-                <button onClick={()=>setRotation(r=>Math.round((r-0.05)*100)/100)} style={{width:36,height:36,borderRadius:6,background:"#1a1c22",border:"1px solid #2a2d35",color:"#666",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  ‹
-                </button>
-
-                {/* Current rotation display */}
-                <div style={{minWidth:80,textAlign:"center",padding:"8px 12px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:16,fontWeight:700,color:"#00ff88"}}>{rotation.toFixed(2)}°</div>
-                  <div style={{fontFamily:mono,fontSize:8,color:"#555"}}>ROTATION</div>
-                </div>
-
-                {/* Fine right */}
-                <button onClick={()=>setRotation(r=>Math.round((r+0.05)*100)/100)} style={{width:36,height:36,borderRadius:6,background:"#1a1c22",border:"1px solid #2a2d35",color:"#666",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  ›
-                </button>
-                {/* Coarse right */}
-                <button onClick={()=>setRotation(r=>r+1)} style={{width:36,height:36,borderRadius:6,background:"#1a1c22",border:"1px solid #2a2d35",color:"#888",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  ››
-                </button>
-              </div>
-
-              <div style={{textAlign:"center",fontFamily:mono,fontSize:9,color:"#444"}}>
-                ‹‹ / ›› = 1° · ‹ / › = 0.05°
-              </div>
-            </div>
-          ))}
-
           {/* Manual Adjust toggle buttons */}
           <div style={{display:"flex",gap:8,marginBottom:14}}>
             {[["front","Front",fR,fI],["back","Back",bR,bI]].map(([s,sl,r,img])=>(
