@@ -38,10 +38,11 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 - ✅ Saves AI data with card (grades, condition, summary, centering)
 
 ### Centering Tab (UPDATED)
-- ✅ Rotation controls with 1° and 0.05° increment buttons
-- ✅ Visual preview with rotation applied
+- ✅ Two-step alignment flow inside ManualBoundaryEditor:
+  - Step 1: Straighten Card — rotation controls (1° and 0.05° increments)
+  - Step 2: Adjust Borders — drag handles for edge/artwork boundaries
+- ✅ Crosshair overlay for visual alignment guidance
 - ✅ "Confirm Alignment" button required before showing score
-- ✅ Manual boundary adjustment (drag handles)
 - ✅ Centering results only shown after confirmation
 
 ### Frontend (React/Vite)
