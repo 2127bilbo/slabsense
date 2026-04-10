@@ -3058,33 +3058,42 @@ export default function SlabSense(){
           </div>
 
           {/* Total Dings */}
-          <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>Total DINGS</span>
-              <span style={{fontFamily:mono,fontSize:20,fontWeight:800,color:gr.totalDings===0?"#00ff88":gr.totalDings<=2?"#66dd44":gr.totalDings<=4?"#ffcc00":"#ff6633"}}>{gr.totalDings}</span>
+          {gr?.totalDings !== undefined && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>Total DINGS</span>
+                <span style={{fontFamily:mono,fontSize:20,fontWeight:800,color:(gr?.totalDings||0)===0?"#00ff88":(gr?.totalDings||0)<=2?"#66dd44":(gr?.totalDings||0)<=4?"#ffcc00":"#ff6633"}}>{gr?.totalDings ?? 0}</span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Grade Analysis */}
-          <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
-            <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:8}}>Grade Analysis</div>
-            {getNextGradeInfo(gr).map((tip,i)=>(
-              <div key={i} style={{display:"flex",gap:8,marginBottom:i<getNextGradeInfo(gr).length-1?8:0}}>
-                <div style={{width:3,borderRadius:2,background:tip.color,flexShrink:0,marginTop:2}}/>
-                <div style={{fontFamily:sans,fontSize:12,color:"#aaa",lineHeight:1.5}}>{tip.text}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Confidence Notes */}
-          {(()=>{const conf=calcConfidence(gr,fR,bR);return conf.reasons.length>0?(
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${conf.color}22`,marginBottom:12}}>
-              <div style={{fontFamily:mono,fontSize:10,color:conf.color,textTransform:"uppercase",marginBottom:8}}>Confidence Notes</div>
-              {conf.reasons.map((r,i)=>(
-                <div key={i} style={{fontFamily:sans,fontSize:11,color:"#777",marginBottom:4}}>• {r}</div>
+          {gr?.rawScore !== undefined && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:8}}>Grade Analysis</div>
+              {(getNextGradeInfo(gr)||[]).map((tip,i,arr)=>(
+                <div key={i} style={{display:"flex",gap:8,marginBottom:i<arr.length-1?8:0}}>
+                  <div style={{width:3,borderRadius:2,background:tip?.color||'#666',flexShrink:0,marginTop:2}}/>
+                  <div style={{fontFamily:sans,fontSize:12,color:"#aaa",lineHeight:1.5}}>{tip?.text||''}</div>
+                </div>
               ))}
             </div>
-          ):null;})()}
+          )}
+
+          {/* Confidence Notes */}
+          {gr && fR && bR && (()=>{
+            try {
+              const conf=calcConfidence(gr,fR,bR);
+              return conf?.reasons?.length>0?(
+                <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${conf.color||'#666'}22`,marginBottom:12}}>
+                  <div style={{fontFamily:mono,fontSize:10,color:conf.color||'#666',textTransform:"uppercase",marginBottom:8}}>Confidence Notes</div>
+                  {conf.reasons.map((r,i)=>(
+                    <div key={i} style={{fontFamily:sans,fontSize:11,color:"#777",marginBottom:4}}>• {r}</div>
+                  ))}
+                </div>
+              ):null;
+            } catch(e) { return null; }
+          })()}
 
           {/* TAG 8 Subgrades (DIG Report Style) */}
           {gradingCompany === 'tag' && aiGrades?.tag?.subgrades && (
