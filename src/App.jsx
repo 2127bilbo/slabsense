@@ -2939,13 +2939,22 @@ export default function SlabSense(){
           </div>
 
           {/* Score + Grade Display - Company specific */}
-          <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:12,marginBottom:16,padding:16,background:"#0d0f13",borderRadius:10,border:`1px solid ${gr.grade.color}33`}}>
+          <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:16,marginBottom:16,padding:20,background:"#0d0f13",borderRadius:10,border:`1px solid ${gr.grade.color}33`}}>
+            {/* TAG: Show raw score */}
             {gradingCompany === 'tag' && gr.rawScore !== undefined && (
-              <div style={{fontFamily:mono,fontSize:28,fontWeight:800,color:"#888"}}>{gr.rawScore}</div>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontFamily:mono,fontSize:32,fontWeight:800,color:"#888"}}>{gr.rawScore}</div>
+                <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>/ 1000</div>
+              </div>
             )}
+            {/* Grade Number */}
             <div style={{textAlign:"center"}}>
-              <div style={{fontFamily:mono,fontSize:36,fontWeight:900,color:gr.grade.color}}>{gr.grade.label}</div>
-              <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase"}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
+              <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:gr.grade.color}}>{gr.grade.grade}</div>
+              <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:gr.grade.color,marginTop:2}}>{gr.grade.label}</div>
+            </div>
+            {/* Company Badge */}
+            <div style={{padding:"8px 12px",background:`${gr.grade.color}15`,borderRadius:8,border:`1px solid ${gr.grade.color}33`}}>
+              <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:gr.grade.color}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
             </div>
           </div>
 
@@ -3077,26 +3086,149 @@ export default function SlabSense(){
             </div>
           ):null;})()}
 
+          {/* TAG 8 Subgrades (DIG Report Style) */}
+          {gradingCompany === 'tag' && aiGrades?.tag?.subgrades && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #8b5cf633",marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",marginBottom:10}}>TAG DIG Subgrades (8 Categories)</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[
+                  {k:"frontCentering",l:"Front Centering"},
+                  {k:"backCentering",l:"Back Centering"},
+                  {k:"frontCorners",l:"Front Corners"},
+                  {k:"backCorners",l:"Back Corners"},
+                  {k:"frontEdges",l:"Front Edges"},
+                  {k:"backEdges",l:"Back Edges"},
+                  {k:"frontSurface",l:"Front Surface"},
+                  {k:"backSurface",l:"Back Surface"},
+                ].map(({k,l})=>{
+                  const val = aiGrades.tag.subgrades?.[k];
+                  if(val==null)return null;
+                  const color = val>=120?"#00ff88":val>=100?"#66dd44":val>=80?"#ffcc00":"#ff6633";
+                  return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                    <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>{l}</span>
+                    <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color}}>{val}</span>
+                  </div>);
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* BGS 4 Subgrades */}
+          {gradingCompany === 'bgs' && aiGrades?.bgs?.subgrades && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #ffd93d33",marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#ffd93d",textTransform:"uppercase",marginBottom:10}}>BGS Subgrades</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[
+                  {k:"centering",l:"Centering"},
+                  {k:"corners",l:"Corners"},
+                  {k:"edges",l:"Edges"},
+                  {k:"surface",l:"Surface"},
+                ].map(({k,l})=>{
+                  const val = aiGrades.bgs.subgrades?.[k];
+                  if(val==null)return null;
+                  const color = val>=9.5?"#00ff88":val>=9?"#66dd44":val>=8?"#ffcc00":"#ff6633";
+                  return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                    <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>{l}</span>
+                    <span style={{fontFamily:mono,fontSize:12,fontWeight:600,color}}>{val}</span>
+                  </div>);
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* CGC 4 Subgrades */}
+          {gradingCompany === 'cgc' && aiGrades?.cgc?.subgrades && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #4d96ff33",marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#4d96ff",textTransform:"uppercase",marginBottom:10}}>CGC Subgrades</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[
+                  {k:"centering",l:"Centering"},
+                  {k:"corners",l:"Corners"},
+                  {k:"edges",l:"Edges"},
+                  {k:"surface",l:"Surface"},
+                ].map(({k,l})=>{
+                  const val = aiGrades.cgc.subgrades?.[k];
+                  if(val==null)return null;
+                  const color = val>=9.5?"#00ff88":val>=9?"#66dd44":val>=8?"#ffcc00":"#ff6633";
+                  return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                    <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>{l}</span>
+                    <span style={{fontFamily:mono,fontSize:12,fontWeight:600,color}}>{val}</span>
+                  </div>);
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* AI Centering Measurements */}
+          {aiCentering && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase",marginBottom:10}}>Centering Measurements</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{aiCentering.front?.leftRight || "50/50"} L/R</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{aiCentering.front?.topBottom || "50/50"} T/B</div>
+                </div>
+                <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{aiCentering.back?.leftRight || "50/50"} L/R</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{aiCentering.back?.topBottom || "50/50"} T/B</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* AI Condition Assessment */}
+          {aiCondition && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase",marginBottom:10}}>Condition Assessment</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {aiCondition.corners!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                  <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Corners</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:aiCondition.corners>=9?"#00ff88":aiCondition.corners>=7?"#ffcc00":"#ff6633"}}>{aiCondition.corners}/10</span>
+                </div>)}
+                {aiCondition.edges!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                  <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Edges</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:aiCondition.edges>=9?"#00ff88":aiCondition.edges>=7?"#ffcc00":"#ff6633"}}>{aiCondition.edges}/10</span>
+                </div>)}
+                {aiCondition.surface!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                  <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Surface</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:aiCondition.surface>=9?"#00ff88":aiCondition.surface>=7?"#ffcc00":"#ff6633"}}>{aiCondition.surface}/10</span>
+                </div>)}
+                {aiCondition.centering!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                  <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Centering</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:aiCondition.centering>=9?"#00ff88":aiCondition.centering>=7?"#ffcc00":"#ff6633"}}>{aiCondition.centering}/10</span>
+                </div>)}
+              </div>
+              {aiCondition.defects?.length > 0 && (
+                <div style={{marginTop:10}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#ff9944",marginBottom:4}}>DEFECTS NOTED</div>
+                  {aiCondition.defects.map((d,i)=>(<div key={i} style={{fontFamily:sans,fontSize:11,color:"#888",marginBottom:2}}>• {d}</div>))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* AI Summary - Positives, Concerns, Recommendation */}
           {(aiGradingNotes?.positives?.length > 0 || aiGradingNotes?.concerns?.length > 0 || aiSummary?.recommendation) && (
             <div style={{padding:14,background:"linear-gradient(135deg, #0d0f13 0%, #12141a 100%)",borderRadius:10,border:"1px solid rgba(139,92,246,0.3)",marginBottom:12}}>
-              <div style={{fontFamily:mono,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",marginBottom:10}}>AI Summary</div>
+              <div style={{fontFamily:mono,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",marginBottom:10}}>AI Analysis Summary</div>
               {aiGradingNotes?.positives?.length > 0 && (
-                <div style={{marginBottom:8}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#00ff88",marginBottom:4}}>✓ POSITIVES</div>
-                  {aiGradingNotes.positives.map((p,i)=>(<div key={i} style={{fontFamily:sans,fontSize:11,color:"#aaa",paddingLeft:12}}>• {p}</div>))}
+                <div style={{marginBottom:10}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#00ff88",marginBottom:6}}>✓ POSITIVES</div>
+                  {aiGradingNotes.positives.map((p,i)=>(<div key={i} style={{fontFamily:sans,fontSize:12,color:"#aaa",paddingLeft:12,marginBottom:3}}>• {p}</div>))}
                 </div>
               )}
               {aiGradingNotes?.concerns?.length > 0 && (
-                <div style={{marginBottom:8}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#ff9944",marginBottom:4}}>⚠ CONCERNS</div>
-                  {aiGradingNotes.concerns.map((c,i)=>(<div key={i} style={{fontFamily:sans,fontSize:11,color:"#999",paddingLeft:12}}>• {c}</div>))}
+                <div style={{marginBottom:10}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#ff9944",marginBottom:6}}>⚠ CONCERNS</div>
+                  {aiGradingNotes.concerns.map((c,i)=>(<div key={i} style={{fontFamily:sans,fontSize:12,color:"#999",paddingLeft:12,marginBottom:3}}>• {c}</div>))}
                 </div>
               )}
               {aiSummary?.recommendation && (
-                <div style={{padding:"8px 10px",background:"rgba(0,255,136,0.05)",borderRadius:6,border:"1px solid rgba(0,255,136,0.2)"}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#00ff88",marginBottom:4}}>💡 RECOMMENDATION</div>
-                  <div style={{fontFamily:sans,fontSize:11,color:"#aaa"}}>{aiSummary.recommendation}</div>
+                <div style={{padding:"10px 12px",background:"rgba(0,255,136,0.05)",borderRadius:8,border:"1px solid rgba(0,255,136,0.2)"}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#00ff88",marginBottom:6}}>💡 RECOMMENDATION</div>
+                  <div style={{fontFamily:sans,fontSize:12,color:"#aaa",lineHeight:1.5}}>{aiSummary.recommendation}</div>
                 </div>
               )}
             </div>

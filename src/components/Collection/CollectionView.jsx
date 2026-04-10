@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getUserScans, deleteScan } from '../../services/scans.js';
+import { getGradeFromScore, GRADING_COMPANIES as GRADE_SCALES } from '../../utils/gradingScales.js';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
@@ -103,24 +104,31 @@ export function CollectionView({ userId, onClose, isInline = false }) {
   };
 
   // Get grade for display (AI or software)
+  // Recalculates grade from score for accuracy based on selected company
   const getDisplayGrade = (scan, company = selectedCompany) => {
     if (showAiGrade && scan.ai_grades?.[company]) {
       const aiGrade = scan.ai_grades[company];
+      // Recalculate grade from score for accuracy
+      const score = aiGrade.score || 0;
+      const recalcGrade = score > 0 ? getGradeFromScore(score, company) : null;
       return {
-        value: aiGrade.grade,
-        label: aiGrade.label,
+        value: recalcGrade?.grade ?? aiGrade.grade,
+        label: recalcGrade?.label ?? aiGrade.label,
+        color: recalcGrade?.color ?? GRADING_COMPANIES[company]?.color,
         isAi: true,
-        score: company === 'tag' ? aiGrade.score : null,
+        score: company === 'tag' ? score : null,
         subgrades: aiGrade.subgrades,
         notes: aiGrade.notes,
         company: company,
       };
     }
-    // Software grade - use raw_score for TAG, convert for others
+    // Software grade - recalculate from raw_score for selected company
     const rawScore = scan.raw_score || 0;
+    const recalcGrade = rawScore > 0 ? getGradeFromScore(rawScore, company) : null;
     return {
-      value: scan.grade_value,
-      label: scan.grade_label,
+      value: recalcGrade?.grade ?? scan.grade_value,
+      label: recalcGrade?.label ?? scan.grade_label,
+      color: recalcGrade?.color ?? GRADING_COMPANIES[company]?.color,
       isAi: false,
       score: company === 'tag' ? rawScore : null,
       rawScore: rawScore,
