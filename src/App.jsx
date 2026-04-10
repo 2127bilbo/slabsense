@@ -2269,69 +2269,12 @@ function CaptureCardVertical({label,side,image,onImage,onOpenCamera,quality}){
   );
 }
 
-/* Bottom Navigation Bar */
-function BottomNav({ activeTab, onTabChange, hasResults }) {
-  const tabs = [
-    { id: 'home', label: 'Home', icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/>
-      </svg>
-    )},
-    { id: 'scan', label: 'Scan', icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
-      </svg>
-    )},
-    { id: 'collection', label: 'Cards', icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>
-      </svg>
-    )},
-  ];
-
-  return (
-    <div style={{
-      display:"flex",
-      borderTop:"1px solid #1a1c22",
-      background:"#0a0b0e",
-      paddingBottom:"env(safe-area-inset-bottom)",
-    }}>
-      {tabs.map(tab => {
-        const isActive = activeTab === tab.id;
-        return (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            style={{
-              flex:1,
-              padding:"10px 0 8px",
-              background:"transparent",
-              border:"none",
-              color: isActive ? "#6366f1" : "#555",
-              display:"flex",
-              flexDirection:"column",
-              alignItems:"center",
-              gap:4,
-              cursor:"pointer",
-              transition:"color .2s",
-            }}
-          >
-            {tab.icon}
-            <span style={{fontFamily:mono,fontSize:9,textTransform:"uppercase",letterSpacing:".05em"}}>{tab.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-
 /* ═══════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════ */
 export default function SlabSense(){
-  // Navigation state
-  const[navTab,setNavTab]=useState("scan"); // 'home' | 'scan' | 'collection'
+  // Unified tab state - single tab bar for everything
+  const[tab,setTab]=useState("scan"); // 'home'|'scan'|'cards'|'grade'|'dings'|'centering'
 
   // Scan flow state
   const[step,setStep]=useState(0);
@@ -2339,7 +2282,7 @@ export default function SlabSense(){
   const[fR,setFR]=useState(null),[bR,setBR]=useState(null);
   const[fM,setFM]=useState(null),[bM,setBM]=useState(null);
   const[gradeResult,setGradeResult]=useState(null);
-  const[tab,setTab]=useState("overview"),[prog,setProg]=useState("");
+  const[prog,setProg]=useState("");
   const[camTarget,setCamTarget]=useState(null);
   const[manualMode,setManualMode]=useState(null); // 'front'|'back'|null
   const[centeringConfirmed,setCenteringConfirmed]=useState(false); // User confirmed edge alignment
@@ -2359,6 +2302,7 @@ export default function SlabSense(){
   const[showCollection,setShowCollection]=useState(false); // Collection view visibility
   const[showExport,setShowExport]=useState(false); // Export modal visibility
   const[showSettings,setShowSettings]=useState(false); // Settings modal visibility
+  const[visionMode,setVisionMode]=useState('normal'); // 'normal'|'emboss'|'hiPass'|'edges'
 
   // 3D Viewer / AI Enhanced Cards state
   const[enhancedCards,setEnhancedCards]=useState(null); // { front, back } - AI cropped cards
@@ -2481,7 +2425,7 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("overview");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setFrontRotation(0);setBackRotation(0);setCenteringConfirmed(false);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -2734,18 +2678,16 @@ export default function SlabSense(){
   };
 
 
-  // Tabs - Free users only see Overview, Pro users see all
+  // Unified tab bar - navigation + analysis tabs combined
   const allTabs=[
-    {id:"overview",l:"Grade",i:"◎",free:true},
-    {id:"dings",l:"DINGS",i:"⚠",free:false},
-    {id:"map",l:"Map",i:"◫",free:false},
-    {id:"vision",l:"Vision",i:"◉",free:true}, // Allow vision for free (helps verify card quality)
-    {id:"centering",l:"Center",i:"⊞",free:false},
-    {id:"corners",l:"Corners",i:"◤",free:false},
-    {id:"edges",l:"Edges",i:"▬",free:false},
-    {id:"surface",l:"Surface",i:"◻",free:false},
+    {id:"home",l:"Home",i:"⌂",free:true,nav:true},
+    {id:"scan",l:"Scan",i:"◎",free:true,nav:true},
+    {id:"cards",l:"Cards",i:"▤",free:true,nav:true},
+    {id:"grade",l:"Grade",i:"★",free:true,analysis:true},
+    {id:"dings",l:"Dings",i:"⚠",free:true,analysis:true},
+    {id:"centering",l:"Center",i:"⊞",free:true,analysis:true},
   ];
-  const tabs = auth.isPro ? allTabs : allTabs.filter(t => t.free);
+  const tabs = allTabs; // All tabs available to all users
 
   const gr = gradeResult;
 
@@ -2885,11 +2827,6 @@ export default function SlabSense(){
         <div><div style={{fontSize:14,fontWeight:600}}>SlabSense</div><div style={{fontFamily:mono,fontSize:9,color:"#444",textTransform:"uppercase",letterSpacing:".1em"}}>v0.1.0-beta</div></div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
-        {/* Backend Status Indicator */}
-        <div style={{display:"flex",alignItems:"center",gap:4,padding:"4px 8px",background:backendStatus.available?"rgba(0,255,136,.1)":"rgba(255,102,51,.1)",borderRadius:4,border:`1px solid ${backendStatus.available?"rgba(0,255,136,.2)":"rgba(255,102,51,.2)"}`}} title={backendStatus.available?"Backend analysis enabled":"Backend offline - using client analysis"}>
-          <span style={{width:6,height:6,borderRadius:"50%",background:backendStatus.checking?"#888":backendStatus.available?"#00ff88":"#ff6633"}}/>
-          <span style={{fontFamily:mono,fontSize:8,color:backendStatus.available?"#00ff88":"#ff6633",textTransform:"uppercase"}}>{backendStatus.checking?"...":backendStatus.available?"API":"LOCAL"}</span>
-        </div>
         {/* Grading Company Selector */}
         <select value={gradingCompany} onChange={e=>setGradingCompany(e.target.value)} style={{background:"#1a1c22",border:"1px solid #2a2d35",borderRadius:6,color:"#888",fontFamily:mono,fontSize:10,padding:"5px 8px",cursor:"pointer",textTransform:"uppercase"}}>
           {getCompanyOptions().map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
@@ -2906,8 +2843,42 @@ export default function SlabSense(){
       </div>
     </div>
 
+    {/* UNIFIED TAB BAR */}
+    <div style={{display:"flex",borderBottom:"1px solid #1a1c22",background:"#0a0b0e",position:"sticky",top:54,zIndex:99}}>
+      {tabs.map(t=>{
+        const isActive = tab===t.id;
+        const isAnalysis = t.analysis;
+        const hasResults = step===2 && !!gr;
+        const isDisabled = isAnalysis && !hasResults;
+        const activeColor = hasResults && gr?.grade?.color ? gr.grade.color : "#6366f1";
+        return(
+          <button key={t.id} onClick={()=>!isDisabled && setTab(t.id)} style={{
+            flex:1,
+            padding:"10px 0 8px",
+            background:"transparent",
+            border:"none",
+            borderBottom:isActive?`2px solid ${activeColor}`:"2px solid transparent",
+            color:isDisabled?"#333":isActive?"#ddd":"#666",
+            fontFamily:mono,
+            fontSize:9,
+            cursor:isDisabled?"default":"pointer",
+            textTransform:"uppercase",
+            display:"flex",
+            flexDirection:"column",
+            alignItems:"center",
+            gap:2,
+            opacity:isDisabled?0.4:1,
+            transition:"all .2s",
+          }}>
+            <span style={{fontSize:14}}>{t.i}</span>
+            {t.l}
+          </button>
+        );
+      })}
+    </div>
+
     {/* CAPTURE - Vertical Layout */}
-    {navTab==="scan"&&step===0&&(<div style={{padding:16,flex:1}}>
+    {tab==="scan"&&step===0&&(<div style={{padding:16,flex:1}}>
       {/* Vertical stack of capture cards */}
       <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
         <CaptureCardVertical label="Front" side="front" image={fI} onImage={handleSetFrontImage} onOpenCamera={setCamTarget} quality={frontQuality}/>
@@ -2928,547 +2899,106 @@ export default function SlabSense(){
     </div>)}
 
     {/* ANALYZING */}
-    {navTab==="scan"&&step===1&&(<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
+    {tab==="scan"&&step===1&&(<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
       <div style={{width:48,height:48,borderRadius:"50%",border:"3px solid #1a1c22",borderTopColor:"#00ff88",animation:"spin .8s linear infinite"}}/>
       <div style={{fontFamily:mono,fontSize:12,color:"#666",marginTop:16}}>{prog}</div>
       <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
     </div>)}
 
-    {/* RESULTS */}
-    {navTab==="scan"&&step===2&&gr&&(<div style={{flex:1,display:"flex",flexDirection:"column"}}>
-      <div style={{display:"flex",borderBottom:"1px solid #1a1c22",overflowX:"auto",scrollbarWidth:"none"}}>
-        {tabs.map(t=>(<button key={t.id} onClick={()=>setTab(t.id)} style={{flex:"0 0 auto",padding:"10px 11px",background:"transparent",border:"none",borderBottom:tab===t.id?`2px solid ${gr.grade.color}`:"2px solid transparent",color:tab===t.id?"#ddd":"#555",fontFamily:mono,fontSize:9,cursor:"pointer",textTransform:"uppercase",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><span style={{fontSize:13}}>{t.i}</span>{t.l}</button>))}
-      </div>
-      <div style={{flex:1,padding:16,overflowY:"auto"}}>
-
-        {/* OVERVIEW */}
-        {tab==="overview"&&(<div>
-          {/* Grade Display - Different for Pro vs Free */}
-          {auth.isPro ? (
-            <GradeDisplay gradeResult={gr} companyId={gradingCompany} isPro={true} />
-          ) : (
-            <GradeDisplaySimple gradeResult={gr} companyId={gradingCompany} />
-          )}
-
-          {/* Confidence indicator - Pro only */}
-          {auth.isPro && (()=>{const conf=calcConfidence(gr,fR,bR);return(
-            <div style={{textAlign:"center",marginTop:-8,marginBottom:16}}>
-              <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 12px",borderRadius:20,background:"rgba(0,0,0,.3)"}}>
-                <div style={{width:6,height:6,borderRadius:"50%",background:conf.color}}/>
-                <span style={{fontFamily:mono,fontSize:9,color:conf.color}}>{conf.level} CONFIDENCE</span>
-                <span style={{fontFamily:mono,fontSize:9,color:"#444"}}>{conf.confidence}%</span>
-              </div>
+    {/* GRADE TAB */}
+    {tab==="grade"&&step===2&&gr&&(<div style={{flex:1,padding:16,overflowY:"auto"}}>
+          {/* Card Info Header */}
+          <div style={{marginBottom:16,textAlign:"center"}}>
+            <div style={{fontFamily:sans,fontSize:20,fontWeight:700,color:"#fff",marginBottom:4}}>
+              {cardInfo?.name || "Unknown Card"}
             </div>
-          );})()}
-
-          {/* Save to Collection Button */}
-          {auth.isAuthenticated && (
-            <button
-              onClick={handleSaveScan}
-              disabled={savingStatus === 'saving'}
-              style={{
-                width: '100%',
-                padding: '12px 0',
-                marginBottom: 16,
-                borderRadius: 8,
-                border: savingStatus === 'saved' ? '1px solid rgba(0,255,136,0.3)' : '1px solid #2a2d35',
-                background: savingStatus === 'saving' ? '#1a1c22'
-                  : savingStatus === 'saved' ? 'rgba(0,255,136,0.1)'
-                  : savingStatus === 'error' ? 'rgba(255,68,68,0.1)'
-                  : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                color: savingStatus === 'saved' ? '#00ff88'
-                  : savingStatus === 'error' ? '#ff6666'
-                  : '#fff',
-                fontFamily: mono,
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: savingStatus === 'saving' ? 'wait' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-              }}
-            >
-              {savingStatus === 'saving' ? (
-                <>Saving...</>
-              ) : savingStatus === 'saved' ? (
-                <>✓ Saved to Collection</>
-              ) : savingStatus === 'error' ? (
-                <>✕ Failed to Save</>
-              ) : (
-                <>📁 Save to Collection</>
-              )}
-            </button>
-          )}
-
-          {/* Share/Export Button */}
-          <button
-            onClick={() => setShowExport(true)}
-            style={{
-              width: '100%',
-              padding: '12px 0',
-              marginBottom: 16,
-              borderRadius: 8,
-              border: '1px solid #2a2d35',
-              background: 'transparent',
-              color: '#888',
-              fontFamily: mono,
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-            }}
-          >
-            📤 Share / Export
-          </button>
-
-          {/* AI Grade Button */}
-          <button
-            onClick={handleEnhanceCards}
-            disabled={enhancingStatus === 'enhancing' || enhancingStatus === 'done'}
-            style={{
-              width: '100%',
-              padding: '12px 0',
-              marginBottom: 8,
-              borderRadius: 8,
-              border: enhancingStatus === 'done' ? '1px solid rgba(0,255,136,0.3)' : '1px solid #2a2d35',
-              background: enhancingStatus === 'enhancing' ? '#1a1c22'
-                : enhancingStatus === 'done' ? 'rgba(0,255,136,0.1)'
-                : enhancingStatus === 'error' ? 'rgba(255,68,68,0.1)'
-                : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-              color: enhancingStatus === 'done' ? '#00ff88'
-                : enhancingStatus === 'error' ? '#ff6666'
-                : '#fff',
-              fontFamily: mono,
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: enhancingStatus === 'enhancing' || enhancingStatus === 'done' ? 'default' : 'pointer',
-              opacity: enhancingStatus === 'done' ? 0.8 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-            }}
-          >
-            {enhancingStatus === 'enhancing' ? (
-              <>⏳ AI Grading...</>
-            ) : enhancingStatus === 'done' ? (
-              <>✓ AI Grade Complete{cardInfo?.name ? ` • ${cardInfo.name}` : ''}</>
-            ) : enhancingStatus === 'error' ? (
-              <>✕ AI Failed - Try Again</>
-            ) : (
-              <>✨ AI Grade Card ($0.03)</>
+            <div style={{fontFamily:mono,fontSize:11,color:"#888"}}>
+              {cardInfo?.year && `${cardInfo.year} `}
+              {cardInfo?.setName || ""}
+              {cardInfo?.cardNumber && ` #${cardInfo.cardNumber}`}
+            </div>
+            {cardInfo?.rarity && (
+              <div style={{fontFamily:mono,fontSize:10,color:"#fbbf24",marginTop:4}}>{cardInfo.rarity}</div>
             )}
-          </button>
+          </div>
 
-          {/* 3D View Button - Separate from AI grading */}
-          <button
-            onClick={handle3DView}
-            disabled={croppingFor3D}
-            style={{
-              width: '100%',
-              padding: '12px 0',
-              marginBottom: 16,
-              borderRadius: 8,
-              border: enhancedCards ? '1px solid rgba(99,102,241,0.3)' : '1px solid #2a2d35',
-              background: croppingFor3D ? '#1a1c22'
-                : enhancedCards ? 'rgba(99,102,241,0.15)'
-                : '#1a1c22',
-              color: enhancedCards ? '#8b5cf6' : '#666',
-              fontFamily: mono,
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: croppingFor3D ? 'wait' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-            }}
-          >
-            {croppingFor3D ? (
-              <>⏳ Preparing 3D View...</>
-            ) : enhancedCards ? (
-              <>🎴 View 3D Slab</>
-            ) : (
-              <>🎴 3D Slab View ($0.02)</>
+          {/* Score + Grade Display - Company specific */}
+          <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:12,marginBottom:16,padding:16,background:"#0d0f13",borderRadius:10,border:`1px solid ${gr.grade.color}33`}}>
+            {gradingCompany === 'tag' && gr.rawScore !== undefined && (
+              <div style={{fontFamily:mono,fontSize:28,fontWeight:800,color:"#888"}}>{gr.rawScore}</div>
             )}
-          </button>
-
-          {/* Display Extracted Card Info */}
-          {cardInfo && (
-            <div style={{
-              padding: 14,
-              background: '#0d0f13',
-              borderRadius: 10,
-              border: '1px solid rgba(0,255,136,0.2)',
-              marginBottom: 16,
-            }}>
-              <div style={{
-                fontFamily: mono,
-                fontSize: 10,
-                color: '#00ff88',
-                textTransform: 'uppercase',
-                marginBottom: 10,
-                letterSpacing: '0.05em',
-              }}>
-                Card Details (AI Extracted)
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {cardInfo.name && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>Name</span>
-                    <span style={{ fontFamily: sans, fontSize: 12, color: '#fff', fontWeight: 600 }}>{cardInfo.name}</span>
-                  </div>
-                )}
-                {cardInfo.hp && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>HP</span>
-                    <span style={{ fontFamily: mono, fontSize: 12, color: '#ff6b6b' }}>{cardInfo.hp}</span>
-                  </div>
-                )}
-                {cardInfo.cardNumber && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>Card #</span>
-                    <span style={{ fontFamily: mono, fontSize: 12, color: '#aaa' }}>{cardInfo.cardNumber}</span>
-                  </div>
-                )}
-                {cardInfo.setName && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>Set</span>
-                    <span style={{ fontFamily: sans, fontSize: 11, color: '#888' }}>{cardInfo.setName}</span>
-                  </div>
-                )}
-                {cardInfo.rarity && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>Rarity</span>
-                    <span style={{ fontFamily: mono, fontSize: 11, color: '#fbbf24' }}>{cardInfo.rarity}</span>
-                  </div>
-                )}
-                {cardInfo.year && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: mono, fontSize: 10, color: '#666' }}>Year</span>
-                    <span style={{ fontFamily: mono, fontSize: 11, color: '#666' }}>{cardInfo.year}</span>
-                  </div>
-                )}
-              </div>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontFamily:mono,fontSize:36,fontWeight:900,color:gr.grade.color}}>{gr.grade.label}</div>
+              <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase"}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
             </div>
-          )}
+          </div>
 
-          {/* AI Condition Assessment & Grading Notes */}
-          {(aiCondition || aiGradingNotes) && (
-            <div style={{
-              padding: 14,
-              background: 'linear-gradient(135deg, #0d0f13 0%, #12141a 100%)',
-              borderRadius: 10,
-              border: '1px solid rgba(139,92,246,0.3)',
-              marginBottom: 16,
-            }}>
-              <div style={{
-                fontFamily: mono,
-                fontSize: 10,
-                color: '#8b5cf6',
-                textTransform: 'uppercase',
-                marginBottom: 12,
-                letterSpacing: '0.05em',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}>
-                <span style={{ fontSize: 14 }}>🤖</span> AI Grading Analysis
+          {/* Front + Back Card Images */}
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
+              <img src={visionMode==='normal'?fI:(fM?.[visionMode]||fI)} style={{width:"100%",height:"100%",objectFit:"contain"}}/>
+              <div style={{position:"absolute",bottom:4,left:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4}}>FRONT</div>
+            </div>
+            <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
+              <img src={visionMode==='normal'?bI:(bM?.[visionMode]||bI)} style={{width:"100%",height:"100%",objectFit:"contain"}}/>
+              <div style={{position:"absolute",bottom:4,right:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4}}>BACK</div>
+            </div>
+          </div>
+
+          {/* Vision Mode Buttons */}
+          <div style={{display:"flex",gap:6,marginBottom:16}}>
+            {[['normal','Normal'],['emboss','Emboss'],['hiPass','Hi-Pass'],['edges','Edges']].map(([mode,label])=>(
+              <button key={mode} onClick={()=>setVisionMode(mode)} style={{
+                flex:1,padding:"8px 0",borderRadius:6,
+                border:visionMode===mode?"1px solid #6366f1":"1px solid #2a2d35",
+                background:visionMode===mode?"rgba(99,102,241,0.15)":"transparent",
+                color:visionMode===mode?"#8b5cf6":"#666",
+                fontFamily:mono,fontSize:9,cursor:"pointer",textTransform:"uppercase"
+              }}>{label}</button>
+            ))}
+          </div>
+
+          {/* 4 Score Boxes */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+            <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
+              <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>CORNERS</div>
+              <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:aiCondition?.corners>=9?"#00ff88":aiCondition?.corners>=7?"#ffcc00":"#ff6633"}}>{aiCondition?.corners || fR?.corners?.score || "--"}</div>
+            </div>
+            <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
+              <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>EDGES</div>
+              <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:aiCondition?.edges>=9?"#00ff88":aiCondition?.edges>=7?"#ffcc00":"#ff6633"}}>{aiCondition?.edges || fR?.edges?.score || "--"}</div>
+            </div>
+            <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
+              <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>SURFACE</div>
+              <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:aiCondition?.surface>=9?"#00ff88":aiCondition?.surface>=7?"#ffcc00":"#ff6633"}}>{aiCondition?.surface || "--"}</div>
+            </div>
+            <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
+              <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>CENTERING</div>
+              <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:"#00ff88"}}>{fR?.centering?.lrRatio||50}/{100-(fR?.centering?.lrRatio||50)}</div>
+            </div>
+          </div>
+
+          {/* Total Dings */}
+          <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>Total DINGS</span>
+              <span style={{fontFamily:mono,fontSize:20,fontWeight:800,color:gr.totalDings===0?"#00ff88":gr.totalDings<=2?"#66dd44":gr.totalDings<=4?"#ffcc00":"#ff6633"}}>{gr.totalDings}</span>
+            </div>
+          </div>
+
+          {/* Grade Analysis */}
+          <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
+            <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:8}}>Grade Analysis</div>
+            {getNextGradeInfo(gr).map((tip,i)=>(
+              <div key={i} style={{display:"flex",gap:8,marginBottom:i<getNextGradeInfo(gr).length-1?8:0}}>
+                <div style={{width:3,borderRadius:2,background:tip.color,flexShrink:0,marginTop:2}}/>
+                <div style={{fontFamily:sans,fontSize:12,color:"#aaa",lineHeight:1.5}}>{tip.text}</div>
               </div>
+            ))}
+          </div>
 
-              {/* AI Estimated Grade - Shows grade for selected company */}
-              {aiGrades?.[gradingCompany] && (
-                <div style={{
-                  padding: '12px',
-                  background: 'rgba(139,92,246,0.1)',
-                  borderRadius: 8,
-                  marginBottom: 12,
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                  }}>
-                    <span style={{ fontFamily: mono, fontSize: 10, color: '#888' }}>
-                      {GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} Estimate
-                    </span>
-                    <span style={{ fontFamily: mono, fontSize: 22, fontWeight: 800, color: '#8b5cf6' }}>
-                      {gradingCompany === 'tag' && aiGrades.tag?.score
-                        ? `${aiGrades.tag.grade} (${aiGrades.tag.score})`
-                        : aiGrades[gradingCompany]?.grade}
-                    </span>
-                  </div>
-                  <div style={{ fontFamily: mono, fontSize: 11, color: '#a78bfa' }}>
-                    {aiGrades[gradingCompany]?.label}
-                  </div>
-                  {aiGrades[gradingCompany]?.notes && (
-                    <div style={{ fontFamily: sans, fontSize: 10, color: '#666', marginTop: 6, fontStyle: 'italic' }}>
-                      {aiGrades[gradingCompany].notes}
-                    </div>
-                  )}
-                  {/* BGS/TAG Subgrades */}
-                  {(gradingCompany === 'bgs' || gradingCompany === 'tag') && aiGrades[gradingCompany]?.subgrades && (
-                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(139,92,246,0.2)' }}>
-                      <div style={{ fontFamily: mono, fontSize: 8, color: '#666', marginBottom: 6 }}>SUBGRADES</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: gradingCompany === 'bgs' ? 'repeat(4,1fr)' : 'repeat(4,1fr)', gap: 6 }}>
-                        {gradingCompany === 'bgs' && (
-                          <>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.bgs.subgrades.centering}</div>
-                              <div style={{ fontFamily: mono, fontSize: 7, color: '#555' }}>CENTER</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.bgs.subgrades.corners}</div>
-                              <div style={{ fontFamily: mono, fontSize: 7, color: '#555' }}>CORNERS</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.bgs.subgrades.edges}</div>
-                              <div style={{ fontFamily: mono, fontSize: 7, color: '#555' }}>EDGES</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.bgs.subgrades.surface}</div>
-                              <div style={{ fontFamily: mono, fontSize: 7, color: '#555' }}>SURFACE</div>
-                            </div>
-                          </>
-                        )}
-                        {gradingCompany === 'tag' && (
-                          <>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.tag.subgrades.frontCentering}</div>
-                              <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>F-CENTER</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.tag.subgrades.frontCorners}</div>
-                              <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>F-CORNER</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.tag.subgrades.frontEdges}</div>
-                              <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>F-EDGE</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#8b5cf6' }}>{aiGrades.tag.subgrades.frontSurface}</div>
-                              <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>F-SURF</div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      {gradingCompany === 'tag' && aiGrades.tag.subgrades.backCentering && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginTop: 6 }}>
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>{aiGrades.tag.subgrades.backCentering}</div>
-                            <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>B-CENTER</div>
-                          </div>
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>{aiGrades.tag.subgrades.backCorners}</div>
-                            <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>B-CORNER</div>
-                          </div>
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>{aiGrades.tag.subgrades.backEdges}</div>
-                            <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>B-EDGE</div>
-                          </div>
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>{aiGrades.tag.subgrades.backSurface}</div>
-                            <div style={{ fontFamily: mono, fontSize: 6, color: '#555' }}>B-SURF</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Centering Measurements - Always visible */}
-              {fR?.centering && (
-                <div style={{
-                  padding: '10px 12px',
-                  background: '#0a0c0f',
-                  borderRadius: 8,
-                  marginBottom: 12,
-                }}>
-                  <div style={{ fontFamily: mono, fontSize: 9, color: '#666', marginBottom: 8 }}>CENTERING MEASUREMENTS</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    {/* Front Centering */}
-                    <div>
-                      <div style={{ fontFamily: mono, fontSize: 8, color: '#888', marginBottom: 4 }}>FRONT</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                        <span style={{ fontFamily: mono, fontSize: 9, color: '#555' }}>L/R</span>
-                        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: '#00ff88' }}>
-                          {fR.centering.lrRatio || `${fR.centering.leftPct?.toFixed(0) || 50}/${fR.centering.rightPct?.toFixed(0) || 50}`}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontFamily: mono, fontSize: 9, color: '#555' }}>T/B</span>
-                        <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: '#00ff88' }}>
-                          {fR.centering.tbRatio || `${fR.centering.topPct?.toFixed(0) || 50}/${fR.centering.bottomPct?.toFixed(0) || 50}`}
-                        </span>
-                      </div>
-                    </div>
-                    {/* Back Centering */}
-                    {bR?.centering && (
-                      <div>
-                        <div style={{ fontFamily: mono, fontSize: 8, color: '#888', marginBottom: 4 }}>BACK</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                          <span style={{ fontFamily: mono, fontSize: 9, color: '#555' }}>L/R</span>
-                          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: '#66dd44' }}>
-                            {bR.centering.lrRatio || `${bR.centering.leftPct?.toFixed(0) || 50}/${bR.centering.rightPct?.toFixed(0) || 50}`}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontFamily: mono, fontSize: 9, color: '#555' }}>T/B</span>
-                          <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: '#66dd44' }}>
-                            {bR.centering.tbRatio || `${bR.centering.topPct?.toFixed(0) || 50}/${bR.centering.bottomPct?.toFixed(0) || 50}`}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Condition Breakdown */}
-              {aiCondition && (
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontFamily: mono, fontSize: 9, color: '#666', marginBottom: 8 }}>CONDITION BREAKDOWN</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {aiCondition.corners && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#0a0c0f', borderRadius: 6 }}>
-                        <span style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>Corners</span>
-                        <span style={{ fontFamily: mono, fontSize: 10, color: aiCondition.corners >= 9 ? '#00ff88' : aiCondition.corners >= 7 ? '#ffcc00' : '#ff6633' }}>{aiCondition.corners}/10</span>
-                      </div>
-                    )}
-                    {aiCondition.edges && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#0a0c0f', borderRadius: 6 }}>
-                        <span style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>Edges</span>
-                        <span style={{ fontFamily: mono, fontSize: 10, color: aiCondition.edges >= 9 ? '#00ff88' : aiCondition.edges >= 7 ? '#ffcc00' : '#ff6633' }}>{aiCondition.edges}/10</span>
-                      </div>
-                    )}
-                    {aiCondition.surface && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#0a0c0f', borderRadius: 6 }}>
-                        <span style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>Surface</span>
-                        <span style={{ fontFamily: mono, fontSize: 10, color: aiCondition.surface >= 9 ? '#00ff88' : aiCondition.surface >= 7 ? '#ffcc00' : '#ff6633' }}>{aiCondition.surface}/10</span>
-                      </div>
-                    )}
-                    {aiCondition.centering && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#0a0c0f', borderRadius: 6 }}>
-                        <span style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>Centering</span>
-                        <span style={{ fontFamily: mono, fontSize: 10, color: aiCondition.centering >= 9 ? '#00ff88' : aiCondition.centering >= 7 ? '#ffcc00' : '#ff6633' }}>{aiCondition.centering}/10</span>
-                      </div>
-                    )}
-                  </div>
-                  {aiCondition.overall && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#0a0c0f', borderRadius: 6, marginTop: 8 }}>
-                      <span style={{ fontFamily: mono, fontSize: 10, color: '#888' }}>Overall Condition</span>
-                      <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: aiCondition.overall >= 9 ? '#00ff88' : aiCondition.overall >= 7 ? '#ffcc00' : '#ff6633' }}>{aiCondition.overall}/10</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Positives */}
-              {aiGradingNotes?.positives && aiGradingNotes.positives.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontFamily: mono, fontSize: 9, color: '#00ff88', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span>✓</span> POSITIVES
-                  </div>
-                  {aiGradingNotes.positives.map((p, i) => (
-                    <div key={i} style={{ fontFamily: sans, fontSize: 11, color: '#aaa', marginBottom: 4, paddingLeft: 12 }}>
-                      • {p}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Concerns */}
-              {aiGradingNotes?.concerns && aiGradingNotes.concerns.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontFamily: mono, fontSize: 9, color: '#ff9944', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span>⚠</span> CONCERNS
-                  </div>
-                  {aiGradingNotes.concerns.map((c, i) => (
-                    <div key={i} style={{ fontFamily: sans, fontSize: 11, color: '#999', marginBottom: 4, paddingLeft: 12 }}>
-                      • {c}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* AI Notes */}
-              {aiCondition?.notes && (
-                <div style={{
-                  fontFamily: sans,
-                  fontSize: 11,
-                  color: '#777',
-                  fontStyle: 'italic',
-                  padding: '8px 10px',
-                  background: 'rgba(0,0,0,0.2)',
-                  borderRadius: 6,
-                  borderLeft: '2px solid #8b5cf6',
-                }}>
-                  {aiCondition.notes}
-                </div>
-              )}
-
-              {/* AI Recommendation */}
-              {aiSummary?.recommendation && (
-                <div style={{
-                  marginTop: 10,
-                  padding: '10px 12px',
-                  background: 'rgba(0,255,136,0.05)',
-                  borderRadius: 8,
-                  border: '1px solid rgba(0,255,136,0.2)',
-                }}>
-                  <div style={{ fontFamily: mono, fontSize: 9, color: '#00ff88', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span>💡</span> RECOMMENDATION
-                  </div>
-                  <div style={{ fontFamily: sans, fontSize: 12, color: '#aaa' }}>
-                    {aiSummary.recommendation}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* PRO ONLY: DINGS Summary */}
-          {auth.isPro && (
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>Total DINGS</span>
-                <span style={{fontFamily:mono,fontSize:20,fontWeight:800,color:gr.totalDings===0?"#00ff88":gr.totalDings<=2?"#66dd44":gr.totalDings<=4?"#ffcc00":"#ff6633"}}>{gr.totalDings}</span>
-              </div>
-              {/* DINGS by category */}
-              {["CENTERING","CORNER WEAR","EDGE WEAR","SURFACE / PLAY WEAR"].map(type=>{
-                const count = gr.allDings.filter(d=>d.type===type).length;
-                const frontCount = gr.allDings.filter(d=>d.type===type&&d.side==="FRONT").length;
-                const backCount = gr.allDings.filter(d=>d.type===type&&d.side==="BACK").length;
-                if(count===0)return null;
-                return(<div key={type} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #151720"}}>
-                  <span style={{fontFamily:mono,fontSize:10,color:"#ff9944"}}>{type}</span>
-                  <span style={{fontFamily:mono,fontSize:10,color:"#888"}}>F:{frontCount} B:{backCount}</span>
-                </div>);
-              })}
-            </div>
-          )}
-
-          {/* PRO ONLY: Next Grade Comparison */}
-          {auth.isPro && (
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
-              <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:8}}>Grade Analysis</div>
-              {getNextGradeInfo(gr).map((tip,i)=>(
-                <div key={i} style={{display:"flex",gap:8,marginBottom:i<getNextGradeInfo(gr).length-1?8:0}}>
-                  <div style={{width:3,borderRadius:2,background:tip.color,flexShrink:0,marginTop:2}}/>
-                  <div style={{fontFamily:sans,fontSize:12,color:"#aaa",lineHeight:1.5}}>{tip.text}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* PRO ONLY: Confidence details */}
-          {auth.isPro && (()=>{const conf=calcConfidence(gr,fR,bR);return conf.reasons.length>0?(
+          {/* Confidence Notes */}
+          {(()=>{const conf=calcConfidence(gr,fR,bR);return conf.reasons.length>0?(
             <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${conf.color}22`,marginBottom:12}}>
               <div style={{fontFamily:mono,fontSize:10,color:conf.color,textTransform:"uppercase",marginBottom:8}}>Confidence Notes</div>
               {conf.reasons.map((r,i)=>(
@@ -3477,49 +3007,133 @@ export default function SlabSense(){
             </div>
           ):null;})()}
 
-          <div style={{display:"flex",gap:8}}>
-            <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a"}}><img src={fI} style={{width:"100%",height:"100%",objectFit:"contain"}}/></div>
-            <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a"}}><img src={bI} style={{width:"100%",height:"100%",objectFit:"contain"}}/></div>
-          </div>
-        </div>)}
+          {/* AI Summary - Positives, Concerns, Recommendation */}
+          {(aiGradingNotes?.positives?.length > 0 || aiGradingNotes?.concerns?.length > 0 || aiSummary?.recommendation) && (
+            <div style={{padding:14,background:"linear-gradient(135deg, #0d0f13 0%, #12141a 100%)",borderRadius:10,border:"1px solid rgba(139,92,246,0.3)",marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",marginBottom:10}}>AI Summary</div>
+              {aiGradingNotes?.positives?.length > 0 && (
+                <div style={{marginBottom:8}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#00ff88",marginBottom:4}}>✓ POSITIVES</div>
+                  {aiGradingNotes.positives.map((p,i)=>(<div key={i} style={{fontFamily:sans,fontSize:11,color:"#aaa",paddingLeft:12}}>• {p}</div>))}
+                </div>
+              )}
+              {aiGradingNotes?.concerns?.length > 0 && (
+                <div style={{marginBottom:8}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#ff9944",marginBottom:4}}>⚠ CONCERNS</div>
+                  {aiGradingNotes.concerns.map((c,i)=>(<div key={i} style={{fontFamily:sans,fontSize:11,color:"#999",paddingLeft:12}}>• {c}</div>))}
+                </div>
+              )}
+              {aiSummary?.recommendation && (
+                <div style={{padding:"8px 10px",background:"rgba(0,255,136,0.05)",borderRadius:6,border:"1px solid rgba(0,255,136,0.2)"}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#00ff88",marginBottom:4}}>💡 RECOMMENDATION</div>
+                  <div style={{fontFamily:sans,fontSize:11,color:"#aaa"}}>{aiSummary.recommendation}</div>
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* DINGS */}
-        {tab==="dings"&&(<div>
+          {/* Compact Action Buttons */}
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            {auth.isAuthenticated && (
+              <button onClick={handleSaveScan} disabled={savingStatus==='saving'} title="Save to Collection" style={{
+                flex:1,padding:"12px 0",borderRadius:8,border:"1px solid #2a2d35",
+                background:savingStatus==='saved'?"rgba(0,255,136,0.1)":"#1a1c22",
+                color:savingStatus==='saved'?"#00ff88":"#888",cursor:"pointer",fontSize:16
+              }}>{savingStatus==='saving'?"⏳":savingStatus==='saved'?"✓":"💾"}</button>
+            )}
+            <button onClick={()=>setShowExport(true)} title="Share / Export" style={{
+              flex:1,padding:"12px 0",borderRadius:8,border:"1px solid #2a2d35",background:"#1a1c22",color:"#888",cursor:"pointer",fontSize:16
+            }}>↗</button>
+            <button onClick={handleEnhanceCards} disabled={enhancingStatus==='enhancing'||enhancingStatus==='done'} title="AI Grade ($0.03)" style={{
+              flex:1,padding:"12px 0",borderRadius:8,
+              border:enhancingStatus==='done'?"1px solid rgba(0,255,136,0.3)":"1px solid #2a2d35",
+              background:enhancingStatus==='done'?"rgba(0,255,136,0.1)":"linear-gradient(135deg,#6366f1,#8b5cf6)",
+              color:enhancingStatus==='done'?"#00ff88":"#fff",cursor:enhancingStatus==='enhancing'?"wait":"pointer",fontSize:16
+            }}>{enhancingStatus==='enhancing'?"⏳":enhancingStatus==='done'?"✓":"🤖"}</button>
+            <button onClick={handle3DView} disabled={croppingFor3D} title="3D Slab View ($0.02)" style={{
+              flex:1,padding:"12px 0",borderRadius:8,border:"1px solid #2a2d35",
+              background:enhancedCards?"rgba(99,102,241,0.15)":"#1a1c22",
+              color:enhancedCards?"#8b5cf6":"#666",cursor:croppingFor3D?"wait":"pointer",fontSize:16
+            }}>{croppingFor3D?"⏳":"📦"}</button>
+          </div>
+    </div>)}
+
+    {/* DINGS TAB */}
+    {tab==="dings"&&step===2&&gr&&fR&&bR&&(<div style={{flex:1,padding:16,overflowY:"auto"}}>
+          {/* DINGS Count */}
           <div style={{textAlign:"center",padding:16,marginBottom:12,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
             <div style={{fontFamily:mono,fontSize:9,color:"#555",textTransform:"uppercase",letterSpacing:".12em",marginBottom:4}}>Defects Identified of Notable Grade Significance</div>
             <div style={{fontFamily:mono,fontSize:36,fontWeight:800,color:gr.totalDings===0?"#00ff88":gr.totalDings<=2?"#66dd44":gr.totalDings<=4?"#ffcc00":"#ff6633"}}>{gr.totalDings}</div>
             <div style={{fontFamily:mono,fontSize:10,color:"#444"}}>DINGS</div>
           </div>
 
-          {/* DING location overlays — visually verify what was flagged */}
-          <div style={{fontFamily:mono,fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:8}}>Defect Locations</div>
-          <DingLocationOverlay image={fI} result={fR} label="Front"/>
-          <DingLocationOverlay image={bI} result={bR} label="Back"/>
-          
-          {gr.allDings.length>0?(<div style={{marginBottom:14}}>
-            {gr.allDings.map((d,i)=>(
-              <div key={i} style={{padding:"10px 12px",marginBottom:6,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22",borderLeft:"3px solid #ff6633"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                  <span style={{fontFamily:mono,fontSize:11,color:"#ff9944",fontWeight:600}}>{d.location}</span>
-                  <span style={{fontFamily:mono,fontSize:9,color:"#555",textTransform:"uppercase"}}>{d.type}</span>
+          {/* DEFECT MAP */}
+          <div style={{marginBottom:16}}>
+            <div style={{fontFamily:mono,fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:8}}>Defect Map</div>
+            <DingsMap frontResult={fR} backResult={bR}/>
+          </div>
+
+          {/* CORNERS DETAIL */}
+          <div style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
+            <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:10}}>Corners</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {[["Front",fR],["Back",bR]].map(([side,r])=>(
+                <div key={side}>
+                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:6}}>{side}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
+                    {r.corners?.details?.map(c=>(
+                      <div key={c.name} style={{padding:6,background:"rgba(0,0,0,.3)",borderRadius:4,borderLeft:`2px solid ${c.hasDing?"#ff6633":"#333"}`}}>
+                        <div style={{fontFamily:mono,fontSize:9,color:c.hasDing?"#ff9944":"#777"}}>{c.name}</div>
+                        <div style={{fontFamily:mono,fontSize:8,color:"#555"}}>F:{c.fray} W:{c.whiteRatio}%</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                {d.desc&&<div style={{fontFamily:sans,fontSize:12,color:"#888"}}>{d.desc}</div>}
-              </div>
-            ))}
-          </div>):(<div style={{padding:16,background:"rgba(0,255,136,.05)",borderRadius:8,border:"1px solid rgba(0,255,136,.15)",marginBottom:14}}><div style={{fontFamily:mono,fontSize:12,color:"#00ff88"}}>No DINGS detected — potential Gem Mint candidate</div></div>)}
-          
-          <div style={{fontFamily:mono,fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:8}}>Defect Previews</div>
-          <DingsPreview frontResult={fR} backResult={bR} frontMaps={fM} backMaps={bM} frontImg={fI} backImg={bI}/>
-        </div>)}
+              ))}
+            </div>
+          </div>
 
-        {/* MAP */}
-        {tab==="map"&&fR&&bR&&(<DingsMap frontResult={fR} backResult={bR}/>)}
+          {/* EDGES DETAIL */}
+          <div style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
+            <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:10}}>Edges</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {[["Front",fR],["Back",bR]].map(([side,r])=>(
+                <div key={side}>
+                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:6}}>{side}</div>
+                  {r.edges?.details?.map(e=>(
+                    <div key={e.name} style={{padding:6,marginBottom:4,background:"rgba(0,0,0,.3)",borderRadius:4,borderLeft:`2px solid ${e.hasDing?"#ff6633":"#333"}`}}>
+                      <div style={{fontFamily:mono,fontSize:9,color:e.hasDing?"#ff9944":"#777"}}>{e.name}</div>
+                      <div style={{fontFamily:mono,fontSize:8,color:"#555"}}>F:{e.fray} W:{e.whiteRatio}%</div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
 
-        {/* VISION */}
-        {tab==="vision"&&(<div><SurfaceVision maps={fM} label="Front"/><SurfaceVision maps={bM} label="Back"/></div>)}
+          {/* DEFECT LIST */}
+          {gr.allDings.length>0?(
+            <div style={{marginBottom:14}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:8}}>Defect Details</div>
+              {gr.allDings.map((d,i)=>(
+                <div key={i} style={{padding:"10px 12px",marginBottom:6,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22",borderLeft:"3px solid #ff6633"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <span style={{fontFamily:mono,fontSize:11,color:"#ff9944",fontWeight:600}}>{d.location}</span>
+                    <span style={{fontFamily:mono,fontSize:9,color:"#555",textTransform:"uppercase"}}>{d.type}</span>
+                  </div>
+                  {d.desc&&<div style={{fontFamily:sans,fontSize:12,color:"#888"}}>{d.desc}</div>}
+                </div>
+              ))}
+            </div>
+          ):(
+            <div style={{padding:16,background:"rgba(0,255,136,.05)",borderRadius:8,border:"1px solid rgba(0,255,136,.15)",marginBottom:14}}>
+              <div style={{fontFamily:mono,fontSize:12,color:"#00ff88"}}>No DINGS detected — potential Gem Mint candidate</div>
+            </div>
+          )}
+    </div>)}
 
-        {/* CENTERING */}
-        {tab==="centering"&&fR&&bR&&(<div>
+    {/* CENTERING TAB */}
+    {tab==="centering"&&step===2&&gr&&fR&&bR&&(<div style={{flex:1,padding:16,overflowY:"auto"}}>
           {/* Manual Adjust toggle buttons */}
           <div style={{display:"flex",gap:8,marginBottom:14}}>
             {[["front","Front",fR,fI],["back","Back",bR,bI]].map(([s,sl,r,img])=>(
@@ -3643,101 +3257,35 @@ export default function SlabSense(){
               </div>
             )}
           </div>
-        </div>)}
-
-        {/* CORNERS */}
-        {tab==="corners"&&fR&&bR&&(<div>
-          {[["Front",fR],["Back",bR]].map(([s,r])=>(
-            <div key={s} style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
-              <div style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase",marginBottom:10}}>{s} Corners</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                {r.corners.details.map(c=>(
-                  <div key={c.name} style={{padding:8,background:"rgba(0,0,0,.3)",borderRadius:6,borderLeft:`2px solid ${c.hasDing?"#ff6633":"#333"}`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                      <span style={{fontFamily:mono,fontSize:10,color:c.hasDing?"#ff9944":"#777"}}>{c.name}</span>
-                      {c.hasDing&&<span style={{fontFamily:mono,fontSize:8,color:"#ff6633"}}>DING</span>}
-                    </div>
-                    <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>F:{c.fray} Fi:{c.fill}{c.angle!==undefined?` A:${c.angle}`:""}</div>
-                    <div style={{fontFamily:mono,fontSize:8,color:"#444",marginTop:2}}>W:{c.whiteRatio}% S:{c.sharpness}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>)}
-
-        {/* EDGES */}
-        {tab==="edges"&&fR&&bR&&(<div>
-          {[["Front",fR],["Back",bR]].map(([s,r])=>(
-            <div key={s} style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
-              <div style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase",marginBottom:10}}>{s} Edges</div>
-              {r.edges.details.map(e=>(
-                <div key={e.name} style={{padding:"8px 10px",marginBottom:6,background:"rgba(0,0,0,.3)",borderRadius:6,borderLeft:`2px solid ${e.hasDing?"#ff6633":"#333"}`}}>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontFamily:mono,fontSize:11,color:e.hasDing?"#ff9944":"#888"}}>{e.name} {e.hasDing&&<span style={{fontSize:8,color:"#ff6633"}}>DING</span>}</span>
-                    <span style={{fontFamily:mono,fontSize:10,color:"#555"}}>F:{e.fray} Fi:{e.fill}</span>
-                  </div>
-                  <div style={{fontFamily:mono,fontSize:8,color:"#444",marginTop:2}}>W:{e.whiteRatio}% R:{e.roughness}</div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>)}
-
-        {/* SURFACE */}
-        {tab==="surface"&&fR&&bR&&(<div>
-          {[["Front",fR],["Back",bR]].map(([s,r])=>{
-            const hasDing=r.surface.dings.length>0;
-            return(<div key={s} style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${hasDing?"#ff663344":"#1a1c22"}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
-                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase"}}>{s}</span>
-                  {r.surface.isHolo&&<span style={{padding:"2px 6px",borderRadius:4,background:"rgba(136,0,255,.15)",border:"1px solid rgba(136,0,255,.3)",fontFamily:mono,fontSize:8,color:"#aa66ff"}}>HOLO DETECTED</span>}
-                </div>
-                {hasDing&&<span style={{fontFamily:mono,fontSize:10,color:"#ff6633",fontWeight:600}}>⚠ DING</span>}
-              </div>
-              <div style={{display:"flex",gap:8,marginBottom:10}}>
-                <div style={{flex:1,padding:8,background:"rgba(0,0,0,.3)",borderRadius:6,textAlign:"center"}}><div style={{fontFamily:mono,fontSize:8,color:"#444"}}>ANOMALY</div><div style={{fontFamily:mono,fontSize:16,fontWeight:700,color:r.surface.anomalyRate>4?"#ff6633":r.surface.anomalyRate>1?"#ccbb00":"#00dd77"}}>{r.surface.anomalyRate}%</div></div>
-                <div style={{flex:1,padding:8,background:"rgba(0,0,0,.3)",borderRadius:6,textAlign:"center"}}><div style={{fontFamily:mono,fontSize:8,color:"#444"}}>SCRATCH</div><div style={{fontFamily:mono,fontSize:16,fontWeight:700,color:r.surface.scratchRate>3?"#ff6633":r.surface.scratchRate>1?"#ccbb00":"#00dd77"}}>{r.surface.scratchRate}%</div></div>
-              </div>
-              {hasDing?r.surface.dings.map((d,i)=>(<div key={i} style={{padding:"6px 8px",background:"rgba(255,100,50,.06)",borderRadius:4,marginBottom:4}}><span style={{fontFamily:sans,fontSize:11,color:"#ff9944"}}>⚡ {d.desc}</span></div>)):
-              <div style={{padding:"6px 8px",background:"rgba(0,255,136,.05)",borderRadius:4}}><span style={{fontFamily:sans,fontSize:11,color:"#00dd77"}}>✓ No significant surface defects</span></div>}
-            </div>);
-          })}
-        </div>)}
-      </div>
     </div>)}
 
     {/* HOME TAB */}
-    {navTab==="home"&&(
+    {tab==="home"&&(
       <HomeTab
         auth={auth}
-        onOpenCollection={()=>setNavTab("collection")}
-        onStartScan={()=>setNavTab("scan")}
+        onOpenCollection={()=>setTab("cards")}
+        onStartScan={()=>setTab("scan")}
         collectionStats={{totalCards:0,avgGrade:0}}
       />
     )}
 
     {/* COLLECTION TAB */}
-    {navTab==="collection"&&auth.isAuthenticated&&(
+    {tab==="cards"&&auth.isAuthenticated&&(
       <div style={{flex:1,overflowY:"auto"}}>
         <CollectionView
           userId={auth.user?.id}
-          onClose={()=>setNavTab("scan")}
+          onClose={()=>setTab("scan")}
           isInline={true}
         />
       </div>
     )}
-    {navTab==="collection"&&!auth.isAuthenticated&&(
+    {tab==="cards"&&!auth.isAuthenticated&&(
       <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
         <div style={{fontSize:48,marginBottom:16}}>🔒</div>
         <div style={{fontFamily:mono,fontSize:14,color:"#888",marginBottom:8}}>Sign in to view your collection</div>
         <button onClick={()=>setShowAuthModal(true)} style={{marginTop:16,padding:"12px 24px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontFamily:mono,fontSize:12,fontWeight:600,cursor:"pointer"}}>Sign In</button>
       </div>
     )}
-
-    {/* BOTTOM NAVIGATION */}
-    <BottomNav activeTab={navTab} onTabChange={setNavTab} hasResults={step===2&&!!gr} />
 
     <div style={{padding:"10px 16px",borderTop:"1px solid #1a1c22",textAlign:"center"}}><div style={{fontFamily:mono,fontSize:8,color:"#333",textTransform:"uppercase",letterSpacing:".15em"}}>Pre-grade estimate · DINGS-based · Not affiliated with TAG</div></div>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
