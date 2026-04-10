@@ -2913,7 +2913,7 @@ export default function SlabSense(){
         <div style={{fontFamily:sans,fontSize:18,fontWeight:600,color:"#00ff88",marginBottom:4}}>Analysis Complete</div>
         <div style={{fontFamily:mono,fontSize:12,color:"#666"}}>View results in Grade tab</div>
       </div>
-      <button onClick={()=>{setStep(0);setFI(null);setBI(null);setGr(null);setFR(null);setBR(null);setCardInfo(null);setAiCentering(null);setAiCondition(null);setAiGradingNotes(null);setAiSummary(null);setEnhancingStatus('idle');setSavingStatus('idle');}} style={{
+      <button onClick={()=>{setStep(0);setFI(null);setBI(null);setGradeResult(null);setFR(null);setBR(null);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiSummary(null);setAiGrades(null);setEnhancingStatus('idle');setSavingStatus('idle');}} style={{
         padding:"14px 32px",borderRadius:10,border:"none",
         background:"linear-gradient(135deg,#6366f1,#8b5cf6)",
         color:"#fff",fontFamily:mono,fontSize:13,fontWeight:700,cursor:"pointer",
@@ -3168,20 +3168,20 @@ export default function SlabSense(){
             </div>
           )}
 
-          {/* AI Centering Measurements */}
-          {aiCentering && (
+          {/* Centering Measurements */}
+          {(fR?.centering || bR?.centering) && (
             <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
               <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase",marginBottom:10}}>Centering Measurements</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{aiCentering.front?.leftRight || "50/50"} L/R</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{aiCentering.front?.topBottom || "50/50"} T/B</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{fR?.centering?.lrRatio ? `${Math.round(fR.centering.lrRatio)}/${Math.round(100-fR.centering.lrRatio)}` : "50/50"} L/R</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{fR?.centering?.tbRatio ? `${Math.round(fR.centering.tbRatio)}/${Math.round(100-fR.centering.tbRatio)}` : "50/50"} T/B</div>
                 </div>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{aiCentering.back?.leftRight || "50/50"} L/R</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{aiCentering.back?.topBottom || "50/50"} T/B</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{bR?.centering?.lrRatio ? `${Math.round(bR.centering.lrRatio)}/${Math.round(100-bR.centering.lrRatio)}` : "50/50"} L/R</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{bR?.centering?.tbRatio ? `${Math.round(bR.centering.tbRatio)}/${Math.round(100-bR.centering.tbRatio)}` : "50/50"} T/B</div>
                 </div>
               </div>
             </div>
