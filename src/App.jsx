@@ -2302,8 +2302,13 @@ export default function SlabSense(){
   const[showCollection,setShowCollection]=useState(false); // Collection view visibility
   const[showExport,setShowExport]=useState(false); // Export modal visibility
   const[showSettings,setShowSettings]=useState(false); // Settings modal visibility
-  const[visionMode,setVisionMode]=useState('normal'); // 'normal'|'emboss'|'hiPass'|'edges'
+  const[visionMode,setVisionMode]=useState('normal'); // 'normal'|'emboss'|'highpass'|'edges'
   const[visionIntensity,setVisionIntensity]=useState(50); // 0-100% intensity slider
+
+  // Grade display mode
+  const[gradeMode,setGradeMode]=useState('software'); // 'software' | 'ai' - which grade to display
+  const[useAiCentering,setUseAiCentering]=useState(false); // Use AI centering in software grade calc
+  const[aiCentering,setAiCentering]=useState(null); // AI centering data: { front: {lrRatio, tbRatio}, back: {...} }
 
   // 3D Viewer / AI Enhanced Cards state
   const[enhancedCards,setEnhancedCards]=useState(null); // { front, back } - AI cropped cards
@@ -2416,17 +2421,29 @@ export default function SlabSense(){
     }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);}
   },[fI,bI,ignoreCentering,gradingCompany,useBackend,backendStatus.available]);
 
-  // Recompute grade when ignoreCentering or gradingCompany changes and results exist
+  // Recompute grade when settings change and results exist
   useEffect(()=>{
     if(fR && bR){
-      const effFront = ignoreCentering ? PERFECT_CENTER : fR.centering;
-      const effBack = ignoreCentering ? PERFECT_CENTER : bR.centering;
+      // Determine which centering to use for software grade
+      let effFront, effBack;
+      if (ignoreCentering) {
+        effFront = PERFECT_CENTER;
+        effBack = PERFECT_CENTER;
+      } else if (useAiCentering && aiCentering?.front && aiCentering?.back) {
+        // Use AI centering values (stored as numbers)
+        effFront = { lrRatio: aiCentering.front.lrRatio, tbRatio: aiCentering.front.tbRatio };
+        effBack = { lrRatio: aiCentering.back.lrRatio, tbRatio: aiCentering.back.tbRatio };
+      } else {
+        // Use software-detected centering
+        effFront = fR.centering;
+        effBack = bR.centering;
+      }
       const grade = computeGrade(fR.allDings, bR.allDings, effFront, effBack, gradingCompany);
       setGradeResult(grade);
     }
-  },[ignoreCentering, gradingCompany, fR, bR]);
+  },[ignoreCentering, gradingCompany, fR, bR, useAiCentering, aiCentering]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);setGradeMode('software');setUseAiCentering(false);setAiCentering(null);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -2546,7 +2563,7 @@ export default function SlabSense(){
           });
         }
 
-        // Apply Claude's centering data
+        // Store Claude's centering data SEPARATELY (don't overwrite software centering)
         if (result.centering) {
           console.log('AI Centering:', result.centering);
 
@@ -2559,59 +2576,38 @@ export default function SlabSense(){
             return null;
           };
 
-          if (result.centering.front && fR) {
+          // Parse front centering
+          let frontAiCentering = null;
+          if (result.centering.front) {
             const lrParsed = parseCentering(result.centering.front.leftRight || result.centering.front.lr);
             const tbParsed = parseCentering(result.centering.front.topBottom || result.centering.front.tb);
-
             if (lrParsed || tbParsed) {
-              const updatedFR = { ...fR };
-              if (lrParsed) {
-                updatedFR.centering = {
-                  ...updatedFR.centering,
-                  lrRatio: `${lrParsed.left}/${lrParsed.right}`,
-                  leftPct: lrParsed.left,
-                  rightPct: lrParsed.right,
-                };
-              }
-              if (tbParsed) {
-                updatedFR.centering = {
-                  ...updatedFR.centering,
-                  tbRatio: `${tbParsed.left}/${tbParsed.right}`,
-                  topPct: tbParsed.left,
-                  bottomPct: tbParsed.right,
-                };
-              }
-              updatedFR.centering.source = 'claude-ai';
-              setFR(updatedFR);
+              frontAiCentering = {
+                lrRatio: lrParsed ? lrParsed.left : 50, // Store as NUMBER
+                tbRatio: tbParsed ? tbParsed.left : 50, // Store as NUMBER
+                lrDisplay: lrParsed ? `${lrParsed.left}/${lrParsed.right}` : '50/50',
+                tbDisplay: tbParsed ? `${tbParsed.left}/${tbParsed.right}` : '50/50',
+              };
             }
           }
 
-          if (result.centering.back && bR) {
+          // Parse back centering
+          let backAiCentering = null;
+          if (result.centering.back) {
             const lrParsed = parseCentering(result.centering.back.leftRight || result.centering.back.lr);
             const tbParsed = parseCentering(result.centering.back.topBottom || result.centering.back.tb);
-
             if (lrParsed || tbParsed) {
-              const updatedBR = { ...bR };
-              if (lrParsed) {
-                updatedBR.centering = {
-                  ...updatedBR.centering,
-                  lrRatio: `${lrParsed.left}/${lrParsed.right}`,
-                  leftPct: lrParsed.left,
-                  rightPct: lrParsed.right,
-                };
-              }
-              if (tbParsed) {
-                updatedBR.centering = {
-                  ...updatedBR.centering,
-                  tbRatio: `${tbParsed.left}/${tbParsed.right}`,
-                  topPct: tbParsed.left,
-                  bottomPct: tbParsed.right,
-                };
-              }
-              updatedBR.centering.source = 'claude-ai';
-              setBR(updatedBR);
+              backAiCentering = {
+                lrRatio: lrParsed ? lrParsed.left : 50, // Store as NUMBER
+                tbRatio: tbParsed ? tbParsed.left : 50, // Store as NUMBER
+                lrDisplay: lrParsed ? `${lrParsed.left}/${lrParsed.right}` : '50/50',
+                tbDisplay: tbParsed ? `${tbParsed.left}/${tbParsed.right}` : '50/50',
+              };
             }
           }
+
+          // Store AI centering separately - does NOT affect software grade unless checkbox is checked
+          setAiCentering({ front: frontAiCentering, back: backAiCentering });
         }
 
         setEnhancingStatus('done');
@@ -2913,7 +2909,7 @@ export default function SlabSense(){
         <div style={{fontFamily:sans,fontSize:18,fontWeight:600,color:"#00ff88",marginBottom:4}}>Analysis Complete</div>
         <div style={{fontFamily:mono,fontSize:12,color:"#666"}}>View results in Grade tab</div>
       </div>
-      <button onClick={()=>{setStep(0);setFI(null);setBI(null);setGradeResult(null);setFR(null);setBR(null);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiSummary(null);setAiGrades(null);setEnhancingStatus('idle');setSavingStatus('idle');}} style={{
+      <button onClick={()=>{setStep(0);setFI(null);setBI(null);setGradeResult(null);setFR(null);setBR(null);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiSummary(null);setAiGrades(null);setAiCentering(null);setGradeMode('software');setUseAiCentering(false);setEnhancingStatus('idle');setSavingStatus('idle');}} style={{
         padding:"14px 32px",borderRadius:10,border:"none",
         background:"linear-gradient(135deg,#6366f1,#8b5cf6)",
         color:"#fff",fontFamily:mono,fontSize:13,fontWeight:700,cursor:"pointer",
@@ -2938,25 +2934,84 @@ export default function SlabSense(){
             )}
           </div>
 
+          {/* AI/Software Grade Toggle */}
+          {aiGrades && (
+            <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:12}}>
+              <button onClick={()=>setGradeMode('software')} style={{
+                padding:"8px 16px",borderRadius:6,border:"none",
+                background:gradeMode==='software'?"#6366f1":"#1a1c22",
+                color:gradeMode==='software'?"#fff":"#666",
+                fontFamily:mono,fontSize:10,fontWeight:600,cursor:"pointer",
+                transition:"all .2s"
+              }}>Software Grade</button>
+              <button onClick={()=>setGradeMode('ai')} style={{
+                padding:"8px 16px",borderRadius:6,border:"none",
+                background:gradeMode==='ai'?"#8b5cf6":"#1a1c22",
+                color:gradeMode==='ai'?"#fff":"#666",
+                fontFamily:mono,fontSize:10,fontWeight:600,cursor:"pointer",
+                transition:"all .2s"
+              }}>AI Grade</button>
+            </div>
+          )}
+
+          {/* Use AI Centering Checkbox (only shows when AI has been run and in software mode) */}
+          {aiCentering && gradeMode === 'software' && (
+            <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:8,marginBottom:12}}>
+              <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}}>
+                <input type="checkbox" checked={useAiCentering} onChange={e=>setUseAiCentering(e.target.checked)}
+                  style={{width:14,height:14,accentColor:"#8b5cf6",cursor:"pointer"}}/>
+                <span style={{fontFamily:mono,fontSize:10,color:useAiCentering?"#8b5cf6":"#666"}}>Use AI Centering</span>
+              </label>
+              {useAiCentering && aiCentering?.front && (
+                <span style={{fontFamily:mono,fontSize:9,color:"#555"}}>
+                  ({aiCentering.front.lrDisplay} L/R)
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Score + Grade Display - Company specific */}
-          <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:16,marginBottom:16,padding:20,background:"#0d0f13",borderRadius:10,border:`1px solid ${gr?.grade?.color || '#666'}33`}}>
-            {/* TAG: Show raw score */}
-            {gradingCompany === 'tag' && gr?.rawScore !== undefined && (
+          {gradeMode === 'software' ? (
+            <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:16,marginBottom:16,padding:20,background:"#0d0f13",borderRadius:10,border:`1px solid ${gr?.grade?.color || '#666'}33`}}>
+              {/* TAG: Show raw score */}
+              {gradingCompany === 'tag' && gr?.rawScore !== undefined && (
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontFamily:mono,fontSize:32,fontWeight:800,color:"#888"}}>{gr.rawScore}</div>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>/ 1000</div>
+                </div>
+              )}
+              {/* Grade Number */}
               <div style={{textAlign:"center"}}>
-                <div style={{fontFamily:mono,fontSize:32,fontWeight:800,color:"#888"}}>{gr.rawScore}</div>
-                <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>/ 1000</div>
+                <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:gr?.grade?.color || '#00ff88'}}>{gr?.grade?.grade ?? '--'}</div>
+                <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:gr?.grade?.color || '#00ff88',marginTop:2}}>{gr?.grade?.label || 'Grade'}</div>
               </div>
-            )}
-            {/* Grade Number */}
-            <div style={{textAlign:"center"}}>
-              <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:gr?.grade?.color || '#00ff88'}}>{gr?.grade?.grade ?? '--'}</div>
-              <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:gr?.grade?.color || '#00ff88',marginTop:2}}>{gr?.grade?.label || 'Grade'}</div>
+              {/* Company Badge */}
+              <div style={{padding:"8px 12px",background:`${gr?.grade?.color || '#666'}15`,borderRadius:8,border:`1px solid ${gr?.grade?.color || '#666'}33`}}>
+                <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:gr?.grade?.color || '#666'}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
+              </div>
             </div>
-            {/* Company Badge */}
-            <div style={{padding:"8px 12px",background:`${gr?.grade?.color || '#666'}15`,borderRadius:8,border:`1px solid ${gr?.grade?.color || '#666'}33`}}>
-              <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:gr?.grade?.color || '#666'}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
+          ) : (
+            /* AI Grade Display */
+            <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:16,marginBottom:16,padding:20,background:"#0d0f13",borderRadius:10,border:"1px solid #8b5cf633"}}>
+              {/* TAG: Show AI raw score if available */}
+              {gradingCompany === 'tag' && aiGrades?.tag?.score !== undefined && (
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontFamily:mono,fontSize:32,fontWeight:800,color:"#888"}}>{aiGrades.tag.score}</div>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>/ 1000</div>
+                </div>
+              )}
+              {/* AI Grade Number */}
+              <div style={{textAlign:"center"}}>
+                <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:"#8b5cf6"}}>{aiGrades?.[gradingCompany]?.grade ?? '--'}</div>
+                <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:"#8b5cf6",marginTop:2}}>{aiGrades?.[gradingCompany]?.label || 'AI Grade'}</div>
+              </div>
+              {/* Company Badge with AI indicator */}
+              <div style={{padding:"8px 12px",background:"rgba(139,92,246,0.15)",borderRadius:8,border:"1px solid rgba(139,92,246,0.3)"}}>
+                <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:"#8b5cf6"}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
+                <div style={{fontFamily:mono,fontSize:8,color:"#6366f1",marginTop:2}}>AI ESTIMATE</div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Front + Back Card Images with Intensity Blend */}
           <div style={{display:"flex",gap:8,marginBottom:12}}>
@@ -2989,7 +3044,7 @@ export default function SlabSense(){
 
           {/* Vision Mode Buttons */}
           <div style={{display:"flex",gap:6,marginBottom:12}}>
-            {[['normal','Normal'],['emboss','Emboss'],['hiPass','Hi-Pass'],['edges','Edges']].map(([mode,label])=>(
+            {[['normal','Normal'],['emboss','Emboss'],['highpass','Hi-Pass'],['edges','Edges']].map(([mode,label])=>(
               <button key={mode} onClick={()=>setVisionMode(mode)} style={{
                 flex:1,padding:"8px 0",borderRadius:6,
                 border:visionMode===mode?"1px solid #6366f1":"1px solid #2a2d35",
@@ -3170,20 +3225,51 @@ export default function SlabSense(){
 
           {/* Centering Measurements */}
           {(fR?.centering || bR?.centering) && (
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
-              <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase",marginBottom:10}}>Centering Measurements</div>
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${useAiCentering ? '#8b5cf633' : '#1a1c22'}`,marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase"}}>Centering Measurements</div>
+                {useAiCentering && <span style={{fontFamily:mono,fontSize:8,color:"#8b5cf6",background:"rgba(139,92,246,0.15)",padding:"2px 6px",borderRadius:4}}>AI</span>}
+              </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{fR?.centering?.lrRatio ? `${Math.round(fR.centering.lrRatio)}/${Math.round(100-fR.centering.lrRatio)}` : "50/50"} L/R</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{fR?.centering?.tbRatio ? `${Math.round(fR.centering.tbRatio)}/${Math.round(100-fR.centering.tbRatio)}` : "50/50"} T/B</div>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT {useAiCentering && aiCentering?.front ? '(AI)' : '(Software)'}</div>
+                  {useAiCentering && aiCentering?.front ? (
+                    <>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.front.lrDisplay} L/R</div>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.front.tbDisplay} T/B</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{fR?.centering?.lrRatio ? `${Math.round(fR.centering.lrRatio)}/${Math.round(100-fR.centering.lrRatio)}` : "50/50"} L/R</div>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{fR?.centering?.tbRatio ? `${Math.round(fR.centering.tbRatio)}/${Math.round(100-fR.centering.tbRatio)}` : "50/50"} T/B</div>
+                    </>
+                  )}
                 </div>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{bR?.centering?.lrRatio ? `${Math.round(bR.centering.lrRatio)}/${Math.round(100-bR.centering.lrRatio)}` : "50/50"} L/R</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{bR?.centering?.tbRatio ? `${Math.round(bR.centering.tbRatio)}/${Math.round(100-bR.centering.tbRatio)}` : "50/50"} T/B</div>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK {useAiCentering && aiCentering?.back ? '(AI)' : '(Software)'}</div>
+                  {useAiCentering && aiCentering?.back ? (
+                    <>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.back.lrDisplay} L/R</div>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.back.tbDisplay} T/B</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{bR?.centering?.lrRatio ? `${Math.round(bR.centering.lrRatio)}/${Math.round(100-bR.centering.lrRatio)}` : "50/50"} L/R</div>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>{bR?.centering?.tbRatio ? `${Math.round(bR.centering.tbRatio)}/${Math.round(100-bR.centering.tbRatio)}` : "50/50"} T/B</div>
+                    </>
+                  )}
                 </div>
               </div>
+              {/* Show AI centering comparison if available but not in use */}
+              {aiCentering?.front && !useAiCentering && (
+                <div style={{marginTop:8,padding:"6px 8px",background:"rgba(139,92,246,0.08)",borderRadius:4}}>
+                  <div style={{fontFamily:mono,fontSize:8,color:"#8b5cf6",marginBottom:4}}>AI DETECTED</div>
+                  <div style={{display:"flex",gap:16}}>
+                    <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>F: {aiCentering.front.lrDisplay}</span>
+                    {aiCentering.back && <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>B: {aiCentering.back.lrDisplay}</span>}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
