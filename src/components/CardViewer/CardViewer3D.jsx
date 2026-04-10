@@ -10,6 +10,7 @@
 
 import { useState, useRef } from 'react';
 import { RealisticSlab } from './RealisticSlab.jsx';
+import { SlabSenseSlab } from './SlabSenseSlab.jsx';
 
 const mono = "'JetBrains Mono','SF Mono','Consolas',monospace";
 const sans = "'Inter','Helvetica Neue',Arial,sans-serif";
@@ -130,7 +131,7 @@ export function CardViewer3D({
             transition: 'all .2s',
           }}
         >
-          {companyNames[gradingCompany] || 'TAG'} Slab
+          {gradingCompany === 'tag' ? 'SlabSense' : companyNames[gradingCompany] || 'TAG'} Slab
         </button>
       </div>
 
@@ -170,17 +171,29 @@ export function CardViewer3D({
             boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
           }}>
             {viewMode === 'slab' ? (
-              <RealisticSlab
-                cardImage={frontImage}
-                company={gradingCompany}
-                grade={grade}
-                gradeLabel={gradeLabel}
-                cardInfo={cardInfo}
-                certNumber={displayCert}
-                subgrades={subgrades}
-                width={220}
-                height={340}
-              />
+              gradingCompany === 'tag' ? (
+                <SlabSenseSlab
+                  cardImage={frontImage}
+                  side="front"
+                  grade={grade}
+                  gradeLabel={gradeLabel}
+                  cardInfo={cardInfo}
+                  width={220}
+                  height={340}
+                />
+              ) : (
+                <RealisticSlab
+                  cardImage={frontImage}
+                  company={gradingCompany}
+                  grade={grade}
+                  gradeLabel={gradeLabel}
+                  cardInfo={cardInfo}
+                  certNumber={displayCert}
+                  subgrades={subgrades}
+                  width={220}
+                  height={340}
+                />
+              )
             ) : (
               <Card3D image={frontImage} side="front" />
             )}
@@ -212,17 +225,29 @@ export function CardViewer3D({
             boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
           }}>
             {viewMode === 'slab' ? (
-              <RealisticSlab
-                cardImage={backImage}
-                company={gradingCompany}
-                grade={grade}
-                gradeLabel={gradeLabel}
-                cardInfo={cardInfo}
-                certNumber={displayCert}
-                subgrades={subgrades}
-                width={220}
-                height={340}
-              />
+              gradingCompany === 'tag' ? (
+                <SlabSenseSlab
+                  cardImage={backImage}
+                  side="back"
+                  grade={grade}
+                  gradeLabel={gradeLabel}
+                  cardInfo={cardInfo}
+                  width={220}
+                  height={340}
+                />
+              ) : (
+                <RealisticSlab
+                  cardImage={backImage}
+                  company={gradingCompany}
+                  grade={grade}
+                  gradeLabel={gradeLabel}
+                  cardInfo={cardInfo}
+                  certNumber={displayCert}
+                  subgrades={subgrades}
+                  width={220}
+                  height={340}
+                />
+              )
             ) : (
               <Card3D image={backImage} side="back" />
             )}
