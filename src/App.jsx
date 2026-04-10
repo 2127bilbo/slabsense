@@ -2303,6 +2303,7 @@ export default function SlabSense(){
   const[showExport,setShowExport]=useState(false); // Export modal visibility
   const[showSettings,setShowSettings]=useState(false); // Settings modal visibility
   const[visionMode,setVisionMode]=useState('normal'); // 'normal'|'emboss'|'hiPass'|'edges'
+  const[visionIntensity,setVisionIntensity]=useState(50); // 0-100% intensity slider
 
   // 3D Viewer / AI Enhanced Cards state
   const[enhancedCards,setEnhancedCards]=useState(null); // { front, back } - AI cropped cards
@@ -2905,6 +2906,21 @@ export default function SlabSense(){
       <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
     </div>)}
 
+    {/* SCAN TAB - After Analysis Complete */}
+    {tab==="scan"&&step===2&&(<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
+      <div style={{textAlign:"center",marginBottom:24}}>
+        <div style={{fontSize:48,marginBottom:12}}>✓</div>
+        <div style={{fontFamily:sans,fontSize:18,fontWeight:600,color:"#00ff88",marginBottom:4}}>Analysis Complete</div>
+        <div style={{fontFamily:mono,fontSize:12,color:"#666"}}>View results in Grade tab</div>
+      </div>
+      <button onClick={()=>{setStep(0);setFI(null);setBI(null);setGr(null);setFR(null);setBR(null);setCardInfo(null);setAiCentering(null);setAiCondition(null);setAiGradingNotes(null);setAiSummary(null);setEnhancingStatus('idle');setSavingStatus('idle');}} style={{
+        padding:"14px 32px",borderRadius:10,border:"none",
+        background:"linear-gradient(135deg,#6366f1,#8b5cf6)",
+        color:"#fff",fontFamily:mono,fontSize:13,fontWeight:700,cursor:"pointer",
+        textTransform:"uppercase",letterSpacing:".08em"
+      }}>◎ Scan New Card</button>
+    </div>)}
+
     {/* GRADE TAB */}
     {tab==="grade"&&step===2&&gr&&(<div style={{flex:1,padding:16,overflowY:"auto"}}>
           {/* Card Info Header */}
@@ -2945,8 +2961,15 @@ export default function SlabSense(){
             </div>
           </div>
 
+          {/* Vision Intensity Slider */}
+          <div style={{marginBottom:10}}>
+            <input type="range" min="0" max="100" value={visionIntensity} onChange={e=>setVisionIntensity(Number(e.target.value))}
+              style={{width:"100%",height:6,borderRadius:3,background:`linear-gradient(90deg,#6366f1 ${visionIntensity}%,#1a1c22 ${visionIntensity}%)`,appearance:"none",cursor:"pointer"}}/>
+            <style>{`input[type=range]::-webkit-slider-thumb{appearance:none;width:14px;height:14px;borderRadius:50%;background:#8b5cf6;cursor:pointer;border:2px solid #0a0b0e;}`}</style>
+          </div>
+
           {/* Vision Mode Buttons */}
-          <div style={{display:"flex",gap:6,marginBottom:16}}>
+          <div style={{display:"flex",gap:6,marginBottom:12}}>
             {[['normal','Normal'],['emboss','Emboss'],['hiPass','Hi-Pass'],['edges','Edges']].map(([mode,label])=>(
               <button key={mode} onClick={()=>setVisionMode(mode)} style={{
                 flex:1,padding:"8px 0",borderRadius:6,
@@ -2956,6 +2979,43 @@ export default function SlabSense(){
                 fontFamily:mono,fontSize:9,cursor:"pointer",textTransform:"uppercase"
               }}>{label}</button>
             ))}
+          </div>
+
+          {/* Compact Action Icons */}
+          <div style={{display:"flex",justifyContent:"center",gap:24,marginBottom:16}}>
+            {auth.isAuthenticated && (
+              <button onClick={handleSaveScan} disabled={savingStatus==='saving'} title="Save to Collection" style={{
+                background:"transparent",border:"none",cursor:"pointer",padding:8,color:savingStatus==='saved'?"#00ff88":"#666",fontSize:20,transition:"color .2s"
+              }}>{savingStatus==='saving'?"⏳":savingStatus==='saved'?"✓":"💾"}</button>
+            )}
+            <button onClick={()=>setShowExport(true)} title="Share / Export" style={{
+              background:"transparent",border:"none",cursor:"pointer",padding:8,color:"#666",fontSize:18,transition:"color .2s"
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 16v4h16v-4"/><path d="M12 4v12"/><path d="M8 8l4-4 4 4"/>
+              </svg>
+            </button>
+            <button onClick={handleEnhanceCards} disabled={enhancingStatus==='enhancing'||enhancingStatus==='done'} title="AI Grade ($0.03)" style={{
+              background:"transparent",border:"none",cursor:enhancingStatus==='enhancing'?"wait":"pointer",padding:4,transition:"opacity .2s",opacity:enhancingStatus==='done'?0.5:1
+            }}>
+              {enhancingStatus==='enhancing'?<span style={{fontSize:18,color:"#666"}}>⏳</span>:enhancingStatus==='done'?<span style={{fontSize:18,color:"#00ff88"}}>✓</span>:(
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1.1}}>
+                  <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:"#8b5cf6"}}>AI</span>
+                  <span style={{fontFamily:mono,fontSize:9,fontWeight:600,color:"#6366f1"}}>Grade</span>
+                </div>
+              )}
+            </button>
+            <button onClick={handle3DView} disabled={croppingFor3D} title="3D Slab View ($0.02)" style={{
+              background:"transparent",border:"none",cursor:croppingFor3D?"wait":"pointer",padding:4,color:enhancedCards?"#8b5cf6":"#666",transition:"color .2s"
+            }}>
+              {croppingFor3D?<span style={{fontSize:18}}>⏳</span>:(
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="3" y="5" width="18" height="14" rx="2" fill="none"/>
+                  <rect x="5" y="7" width="14" height="10" rx="1" fill="currentColor" opacity="0.15"/>
+                  <line x1="3" y1="8" x2="21" y2="8" strokeWidth="1"/>
+                </svg>
+              )}
+            </button>
           </div>
 
           {/* 4 Score Boxes */}
@@ -3032,30 +3092,6 @@ export default function SlabSense(){
             </div>
           )}
 
-          {/* Compact Action Buttons */}
-          <div style={{display:"flex",gap:8,marginBottom:12}}>
-            {auth.isAuthenticated && (
-              <button onClick={handleSaveScan} disabled={savingStatus==='saving'} title="Save to Collection" style={{
-                flex:1,padding:"12px 0",borderRadius:8,border:"1px solid #2a2d35",
-                background:savingStatus==='saved'?"rgba(0,255,136,0.1)":"#1a1c22",
-                color:savingStatus==='saved'?"#00ff88":"#888",cursor:"pointer",fontSize:16
-              }}>{savingStatus==='saving'?"⏳":savingStatus==='saved'?"✓":"💾"}</button>
-            )}
-            <button onClick={()=>setShowExport(true)} title="Share / Export" style={{
-              flex:1,padding:"12px 0",borderRadius:8,border:"1px solid #2a2d35",background:"#1a1c22",color:"#888",cursor:"pointer",fontSize:16
-            }}>↗</button>
-            <button onClick={handleEnhanceCards} disabled={enhancingStatus==='enhancing'||enhancingStatus==='done'} title="AI Grade ($0.03)" style={{
-              flex:1,padding:"12px 0",borderRadius:8,
-              border:enhancingStatus==='done'?"1px solid rgba(0,255,136,0.3)":"1px solid #2a2d35",
-              background:enhancingStatus==='done'?"rgba(0,255,136,0.1)":"linear-gradient(135deg,#6366f1,#8b5cf6)",
-              color:enhancingStatus==='done'?"#00ff88":"#fff",cursor:enhancingStatus==='enhancing'?"wait":"pointer",fontSize:16
-            }}>{enhancingStatus==='enhancing'?"⏳":enhancingStatus==='done'?"✓":"🤖"}</button>
-            <button onClick={handle3DView} disabled={croppingFor3D} title="3D Slab View ($0.02)" style={{
-              flex:1,padding:"12px 0",borderRadius:8,border:"1px solid #2a2d35",
-              background:enhancedCards?"rgba(99,102,241,0.15)":"#1a1c22",
-              color:enhancedCards?"#8b5cf6":"#666",cursor:croppingFor3D?"wait":"pointer",fontSize:16
-            }}>{croppingFor3D?"⏳":"📦"}</button>
-          </div>
     </div>)}
 
     {/* DINGS TAB */}
