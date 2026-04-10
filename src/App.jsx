@@ -2939,9 +2939,9 @@ export default function SlabSense(){
           </div>
 
           {/* Score + Grade Display - Company specific */}
-          <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:16,marginBottom:16,padding:20,background:"#0d0f13",borderRadius:10,border:`1px solid ${gr.grade.color}33`}}>
+          <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:16,marginBottom:16,padding:20,background:"#0d0f13",borderRadius:10,border:`1px solid ${gr?.grade?.color || '#666'}33`}}>
             {/* TAG: Show raw score */}
-            {gradingCompany === 'tag' && gr.rawScore !== undefined && (
+            {gradingCompany === 'tag' && gr?.rawScore !== undefined && (
               <div style={{textAlign:"center"}}>
                 <div style={{fontFamily:mono,fontSize:32,fontWeight:800,color:"#888"}}>{gr.rawScore}</div>
                 <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>/ 1000</div>
@@ -2949,12 +2949,12 @@ export default function SlabSense(){
             )}
             {/* Grade Number */}
             <div style={{textAlign:"center"}}>
-              <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:gr.grade.color}}>{gr.grade.grade}</div>
-              <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:gr.grade.color,marginTop:2}}>{gr.grade.label}</div>
+              <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:gr?.grade?.color || '#00ff88'}}>{gr?.grade?.grade ?? '--'}</div>
+              <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:gr?.grade?.color || '#00ff88',marginTop:2}}>{gr?.grade?.label || 'Grade'}</div>
             </div>
             {/* Company Badge */}
-            <div style={{padding:"8px 12px",background:`${gr.grade.color}15`,borderRadius:8,border:`1px solid ${gr.grade.color}33`}}>
-              <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:gr.grade.color}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
+            <div style={{padding:"8px 12px",background:`${gr?.grade?.color || '#666'}15`,borderRadius:8,border:`1px solid ${gr?.grade?.color || '#666'}33`}}>
+              <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:gr?.grade?.color || '#666'}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
             </div>
           </div>
 
