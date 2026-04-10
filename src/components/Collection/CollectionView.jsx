@@ -113,14 +113,18 @@ export function CollectionView({ userId, onClose, isInline = false }) {
         score: company === 'tag' ? aiGrade.score : null,
         subgrades: aiGrade.subgrades,
         notes: aiGrade.notes,
+        company: company,
       };
     }
-    // Fallback to software grade
+    // Software grade - use raw_score for TAG, convert for others
+    const rawScore = scan.raw_score || 0;
     return {
       value: scan.grade_value,
       label: scan.grade_label,
       isAi: false,
-      score: scan.raw_score,
+      score: company === 'tag' ? rawScore : null,
+      rawScore: rawScore,
+      company: company,
     };
   };
 
@@ -407,37 +411,35 @@ export function CollectionView({ userId, onClose, isInline = false }) {
             </div>
           )}
 
-          {/* Company Tabs */}
-          {hasAiGrades && showAiGrade && (
-            <div style={{
-              display: 'flex',
-              gap: 6,
-              marginBottom: 16,
-              overflowX: 'auto',
-              paddingBottom: 4,
-            }}>
-              {Object.entries(GRADING_COMPANIES).map(([id, company]) => (
-                <button
-                  key={id}
-                  onClick={() => setSelectedCompany(id)}
-                  style={{
-                    padding: '6px 12px',
-                    background: selectedCompany === id ? `${company.color}22` : '#0d0f13',
-                    border: `1px solid ${selectedCompany === id ? company.color + '44' : '#1a1c22'}`,
-                    borderRadius: 6,
-                    color: selectedCompany === id ? company.color : '#666',
-                    fontFamily: mono,
-                    fontSize: 10,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {company.name}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Company Tabs - Show for both AI and Software grades */}
+          <div style={{
+            display: 'flex',
+            gap: 6,
+            marginBottom: 16,
+            overflowX: 'auto',
+            paddingBottom: 4,
+          }}>
+            {Object.entries(GRADING_COMPANIES).map(([id, company]) => (
+              <button
+                key={id}
+                onClick={() => setSelectedCompany(id)}
+                style={{
+                  padding: '6px 12px',
+                  background: selectedCompany === id ? `${company.color}22` : '#0d0f13',
+                  border: `1px solid ${selectedCompany === id ? company.color + '44' : '#1a1c22'}`,
+                  borderRadius: 6,
+                  color: selectedCompany === id ? company.color : '#666',
+                  fontFamily: mono,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {company.name}
+              </button>
+            ))}
+          </div>
 
           {/* Main Grade Display */}
           <div style={{
@@ -466,14 +468,14 @@ export function CollectionView({ userId, onClose, isInline = false }) {
             }}>
               {grade.label}
             </div>
-            {grade.score && (
+            {(grade.score || grade.rawScore) && selectedCompany === 'tag' && (
               <div style={{
                 fontFamily: mono,
                 fontSize: 12,
                 color: '#666',
                 marginTop: 4,
               }}>
-                Score: {grade.score}{selectedCompany === 'tag' ? ' / 1000' : ''}
+                TAG Score: {grade.score || grade.rawScore} / 1000
               </div>
             )}
             {grade.isAi && (
@@ -578,52 +580,68 @@ export function CollectionView({ userId, onClose, isInline = false }) {
             </div>
           )}
 
-          {/* AI Condition */}
-          {selectedCard.ai_condition && showAiGrade && (
-            <div style={{
-              padding: 14,
-              background: '#0d0f13',
-              borderRadius: 10,
-              marginBottom: 16,
-            }}>
+          {/* Condition - AI or Software */}
+          {(()=>{
+            const conditionData = showAiGrade ? selectedCard.ai_condition : selectedCard.subgrades;
+            if (!conditionData) return null;
+            const isTAG = selectedCompany === 'tag';
+            // For software grades, subgrades has corners, edges, surface as scores
+            const corners = showAiGrade ? conditionData.corners : conditionData.corners?.score;
+            const edges = showAiGrade ? conditionData.edges : conditionData.edges?.score;
+            const surface = showAiGrade ? conditionData.surface : conditionData.surface?.score;
+            const centering = showAiGrade ? conditionData.centering : conditionData.centering?.score;
+            const defects = showAiGrade ? conditionData.defects : null;
+
+            return (
               <div style={{
-                fontFamily: mono,
-                fontSize: 10,
-                color: '#666',
-                marginBottom: 10,
+                padding: 14,
+                background: '#0d0f13',
+                borderRadius: 10,
+                marginBottom: 16,
               }}>
-                CONDITION
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {selectedCard.ai_condition.corners && (
-                  <ConditionBox label="Corners" value={selectedCard.ai_condition.corners} />
-                )}
-                {selectedCard.ai_condition.edges && (
-                  <ConditionBox label="Edges" value={selectedCard.ai_condition.edges} />
-                )}
-                {selectedCard.ai_condition.surface && (
-                  <ConditionBox label="Surface" value={selectedCard.ai_condition.surface} />
-                )}
-              </div>
-              {selectedCard.ai_condition.defects?.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ fontFamily: mono, fontSize: 9, color: '#ff9944', marginBottom: 4 }}>
-                    DEFECTS
-                  </div>
-                  {selectedCard.ai_condition.defects.map((d, i) => (
-                    <div key={i} style={{
-                      fontFamily: sans,
-                      fontSize: 11,
-                      color: '#888',
-                      marginBottom: 2,
-                    }}>
-                      • {d}
-                    </div>
-                  ))}
+                <div style={{
+                  fontFamily: mono,
+                  fontSize: 10,
+                  color: '#666',
+                  marginBottom: 10,
+                }}>
+                  CONDITION {isTAG && <span style={{color:'#8b5cf6'}}>(TAG 1000-Point)</span>}
+                  {!showAiGrade && <span style={{color:'#00ff88'}}> (Software)</span>}
                 </div>
-              )}
-            </div>
-          )}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {corners != null && (
+                    <ConditionBox label="Corners" value={corners} isTAG={isTAG} />
+                  )}
+                  {edges != null && (
+                    <ConditionBox label="Edges" value={edges} isTAG={isTAG} />
+                  )}
+                  {surface != null && (
+                    <ConditionBox label="Surface" value={surface} isTAG={isTAG} />
+                  )}
+                  {centering != null && (
+                    <ConditionBox label="Centering" value={centering} isTAG={isTAG} />
+                  )}
+                </div>
+                {defects?.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontFamily: mono, fontSize: 9, color: '#ff9944', marginBottom: 4 }}>
+                      DEFECTS
+                    </div>
+                    {defects.map((d, i) => (
+                      <div key={i} style={{
+                        fontFamily: sans,
+                        fontSize: 11,
+                        color: '#888',
+                        marginBottom: 2,
+                      }}>
+                        • {d}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* AI Summary */}
           {selectedCard.ai_summary && showAiGrade && (
@@ -1046,8 +1064,14 @@ function CenteringBox({ label, lr, tb }) {
   );
 }
 
-function ConditionBox({ label, value }) {
-  const color = value >= 9 ? '#00ff88' : value >= 7 ? '#ffcc00' : '#ff6633';
+function ConditionBox({ label, value, isTAG = false }) {
+  // For TAG: value is out of 1000 (per category ~125 max), show as raw score
+  // For others: value is out of 10
+  const displayValue = isTAG ? value : value;
+  const maxValue = isTAG ? (label === 'Centering' ? 125 : 125) : 10;
+  const normalizedValue = isTAG ? (value / 125) * 10 : value;
+  const color = normalizedValue >= 9 ? '#00ff88' : normalizedValue >= 7 ? '#ffcc00' : '#ff6633';
+
   return (
     <div style={{
       display: 'flex',
@@ -1069,7 +1093,7 @@ function ConditionBox({ label, value }) {
         fontWeight: 600,
         color,
       }}>
-        {value}/10
+        {isTAG ? `${displayValue}` : `${value}/10`}
       </span>
     </div>
   );

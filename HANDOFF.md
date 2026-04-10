@@ -159,10 +159,12 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS card_info JSONB;
 2. ✅ ~~3D view separation~~ - DONE
 3. ✅ ~~Collection card stack~~ - DONE
 4. ✅ ~~Centering rotation controls~~ - DONE
-5. [ ] Deploy database schema updates
-6. [ ] Test full flow end-to-end
-7. [ ] Stripe payments for Pro tier
-8. [ ] Production deployment
+5. ✅ ~~UI consolidation~~ - DONE (unified tab bar, Grade/Dings tabs merged)
+6. [ ] **Fine-tune SlabSense slab positioning** - Card window & text coordinates in SlabSenseSlab.jsx
+7. [ ] Deploy database schema updates
+8. [ ] Test full flow end-to-end
+9. [ ] Stripe payments for Pro tier
+10. [ ] Production deployment
 
 ---
 

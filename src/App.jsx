@@ -2949,15 +2949,25 @@ export default function SlabSense(){
             </div>
           </div>
 
-          {/* Front + Back Card Images */}
+          {/* Front + Back Card Images with Intensity Blend */}
           <div style={{display:"flex",gap:8,marginBottom:12}}>
             <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
-              <img src={visionMode==='normal'?fI:(fM?.[visionMode]||fI)} style={{width:"100%",height:"100%",objectFit:"contain"}}/>
-              <div style={{position:"absolute",bottom:4,left:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4}}>FRONT</div>
+              {/* Base normal image */}
+              <img src={fI} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
+              {/* Filtered overlay with intensity */}
+              {visionMode!=='normal'&&fM?.[visionMode]&&(
+                <img src={fM[visionMode]} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
+              )}
+              <div style={{position:"absolute",bottom:4,left:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>FRONT</div>
             </div>
             <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
-              <img src={visionMode==='normal'?bI:(bM?.[visionMode]||bI)} style={{width:"100%",height:"100%",objectFit:"contain"}}/>
-              <div style={{position:"absolute",bottom:4,right:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4}}>BACK</div>
+              {/* Base normal image */}
+              <img src={bI} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
+              {/* Filtered overlay with intensity */}
+              {visionMode!=='normal'&&bM?.[visionMode]&&(
+                <img src={bM[visionMode]} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
+              )}
+              <div style={{position:"absolute",bottom:4,right:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>BACK</div>
             </div>
           </div>
 
