@@ -2,20 +2,118 @@
  * OCR Service for Pokemon Card Text Extraction
  *
  * Uses Tesseract.js to extract card name and set number from photos.
- * Targets specific regions of the card for accuracy.
+ * First detects/crops the card, then reads from specific regions.
  */
 
 import Tesseract from 'tesseract.js';
 
-// Card layout regions (percentages of card dimensions)
+// Card layout regions (percentages of CROPPED card dimensions)
 const REGIONS = {
-  // Top region for card name (large text)
-  name: { top: 0, left: 0, width: 0.75, height: 0.12 },
-  // Bottom region for set number (e.g., "134/197")
-  setNumber: { top: 0.92, left: 0.5, width: 0.45, height: 0.08 },
-  // HP region (top right)
-  hp: { top: 0.02, left: 0.7, width: 0.28, height: 0.08 },
+  // Top region for card name (large text) - wider region for reliability
+  name: { top: 0.02, left: 0.05, width: 0.65, height: 0.10 },
+  // Bottom region for set number (e.g., "134/197" or "gg44/gg70")
+  setNumber: { top: 0.93, left: 0.45, width: 0.50, height: 0.06 },
 };
+
+/**
+ * Simple luminance calculation
+ */
+const LUM = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
+
+/**
+ * Detect card bounds in image using variance-based detection
+ * Returns cropped card image as data URL
+ */
+async function detectAndCropCard(imageSrc) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxSize = 800;
+      let w = img.width, h = img.height;
+      if (Math.max(w, h) > maxSize) {
+        const scale = maxSize / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const d = imageData.data;
+
+      // Grid-based variance detection (find card area)
+      const GX = 16, GY = 16;
+      const cellW = Math.floor(w / GX), cellH = Math.floor(h / GY);
+      const vg = [];
+      let maxV = 0;
+
+      for (let gy = 0; gy < GY; gy++) {
+        vg[gy] = [];
+        for (let gx = 0; gx < GX; gx++) {
+          let s = 0, sq = 0, n = 0;
+          const x0 = gx * cellW, y0 = gy * cellH;
+          for (let y = y0; y < y0 + cellH && y < h; y += 2) {
+            for (let x = x0; x < x0 + cellW && x < w; x += 2) {
+              const idx = (y * w + x) * 4;
+              const v = LUM(d[idx], d[idx + 1], d[idx + 2]);
+              s += v; sq += v * v; n++;
+            }
+          }
+          const variance = n > 0 ? sq / n - (s / n) ** 2 : 0;
+          vg[gy][gx] = variance;
+          if (variance > maxV) maxV = variance;
+        }
+      }
+
+      // Find bounding box of high-variance cells
+      const floor = Math.max(30, maxV * 0.12);
+      let minGX = GX, maxGX = -1, minGY = GY, maxGY = -1;
+      for (let gy = 0; gy < GY; gy++) {
+        for (let gx = 0; gx < GX; gx++) {
+          if (vg[gy][gx] > floor) {
+            if (gx < minGX) minGX = gx;
+            if (gx > maxGX) maxGX = gx;
+            if (gy < minGY) minGY = gy;
+            if (gy > maxGY) maxGY = gy;
+          }
+        }
+      }
+
+      // Convert grid coords to pixels with small padding
+      const pad = 5;
+      const left = Math.max(0, minGX * cellW - pad);
+      const top = Math.max(0, minGY * cellH - pad);
+      const right = Math.min(w, (maxGX + 1) * cellW + pad);
+      const bottom = Math.min(h, (maxGY + 1) * cellH + pad);
+      const cropW = right - left;
+      const cropH = bottom - top;
+
+      // If no card detected or too small, use center 80%
+      if (cropW < 50 || cropH < 50 || maxGX < minGX) {
+        console.log('Card detection failed, using center crop');
+        const cx = w * 0.1, cy = h * 0.1;
+        const cw = w * 0.8, ch = h * 0.8;
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = cw;
+        cropCanvas.height = ch;
+        cropCanvas.getContext('2d').drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
+        resolve(cropCanvas.toDataURL('image/png'));
+        return;
+      }
+
+      console.log(`Card detected: ${left},${top} ${cropW}x${cropH}`);
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
+      cropCanvas.getContext('2d').drawImage(canvas, left, top, cropW, cropH, 0, 0, cropW, cropH);
+      resolve(cropCanvas.toDataURL('image/png'));
+    };
+    img.src = imageSrc;
+  });
+}
 
 /**
  * Pre-process image for better OCR accuracy
@@ -106,13 +204,16 @@ function cleanCardName(text) {
 
 /**
  * Clean up OCR result for set number
- * - Extract pattern like "134/197" or "134"
+ * - Extract pattern like "134/197", "gg44/gg70", or just "134"
  */
 function cleanSetNumber(text) {
   if (!text) return { localId: null, total: null };
 
-  // Look for pattern: number/number (e.g., "134/197")
-  const slashMatch = text.match(/(\d{1,3})\s*[\/\\]\s*(\d{1,3})/);
+  // Clean the text first
+  const cleaned = text.trim().toLowerCase().replace(/\s+/g, '');
+
+  // Look for pattern: alphanumeric/alphanumeric (e.g., "gg44/gg70" or "134/197")
+  const slashMatch = cleaned.match(/([a-z]*\d+)\s*[\/\\]\s*([a-z]*\d+)/i);
   if (slashMatch) {
     return {
       localId: slashMatch[1],
@@ -120,11 +221,11 @@ function cleanSetNumber(text) {
     };
   }
 
-  // Look for just a number
-  const numMatch = text.match(/\b(\d{1,3})\b/);
-  if (numMatch) {
+  // Look for alphanumeric pattern (e.g., "gg44" or "134")
+  const alphaNumMatch = cleaned.match(/([a-z]*\d+)/i);
+  if (alphaNumMatch) {
     return {
-      localId: numMatch[1],
+      localId: alphaNumMatch[1],
       total: null,
     };
   }
@@ -144,7 +245,7 @@ function cleanHP(text) {
 
 /**
  * Main OCR extraction function
- * Extracts card name, set number, and HP from a card image
+ * First detects/crops the card, then extracts name and set number
  */
 export async function extractCardInfo(imageSrc, onProgress = null) {
   const results = {
@@ -157,58 +258,60 @@ export async function extractCardInfo(imageSrc, onProgress = null) {
   };
 
   try {
+    console.log('🔍 Step 1: Detecting and cropping card...');
+    if (onProgress) onProgress(5);
+
+    // Step 1: Crop to just the card (removes background)
+    const croppedCard = await detectAndCropCard(imageSrc);
+    console.log('✓ Card cropped');
+    if (onProgress) onProgress(15);
+
     // Initialize Tesseract worker
+    console.log('🔍 Step 2: Initializing OCR...');
     const worker = await Tesseract.createWorker('eng', 1, {
       logger: (m) => {
-        if (onProgress && m.status === 'recognizing text') {
-          onProgress(Math.round(m.progress * 100));
+        if (m.status === 'recognizing text' && onProgress) {
+          // Scale progress: 15-80 for OCR
+          onProgress(15 + Math.round(m.progress * 65));
         }
       },
     });
 
-    // Set parameters for better accuracy
+    // Set parameters for card name (allow letters, numbers, spaces, hyphens)
     await worker.setParameters({
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -\'/éÉ',
+      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -\'',
       tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
     });
 
-    // Extract card name region
-    if (onProgress) onProgress(0);
-    const nameRegion = await extractRegion(imageSrc, REGIONS.name);
+    // Extract card name from CROPPED card
+    console.log('🔍 Step 3: Reading card name...');
+    const nameRegion = await extractRegion(croppedCard, REGIONS.name);
     const nameResult = await worker.recognize(nameRegion);
     results.rawText.name = nameResult.data.text;
     results.name = cleanCardName(nameResult.data.text);
-    results.confidence += nameResult.data.confidence;
+    results.confidence = nameResult.data.confidence;
+    console.log('📝 Name raw:', nameResult.data.text, '→ cleaned:', results.name);
 
-    // Extract set number region (use number-only whitelist)
+    // Extract set number (allow letters too for sets like "gg44")
+    console.log('🔍 Step 4: Reading set number...');
     await worker.setParameters({
-      tessedit_char_whitelist: '0123456789/',
+      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/',
       tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
     });
 
-    if (onProgress) onProgress(50);
-    const setRegion = await extractRegion(imageSrc, REGIONS.setNumber);
+    const setRegion = await extractRegion(croppedCard, REGIONS.setNumber);
     const setResult = await worker.recognize(setRegion);
     results.rawText.setNumber = setResult.data.text;
     const setData = cleanSetNumber(setResult.data.text);
     results.localId = setData.localId;
     results.setTotal = setData.total;
-    results.confidence += setResult.data.confidence;
+    console.log('📝 Set raw:', setResult.data.text, '→ localId:', results.localId);
 
-    // Extract HP region
-    if (onProgress) onProgress(75);
-    const hpRegion = await extractRegion(imageSrc, REGIONS.hp);
-    const hpResult = await worker.recognize(hpRegion);
-    results.rawText.hp = hpResult.data.text;
-    results.hp = cleanHP(hpResult.data.text);
-    results.confidence += hpResult.data.confidence;
-
-    // Average confidence
-    results.confidence = Math.round(results.confidence / 3);
-
+    // Done - terminate worker
     await worker.terminate();
-
     if (onProgress) onProgress(100);
+
+    console.log('✅ OCR complete:', { name: results.name, localId: results.localId });
 
   } catch (error) {
     console.error('OCR extraction error:', error);
