@@ -22,12 +22,14 @@ export function CardIdentifier({
   onCancel,            // Callback to cancel
   autoStart = true,    // Start OCR automatically
 }) {
-  const [status, setStatus] = useState('idle'); // idle | ocr | searching | results | loading | error
+  const [status, setStatus] = useState('idle'); // idle | ocr | searching | results | loading | error | manual
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrResults, setOcrResults] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [selectedCard, setSelectedCard] = useState(null);
   const [error, setError] = useState(null);
+  const [manualSearch, setManualSearch] = useState('');
+  const [manualSearching, setManualSearching] = useState(false);
 
   // Auto-start OCR when image is provided
   useEffect(() => {
@@ -101,6 +103,29 @@ export function CardIdentifier({
       console.error('Load card error:', err);
       setError(err.message);
       setStatus('error');
+    }
+  };
+
+  // Manual search by card name
+  const handleManualSearch = async () => {
+    if (!manualSearch || manualSearch.length < 2) return;
+
+    setManualSearching(true);
+    try {
+      console.log('🔍 Manual search for:', manualSearch);
+      const results = await smartSearch({ name: manualSearch, localId: null, setTotal: null, hp: null });
+      console.log('📋 Search results:', results.length);
+      setSearchResults(results);
+      if (results.length > 0) {
+        setStatus('results');
+      } else {
+        setError('No cards found. Try a different name.');
+      }
+    } catch (err) {
+      console.error('Manual search error:', err);
+      setError('Search failed. Check your connection.');
+    } finally {
+      setManualSearching(false);
     }
   };
 
@@ -179,6 +204,23 @@ export function CardIdentifier({
           <div style={{ fontFamily: mono, fontSize: 10, color: '#555', marginTop: 4 }}>
             {ocrProgress}%
           </div>
+          {/* Skip OCR button */}
+          <button
+            onClick={() => setStatus('error')}
+            style={{
+              marginTop: 16,
+              padding: '8px 16px',
+              background: 'transparent',
+              border: '1px solid #2a2d35',
+              borderRadius: 6,
+              color: '#666',
+              fontFamily: mono,
+              fontSize: 10,
+              cursor: 'pointer',
+            }}
+          >
+            Skip - Search manually
+          </button>
         </div>
       )}
 
@@ -377,57 +419,85 @@ export function CardIdentifier({
         </div>
       )}
 
-      {/* Status: Error */}
+      {/* Status: Error - Show manual search */}
       {status === 'error' && (
-        <div style={{ textAlign: 'center', padding: 24 }}>
+        <div style={{ padding: 16 }}>
+          {/* Error message */}
           <div style={{
-            width: 48,
-            height: 48,
-            margin: '0 auto 16px',
-            background: 'rgba(255,102,102,0.1)',
-            borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 24,
+            gap: 8,
+            padding: 12,
+            background: 'rgba(255,153,68,0.1)',
+            borderRadius: 8,
+            marginBottom: 16,
           }}>
-            !
+            <span style={{ fontSize: 16 }}>⚠️</span>
+            <span style={{ fontFamily: mono, fontSize: 11, color: '#ff9944' }}>
+              {error || "Couldn't read card text"}
+            </span>
           </div>
-          <div style={{ fontFamily: mono, fontSize: 12, color: '#ff6666', marginBottom: 16 }}>
-            {error}
+
+          {/* Manual search form */}
+          <div style={{ fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 8 }}>
+            SEARCH BY CARD NAME
           </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            <button
-              onClick={handleRetry}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <input
+              type="text"
+              value={manualSearch}
+              onChange={(e) => setManualSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()}
+              placeholder="e.g. Charizard, Pikachu VMAX..."
               style={{
-                padding: '10px 20px',
-                background: '#1a1c22',
+                flex: 1,
+                padding: '12px 14px',
+                background: '#0d0f13',
                 border: '1px solid #2a2d35',
-                borderRadius: 8,
-                color: '#888',
-                fontFamily: mono,
-                fontSize: 11,
-                cursor: 'pointer',
-              }}
-            >
-              Retry
-            </button>
-            <button
-              onClick={() => onCardIdentified(null)}
-              style={{
-                padding: '10px 20px',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                border: 'none',
                 borderRadius: 8,
                 color: '#fff',
                 fontFamily: mono,
+                fontSize: 12,
+                outline: 'none',
+              }}
+              autoFocus
+            />
+            <button
+              onClick={handleManualSearch}
+              disabled={manualSearching || manualSearch.length < 2}
+              style={{
+                padding: '12px 20px',
+                background: manualSearch.length >= 2 ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : '#1a1c22',
+                border: 'none',
+                borderRadius: 8,
+                color: manualSearch.length >= 2 ? '#fff' : '#555',
+                fontFamily: mono,
                 fontSize: 11,
-                cursor: 'pointer',
+                fontWeight: 600,
+                cursor: manualSearch.length >= 2 ? 'pointer' : 'default',
               }}
             >
-              Enter Manually
+              {manualSearching ? '...' : 'Search'}
             </button>
           </div>
+
+          {/* Skip option */}
+          <button
+            onClick={() => onCardIdentified(null)}
+            style={{
+              width: '100%',
+              padding: 10,
+              background: 'transparent',
+              border: '1px dashed #2a2d35',
+              borderRadius: 8,
+              color: '#555',
+              fontFamily: mono,
+              fontSize: 10,
+              cursor: 'pointer',
+            }}
+          >
+            Skip - I'll enter details later
+          </button>
         </div>
       )}
 
