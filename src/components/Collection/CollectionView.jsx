@@ -136,7 +136,14 @@ export function CollectionView({ userId, onClose, isInline = false }) {
     };
   };
 
-  // Card stack rendering - shows current + 2 behind
+  // Get card image URL (TCGDex > enhanced > placeholder)
+  const getCardImage = (scan) => {
+    if (scan.tcgdex_image) return scan.tcgdex_image;
+    if (scan.enhanced_front_path) return scan.enhanced_front_path;
+    return null;
+  };
+
+  // Card stack rendering - shows actual card images with grade overlay
   const renderCardStack = () => {
     if (scans.length === 0) return null;
 
@@ -154,7 +161,7 @@ export function CollectionView({ userId, onClose, isInline = false }) {
         style={{
           position: 'relative',
           width: '100%',
-          height: 280,
+          height: 320,
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -164,6 +171,7 @@ export function CollectionView({ userId, onClose, isInline = false }) {
         {visibleCards.reverse().map(({ scan, offset }) => {
           const grade = getDisplayGrade(scan);
           const isTop = offset === 0;
+          const cardImage = getCardImage(scan);
 
           return (
             <div
@@ -171,134 +179,132 @@ export function CollectionView({ userId, onClose, isInline = false }) {
               onClick={() => isTop && setSelectedCard(scan)}
               style={{
                 position: 'absolute',
-                width: 200,
-                height: 260,
-                background: `linear-gradient(145deg, #1a1c22 0%, #0d0f13 100%)`,
-                borderRadius: 12,
-                border: `2px solid ${isTop ? getGradeColor(grade.value) + '44' : '#1a1c22'}`,
+                width: 180,
+                height: 252, // Pokemon card aspect ratio ~2.5x3.5
+                background: cardImage ? '#0a0b0e' : `linear-gradient(145deg, #1a1c22 0%, #0d0f13 100%)`,
+                borderRadius: 10,
+                border: `2px solid ${isTop ? getGradeColor(grade.value) + '66' : '#1a1c22'}`,
                 boxShadow: isTop
-                  ? `0 8px 32px rgba(0,0,0,0.5), 0 0 20px ${getGradeColor(grade.value)}22`
-                  : '0 4px 16px rgba(0,0,0,0.3)',
+                  ? `0 12px 40px rgba(0,0,0,0.6), 0 0 30px ${getGradeColor(grade.value)}33`
+                  : '0 6px 20px rgba(0,0,0,0.4)',
                 transform: `
-                  translateY(${offset * 8}px)
-                  translateX(${offset * 4}px)
-                  scale(${1 - offset * 0.05})
-                  rotateX(${offset * 2}deg)
+                  translateY(${offset * 12}px)
+                  translateX(${offset * 6}px)
+                  scale(${1 - offset * 0.06})
+                  rotateX(${offset * 3}deg)
                 `,
                 transformOrigin: 'center bottom',
                 zIndex: 10 - offset,
                 cursor: isTop ? 'pointer' : 'default',
                 transition: 'all 0.3s ease',
-                opacity: isTop ? 1 : 0.7 - offset * 0.2,
-                display: 'flex',
-                flexDirection: 'column',
-                padding: 16,
+                opacity: isTop ? 1 : 0.8 - offset * 0.15,
+                overflow: 'hidden',
               }}
             >
-              {/* Grade Badge */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                marginBottom: 12,
-              }}>
+              {/* Card Image */}
+              {cardImage ? (
+                <img
+                  src={cardImage}
+                  alt={scan.card_name || 'Card'}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              ) : (
+                /* Fallback: Show card info text */
                 <div style={{
-                  padding: '8px 12px',
-                  background: `${getGradeColor(grade.value)}15`,
-                  border: `1px solid ${getGradeColor(grade.value)}33`,
-                  borderRadius: 8,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%',
+                  padding: 16,
+                  textAlign: 'center',
                 }}>
                   <div style={{
-                    fontFamily: mono,
-                    fontSize: 28,
-                    fontWeight: 800,
-                    color: getGradeColor(grade.value),
-                    lineHeight: 1,
+                    fontFamily: sans,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: '#888',
+                    marginBottom: 4,
                   }}>
-                    {grade.value}
+                    {scan.card_name || scan.card_info?.name || 'Card'}
                   </div>
                   <div style={{
                     fontFamily: mono,
                     fontSize: 9,
-                    color: getGradeColor(grade.value),
-                    marginTop: 2,
+                    color: '#555',
                   }}>
-                    {grade.label}
+                    {scan.card_set || scan.card_info?.setName || ''}
                   </div>
                 </div>
-                {grade.isAi && (
-                  <div style={{
-                    padding: '4px 8px',
-                    background: 'rgba(139,92,246,0.2)',
-                    borderRadius: 4,
-                    fontFamily: mono,
-                    fontSize: 8,
-                    color: '#8b5cf6',
-                  }}>
-                    AI
-                  </div>
-                )}
-              </div>
+              )}
 
-              {/* Card Name */}
+              {/* Grade Badge Overlay - top right */}
               <div style={{
-                fontFamily: sans,
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#fff',
-                marginBottom: 4,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {scan.card_name || scan.card_info?.name || 'Unknown Card'}
-              </div>
-
-              {/* Set Info */}
-              <div style={{
-                fontFamily: mono,
-                fontSize: 10,
-                color: '#666',
-                marginBottom: 'auto',
-              }}>
-                {scan.card_set || scan.card_info?.setName || ''}
-                {scan.card_number && ` #${scan.card_number}`}
-              </div>
-
-              {/* Company & Date */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingTop: 12,
-                borderTop: '1px solid #1a1c22',
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                padding: '6px 10px',
+                background: 'rgba(0,0,0,0.85)',
+                backdropFilter: 'blur(8px)',
+                border: `1px solid ${getGradeColor(grade.value)}55`,
+                borderRadius: 8,
+                textAlign: 'center',
               }}>
                 <div style={{
                   fontFamily: mono,
-                  fontSize: 10,
-                  color: GRADING_COMPANIES[scan.grading_company]?.color || '#888',
+                  fontSize: 20,
+                  fontWeight: 800,
+                  color: getGradeColor(grade.value),
+                  lineHeight: 1,
+                }}>
+                  {grade.value}
+                </div>
+                <div style={{
+                  fontFamily: mono,
+                  fontSize: 7,
+                  color: getGradeColor(grade.value),
+                  opacity: 0.8,
+                  marginTop: 2,
                 }}>
                   {GRADING_COMPANIES[scan.grading_company]?.name || 'TAG'}
                 </div>
-                <div style={{
-                  fontFamily: mono,
-                  fontSize: 9,
-                  color: '#444',
-                }}>
-                  {formatDate(scan.created_at)}
-                </div>
               </div>
+
+              {/* AI Badge - top left */}
+              {grade.isAi && (
+                <div style={{
+                  position: 'absolute',
+                  top: 8,
+                  left: 8,
+                  padding: '3px 6px',
+                  background: 'rgba(139,92,246,0.9)',
+                  borderRadius: 4,
+                  fontFamily: mono,
+                  fontSize: 7,
+                  fontWeight: 600,
+                  color: '#fff',
+                }}>
+                  AI
+                </div>
+              )}
 
               {/* Tap hint on top card */}
               {isTop && (
                 <div style={{
                   position: 'absolute',
-                  bottom: -24,
+                  bottom: -28,
                   left: '50%',
                   transform: 'translateX(-50%)',
                   fontFamily: mono,
                   fontSize: 9,
                   color: '#444',
+                  whiteSpace: 'nowrap',
                 }}>
                   tap for details
                 </div>

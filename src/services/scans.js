@@ -85,6 +85,8 @@ export async function saveScan(userId, scanData) {
       ai_summary: scanData.aiSummary || null,      // { positives, concerns, recommendation }
       ai_centering: scanData.aiCentering || null,  // { front: {leftRight, topBottom}, back: {...} }
       card_info: scanData.cardInfo || null,        // { name, hp, cardNumber, setName, rarity, year, variant, language }
+      tcgdex_image: scanData.tcgdexImage || null,  // High-quality card image URL from TCGDex
+      tcgdex_id: scanData.tcgdexId || null,        // TCGDex card ID for future lookups
     })
     .select()
     .single();

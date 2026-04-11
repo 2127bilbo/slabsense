@@ -9,6 +9,7 @@ import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan } from "./services/scans.js";
 import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards, analyzeCardWithVision, claudeGradingAnalysis, samCardCropping } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
+import { CardIdentifier } from "./components/CardIdentifier/CardIdentifier.jsx";
 
 /* ═══════════════════════════════════════════
    SLABSENSE v0.1.0-beta
@@ -2321,6 +2322,12 @@ export default function SlabSense(){
   const[aiSummary,setAiSummary]=useState(null); // AI summary: { positives, concerns, recommendation }
   const[extractingInfo,setExtractingInfo]=useState(false); // AI analysis in progress
 
+  // Card identification (OCR + TCGDex)
+  const[showCardIdentifier,setShowCardIdentifier]=useState(false); // Show card identifier modal
+  const[tcgdexData,setTcgdexData]=useState(null); // Full card data from TCGDex
+  const[tcgdexImage,setTcgdexImage]=useState(null); // High-quality card image URL from TCGDex
+  const[identifyingCard,setIdentifyingCard]=useState(false); // Card identification in progress
+
   // Auth hook
   const auth = useAuth();
 
@@ -2443,7 +2450,7 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR, useAiCentering, aiCentering]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);setGradeMode('software');setUseAiCentering(false);setAiCentering(null);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);setGradeMode('software');setUseAiCentering(false);setAiCentering(null);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -2452,12 +2459,16 @@ export default function SlabSense(){
       try {
         const quality = await analyzePhotoQuality(img);
         setFrontQuality(quality);
+        // Trigger card identification
+        setShowCardIdentifier(true);
+        setIdentifyingCard(true);
       } catch (e) {
         console.error('Quality analysis failed:', e);
         setFrontQuality(null);
       }
     } else {
       setFrontQuality(null);
+      setShowCardIdentifier(false);
     }
   }, []);
 
@@ -2476,6 +2487,22 @@ export default function SlabSense(){
     }
   }, []);
   const handleCam=d=>{if(camTarget==="front")setFI(d);else setBI(d);setCamTarget(null);};
+
+  // Handle card identification result from OCR + TCGDex
+  const handleCardIdentified = (cardData) => {
+    setShowCardIdentifier(false);
+    setIdentifyingCard(false);
+    if (cardData) {
+      // Store TCGDex data
+      setTcgdexData(cardData);
+      setTcgdexImage(cardData.imageHigh);
+      // Set card info from TCGDex (if not already set by AI)
+      if (!cardInfo) {
+        setCardInfo(cardData.cardInfo);
+      }
+      console.log('Card identified:', cardData.name, '- Image:', cardData.imageHigh);
+    }
+  };
 
   // Save scan to user's collection (includes AI data and enhanced images)
   const handleSaveScan = async () => {
@@ -2513,6 +2540,9 @@ export default function SlabSense(){
           back: bR?.centering ? { leftRight: bR?.centering?.lrRatio, topBottom: bR?.centering?.tbRatio } : null,
         } : null,
         cardInfo: cardInfo || null,
+        // TCGDex data (high-quality card image)
+        tcgdexImage: tcgdexImage || null,
+        tcgdexId: tcgdexData?.id || null,
       });
       setSavingStatus('saved');
       setTimeout(() => setSavingStatus(null), 2000);
@@ -2714,6 +2744,27 @@ export default function SlabSense(){
         onClose={() => setShowExport(false)}
       />
     )}
+    {/* Card Identifier Modal (OCR + TCGDex) */}
+    {showCardIdentifier && fI && (
+      <div style={{
+        position:"fixed",
+        inset:0,
+        background:"rgba(0,0,0,0.9)",
+        zIndex:1100,
+        display:"flex",
+        alignItems:"center",
+        justifyContent:"center",
+        padding:16,
+      }}>
+        <div style={{maxWidth:400,width:"100%"}}>
+          <CardIdentifier
+            cardImage={fI}
+            onCardIdentified={handleCardIdentified}
+            onCancel={() => {setShowCardIdentifier(false);setIdentifyingCard(false);}}
+          />
+        </div>
+      </div>
+    )}
     {/* 3D Card Viewer Modal */}
     {show3DViewer && enhancedCards && (
       <div style={{
@@ -2767,14 +2818,14 @@ export default function SlabSense(){
             </div>
           </div>
         )}
-        {/* 3D Viewer */}
+        {/* 3D Viewer - use TCGDex image for slab if available (perfect quality) */}
         <CardViewer3D
-          frontImage={enhancedCards.front}
+          frontImage={tcgdexImage || enhancedCards.front}
           backImage={enhancedCards.back}
           grade={gradeResult?.grade?.grade}
           gradeLabel={gradeResult?.grade?.label}
           gradingCompany={gradingCompany}
-          cardInfo={cardInfo}
+          cardInfo={cardInfo || tcgdexData?.cardInfo}
           subgrades={gradeResult?.subgrades}
         />
         {/* Info text */}
