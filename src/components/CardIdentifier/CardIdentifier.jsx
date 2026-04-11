@@ -39,12 +39,18 @@ export function CardIdentifier({
   const startIdentification = async () => {
     if (!cardImage) return;
 
+    console.log('🔍 Starting card identification...');
     setStatus('ocr');
     setError(null);
 
     try {
       // Step 1: OCR extraction
-      const ocr = await extractCardInfo(cardImage, setOcrProgress);
+      console.log('📝 Running OCR on card image...');
+      const ocr = await extractCardInfo(cardImage, (progress) => {
+        console.log(`OCR progress: ${progress}%`);
+        setOcrProgress(progress);
+      });
+      console.log('📝 OCR Results:', ocr);
       setOcrResults(ocr);
 
       if (!ocr.name && !ocr.localId) {

@@ -2486,7 +2486,7 @@ export default function SlabSense(){
       setBackQuality(null);
     }
   }, []);
-  const handleCam=d=>{if(camTarget==="front")setFI(d);else setBI(d);setCamTarget(null);};
+  const handleCam=d=>{if(camTarget==="front")handleSetFrontImage(d);else handleSetBackImage(d);setCamTarget(null);};
 
   // Handle card identification result from OCR + TCGDex
   const handleCardIdentified = (cardData) => {
