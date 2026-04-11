@@ -31,10 +31,11 @@ export function CardIdentifier({
   const [manualSearch, setManualSearch] = useState('');
   const [manualSearching, setManualSearching] = useState(false);
 
-  // Auto-start OCR when image is provided
+  // Auto-start - go straight to manual search (OCR unreliable on Pokemon cards)
   useEffect(() => {
     if (cardImage && autoStart && status === 'idle') {
-      startIdentification();
+      // Skip OCR, go straight to manual search
+      setStatus('error');
     }
   }, [cardImage, autoStart]);
 
@@ -419,28 +420,25 @@ export function CardIdentifier({
         </div>
       )}
 
-      {/* Status: Error - Show manual search */}
+      {/* Manual search - primary input method */}
       {status === 'error' && (
         <div style={{ padding: 16 }}>
-          {/* Error message */}
+          {/* Header */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            padding: 12,
-            background: 'rgba(255,153,68,0.1)',
-            borderRadius: 8,
             marginBottom: 16,
           }}>
-            <span style={{ fontSize: 16 }}>⚠️</span>
-            <span style={{ fontFamily: mono, fontSize: 11, color: '#ff9944' }}>
-              {error || "Couldn't read card text"}
+            <span style={{ fontSize: 20 }}>🔍</span>
+            <span style={{ fontFamily: sans, fontSize: 14, fontWeight: 600, color: '#fff' }}>
+              Find Your Card
             </span>
           </div>
 
-          {/* Manual search form */}
+          {/* Search form */}
           <div style={{ fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 8 }}>
-            SEARCH BY CARD NAME
+            ENTER CARD NAME
           </div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <input
@@ -448,7 +446,7 @@ export function CardIdentifier({
               value={manualSearch}
               onChange={(e) => setManualSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()}
-              placeholder="e.g. Charizard, Pikachu VMAX..."
+              placeholder="e.g. Pikachu, Charizard VSTAR..."
               style={{
                 flex: 1,
                 padding: '12px 14px',
