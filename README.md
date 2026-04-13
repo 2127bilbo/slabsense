@@ -8,6 +8,13 @@ Analyze your trading cards against multiple professional grading standards inclu
 
 ## Features
 
+### Card Identification (OCR + TCGDex)
+- **Automatic Detection** — Upload a photo, OCR reads the card name
+- **TCGDex Integration** — Free API provides card data + high-quality images
+- **Smart Search** — Matches OCR results to database with scoring
+- **Manual Fallback** — Search by name if OCR fails
+- **Perfect Slab Images** — TCGDex provides borderless card images for 3D view
+
 ### AI Grading (Claude Sonnet 4)
 - **Multi-Company Grades** — Get PSA, BGS, SGC, CGC, and TAG grades in ONE API call
 - **Card Recognition** — Automatically extracts name, set, number, rarity, year
@@ -22,10 +29,11 @@ Analyze your trading cards against multiple professional grading standards inclu
 - **Separate from Grading** — Avoids rate limits, user controls timing
 
 ### Collection
-- **Card Stack View** — Swipe through your collection like a deck
+- **Visual Card Stack** — Swipe through your collection with actual card images
 - **Full Detail Modal** — Tap any card for complete AI report
 - **Company Switching** — Toggle between grading company views
 - **AI vs Software Toggle** — Compare AI grade to client-side grade
+- **TCGDex Images** — High-quality card art from database
 
 ### Centering Tools
 - **Rotation Controls** — 1° and 0.05° fine-tune adjustments
@@ -74,6 +82,7 @@ vercel --prod
 
 | Feature | Cost | API |
 |---------|------|-----|
+| Card ID | FREE | TCGDex (browser OCR) |
 | AI Grade | ~$0.03 | Claude Sonnet 4 |
 | 3D View | ~$0.02 | SAM 2 |
 | **Total** | **~$0.05** | |
@@ -112,12 +121,15 @@ SlabSense/
 ├── src/
 │   ├── components/
 │   │   ├── Auth/              # Login, Register
+│   │   ├── CardIdentifier/    # OCR + TCGDex lookup
 │   │   ├── Collection/        # Card stack view
 │   │   ├── CardViewer/        # 3D slab viewer
 │   │   └── Export/            # Grade card export
 │   ├── services/
 │   │   ├── api.js             # AI grading & SAM functions
 │   │   ├── auth.js            # Supabase auth
+│   │   ├── ocr.js             # Tesseract.js card reading
+│   │   ├── tcgdex.js          # TCGDex API wrapper
 │   │   └── scans.js           # Save/load with AI data
 │   ├── utils/
 │   │   └── gradingScales.js   # Multi-company scales
@@ -132,6 +144,24 @@ SlabSense/
 ```
 
 ## Key Functions
+
+### Card Identification
+```javascript
+import { extractCardInfo } from './services/ocr.js';
+import { smartSearch, getFullCardData } from './services/tcgdex.js';
+
+// 1. OCR extracts card name
+const ocr = await extractCardInfo(cardImage);
+// Returns: { name, confidence, rawText }
+
+// 2. Search TCGDex
+const results = await smartSearch(ocr);
+// Returns: [{ id, name, set, image, matchScore }, ...]
+
+// 3. Get full card data
+const card = await getFullCardData(cardId);
+// Returns: { name, set, rarity, imageHigh, ... }
+```
 
 ### AI Grading
 ```javascript
@@ -153,6 +183,8 @@ const result = await samCardCropping(frontImage, backImage);
 
 | Feature | Status |
 |---------|--------|
+| Card Identification (OCR) | ⚠️ Testing |
+| TCGDex Integration | ✅ Complete |
 | Claude AI Grading | ✅ Complete |
 | SAM 2 3D View | ✅ Complete |
 | Collection Card Stack | ✅ Complete |

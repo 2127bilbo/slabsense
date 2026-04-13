@@ -16,3 +16,5 @@ src/App1.jsx
 # Logs
 *.log
 .claude/
+
+.vercel

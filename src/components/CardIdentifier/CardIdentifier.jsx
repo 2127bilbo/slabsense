@@ -31,11 +31,10 @@ export function CardIdentifier({
   const [manualSearch, setManualSearch] = useState('');
   const [manualSearching, setManualSearching] = useState(false);
 
-  // Auto-start - go straight to manual search (OCR unreliable on Pokemon cards)
+  // Auto-start OCR when image is provided
   useEffect(() => {
     if (cardImage && autoStart && status === 'idle') {
-      // Skip OCR, go straight to manual search
-      setStatus('error');
+      startIdentification();
     }
   }, [cardImage, autoStart]);
 
@@ -50,35 +49,38 @@ export function CardIdentifier({
       // Step 1: OCR extraction
       console.log('📝 Running OCR on card image...');
       const ocr = await extractCardInfo(cardImage, (progress) => {
-        console.log(`OCR progress: ${progress}%`);
         setOcrProgress(progress);
       });
       console.log('📝 OCR Results:', ocr);
       setOcrResults(ocr);
 
-      if (!ocr.name && !ocr.localId) {
-        setError('Could not read card text. Try a clearer photo.');
+      // Check if OCR got a usable result (name with decent confidence)
+      const hasGoodResult = ocr.name && ocr.name.length >= 3 && ocr.confidence >= 40;
+
+      if (!hasGoodResult) {
+        console.log('❌ OCR confidence too low or no name found, going to manual search');
+        setError(ocr.name ? `Read "${ocr.name}" (${ocr.confidence}% confidence) - verify or search manually` : null);
         setStatus('error');
+        // Pre-fill manual search with whatever OCR got
+        if (ocr.name) setManualSearch(ocr.name);
         return;
       }
 
-      // Step 2: Search TCGDex
+      // Step 2: Search TCGDex with OCR result
+      console.log('🔍 Searching TCGDex for:', ocr.name);
       setStatus('searching');
       const results = await smartSearch(ocr);
       setSearchResults(results);
 
       if (results.length === 0) {
-        setError('No matching cards found. Try entering manually.');
+        setError(`No cards found for "${ocr.name}". Try a different spelling.`);
+        setManualSearch(ocr.name);
         setStatus('error');
         return;
       }
 
-      // If we have a high-confidence match, auto-select it
-      if (results.length === 1 || (results[0]?.matchScore > 100 && results[0]?.matchScore > (results[1]?.matchScore || 0) * 1.5)) {
-        handleSelectCard(results[0]);
-      } else {
-        setStatus('results');
-      }
+      // Show results for user to confirm
+      setStatus('results');
     } catch (err) {
       console.error('Identification error:', err);
       setError(err.message || 'Failed to identify card');

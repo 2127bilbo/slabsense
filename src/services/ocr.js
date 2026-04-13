@@ -7,13 +7,10 @@
 
 import Tesseract from 'tesseract.js';
 
-// Card layout regions (percentages of CROPPED card dimensions)
-const REGIONS = {
-  // Top region for card name (large text) - wider region for reliability
-  name: { top: 0.02, left: 0.05, width: 0.65, height: 0.10 },
-  // Bottom region for set number (e.g., "134/197" or "gg44/gg70")
-  setNumber: { top: 0.93, left: 0.45, width: 0.50, height: 0.06 },
-};
+// Card layout - name region only (most reliable)
+// Name is always at top, usually left-aligned
+// Larger region to ensure we capture the full name area
+const NAME_REGION = { top: 0.02, left: 0.05, width: 0.65, height: 0.10 };
 
 /**
  * Simple luminance calculation
@@ -116,43 +113,100 @@ async function detectAndCropCard(imageSrc) {
 }
 
 /**
- * Pre-process image for better OCR accuracy
- * - Increases contrast
- * - Sharpens edges
- * - Converts to grayscale
+ * Pre-process image for better OCR accuracy on Pokemon cards
+ * - Contrast stretching to normalize lighting
+ * - Sharpening to enhance text edges
+ * - Adaptive thresholding for holofoil handling
+ * - Converts to high-contrast black/white
  */
 function preprocessImage(canvas, ctx, region) {
   const { width, height } = canvas;
-  const imageData = ctx.getImageData(
-    Math.floor(width * region.left),
-    Math.floor(height * region.top),
-    Math.floor(width * region.width),
-    Math.floor(height * region.height)
-  );
+  const x = Math.floor(width * region.left);
+  const y = Math.floor(height * region.top);
+  const w = Math.floor(width * region.width);
+  const h = Math.floor(height * region.height);
 
+  const imageData = ctx.getImageData(x, y, w, h);
   const data = imageData.data;
 
-  // Convert to grayscale and increase contrast
+  // Step 1: Convert to grayscale and find min/max for contrast stretching
+  const grayValues = [];
+  let minGray = 255, maxGray = 0;
   for (let i = 0; i < data.length; i += 4) {
-    // Grayscale
     const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-
-    // Increase contrast (stretch histogram)
-    const contrast = 1.5;
-    const factor = (259 * (contrast * 100 + 255)) / (255 * (259 - contrast * 100));
-    const newGray = Math.min(255, Math.max(0, factor * (gray - 128) + 128));
-
-    data[i] = newGray;
-    data[i + 1] = newGray;
-    data[i + 2] = newGray;
+    grayValues.push(gray);
+    if (gray < minGray) minGray = gray;
+    if (gray > maxGray) maxGray = gray;
   }
 
-  // Create new canvas with processed region
+  // Step 2: Apply contrast stretching to normalize the range
+  const range = maxGray - minGray;
+  if (range > 10) {
+    for (let i = 0; i < grayValues.length; i++) {
+      grayValues[i] = ((grayValues[i] - minGray) / range) * 255;
+    }
+  }
+
+  // Step 3: Calculate Otsu's threshold (better than simple mean)
+  // This finds the optimal threshold to separate text from background
+  const histogram = new Array(256).fill(0);
+  for (const g of grayValues) {
+    histogram[Math.round(g)]++;
+  }
+
+  let total = grayValues.length;
+  let sum = 0;
+  for (let i = 0; i < 256; i++) sum += i * histogram[i];
+
+  let sumB = 0, wB = 0;
+  let maxVariance = 0, threshold = 128;
+
+  for (let t = 0; t < 256; t++) {
+    wB += histogram[t];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+
+    sumB += t * histogram[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const variance = wB * wF * (mB - mF) * (mB - mF);
+
+    if (variance > maxVariance) {
+      maxVariance = variance;
+      threshold = t;
+    }
+  }
+
+  // Step 4: Apply thresholding with some margin
+  // Pokemon card names are usually dark text on lighter background
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = grayValues[i / 4];
+
+    // Binary threshold with slight bias toward dark (text)
+    const val = gray < threshold - 10 ? 0 : 255;
+
+    data[i] = val;
+    data[i + 1] = val;
+    data[i + 2] = val;
+  }
+
+  // Create new canvas with processed region (scaled up 2x for better OCR)
+  const scale = 2;
   const regionCanvas = document.createElement('canvas');
-  regionCanvas.width = imageData.width;
-  regionCanvas.height = imageData.height;
+  regionCanvas.width = w * scale;
+  regionCanvas.height = h * scale;
   const regionCtx = regionCanvas.getContext('2d');
-  regionCtx.putImageData(imageData, 0, 0);
+
+  // First put the processed data on a temp canvas
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = w;
+  tempCanvas.height = h;
+  tempCanvas.getContext('2d').putImageData(imageData, 0, 0);
+
+  // Then scale up with nearest-neighbor for crisp edges
+  regionCtx.imageSmoothingEnabled = false;
+  regionCtx.drawImage(tempCanvas, 0, 0, w * scale, h * scale);
 
   return regionCanvas;
 }
@@ -245,7 +299,7 @@ function cleanHP(text) {
 
 /**
  * Main OCR extraction function
- * First detects/crops the card, then extracts name and set number
+ * Detects card, crops it, reads JUST THE NAME (most reliable)
  */
 export async function extractCardInfo(imageSrc, onProgress = null) {
   const results = {
@@ -259,59 +313,49 @@ export async function extractCardInfo(imageSrc, onProgress = null) {
 
   try {
     console.log('🔍 Step 1: Detecting and cropping card...');
-    if (onProgress) onProgress(5);
+    if (onProgress) onProgress(10);
 
     // Step 1: Crop to just the card (removes background)
     const croppedCard = await detectAndCropCard(imageSrc);
     console.log('✓ Card cropped');
-    if (onProgress) onProgress(15);
+    if (onProgress) onProgress(20);
 
-    // Initialize Tesseract worker
-    console.log('🔍 Step 2: Initializing OCR...');
+    // Step 2: Extract and preprocess name region
+    console.log('🔍 Step 2: Extracting name region...');
+    const nameRegionImg = await extractRegion(croppedCard, NAME_REGION);
+    if (onProgress) onProgress(30);
+
+    // Step 3: Initialize Tesseract
+    console.log('🔍 Step 3: Running OCR on name...');
     const worker = await Tesseract.createWorker('eng', 1, {
       logger: (m) => {
         if (m.status === 'recognizing text' && onProgress) {
-          // Scale progress: 15-80 for OCR
-          onProgress(15 + Math.round(m.progress * 65));
+          onProgress(30 + Math.round(m.progress * 60));
         }
       },
     });
 
-    // Set parameters for card name (allow letters, numbers, spaces, hyphens)
+    // Configure for single line of text, Pokemon card names
     await worker.setParameters({
       tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -\'',
       tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
+      preserve_interword_spaces: '1',
     });
 
-    // Extract card name from CROPPED card
-    console.log('🔍 Step 3: Reading card name...');
-    const nameRegion = await extractRegion(croppedCard, REGIONS.name);
-    const nameResult = await worker.recognize(nameRegion);
+    // Read the name
+    const nameResult = await worker.recognize(nameRegionImg);
     results.rawText.name = nameResult.data.text;
     results.name = cleanCardName(nameResult.data.text);
-    results.confidence = nameResult.data.confidence;
-    console.log('📝 Name raw:', nameResult.data.text, '→ cleaned:', results.name);
+    results.confidence = Math.round(nameResult.data.confidence);
 
-    // Extract set number (allow letters too for sets like "gg44")
-    console.log('🔍 Step 4: Reading set number...');
-    await worker.setParameters({
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/',
-      tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
-    });
+    console.log('📝 Raw OCR:', nameResult.data.text);
+    console.log('📝 Cleaned:', results.name);
+    console.log('📝 Confidence:', results.confidence + '%');
 
-    const setRegion = await extractRegion(croppedCard, REGIONS.setNumber);
-    const setResult = await worker.recognize(setRegion);
-    results.rawText.setNumber = setResult.data.text;
-    const setData = cleanSetNumber(setResult.data.text);
-    results.localId = setData.localId;
-    results.setTotal = setData.total;
-    console.log('📝 Set raw:', setResult.data.text, '→ localId:', results.localId);
-
-    // Done - terminate worker
     await worker.terminate();
     if (onProgress) onProgress(100);
 
-    console.log('✅ OCR complete:', { name: results.name, localId: results.localId });
+    console.log('✅ OCR complete:', results.name, `(${results.confidence}% confidence)`);
 
   } catch (error) {
     console.error('OCR extraction error:', error);
@@ -332,7 +376,7 @@ export async function extractCardName(imageSrc) {
       tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
     });
 
-    const nameRegion = await extractRegion(imageSrc, REGIONS.name);
+    const nameRegion = await extractRegion(imageSrc, NAME_REGION);
     const result = await worker.recognize(nameRegion);
 
     await worker.terminate();

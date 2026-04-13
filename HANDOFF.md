@@ -1,17 +1,27 @@
 # SlabSense Development Handoff
 
-**Date:** April 9, 2026
-**Status:** Active Development - AI Integration Complete
+**Date:** April 12, 2026
+**Status:** Active Development - Card Identification In Progress
 
 ---
 
 ## Current State Summary
 
-SlabSense is a multi-company card pre-grading application with **Claude AI integration** for accurate grading and **SAM 2** for 3D card cropping. The app supports PSA, BGS, SGC, CGC, and TAG grading standards.
+SlabSense is a multi-company card pre-grading application with **Claude AI integration** for accurate grading, **SAM 2** for 3D card cropping, and **automated card identification** via OCR + TCGDex API. The app supports PSA, BGS, SGC, CGC, and TAG grading standards.
 
 ---
 
 ## What's Working
+
+### Card Identification (NEW - In Testing)
+- ✅ OCR extracts card name from photos using Tesseract.js
+- ✅ Variance-based card detection crops card from background
+- ✅ Otsu's thresholding for better text/background separation
+- ✅ TCGDex API integration for card data + high-quality images
+- ✅ Manual search fallback when OCR confidence < 40%
+- ✅ Card images from TCGDex used for slabs (perfect quality)
+- ✅ Collection view shows card images instead of text placeholders
+- ⚠️ **Testing needed** - OCR may struggle with holofoil cards
 
 ### AI Grading (Claude via Replicate)
 - ✅ Claude Sonnet 4 analyzes card images via Replicate API
@@ -29,15 +39,16 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 - ✅ Falls back to original images if SAM fails
 - ✅ 3D rotating slab view with realistic render
 
-### Collection View (NEW)
+### Collection View
 - ✅ Card stack visual with swipe navigation
+- ✅ **Shows actual card images** from TCGDex (not text placeholders)
 - ✅ Click card to open full detail modal
 - ✅ AI grade vs Software grade toggle (if both exist)
 - ✅ Company tabs to switch grade display (PSA/BGS/SGC/CGC/TAG)
 - ✅ Shows centering, condition, subgrades, summary
 - ✅ Saves AI data with card (grades, condition, summary, centering)
 
-### Centering Tab (UPDATED)
+### Centering Tab
 - ✅ Two-step alignment flow inside ManualBoundaryEditor:
   - Step 1: Straighten Card — rotation controls (1° and 0.05° increments)
   - Step 2: Adjust Borders — drag handles for edge/artwork boundaries
@@ -56,16 +67,48 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 
 ### Database (Supabase)
 - ✅ Tables: profiles, scans, memberships
-- ✅ Now saves AI grading data:
-  - `ai_grades` - Multi-company grades object
-  - `ai_condition` - Condition scores
-  - `ai_summary` - Positives/concerns/recommendation
-  - `ai_centering` - Claude's centering measurements
-  - `card_info` - OCR-extracted card details
+- ✅ Saves AI grading data + TCGDex card data
+- ✅ New fields: `tcgdex_image`, `tcgdex_id`
+
+---
+
+## Card Identification Flow
+
+```
+User uploads/captures card image
+  → Card cropped from background (variance detection)
+  → Name region extracted (top 10% of card)
+  → Preprocessing: contrast stretch + Otsu's threshold + 2x upscale
+  → OCR reads card name
+
+If confidence >= 40%:
+  → TCGDex smart search (name matching + scoring)
+  → User confirms correct card from results
+  → Full card data + high-quality image loaded
+
+If confidence < 40%:
+  → Manual search UI shown
+  → OCR result pre-filled for user to correct
+  → User types card name → TCGDex search
+
+Result:
+  → Card info populated
+  → TCGDex image used for slab (perfect quality)
+  → Data saved with scan
+```
 
 ---
 
 ## API Flow
+
+### Card Identification (FREE - TCGDex)
+```
+User captures card image
+  → extractCardInfo(image) [browser-side OCR]
+  → smartSearch(ocrResults) [TCGDex API]
+  → getFullCardData(cardId) [TCGDex API]
+  → Returns: cardInfo, imageHigh, set details
+```
 
 ### AI Grade Button (~$0.03)
 ```
@@ -92,13 +135,20 @@ User clicks "3D Slab View"
 
 ## Key Files
 
+### Card Identification (NEW)
+| File | Purpose |
+|------|---------|
+| `src/services/ocr.js` | Tesseract.js OCR with preprocessing |
+| `src/services/tcgdex.js` | TCGDex API wrapper |
+| `src/components/CardIdentifier/CardIdentifier.jsx` | Identification UI flow |
+
 ### Frontend
 | File | Purpose |
 |------|---------|
-| `src/App.jsx` | Main app, grading UI, centering tab with rotation |
+| `src/App.jsx` | Main app, grading UI, card identifier integration |
 | `src/services/api.js` | `claudeGradingAnalysis()`, `samCardCropping()` |
-| `src/services/scans.js` | Saves AI data with cards |
-| `src/components/Collection/CollectionView.jsx` | Card stack, detail modal |
+| `src/services/scans.js` | Saves AI data + TCGDex data with cards |
+| `src/components/Collection/CollectionView.jsx` | Card stack with images |
 | `src/utils/gradingScales.js` | Multi-company grading scales |
 
 ### API Routes (Vercel)
@@ -131,25 +181,40 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 
 ---
 
-## Replicate Rate Limits
+## Database Schema
 
-With < $5 credit: **1 burst request limit** (causes 429 errors)
-
-**Solution implemented:** Separate AI Grade and 3D View into independent buttons. User controls timing between API calls.
-
----
-
-## Database Schema Updates Needed
-
-The `scans` table needs these new columns (add via Supabase dashboard):
+The `scans` table columns:
 
 ```sql
+-- AI grading data
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS ai_grades JSONB;
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS ai_condition JSONB;
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS ai_summary JSONB;
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS ai_centering JSONB;
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS card_info JSONB;
+
+-- TCGDex card identification
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS tcgdex_image TEXT;
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS tcgdex_id TEXT;
 ```
+
+---
+
+## OCR Technical Details
+
+### Preprocessing Pipeline
+1. **Card Detection** - Grid-based variance analysis finds card bounds
+2. **Cropping** - Removes background, isolates card
+3. **Region Extraction** - Top 10% of card (name area)
+4. **Contrast Stretching** - Normalizes lighting conditions
+5. **Otsu's Thresholding** - Optimal text/background separation
+6. **2x Upscaling** - More pixels for better OCR accuracy
+
+### Known Limitations
+- Holofoil patterns can confuse OCR (rainbow reflections)
+- Dark/textured backgrounds on some cards
+- Non-standard fonts on special cards
+- **Fallback:** Manual search with pre-filled OCR result
 
 ---
 
@@ -159,12 +224,14 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS card_info JSONB;
 2. ✅ ~~3D view separation~~ - DONE
 3. ✅ ~~Collection card stack~~ - DONE
 4. ✅ ~~Centering rotation controls~~ - DONE
-5. ✅ ~~UI consolidation~~ - DONE (unified tab bar, Grade/Dings tabs merged)
-6. [ ] **Fine-tune SlabSense slab positioning** - Card window & text coordinates in SlabSenseSlab.jsx
-7. [ ] Deploy database schema updates
-8. [ ] Test full flow end-to-end
-9. [ ] Stripe payments for Pro tier
-10. [ ] Production deployment
+5. ✅ ~~UI consolidation~~ - DONE
+6. ✅ ~~Card identification (OCR + TCGDex)~~ - IMPLEMENTED
+7. ⚠️ **Test OCR with various card types** - IN PROGRESS
+8. [ ] Fine-tune SlabSense slab positioning
+9. [ ] Deploy database schema updates
+10. [ ] Test full flow end-to-end
+11. [ ] Stripe payments for Pro tier
+12. [ ] Production deployment
 
 ---
 
@@ -176,10 +243,38 @@ cd "G:\Grading App\SlabSense"
 npm run dev
 # Opens at http://localhost:5173
 
+# Test card identification:
+# 1. Upload a card image (front)
+# 2. CardIdentifier modal appears automatically
+# 3. Watch OCR progress
+# 4. If OCR works: select matching card from results
+# 5. If OCR fails: use manual search (pre-filled with OCR result)
+# 6. Card data + high-quality image loaded
+
 # Deploy to Vercel
 vercel --prod
 ```
 
 ---
 
-*Last Updated: April 9, 2026*
+## Troubleshooting
+
+### OCR Reading Garbage
+- Check console for OCR confidence %
+- If < 40%, falls back to manual search automatically
+- Pre-filled text can be corrected by user
+- Try cards with clearer text (non-holofoil)
+
+### Card Not Cropping Properly
+- Variance detection needs contrast between card and background
+- Use plain background (not busy patterns)
+- Ensure good lighting
+
+### TCGDex Search No Results
+- Check card name spelling
+- Try partial name (e.g., "Pikachu" not "Pikachu EX")
+- TCGDex only has Pokemon cards (not other TCGs)
+
+---
+
+*Last Updated: April 12, 2026*
