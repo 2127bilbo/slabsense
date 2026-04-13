@@ -36,22 +36,33 @@ export async function getAllSets() {
 }
 
 /**
- * Search for cards by name
+ * Search for cards by name using TCGDex server-side search
  * Returns brief card objects for quick display
  */
 export async function searchCardsByName(name, limit = 20) {
   if (!name || name.length < 2) return [];
 
   try {
-    // Get all cards and filter by name (SDK filtering)
-    const cards = await tcgdex.card.list();
+    // Use direct API call with server-side filtering (much faster than fetching all cards)
+    const searchTerm = encodeURIComponent(name.trim());
+    const response = await fetch(`https://api.tcgdex.net/v2/en/cards?name=like:${searchTerm}`);
 
-    const searchTerm = name.toLowerCase().trim();
-    const matches = cards
-      .filter(card => card.name?.toLowerCase().includes(searchTerm))
-      .slice(0, limit);
+    if (!response.ok) {
+      console.error('TCGDex search failed:', response.status);
+      return [];
+    }
 
-    return matches;
+    const cards = await response.json();
+    console.log(`[TCGDex] Found ${cards.length} cards matching "${name}"`);
+
+    // Return top matches with image URLs
+    return cards.slice(0, limit).map(card => ({
+      id: card.id,
+      name: card.name,
+      localId: card.localId,
+      image: card.image,
+      set: card.set,
+    }));
   } catch (error) {
     console.error('Card search error:', error);
     return [];
@@ -73,9 +84,18 @@ export async function searchBySetNumber(localId, setId = null) {
       return card ? [card] : [];
     }
 
-    // Search across all cards for this local ID
-    const cards = await tcgdex.card.list();
-    return cards.filter(card => card.localId === localId.toString());
+    // Search by localId using API (don't fetch entire catalog)
+    const response = await fetch(`https://api.tcgdex.net/v2/en/cards?localId=${encodeURIComponent(localId)}`);
+    if (!response.ok) return [];
+
+    const cards = await response.json();
+    return cards.map(card => ({
+      id: card.id,
+      name: card.name,
+      localId: card.localId,
+      image: card.image,
+      set: card.set,
+    }));
   } catch (error) {
     console.error('Set number search error:', error);
     return [];
