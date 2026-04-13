@@ -1,17 +1,18 @@
 /**
- * CardIdentifier - Automated card identification via OCR + TCGDex
+ * CardIdentifier - Card identification via pHash + TCGDex
  *
  * Flow:
  * 1. User captures card image
- * 2. OCR extracts name/set number
- * 3. TCGDex search finds matches
- * 4. User confirms correct card
- * 5. Returns full card data + high-quality image
+ * 2. pHash computed and matched against database
+ * 3. High confidence → auto-select card
+ * 4. Medium confidence → show candidates for user to pick
+ * 5. Low/error → fall back to manual search
+ * 6. Returns full card data + high-quality image
  */
 
 import { useState, useEffect } from 'react';
-import { extractCardInfo } from '../../services/ocr.js';
-import { smartSearch, getFullCardData, getImageUrlFromCard } from '../../services/tcgdex.js';
+import { identifyCard, selectCard } from '../../lib/identify-card.js';
+import { smartSearch, getFullCardData } from '../../services/tcgdex.js';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
@@ -20,18 +21,19 @@ export function CardIdentifier({
   cardImage,           // The user's captured card image
   onCardIdentified,    // Callback when card is identified: (cardData) => void
   onCancel,            // Callback to cancel
-  autoStart = true,    // Start OCR automatically
+  autoStart = true,    // Start identification automatically
 }) {
-  const [status, setStatus] = useState('idle'); // idle | ocr | searching | results | loading | error | manual
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [ocrResults, setOcrResults] = useState(null);
+  const [status, setStatus] = useState('idle'); // idle | identifying | results | loading | manual
+  const [progress, setProgress] = useState(0);
+  const [identifyResult, setIdentifyResult] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [selectedCard, setSelectedCard] = useState(null);
   const [error, setError] = useState(null);
   const [manualSearch, setManualSearch] = useState('');
   const [manualSearching, setManualSearching] = useState(false);
+  const [hashDbMissing, setHashDbMissing] = useState(false);
 
-  // Auto-start OCR when image is provided
+  // Auto-start when image is provided
   useEffect(() => {
     if (cardImage && autoStart && status === 'idle') {
       startIdentification();
@@ -41,50 +43,63 @@ export function CardIdentifier({
   const startIdentification = async () => {
     if (!cardImage) return;
 
-    console.log('🔍 Starting card identification...');
-    setStatus('ocr');
+    console.log('[CardIdentifier] Starting pHash identification...');
+    setStatus('identifying');
     setError(null);
+    setProgress(0);
 
     try {
-      // Step 1: OCR extraction
-      console.log('📝 Running OCR on card image...');
-      const ocr = await extractCardInfo(cardImage, (progress) => {
-        setOcrProgress(progress);
+      // Run pHash identification
+      const result = await identifyCard(cardImage, {
+        cropCard: true,
+        onProgress: setProgress,
       });
-      console.log('📝 OCR Results:', ocr);
-      setOcrResults(ocr);
 
-      // Check if OCR got a usable result (name with decent confidence)
-      const hasGoodResult = ocr.name && ocr.name.length >= 3 && ocr.confidence >= 40;
+      console.log('[CardIdentifier] Result:', result.status, result.confidence);
+      setIdentifyResult(result);
 
-      if (!hasGoodResult) {
-        console.log('❌ OCR confidence too low or no name found, going to manual search');
-        setError(ocr.name ? `Read "${ocr.name}" (${ocr.confidence}% confidence) - verify or search manually` : null);
-        setStatus('error');
-        // Pre-fill manual search with whatever OCR got
-        if (ocr.name) setManualSearch(ocr.name);
+      // Handle different status outcomes
+      if (result.status === 'error') {
+        // Check if hash DB is missing
+        if (result.error?.includes('Hash database') || result.error?.includes('hash DB')) {
+          console.log('[CardIdentifier] Hash DB not found, falling back to manual');
+          setHashDbMissing(true);
+        }
+        setError(result.error || 'Identification failed');
+        setStatus('manual');
         return;
       }
 
-      // Step 2: Search TCGDex with OCR result
-      console.log('🔍 Searching TCGDex for:', ocr.name);
-      setStatus('searching');
-      const results = await smartSearch(ocr);
-      setSearchResults(results);
-
-      if (results.length === 0) {
-        setError(`No cards found for "${ocr.name}". Try a different spelling.`);
-        setManualSearch(ocr.name);
-        setStatus('error');
+      if (result.status === 'matched' && result.cardData) {
+        // High confidence - auto-select
+        console.log('[CardIdentifier] Auto-matched:', result.cardData.name);
+        onCardIdentified(result.cardData);
         return;
       }
 
-      // Show results for user to confirm
-      setStatus('results');
+      if (result.status === 'matched' || result.status === 'ambiguous') {
+        // Show matches for user selection
+        const matches = result.matches || [];
+        // Flatten grouped matches for display
+        const flatMatches = matches.flatMap(m =>
+          m.variants ? m.variants.map(v => ({
+            ...v,
+            confidence: m.confidence,
+            variantCount: m.variantCount,
+          })) : [m]
+        );
+        setSearchResults(flatMatches.slice(0, 20));
+        setStatus('results');
+        return;
+      }
+
+      // Unknown - go to manual search
+      setStatus('manual');
+
     } catch (err) {
-      console.error('Identification error:', err);
-      setError(err.message || 'Failed to identify card');
-      setStatus('error');
+      console.error('[CardIdentifier] Error:', err);
+      setError(err.message || 'Identification failed');
+      setStatus('manual');
     }
   };
 
@@ -93,19 +108,18 @@ export function CardIdentifier({
     setStatus('loading');
 
     try {
-      // Get full card data
       const fullData = await getFullCardData(card.id);
 
       if (fullData) {
         onCardIdentified(fullData);
       } else {
         setError('Failed to load card details');
-        setStatus('error');
+        setStatus('manual');
       }
     } catch (err) {
-      console.error('Load card error:', err);
+      console.error('[CardIdentifier] Load card error:', err);
       setError(err.message);
-      setStatus('error');
+      setStatus('manual');
     }
   };
 
@@ -114,18 +128,21 @@ export function CardIdentifier({
     if (!manualSearch || manualSearch.length < 2) return;
 
     setManualSearching(true);
+    setError(null);
+
     try {
-      console.log('🔍 Manual search for:', manualSearch);
+      console.log('[CardIdentifier] Manual search for:', manualSearch);
       const results = await smartSearch({ name: manualSearch, localId: null, setTotal: null, hp: null });
-      console.log('📋 Search results:', results.length);
-      setSearchResults(results);
+      console.log('[CardIdentifier] Search results:', results.length);
+
       if (results.length > 0) {
+        setSearchResults(results);
         setStatus('results');
       } else {
         setError('No cards found. Try a different name.');
       }
     } catch (err) {
-      console.error('Manual search error:', err);
+      console.error('[CardIdentifier] Manual search error:', err);
       setError('Search failed. Check your connection.');
     } finally {
       setManualSearching(false);
@@ -134,11 +151,26 @@ export function CardIdentifier({
 
   const handleRetry = () => {
     setStatus('idle');
-    setOcrResults(null);
+    setIdentifyResult(null);
     setSearchResults([]);
     setSelectedCard(null);
     setError(null);
     startIdentification();
+  };
+
+  // Get confidence color
+  const getConfidenceColor = (confidence) => {
+    if (confidence === 'high') return '#00ff88';
+    if (confidence === 'medium') return '#ffcc00';
+    return '#ff6633';
+  };
+
+  // Get distance display
+  const getDistanceDisplay = (distance) => {
+    if (distance <= 10) return { label: 'Excellent', color: '#00ff88' };
+    if (distance <= 15) return { label: 'Good', color: '#66dd44' };
+    if (distance <= 20) return { label: 'Fair', color: '#ffcc00' };
+    return { label: 'Weak', color: '#ff9944' };
   };
 
   return (
@@ -175,8 +207,8 @@ export function CardIdentifier({
         )}
       </div>
 
-      {/* Status: OCR in progress */}
-      {status === 'ocr' && (
+      {/* Status: Identifying with pHash */}
+      {status === 'identifying' && (
         <div style={{ textAlign: 'center', padding: 24 }}>
           <div style={{
             width: 48,
@@ -188,7 +220,10 @@ export function CardIdentifier({
             animation: 'spin 1s linear infinite',
           }} />
           <div style={{ fontFamily: mono, fontSize: 12, color: '#888', marginBottom: 8 }}>
-            Reading card text...
+            {progress < 30 ? 'Detecting card...' :
+             progress < 50 ? 'Computing visual hash...' :
+             progress < 70 ? 'Searching database...' :
+             'Loading card data...'}
           </div>
           <div style={{
             width: '100%',
@@ -198,18 +233,19 @@ export function CardIdentifier({
             overflow: 'hidden',
           }}>
             <div style={{
-              width: `${ocrProgress}%`,
+              width: `${progress}%`,
               height: '100%',
               background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
               transition: 'width 0.3s',
             }} />
           </div>
           <div style={{ fontFamily: mono, fontSize: 10, color: '#555', marginTop: 4 }}>
-            {ocrProgress}%
+            {progress}%
           </div>
-          {/* Skip OCR button */}
+
+          {/* Skip button */}
           <button
-            onClick={() => setStatus('error')}
+            onClick={() => setStatus('manual')}
             style={{
               marginTop: 16,
               padding: '8px 16px',
@@ -227,160 +263,156 @@ export function CardIdentifier({
         </div>
       )}
 
-      {/* Status: Searching TCGDex */}
-      {status === 'searching' && (
-        <div style={{ textAlign: 'center', padding: 24 }}>
-          <div style={{
-            width: 48,
-            height: 48,
-            margin: '0 auto 16px',
-            border: '3px solid #1a1c22',
-            borderTopColor: '#00ff88',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-          }} />
-          <div style={{ fontFamily: mono, fontSize: 12, color: '#888' }}>
-            Searching card database...
-          </div>
-          {ocrResults && (
-            <div style={{ marginTop: 12, fontFamily: mono, fontSize: 10, color: '#555' }}>
-              Looking for: {ocrResults.name || '?'} #{ocrResults.localId || '?'}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Status: Show search results */}
+      {/* Status: Show pHash results */}
       {status === 'results' && (
         <div>
-          {/* OCR Results Summary */}
-          <div style={{
-            padding: 12,
-            background: '#0d0f13',
-            borderRadius: 8,
-            marginBottom: 12,
-          }}>
-            <div style={{ fontFamily: mono, fontSize: 9, color: '#666', marginBottom: 6 }}>
-              DETECTED TEXT
-            </div>
-            <div style={{ display: 'flex', gap: 16 }}>
-              <div>
-                <span style={{ fontFamily: mono, fontSize: 10, color: '#555' }}>Name: </span>
-                <span style={{ fontFamily: mono, fontSize: 11, color: '#00ff88' }}>
-                  {ocrResults?.name || 'N/A'}
-                </span>
+          {/* Match info header */}
+          {identifyResult && (
+            <div style={{
+              padding: 12,
+              background: '#0d0f13',
+              borderRadius: 8,
+              marginBottom: 12,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>
+                  VISUAL MATCH
+                </div>
+                {identifyResult.topMatch && (
+                  <div style={{
+                    padding: '3px 8px',
+                    background: `${getConfidenceColor(identifyResult.confidence)}22`,
+                    borderRadius: 4,
+                    fontFamily: mono,
+                    fontSize: 9,
+                    color: getConfidenceColor(identifyResult.confidence),
+                  }}>
+                    {identifyResult.confidence?.toUpperCase()} CONFIDENCE
+                  </div>
+                )}
               </div>
-              <div>
-                <span style={{ fontFamily: mono, fontSize: 10, color: '#555' }}>Number: </span>
-                <span style={{ fontFamily: mono, fontSize: 11, color: '#00ff88' }}>
-                  {ocrResults?.localId || 'N/A'}{ocrResults?.setTotal ? `/${ocrResults.setTotal}` : ''}
-                </span>
-              </div>
+              {identifyResult.topMatch && (
+                <div style={{ fontFamily: sans, fontSize: 13, color: '#fff', marginTop: 6 }}>
+                  Best match: <strong>{identifyResult.topMatch.name}</strong>
+                  {identifyResult.topMatch.variantCount > 1 && (
+                    <span style={{ color: '#888', fontSize: 11 }}>
+                      {' '}({identifyResult.topMatch.variantCount} versions)
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {/* Card Options */}
           <div style={{ fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 8 }}>
-            SELECT MATCHING CARD ({searchResults.length} found)
+            SELECT YOUR CARD ({searchResults.length} found)
           </div>
           <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-            {searchResults.map((card) => (
-              <button
-                key={card.id}
-                onClick={() => handleSelectCard(card)}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: 10,
-                  marginBottom: 8,
-                  background: '#0d0f13',
-                  border: '1px solid #1a1c22',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.2s',
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.borderColor = '#6366f1';
-                  e.currentTarget.style.background = '#111318';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.borderColor = '#1a1c22';
-                  e.currentTarget.style.background = '#0d0f13';
-                }}
-              >
-                {/* Card Thumbnail */}
-                <div style={{
-                  width: 45,
-                  height: 63,
-                  background: '#1a1c22',
-                  borderRadius: 4,
-                  overflow: 'hidden',
-                  flexShrink: 0,
-                }}>
-                  {card.image && (
-                    <img
-                      src={`${card.image}/low.webp`}
-                      alt={card.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  )}
-                </div>
+            {searchResults.map((card, idx) => {
+              const distInfo = card.distance != null ? getDistanceDisplay(card.distance) : null;
 
-                {/* Card Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+              return (
+                <button
+                  key={card.id || idx}
+                  onClick={() => handleSelectCard(card)}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: 10,
+                    marginBottom: 8,
+                    background: '#0d0f13',
+                    border: '1px solid #1a1c22',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.borderColor = '#6366f1';
+                    e.currentTarget.style.background = '#111318';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.borderColor = '#1a1c22';
+                    e.currentTarget.style.background = '#0d0f13';
+                  }}
+                >
+                  {/* Card Thumbnail */}
                   <div style={{
-                    fontFamily: sans,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: '#fff',
+                    width: 45,
+                    height: 63,
+                    background: '#1a1c22',
+                    borderRadius: 4,
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                   }}>
-                    {card.name}
+                    {card.image && (
+                      <img
+                        src={`${card.image}/low.webp`}
+                        alt={card.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    )}
                   </div>
-                  <div style={{
-                    fontFamily: mono,
-                    fontSize: 10,
-                    color: '#666',
-                    marginTop: 2,
-                  }}>
-                    {card.set?.name || 'Unknown Set'} #{card.localId}
-                  </div>
-                  {card.rarity && (
+
+                  {/* Card Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontFamily: sans,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#fff',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {card.name}
+                    </div>
                     <div style={{
                       fontFamily: mono,
-                      fontSize: 9,
-                      color: '#8b5cf6',
+                      fontSize: 10,
+                      color: '#666',
                       marginTop: 2,
                     }}>
-                      {card.rarity}
+                      {card.set?.name || card.set || 'Unknown Set'} #{card.localId || card.number}
+                    </div>
+                  </div>
+
+                  {/* Match indicator */}
+                  {distInfo ? (
+                    <div style={{
+                      padding: '4px 8px',
+                      background: `${distInfo.color}15`,
+                      borderRadius: 4,
+                      fontFamily: mono,
+                      fontSize: 9,
+                      color: distInfo.color,
+                    }}>
+                      {distInfo.label}
+                    </div>
+                  ) : card.matchScore != null && (
+                    <div style={{
+                      padding: '4px 8px',
+                      background: card.matchScore > 80 ? 'rgba(0,255,136,0.1)' : 'rgba(255,153,68,0.1)',
+                      borderRadius: 4,
+                      fontFamily: mono,
+                      fontSize: 9,
+                      color: card.matchScore > 80 ? '#00ff88' : '#ff9944',
+                    }}>
+                      {card.matchScore}%
                     </div>
                   )}
-                </div>
-
-                {/* Match Score */}
-                <div style={{
-                  padding: '4px 8px',
-                  background: card.matchScore > 80 ? 'rgba(0,255,136,0.1)' : 'rgba(255,153,68,0.1)',
-                  borderRadius: 4,
-                  fontFamily: mono,
-                  fontSize: 9,
-                  color: card.matchScore > 80 ? '#00ff88' : '#ff9944',
-                }}>
-                  {card.matchScore}%
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Manual Entry Option */}
+          {/* Not found option */}
           <button
-            onClick={() => onCardIdentified(null)} // Signal to use manual entry
+            onClick={() => setStatus('manual')}
             style={{
               width: '100%',
               padding: 10,
@@ -394,7 +426,7 @@ export function CardIdentifier({
               cursor: 'pointer',
             }}
           >
-            Not listed? Enter manually
+            Not in list? Search by name
           </button>
         </div>
       )}
@@ -422,8 +454,8 @@ export function CardIdentifier({
         </div>
       )}
 
-      {/* Manual search - primary input method */}
-      {status === 'error' && (
+      {/* Manual search (fallback) */}
+      {status === 'manual' && (
         <div style={{ padding: 16 }}>
           {/* Header */}
           <div style={{
@@ -437,6 +469,38 @@ export function CardIdentifier({
               Find Your Card
             </span>
           </div>
+
+          {/* Hash DB missing notice */}
+          {hashDbMissing && (
+            <div style={{
+              padding: 10,
+              marginBottom: 12,
+              background: 'rgba(255,153,68,0.1)',
+              border: '1px solid rgba(255,153,68,0.2)',
+              borderRadius: 8,
+              fontFamily: mono,
+              fontSize: 10,
+              color: '#ff9944',
+            }}>
+              Visual matching unavailable - using name search
+            </div>
+          )}
+
+          {/* Error display */}
+          {error && !hashDbMissing && (
+            <div style={{
+              padding: 10,
+              marginBottom: 12,
+              background: 'rgba(255,102,102,0.1)',
+              border: '1px solid rgba(255,102,102,0.2)',
+              borderRadius: 8,
+              fontFamily: mono,
+              fontSize: 10,
+              color: '#ff6666',
+            }}>
+              {error}
+            </div>
+          )}
 
           {/* Search form */}
           <div style={{ fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 8 }}>
@@ -480,6 +544,27 @@ export function CardIdentifier({
               {manualSearching ? '...' : 'Search'}
             </button>
           </div>
+
+          {/* Retry pHash button (if not hash DB missing) */}
+          {!hashDbMissing && (
+            <button
+              onClick={handleRetry}
+              style={{
+                width: '100%',
+                padding: 10,
+                marginBottom: 8,
+                background: '#0d0f13',
+                border: '1px solid #2a2d35',
+                borderRadius: 8,
+                color: '#888',
+                fontFamily: mono,
+                fontSize: 10,
+                cursor: 'pointer',
+              }}
+            >
+              Retry visual matching
+            </button>
+          )}
 
           {/* Skip option */}
           <button
