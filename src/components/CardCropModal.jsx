@@ -15,12 +15,14 @@ export function CardCropModal({
   onCancel,        // Cancel callback
   cardName,        // Card name for display
 }) {
-  const canvasRef = useRef(null);
   const svgRef = useRef(null);
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const [corners, setCorners] = useState(null);
   const dragging = useRef(null);
   const dragOffset = useRef({ x: 0, y: 0 });
+  const cornersRef = useRef(corners);
+
+  useEffect(() => { cornersRef.current = corners; }, [corners]);
 
   // Load image and initialize corners
   useEffect(() => {
@@ -44,32 +46,24 @@ export function CardCropModal({
     img.src = image;
   }, [image]);
 
+  // Same coordinate calculation as working CornerHandles
   const getCoords = (e) => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
-
-    // Use SVG's coordinate transformation to handle preserveAspectRatio properly
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX;
-    pt.y = e.clientY;
-
-    // Transform from screen coordinates to SVG viewBox coordinates
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return { x: 0, y: 0 };
-
-    const svgPt = pt.matrixTransform(ctm.inverse());
+    const rect = svg.getBoundingClientRect();
     return {
-      x: Math.round(svgPt.x),
-      y: Math.round(svgPt.y),
+      x: Math.round((e.clientX - rect.left) / rect.width * imgSize.w),
+      y: Math.round((e.clientY - rect.top) / rect.height * imgSize.h),
     };
   };
 
   const getCornerPosition = (which) => {
-    if (!corners) return { x: 0, y: 0 };
-    if (which === 'tl') return corners.tl;
-    if (which === 'tr') return corners.tr;
-    if (which === 'bl') return corners.bl;
-    if (which === 'br') return corners.br;
+    const c = cornersRef.current;
+    if (!c) return { x: 0, y: 0 };
+    if (which === 'tl') return c.tl;
+    if (which === 'tr') return c.tr;
+    if (which === 'bl') return c.bl;
+    if (which === 'br') return c.br;
     return { x: 0, y: 0 };
   };
 
@@ -94,23 +88,23 @@ export function CardCropModal({
 
       if (which === 'tl') {
         newCorners.tl = {
-          x: Math.max(0, Math.min(adjustedX, p.tr.x - minGap, p.bl.x - minGap)),
-          y: Math.max(0, Math.min(adjustedY, p.bl.y - minGap, p.tr.y - minGap))
+          x: Math.max(0, Math.min(adjustedX, p.tr.x - minGap)),
+          y: Math.max(0, Math.min(adjustedY, p.bl.y - minGap))
         };
       } else if (which === 'tr') {
         newCorners.tr = {
-          x: Math.min(imgSize.w, Math.max(adjustedX, p.tl.x + minGap, p.br.x + minGap)),
-          y: Math.max(0, Math.min(adjustedY, p.br.y - minGap, p.tl.y - minGap))
+          x: Math.min(imgSize.w, Math.max(adjustedX, p.tl.x + minGap)),
+          y: Math.max(0, Math.min(adjustedY, p.br.y - minGap))
         };
       } else if (which === 'bl') {
         newCorners.bl = {
-          x: Math.max(0, Math.min(adjustedX, p.br.x - minGap, p.tl.x - minGap)),
-          y: Math.min(imgSize.h, Math.max(adjustedY, p.tl.y + minGap, p.br.y + minGap))
+          x: Math.max(0, Math.min(adjustedX, p.br.x - minGap)),
+          y: Math.min(imgSize.h, Math.max(adjustedY, p.tl.y + minGap))
         };
       } else if (which === 'br') {
         newCorners.br = {
-          x: Math.min(imgSize.w, Math.max(adjustedX, p.bl.x + minGap, p.tr.x + minGap)),
-          y: Math.min(imgSize.h, Math.max(adjustedY, p.tr.y + minGap, p.bl.y + minGap))
+          x: Math.min(imgSize.w, Math.max(adjustedX, p.bl.x + minGap)),
+          y: Math.min(imgSize.h, Math.max(adjustedY, p.tr.y + minGap))
         };
       }
 
@@ -123,7 +117,6 @@ export function CardCropModal({
 
     const img = new Image();
     img.onload = () => {
-      // Calculate bounding box
       const minX = Math.min(corners.tl.x, corners.bl.x);
       const maxX = Math.max(corners.tr.x, corners.br.x);
       const minY = Math.min(corners.tl.y, corners.tr.y);
@@ -132,29 +125,16 @@ export function CardCropModal({
       const cropW = maxX - minX;
       const cropH = maxY - minY;
 
-      // Standard card aspect ratio is ~2.5:3.5
-      const targetRatio = 2.5 / 3.5;
-      let finalW = cropW;
-      let finalH = cropH;
-
-      // Adjust to card aspect ratio
-      if (cropW / cropH > targetRatio) {
-        finalW = cropH * targetRatio;
-      } else {
-        finalH = cropW / targetRatio;
-      }
-
       // Create canvas and crop
       const canvas = document.createElement('canvas');
-      canvas.width = Math.round(finalW);
-      canvas.height = Math.round(finalH);
+      canvas.width = Math.round(cropW);
+      canvas.height = Math.round(cropH);
       const ctx = canvas.getContext('2d');
 
-      // Draw cropped region
       ctx.drawImage(
         img,
         minX, minY, cropW, cropH,
-        0, 0, finalW, finalH
+        0, 0, cropW, cropH
       );
 
       const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.9);
@@ -163,11 +143,11 @@ export function CardCropModal({
     img.src = image;
   };
 
-  if (!image || !corners) return null;
+  if (!image || !corners || imgSize.w === 0) return null;
 
-  const handleSize = 28;
-  const handleOffset = handleSize * 1.2;
-  const lw = 2;
+  const handleSize = 36;
+  const handleOffset = handleSize * 1.5;
+  const lw = 3;
 
   const handles = [
     { x: corners.tl.x - handleOffset, y: corners.tl.y - handleOffset, which: 'tl', label: '↘' },
@@ -199,7 +179,7 @@ export function CardCropModal({
           ⚠️ NO IMAGE IN DATABASE
         </div>
         <div style={{ fontFamily: mono, fontSize: 10, color: '#888' }}>
-          Adjust corners to crop your photo for collection
+          Drag corners to crop your photo for collection
         </div>
         {cardName && (
           <div style={{ fontFamily: mono, fontSize: 12, color: '#fff', marginTop: 4 }}>
@@ -208,107 +188,114 @@ export function CardCropModal({
         )}
       </div>
 
-      {/* Image with corner handles - use SVG image for proper alignment */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${imgSize.w} ${imgSize.h}`}
-          preserveAspectRatio="xMidYMid meet"
-          style={{
-            maxWidth: '100%',
-            maxHeight: '100%',
-            width: 'auto',
-            height: 'auto',
-          }}
-        >
-          {/* Image as SVG background */}
-          <image
-            href={image}
-            x="0"
-            y="0"
-            width={imgSize.w}
-            height={imgSize.h}
+      {/* Image with corner handles - SAME STRUCTURE AS CENTERING TAB */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', lineHeight: 0, maxWidth: '100%', maxHeight: '100%' }}>
+          {/* Image sets the container size */}
+          <img
+            src={image}
+            alt="Card"
+            style={{
+              maxWidth: '100%',
+              maxHeight: 'calc(100vh - 200px)',
+              display: 'block'
+            }}
           />
-          {/* Darkened overlay outside crop area */}
-          <defs>
-            <mask id="cropMask">
-              <rect x="0" y="0" width={imgSize.w} height={imgSize.h} fill="white" />
-              <polygon
-                points={`${corners.tl.x},${corners.tl.y} ${corners.tr.x},${corners.tr.y} ${corners.br.x},${corners.br.y} ${corners.bl.x},${corners.bl.y}`}
-                fill="black"
-              />
-            </mask>
-          </defs>
-          <rect
-            x="0" y="0"
-            width={imgSize.w} height={imgSize.h}
-            fill="rgba(0,0,0,0.6)"
-            mask="url(#cropMask)"
-          />
+          {/* SVG positioned absolutely over image */}
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${imgSize.w} ${imgSize.h}`}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              overflow: 'visible',
+              touchAction: 'none',
+            }}
+          >
+            {/* Darkened overlay outside crop area */}
+            <defs>
+              <mask id="cropMask">
+                <rect x="0" y="0" width={imgSize.w} height={imgSize.h} fill="white" />
+                <polygon
+                  points={`${corners.tl.x},${corners.tl.y} ${corners.tr.x},${corners.tr.y} ${corners.br.x},${corners.br.y} ${corners.bl.x},${corners.bl.y}`}
+                  fill="black"
+                />
+              </mask>
+            </defs>
+            <rect
+              x="0" y="0"
+              width={imgSize.w} height={imgSize.h}
+              fill="rgba(0,0,0,0.6)"
+              mask="url(#cropMask)"
+            />
 
-          {/* Crop boundary */}
-          <polygon
-            points={`${corners.tl.x},${corners.tl.y} ${corners.tr.x},${corners.tr.y} ${corners.br.x},${corners.br.y} ${corners.bl.x},${corners.bl.y}`}
-            fill="none"
-            stroke="#ff9800"
-            strokeWidth={lw}
-          />
+            {/* Crop boundary */}
+            <polygon
+              points={`${corners.tl.x},${corners.tl.y} ${corners.tr.x},${corners.tr.y} ${corners.br.x},${corners.br.y} ${corners.bl.x},${corners.bl.y}`}
+              fill="none"
+              stroke="#ff9800"
+              strokeWidth={lw}
+            />
 
-          {/* Corner handles */}
-          {handles.map(({ x, y, which, label }) => (
-            <g
-              key={which}
-              style={{ cursor: 'move', touchAction: 'none' }}
-              onPointerDown={e => {
-                e.stopPropagation();
-                e.currentTarget.setPointerCapture(e.pointerId);
-                startDrag(which, e);
-              }}
-              onPointerMove={e => {
-                if (dragging.current === which) {
-                  e.preventDefault();
-                  const { x: newX, y: newY } = getCoords(e);
-                  moveCorner(which, newX, newY);
-                }
-              }}
-              onPointerUp={() => {
-                dragging.current = null;
-                dragOffset.current = { x: 0, y: 0 };
-              }}
-            >
-              {/* Large touch target */}
-              <rect
-                x={x - handleSize - 30}
-                y={y - handleSize - 30}
-                width={handleSize * 2 + 60}
-                height={handleSize * 2 + 60}
-                fill="transparent"
-              />
-              {/* Handle circle */}
-              <circle
-                cx={x}
-                cy={y}
-                r={handleSize / 2}
-                fill="#111"
-                stroke="#ff9800"
-                strokeWidth={2}
-              />
-              {/* Arrow */}
-              <text
-                x={x}
-                y={y}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill="#ff9800"
-                fontSize={handleSize * 0.55}
-                fontWeight="bold"
-                style={{ pointerEvents: 'none' }}
+            {/* Corner handles */}
+            {handles.map(({ x, y, which, label }) => (
+              <g
+                key={which}
+                style={{ cursor: 'move', touchAction: 'none' }}
+                onPointerDown={e => {
+                  e.stopPropagation();
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  startDrag(which, e);
+                }}
+                onPointerMove={e => {
+                  if (dragging.current === which) {
+                    e.preventDefault();
+                    const { x: newX, y: newY } = getCoords(e);
+                    moveCorner(which, newX, newY);
+                  }
+                }}
+                onPointerUp={() => {
+                  dragging.current = null;
+                  dragOffset.current = { x: 0, y: 0 };
+                }}
               >
-                {label}
-              </text>
-            </g>
-          ))}
-        </svg>
+                {/* Large touch target */}
+                <rect
+                  x={x - handleSize - 30}
+                  y={y - handleSize - 30}
+                  width={handleSize * 2 + 60}
+                  height={handleSize * 2 + 60}
+                  fill="transparent"
+                />
+                {/* Handle circle */}
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={handleSize / 2}
+                  fill="#111"
+                  stroke="#ff9800"
+                  strokeWidth={3}
+                />
+                {/* Arrow */}
+                <text
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fill="#ff9800"
+                  fontSize={handleSize * 0.5}
+                  fontWeight="bold"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {label}
+                </text>
+              </g>
+            ))}
+          </svg>
+        </div>
       </div>
 
       {/* Action buttons */}
