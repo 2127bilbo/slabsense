@@ -1691,19 +1691,19 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
   const handleOffset = handleSize * 0.8;
 
   // [x, y, which, isOuter, isHoriz, arrowDir]
-  // Orange (outer) handles: INSIDE the orange boundary (arrows point outward)
-  // Green (inner) handles: OUTSIDE the green boundary (arrows point inward)
+  // Orange (outer) handles: OUTSIDE the orange boundary, arrows point IN toward center
+  // Green (inner) handles: INSIDE the green boundary, arrows point OUT away from center
   const handles = [
-    // Outer handles - positioned INSIDE orange boundary
-    [(outer.left+outer.right)/2, outer.top + handleOffset,      'OT', true,  true,  '↑'],
-    [(outer.left+outer.right)/2, outer.bottom - handleOffset,   'OB', true,  true,  '↓'],
-    [outer.left + handleOffset,  (outer.top+outer.bottom)/2,    'OL', true,  false, '←'],
-    [outer.right - handleOffset, (outer.top+outer.bottom)/2,    'OR', true,  false, '→'],
-    // Inner handles - positioned OUTSIDE green boundary
-    [(inner.left+inner.right)/2, inner.top - handleOffset,      'IT', false, true,  '↓'],
-    [(inner.left+inner.right)/2, inner.bottom + handleOffset,   'IB', false, true,  '↑'],
-    [inner.left - handleOffset,  (inner.top+inner.bottom)/2,    'IL', false, false, '→'],
-    [inner.right + handleOffset, (inner.top+inner.bottom)/2,    'IR', false, false, '←'],
+    // Outer handles - positioned OUTSIDE orange boundary, arrows point inward
+    [(outer.left+outer.right)/2, outer.top - handleOffset,      'OT', true,  true,  '↓'],
+    [(outer.left+outer.right)/2, outer.bottom + handleOffset,   'OB', true,  true,  '↑'],
+    [outer.left - handleOffset,  (outer.top+outer.bottom)/2,    'OL', true,  false, '→'],
+    [outer.right + handleOffset, (outer.top+outer.bottom)/2,    'OR', true,  false, '←'],
+    // Inner handles - positioned INSIDE green boundary, arrows point outward
+    [(inner.left+inner.right)/2, inner.top + handleOffset,      'IT', false, true,  '↑'],
+    [(inner.left+inner.right)/2, inner.bottom - handleOffset,   'IB', false, true,  '↓'],
+    [inner.left + handleOffset,  (inner.top+inner.bottom)/2,    'IL', false, false, '←'],
+    [inner.right - handleOffset, (inner.top+inner.bottom)/2,    'IR', false, false, '→'],
   ];
 
   return (
@@ -1832,12 +1832,12 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
         <div style={{display:'flex',alignItems:'center',gap:4}}>
           <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#ff9944" strokeWidth={2}/></svg>
           <span style={{fontFamily:mono,fontSize:9,color:'#ff9944'}}>Card edge</span>
-          <span style={{fontFamily:mono,fontSize:8,color:'#555'}}>(inside)</span>
+          <span style={{fontFamily:mono,fontSize:8,color:'#555'}}>(outside→in)</span>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:4}}>
           <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#00ff88" strokeWidth={2}/></svg>
           <span style={{fontFamily:mono,fontSize:9,color:'#00ff88'}}>Artwork</span>
-          <span style={{fontFamily:mono,fontSize:8,color:'#555'}}>(outside)</span>
+          <span style={{fontFamily:mono,fontSize:8,color:'#555'}}>(inside→out)</span>
         </div>
       </div>
       {/* Step 2 label */}
