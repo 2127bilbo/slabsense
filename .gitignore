@@ -22,3 +22,8 @@ src/App1.jsx
 # Large generated files
 public/card-images/
 docs/my slab/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

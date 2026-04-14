@@ -2527,8 +2527,8 @@ export default function SlabSense(){
   // Collection stats (for home dashboard)
   const [collectionStats, setCollectionStats] = useState({ totalCards: 0, totalValue: 0, avgGrade: 0 });
 
-  // Load collection stats when authenticated
-  useEffect(() => {
+  // Function to refresh collection stats (called on load and after changes)
+  const refreshCollectionStats = useCallback(() => {
     if (auth.isAuthenticated && auth.user?.id) {
       import('./services/scans.js').then(({ getUserScans }) => {
         getUserScans(auth.user.id, { limit: 100 }).then(scans => {
@@ -2559,6 +2559,11 @@ export default function SlabSense(){
       });
     }
   }, [auth.isAuthenticated, auth.user?.id]);
+
+  // Load collection stats when authenticated
+  useEffect(() => {
+    refreshCollectionStats();
+  }, [refreshCollectionStats]);
 
   // Load user's preferred grading company when profile loads
   useEffect(() => {
@@ -2725,10 +2730,11 @@ export default function SlabSense(){
       // Store TCGDex data
       setTcgdexData(cardData);
       setTcgdexImage(cardData.imageHigh);
-      // Set card info from TCGDex (if not already set by AI)
-      if (!cardInfo) {
-        setCardInfo(cardData.cardInfo);
-      }
+      // Set card info from TCGDex - merge to preserve existing data but add pricing
+      setCardInfo(prev => prev
+        ? { ...prev, ...cardData.cardInfo } // Merge: TCGDex data (with pricing) overrides
+        : cardData.cardInfo
+      );
       console.log('Card identified:', cardData.name, '- Image:', cardData.imageHigh);
     }
   };
@@ -2795,9 +2801,9 @@ export default function SlabSense(){
       const result = await claudeGradingAnalysis(fI, bI, 'pokemon');
 
       if (result.success) {
-        // Card info from OCR
+        // Card info from OCR - merge with existing cardInfo to preserve TCGDex pricing
         if (result.cardInfo) {
-          setCardInfo(result.cardInfo);
+          setCardInfo(prev => prev ? { ...prev, ...result.cardInfo, pricing: prev.pricing } : result.cardInfo);
         }
 
         // Condition assessment
@@ -2961,6 +2967,7 @@ export default function SlabSense(){
       <CollectionView
         userId={auth.user?.id}
         onClose={() => setShowCollection(false)}
+        onCollectionChange={refreshCollectionStats}
       />
     )}
     {/* Export Modal */}
@@ -3843,6 +3850,7 @@ export default function SlabSense(){
           userId={auth.user?.id}
           onClose={()=>setTab("scan")}
           isInline={true}
+          onCollectionChange={refreshCollectionStats}
         />
       </div>
     )}

@@ -53,7 +53,7 @@ function formatPrice(price, currency = 'usd') {
   return `€${price.eur?.toFixed(2) || '—'}`;
 }
 
-export function CollectionView({ userId, onClose, isInline = false }) {
+export function CollectionView({ userId, onClose, isInline = false, onCollectionChange }) {
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -91,6 +91,8 @@ export function CollectionView({ userId, onClose, isInline = false }) {
       if (currentIndex >= scans.length - 1) {
         setCurrentIndex(Math.max(0, scans.length - 2));
       }
+      // Notify parent to refresh collection stats
+      if (onCollectionChange) onCollectionChange();
     } catch (err) {
       console.error('Delete failed:', err);
     }

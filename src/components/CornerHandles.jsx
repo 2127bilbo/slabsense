@@ -126,22 +126,25 @@ export function CornerHandles({
   const handleSize = Math.max(32, Math.min(cW, cH) * 0.04);
   const lw = Math.max(2, cW * 0.004);
   const pad = 50; // Touch target padding
+  const handleOffset = handleSize * 1.2; // Offset handles away from corners so lines are visible
 
   // Get sample points for visualization
   const samplePoints = getSamplePoints(outerCorners, innerCorners);
 
   // Define all 8 corner handles
+  // Outer handles: positioned OUTSIDE boundary, arrows point IN toward center
+  // Inner handles: positioned INSIDE boundary, arrows point OUT away from center
   const handles = [
-    // Outer corners (cyan)
-    { x: outerCorners.tl.x, y: outerCorners.tl.y, which: 'O_TL', isOuter: true, label: '↖' },
-    { x: outerCorners.tr.x, y: outerCorners.tr.y, which: 'O_TR', isOuter: true, label: '↗' },
-    { x: outerCorners.bl.x, y: outerCorners.bl.y, which: 'O_BL', isOuter: true, label: '↙' },
-    { x: outerCorners.br.x, y: outerCorners.br.y, which: 'O_BR', isOuter: true, label: '↘' },
-    // Inner corners (magenta)
-    { x: innerCorners.tl.x, y: innerCorners.tl.y, which: 'I_TL', isOuter: false, label: '↘' },
-    { x: innerCorners.tr.x, y: innerCorners.tr.y, which: 'I_TR', isOuter: false, label: '↙' },
-    { x: innerCorners.bl.x, y: innerCorners.bl.y, which: 'I_BL', isOuter: false, label: '↗' },
-    { x: innerCorners.br.x, y: innerCorners.br.y, which: 'I_BR', isOuter: false, label: '↖' },
+    // Outer corners (cyan) - offset outward, arrows point inward
+    { x: outerCorners.tl.x - handleOffset, y: outerCorners.tl.y - handleOffset, which: 'O_TL', isOuter: true, label: '↘' },
+    { x: outerCorners.tr.x + handleOffset, y: outerCorners.tr.y - handleOffset, which: 'O_TR', isOuter: true, label: '↙' },
+    { x: outerCorners.bl.x - handleOffset, y: outerCorners.bl.y + handleOffset, which: 'O_BL', isOuter: true, label: '↗' },
+    { x: outerCorners.br.x + handleOffset, y: outerCorners.br.y + handleOffset, which: 'O_BR', isOuter: true, label: '↖' },
+    // Inner corners (magenta) - offset inward, arrows point outward
+    { x: innerCorners.tl.x + handleOffset, y: innerCorners.tl.y + handleOffset, which: 'I_TL', isOuter: false, label: '↖' },
+    { x: innerCorners.tr.x - handleOffset, y: innerCorners.tr.y + handleOffset, which: 'I_TR', isOuter: false, label: '↗' },
+    { x: innerCorners.bl.x + handleOffset, y: innerCorners.bl.y - handleOffset, which: 'I_BL', isOuter: false, label: '↙' },
+    { x: innerCorners.br.x - handleOffset, y: innerCorners.br.y - handleOffset, which: 'I_BR', isOuter: false, label: '↘' },
   ];
 
   return (
