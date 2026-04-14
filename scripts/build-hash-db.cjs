@@ -5,10 +5,11 @@
  * and outputs to public/card-hashes.json
  *
  * Usage:
- *   node scripts/build-hash-db.js              # Build hash DB only
- *   node scripts/build-hash-db.js --resume     # Resume from checkpoint
- *   node scripts/build-hash-db.js --save-images  # Also save all card images
- *   node scripts/build-hash-db.js --images-only  # Only download images (skip hashing)
+ *   node scripts/build-hash-db.cjs                 # Build hash DB only
+ *   node scripts/build-hash-db.cjs --resume        # Resume from checkpoint
+ *   node scripts/build-hash-db.cjs --save-images   # Also save all card images
+ *   node scripts/build-hash-db.cjs --images-only   # Only download images (skip hashing)
+ *   node scripts/build-hash-db.cjs --update        # Incremental update (new cards only)
  *
  * Requirements:
  *   npm install canvas  (for image processing in Node.js)
@@ -17,7 +18,9 @@
  *   public/card-hashes.json (~400KB gzipped)
  *   public/card-images/{set}/{number}.png (if --save-images, ~5-10GB total)
  *
- * Runtime: 1-3 hours for full catalog (~20k cards)
+ * Runtime:
+ *   Full build: 4-6 hours (~23k cards)
+ *   Update: 5-15 minutes (new set ~150-300 cards)
  *
  * Future uses for saved images:
  *   - Train custom ML model on Replicate
@@ -50,6 +53,7 @@ const CHECKPOINT_INTERVAL = 100;
 const SAVE_IMAGES = process.argv.includes('--save-images');
 const IMAGES_ONLY = process.argv.includes('--images-only');
 const RESUME_MODE = process.argv.includes('--resume');
+const UPDATE_MODE = process.argv.includes('--update');
 
 // ============================================
 // pHash Implementation (Node.js version)
@@ -265,7 +269,9 @@ async function buildHashDatabase() {
   console.log('='.repeat(50));
 
   // Show mode
-  if (IMAGES_ONLY) {
+  if (UPDATE_MODE) {
+    console.log('MODE: Incremental update (new cards only)');
+  } else if (IMAGES_ONLY) {
     console.log('MODE: Download images only (no hashing)');
   } else if (SAVE_IMAGES) {
     console.log('MODE: Build hash DB + save images');
@@ -279,8 +285,34 @@ async function buildHashDatabase() {
     checkpoint = loadCheckpoint();
   }
 
+  // Load existing database for update mode
+  let existingHashes = [];
+  let existingIds = new Set();
+  if (UPDATE_MODE && fs.existsSync(OUTPUT_FILE)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(OUTPUT_FILE, 'utf8'));
+      existingHashes = existing.cards || [];
+      existingIds = new Set(existingHashes.map(c => c.id));
+      console.log(`Loaded existing DB: ${existingHashes.length} cards`);
+    } catch (e) {
+      console.log('Could not load existing DB, will do full build');
+    }
+  }
+
   // Fetch all cards
-  const allCards = await fetchAllCards();
+  let allCards = await fetchAllCards();
+
+  // Filter to new cards only in update mode
+  if (UPDATE_MODE && existingIds.size > 0) {
+    const beforeCount = allCards.length;
+    allCards = allCards.filter(c => !existingIds.has(c.id));
+    console.log(`Filtered: ${beforeCount} total → ${allCards.length} new cards to process`);
+
+    if (allCards.length === 0) {
+      console.log('\nNo new cards found. Database is up to date!');
+      return;
+    }
+  }
 
   // Skip already processed cards
   const startIndex = checkpoint.processed;
@@ -363,11 +395,14 @@ async function buildHashDatabase() {
   // Build and write hash DB (unless images-only mode)
   let sizeKB = 0;
   if (!IMAGES_ONLY) {
+    // Merge with existing hashes in update mode
+    const finalHashes = UPDATE_MODE ? [...existingHashes, ...hashes] : hashes;
+
     const output = {
       generated: new Date().toISOString().split('T')[0],
       version: 1,
-      count: hashes.length,
-      cards: hashes,
+      count: finalHashes.length,
+      cards: finalHashes,
     };
 
     // Ensure output directory exists
@@ -385,10 +420,15 @@ async function buildHashDatabase() {
   }
 
   console.log('\n' + '='.repeat(50));
-  console.log('BUILD COMPLETE');
+  console.log(UPDATE_MODE ? 'UPDATE COMPLETE' : 'BUILD COMPLETE');
   console.log('='.repeat(50));
   if (!IMAGES_ONLY) {
-    console.log(`Total cards hashed: ${hashes.length}`);
+    if (UPDATE_MODE) {
+      console.log(`New cards added: ${hashes.length}`);
+      console.log(`Total cards in DB: ${existingHashes.length + hashes.length}`);
+    } else {
+      console.log(`Total cards hashed: ${hashes.length}`);
+    }
     console.log(`Output: ${OUTPUT_FILE}`);
     console.log(`Size: ${sizeKB} KB`);
   }

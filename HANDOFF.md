@@ -1,7 +1,7 @@
 # SlabSense Development Handoff
 
-**Date:** April 12, 2026
-**Status:** Active Development - Card Identification In Progress
+**Date:** April 13, 2026
+**Status:** Active Development - Card Pricing Added
 
 ---
 
@@ -39,6 +39,14 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 - ✅ Falls back to original images if SAM fails
 - ✅ 3D rotating slab view with realistic render
 
+### Card Pricing (NEW)
+- ✅ **TCGDex Cardmarket pricing** integrated (EUR → USD conversion)
+- ✅ **Home screen** shows total collection value
+- ✅ **Collection view** header shows total value + card count
+- ✅ **Card stack** badges show individual card prices
+- ✅ **Card detail modal** displays full price info with market source
+- ✅ **Grade tab** shows card value after grading
+
 ### Collection View
 - ✅ Card stack visual with swipe navigation
 - ✅ **Shows actual card images** from TCGDex (not text placeholders)
@@ -47,6 +55,7 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 - ✅ Company tabs to switch grade display (PSA/BGS/SGC/CGC/TAG)
 - ✅ Shows centering, condition, subgrades, summary
 - ✅ Saves AI data with card (grades, condition, summary, centering)
+- ✅ **Card values** shown on cards and in total
 
 ### Centering Tab
 - ✅ Two-step alignment flow inside ManualBoundaryEditor:
@@ -229,35 +238,38 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS tcgdex_id TEXT;
 6. ✅ Card identification (pHash + TCGDex) - UPGRADED from OCR
 7. ✅ TCGDex search fix (server-side filtering)
 8. ✅ pHash visual matching pipeline
+9. ✅ **Card pricing** - TCGDex Cardmarket values on home/collection/grade
+10. ✅ **Incremental hash updates** - `--update` flag for new sets only
 
 ### Beta Phase (Current)
-9. ⚠️ **Build hash database** - IN PROGRESS (downloading 23k card images)
-10. [ ] Test pHash matching with various card types
-11. [ ] Fine-tune SlabSense slab positioning
-12. [ ] Deploy database schema updates
-13. [ ] Test full flow end-to-end
-14. [ ] Bug fixes and polish
+11. ⚠️ **Build hash database** - IN PROGRESS (downloading 23k card images)
+12. [ ] Test pHash matching with various card types
+13. [ ] Fine-tune SlabSense slab positioning
+14. [ ] Deploy database schema updates
+15. [ ] Test full flow end-to-end
+16. [ ] Bug fixes and polish
 
 ### Launch Phase
-15. [ ] Stripe payments for Pro tier
-16. [ ] Production deployment
-17. [ ] Privacy policy & Terms of Service
-18. [ ] Landing page / marketing site
+17. [ ] Stripe payments for Pro tier
+18. [ ] Production deployment
+19. [ ] Privacy policy & Terms of Service
+20. [ ] Landing page / marketing site
+21. [ ] **Automated hash DB updates** - Serverless job to sync new TCGDex cards
 
 ### Post-Launch / Mobile App
-19. [ ] **Mobile app decision: Capacitor vs React Native**
+22. [ ] **Mobile app decision: Capacitor vs React Native**
    - Capacitor: Wrap existing code, faster launch
    - React Native: Better native feel, more work
-20. [ ] Apple Developer Account ($99/year)
-21. [ ] iOS app build and submission
-22. [ ] TestFlight beta testing
-23. [ ] App Store launch
-24. [ ] Google Play (Android) - same codebase
+23. [ ] Apple Developer Account ($99/year)
+24. [ ] iOS app build and submission
+25. [ ] TestFlight beta testing
+26. [ ] App Store launch
+27. [ ] Google Play (Android) - same codebase
 
 ### Future Enhancements
-25. [ ] Custom ML model for card recognition (using saved images)
-26. [ ] Sports cards support (baseball, basketball, etc.)
-27. [ ] Price tracking integration
+28. [ ] Custom ML model for card recognition (using saved images)
+29. [ ] Sports cards support (baseball, basketball, etc.)
+30. [ ] Price tracking history & trends
 28. [ ] Social features (share collections)
 29. [ ] Bulk grading mode
 
@@ -282,6 +294,9 @@ npm run dev
 
 # Build hash database (required for pHash):
 node scripts/build-hash-db.cjs --save-images
+
+# Update hash database (new sets only, ~5-15 min):
+node scripts/build-hash-db.cjs --update --save-images
 
 # Deploy to Vercel
 vercel --prod

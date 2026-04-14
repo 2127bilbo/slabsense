@@ -18,6 +18,41 @@ const GRADING_COMPANIES = {
   tag: { name: 'TAG', color: '#8b5cf6' },
 };
 
+// EUR to USD conversion rate (approximate)
+const EUR_TO_USD = 1.08;
+
+/**
+ * Get card price from scan data
+ * Uses TCGDex Cardmarket pricing (EUR converted to USD)
+ */
+function getCardPrice(scan) {
+  // Check card_info first (from TCGDex)
+  const pricing = scan.card_info?.pricing;
+  if (pricing) {
+    // Prefer trend price, then avg, then low
+    const eurPrice = pricing.trend || pricing.avg || pricing.low || null;
+    if (eurPrice) {
+      return {
+        eur: eurPrice,
+        usd: Math.round(eurPrice * EUR_TO_USD * 100) / 100,
+        source: 'cardmarket',
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Format price for display
+ */
+function formatPrice(price, currency = 'usd') {
+  if (!price) return null;
+  if (currency === 'usd') {
+    return `$${price.usd?.toFixed(2) || '—'}`;
+  }
+  return `€${price.eur?.toFixed(2) || '—'}`;
+}
+
 export function CollectionView({ userId, onClose, isInline = false }) {
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -142,6 +177,29 @@ export function CollectionView({ userId, onClose, isInline = false }) {
     if (scan.enhanced_front_path) return scan.enhanced_front_path;
     return null;
   };
+
+  // Calculate total collection value
+  const getTotalCollectionValue = () => {
+    let totalEur = 0;
+    let cardsWithPrice = 0;
+
+    scans.forEach(scan => {
+      const price = getCardPrice(scan);
+      if (price?.eur) {
+        totalEur += price.eur;
+        cardsWithPrice++;
+      }
+    });
+
+    return {
+      eur: Math.round(totalEur * 100) / 100,
+      usd: Math.round(totalEur * EUR_TO_USD * 100) / 100,
+      cardsWithPrice,
+      totalCards: scans.length,
+    };
+  };
+
+  const collectionValue = scans.length > 0 ? getTotalCollectionValue() : null;
 
   // Card stack rendering - shows actual card images with grade overlay
   const renderCardStack = () => {
@@ -276,23 +334,48 @@ export function CollectionView({ userId, onClose, isInline = false }) {
                 </div>
               </div>
 
-              {/* AI Badge - top left */}
-              {grade.isAi && (
-                <div style={{
-                  position: 'absolute',
-                  top: 8,
-                  left: 8,
-                  padding: '3px 6px',
-                  background: 'rgba(139,92,246,0.9)',
-                  borderRadius: 4,
-                  fontFamily: mono,
-                  fontSize: 7,
-                  fontWeight: 600,
-                  color: '#fff',
-                }}>
-                  AI
-                </div>
-              )}
+              {/* Top left badges */}
+              <div style={{
+                position: 'absolute',
+                top: 8,
+                left: 8,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+              }}>
+                {/* AI Badge */}
+                {grade.isAi && (
+                  <div style={{
+                    padding: '3px 6px',
+                    background: 'rgba(139,92,246,0.9)',
+                    borderRadius: 4,
+                    fontFamily: mono,
+                    fontSize: 7,
+                    fontWeight: 600,
+                    color: '#fff',
+                  }}>
+                    AI
+                  </div>
+                )}
+                {/* Price Badge */}
+                {(() => {
+                  const price = getCardPrice(scan);
+                  if (!price) return null;
+                  return (
+                    <div style={{
+                      padding: '3px 6px',
+                      background: 'rgba(0,255,136,0.9)',
+                      borderRadius: 4,
+                      fontFamily: mono,
+                      fontSize: 7,
+                      fontWeight: 600,
+                      color: '#000',
+                    }}>
+                      ${price.usd.toFixed(0)}
+                    </div>
+                  );
+                })()}
+              </div>
 
               {/* Tap hint on top card */}
               {isTop && (
@@ -763,6 +846,63 @@ export function CollectionView({ userId, onClose, isInline = false }) {
             </div>
           )}
 
+          {/* Card Value */}
+          {(() => {
+            const price = getCardPrice(selectedCard);
+            if (!price) return null;
+            return (
+              <div style={{
+                padding: 14,
+                background: 'rgba(0,255,136,0.05)',
+                borderRadius: 10,
+                border: '1px solid rgba(0,255,136,0.15)',
+                marginBottom: 16,
+              }}>
+                <div style={{
+                  fontFamily: mono,
+                  fontSize: 10,
+                  color: '#00ff88',
+                  marginBottom: 10,
+                }}>
+                  MARKET VALUE
+                </div>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                  <div>
+                    <div style={{
+                      fontFamily: mono,
+                      fontSize: 28,
+                      fontWeight: 800,
+                      color: '#00ff88',
+                    }}>
+                      ${price.usd.toFixed(2)}
+                    </div>
+                    <div style={{
+                      fontFamily: mono,
+                      fontSize: 11,
+                      color: '#00ff8866',
+                      marginTop: 2,
+                    }}>
+                      €{price.eur.toFixed(2)} EUR
+                    </div>
+                  </div>
+                  <div style={{
+                    textAlign: 'right',
+                    fontFamily: mono,
+                    fontSize: 9,
+                    color: '#555',
+                  }}>
+                    <div>via Cardmarket</div>
+                    <div style={{ color: '#444', marginTop: 2 }}>Raw card price</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Card Info */}
           <div style={{
             padding: 14,
@@ -903,6 +1043,22 @@ export function CollectionView({ userId, onClose, isInline = false }) {
               </div>
             </div>
           </div>
+          {/* Collection Value */}
+          {collectionValue && collectionValue.usd > 0 && (
+            <div style={{
+              padding: '6px 12px',
+              background: 'rgba(0,255,136,0.1)',
+              borderRadius: 8,
+              border: '1px solid rgba(0,255,136,0.2)',
+            }}>
+              <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: '#00ff88' }}>
+                ${collectionValue.usd.toFixed(2)}
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 8, color: '#00ff8866' }}>
+                {collectionValue.cardsWithPrice}/{collectionValue.totalCards} priced
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -911,13 +1067,35 @@ export function CollectionView({ userId, onClose, isInline = false }) {
         <div style={{
           padding: '12px 16px',
           borderBottom: '1px solid #1a1c22',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
         }}>
-          <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 600, color: '#fff' }}>
-            My Collection
+          <div>
+            <div style={{ fontFamily: sans, fontSize: 16, fontWeight: 600, color: '#fff' }}>
+              My Collection
+            </div>
+            <div style={{ fontFamily: mono, fontSize: 10, color: '#555', marginTop: 2 }}>
+              {scans.length} {scans.length === 1 ? 'card' : 'cards'}
+            </div>
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: '#555', marginTop: 2 }}>
-            {scans.length} {scans.length === 1 ? 'card' : 'cards'}
-          </div>
+          {/* Collection Value */}
+          {collectionValue && collectionValue.usd > 0 && (
+            <div style={{
+              padding: '6px 12px',
+              background: 'rgba(0,255,136,0.1)',
+              borderRadius: 8,
+              border: '1px solid rgba(0,255,136,0.2)',
+              textAlign: 'right',
+            }}>
+              <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: '#00ff88' }}>
+                ${collectionValue.usd.toFixed(2)}
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 8, color: '#00ff8866' }}>
+                {collectionValue.cardsWithPrice}/{collectionValue.totalCards} priced
+              </div>
+            </div>
+          )}
         </div>
       )}
 

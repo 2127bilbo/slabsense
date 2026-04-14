@@ -1071,23 +1071,11 @@ function SubScoreBar({label,score,icon}){const g=getGrade(score),pct=Math.min(10
    HOME TAB - Portfolio & Dashboard
    ═══════════════════════════════════════════ */
 function HomeTab({ auth, onOpenCollection, onStartScan, collectionStats }) {
-  const isPro = auth?.isPro;
-
-  // Mock data for portfolio (will be replaced with real data)
-  const mockPortfolio = {
-    totalValue: 2847.50,
-    changePercent: 12.3,
-    cardCount: collectionStats?.count || 0,
-    avgGrade: 8.7,
-    topCards: [
-      { name: "Charizard VMAX", grade: 9.5, value: 450 },
-      { name: "Pikachu VMAX", grade: 10, value: 320 },
-      { name: "Umbreon V Alt Art", grade: 9, value: 280 },
-    ],
-    recentActivity: [
-      { action: "Graded", card: "Mew VMAX", grade: 9, time: "2 hours ago" },
-      { action: "Graded", card: "Rayquaza V", grade: 8.5, time: "1 day ago" },
-    ]
+  // Real data from collection (passed from parent)
+  const portfolio = {
+    totalValue: collectionStats?.totalValue || 0,
+    cardCount: collectionStats?.totalCards || 0,
+    avgGrade: collectionStats?.avgGrade || 0,
   };
 
   return (
@@ -1130,34 +1118,27 @@ function HomeTab({ auth, onOpenCollection, onStartScan, collectionStats }) {
         Grade a Card
       </button>
 
-      {/* Portfolio Summary - Pro Only */}
+      {/* Portfolio Summary */}
       {auth?.isAuthenticated && (
         <div style={{
           padding:16,
-          background:"#0d0f13",
+          background: portfolio.totalValue > 0 ? "rgba(0,255,136,0.05)" : "#0d0f13",
           borderRadius:12,
-          border:"1px solid #1a1c22",
+          border: portfolio.totalValue > 0 ? "1px solid rgba(0,255,136,0.15)" : "1px solid #1a1c22",
           marginBottom:16,
         }}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <span style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".1em"}}>Portfolio Value</span>
-            {!isPro && <span style={{fontFamily:mono,fontSize:8,color:"#6366f1",background:"rgba(99,102,241,.1)",padding:"2px 6px",borderRadius:4}}>PRO</span>}
+            <span style={{fontFamily:mono,fontSize:10,color: portfolio.totalValue > 0 ? "#00ff88" : "#888",textTransform:"uppercase",letterSpacing:".1em"}}>Collection Value</span>
           </div>
 
-          {isPro ? (
-            <>
-              <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:4}}>
-                <span style={{fontSize:28,fontWeight:800,color:"#fff"}}>${mockPortfolio.totalValue.toLocaleString()}</span>
-                <span style={{fontFamily:mono,fontSize:12,color:"#00ff88"}}>+{mockPortfolio.changePercent}%</span>
-              </div>
-              <div style={{fontFamily:mono,fontSize:10,color:"#555"}}>Based on recent eBay sales</div>
-            </>
-          ) : (
-            <div style={{padding:"12px 0"}}>
-              <div style={{fontSize:24,fontWeight:800,color:"#333",filter:"blur(6px)",userSelect:"none"}}>$2,847.50</div>
-              <div style={{fontFamily:sans,fontSize:11,color:"#666",marginTop:8}}>Upgrade to Pro to see portfolio value</div>
-            </div>
-          )}
+          <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:4}}>
+            <span style={{fontSize:32,fontWeight:800,color:portfolio.totalValue > 0 ? "#00ff88" : "#555"}}>
+              ${portfolio.totalValue > 0 ? portfolio.totalValue.toFixed(2) : '0.00'}
+            </span>
+          </div>
+          <div style={{fontFamily:mono,fontSize:10,color:"#555"}}>
+            {portfolio.totalValue > 0 ? 'Raw card values via Cardmarket' : 'Add cards with pricing to see value'}
+          </div>
         </div>
       )}
 
@@ -1166,66 +1147,40 @@ function HomeTab({ auth, onOpenCollection, onStartScan, collectionStats }) {
         <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12,marginBottom:16}}>
           <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
             <div style={{fontFamily:mono,fontSize:9,color:"#888",textTransform:"uppercase",marginBottom:6}}>Cards Graded</div>
-            <div style={{fontSize:24,fontWeight:700,color:"#fff"}}>{mockPortfolio.cardCount}</div>
+            <div style={{fontSize:24,fontWeight:700,color:"#fff"}}>{portfolio.cardCount}</div>
           </div>
           <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
             <div style={{fontFamily:mono,fontSize:9,color:"#888",textTransform:"uppercase",marginBottom:6}}>Avg Grade</div>
-            <div style={{fontSize:24,fontWeight:700,color:"#00ff88"}}>{mockPortfolio.avgGrade}</div>
+            <div style={{fontSize:24,fontWeight:700,color:portfolio.avgGrade >= 8 ? "#00ff88" : portfolio.avgGrade >= 6 ? "#ffcc00" : "#ff6633"}}>
+              {portfolio.avgGrade > 0 ? portfolio.avgGrade.toFixed(1) : '—'}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Top Cards - Pro Only */}
-      {auth?.isAuthenticated && isPro && (
-        <div style={{
-          padding:16,
-          background:"#0d0f13",
-          borderRadius:12,
-          border:"1px solid #1a1c22",
-          marginBottom:16,
-        }}>
-          <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}}>Top Cards by Value</div>
-          {mockPortfolio.topCards.map((card, i) => (
-            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderTop:i>0?"1px solid #1a1c22":"none"}}>
-              <div>
-                <div style={{fontSize:13,color:"#ddd"}}>{card.name}</div>
-                <div style={{fontFamily:mono,fontSize:10,color:"#00ff88"}}>Grade {card.grade}</div>
-              </div>
-              <div style={{fontFamily:mono,fontSize:14,fontWeight:600,color:"#fff"}}>${card.value}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Recent Activity */}
-      {auth?.isAuthenticated && (
-        <div style={{
-          padding:16,
-          background:"#0d0f13",
-          borderRadius:12,
-          border:"1px solid #1a1c22",
-          marginBottom:16,
-        }}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <span style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".1em"}}>Recent Activity</span>
-            <button onClick={onOpenCollection} style={{fontFamily:mono,fontSize:9,color:"#6366f1",background:"transparent",border:"none",cursor:"pointer"}}>View All →</button>
-          </div>
-          {mockPortfolio.recentActivity.length > 0 ? (
-            mockPortfolio.recentActivity.map((item, i) => (
-              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderTop:i>0?"1px solid #1a1c22":"none"}}>
-                <div>
-                  <div style={{fontSize:12,color:"#ddd"}}>{item.card}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666"}}>{item.action} • Grade {item.grade}</div>
-                </div>
-                <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>{item.time}</div>
-              </div>
-            ))
-          ) : (
-            <div style={{textAlign:"center",padding:"20px 0",color:"#555",fontSize:12}}>
-              No cards graded yet. Start scanning!
-            </div>
-          )}
-        </div>
+      {/* View Collection Button */}
+      {auth?.isAuthenticated && portfolio.cardCount > 0 && (
+        <button
+          onClick={onOpenCollection}
+          style={{
+            width:"100%",
+            padding:"14px 20px",
+            marginBottom:16,
+            borderRadius:10,
+            border:"1px solid #1a1c22",
+            background:"#0d0f13",
+            color:"#888",
+            fontFamily:mono,
+            fontSize:12,
+            cursor:"pointer",
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"space-between",
+          }}
+        >
+          <span>View Collection</span>
+          <span style={{color:"#555"}}>{portfolio.cardCount} cards →</span>
+        </button>
       )}
 
       {/* Not Signed In */}
@@ -1653,7 +1608,10 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
 
   const [outer, setOuter] = useState(initOuter);
   const [inner, setInner] = useState(initInner);
-  const [rotation, setRotation] = useState(0); // Rotation in degrees
+  const [rotation, setRotation] = useState(0); // Z-axis rotation in degrees
+  const [tiltX, setTiltX] = useState(0); // X-axis tilt (pitch - forward/back)
+  const [tiltY, setTiltY] = useState(0); // Y-axis tilt (roll - left/right)
+  const [activeAxis, setActiveAxis] = useState('Z'); // Which axis the rotation controls affect
   const [applying, setApplying] = useState(false);
   const [saved, setSaved] = useState(false);
   const svgRef = useRef(null);
@@ -1724,24 +1682,28 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
     setInner(autoInner);
   };
 
-  // Handle pill dimensions
-  const pH = Math.max(52, cH*0.055), pW = Math.max(140, cW*0.22);
-  const pHv = Math.max(52, cW*0.055), pWv = Math.max(140, cH*0.22);
-  const lw = Math.max(3, cW*0.005);
-  const pad = 50;
-  // Outer handles pushed OUTSIDE the card rect so they never overlap inner handles
-  const outerOffset = Math.max(pH*0.6, cH*0.04);
+  // Handle dimensions - small squares
+  const handleSize = Math.max(28, Math.min(cW, cH) * 0.035);
+  const lw = Math.max(3, cW * 0.005);
+  const pad = 40; // Touch target padding
 
-  // [x, y, which, isOuter, isHoriz]
+  // Offset for handle placement
+  const handleOffset = handleSize * 0.8;
+
+  // [x, y, which, isOuter, isHoriz, arrowDir]
+  // Orange (outer) handles: INSIDE the orange boundary (arrows point outward)
+  // Green (inner) handles: OUTSIDE the green boundary (arrows point inward)
   const handles = [
-    [(outer.left+outer.right)/2, outer.top - outerOffset,    'OT', true,  true],
-    [(outer.left+outer.right)/2, outer.bottom + outerOffset,  'OB', true,  true],
-    [outer.left - outerOffset,   (outer.top+outer.bottom)/2,  'OL', true,  false],
-    [outer.right + outerOffset,  (outer.top+outer.bottom)/2,  'OR', true,  false],
-    [(inner.left+inner.right)/2, inner.top,    'IT', false, true],
-    [(inner.left+inner.right)/2, inner.bottom,  'IB', false, true],
-    [inner.left,  (inner.top+inner.bottom)/2,   'IL', false, false],
-    [inner.right, (inner.top+inner.bottom)/2,   'IR', false, false],
+    // Outer handles - positioned INSIDE orange boundary
+    [(outer.left+outer.right)/2, outer.top + handleOffset,      'OT', true,  true,  '↑'],
+    [(outer.left+outer.right)/2, outer.bottom - handleOffset,   'OB', true,  true,  '↓'],
+    [outer.left + handleOffset,  (outer.top+outer.bottom)/2,    'OL', true,  false, '←'],
+    [outer.right - handleOffset, (outer.top+outer.bottom)/2,    'OR', true,  false, '→'],
+    // Inner handles - positioned OUTSIDE green boundary
+    [(inner.left+inner.right)/2, inner.top - handleOffset,      'IT', false, true,  '↓'],
+    [(inner.left+inner.right)/2, inner.bottom + handleOffset,   'IB', false, true,  '↑'],
+    [inner.left - handleOffset,  (inner.top+inner.bottom)/2,    'IL', false, false, '→'],
+    [inner.right + handleOffset, (inner.top+inner.bottom)/2,    'IR', false, false, '←'],
   ];
 
   return (
@@ -1749,39 +1711,103 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
       {/* Header */}
       <div style={{padding:'10px 12px',borderBottom:'1px solid #1a1c22',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <span style={{fontFamily:mono,fontSize:11,color:'#ff9944',textTransform:'uppercase',letterSpacing:'.06em'}}>Manual Adjust — {side}</span>
-        <button onClick={()=>{handleReset();setRotation(0);}} style={{fontFamily:mono,fontSize:9,color:'#555',background:'transparent',border:'1px solid #333',borderRadius:4,padding:'3px 8px',cursor:'pointer'}}>Reset All</button>
+        <button onClick={()=>{handleReset();setRotation(0);setTiltX(0);setTiltY(0);}} style={{fontFamily:mono,fontSize:9,color:'#555',background:'transparent',border:'1px solid #333',borderRadius:4,padding:'3px 8px',cursor:'pointer'}}>Reset All</button>
       </div>
 
-      {/* Rotation Controls */}
+      {/* Rotation & Tilt Controls */}
       <div style={{padding:'10px 12px',background:'rgba(0,0,0,.3)',borderBottom:'1px solid #1a1c22'}}>
-        <div style={{fontFamily:mono,fontSize:9,color:'#666',marginBottom:8,textTransform:'uppercase'}}>Step 1: Straighten Card</div>
+        <div style={{fontFamily:mono,fontSize:9,color:'#666',marginBottom:8,textTransform:'uppercase'}}>Step 1: Straighten & Correct Perspective</div>
+
+        {/* Axis Selector */}
+        <div style={{display:'flex',justifyContent:'center',gap:4,marginBottom:10}}>
+          {[
+            { id: 'X', label: 'Pitch', desc: '↕ tilt', color: '#ff6b6b' },
+            { id: 'Y', label: 'Roll', desc: '↔ tilt', color: '#4ecdc4' },
+            { id: 'Z', label: 'Rotate', desc: '↻ spin', color: '#ff9944' },
+          ].map(axis => (
+            <button
+              key={axis.id}
+              onClick={() => setActiveAxis(axis.id)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 6,
+                border: `1px solid ${activeAxis === axis.id ? axis.color : '#2a2d35'}`,
+                background: activeAxis === axis.id ? `${axis.color}22` : '#1a1c22',
+                color: activeAxis === axis.id ? axis.color : '#555',
+                fontFamily: mono,
+                fontSize: 10,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+                minWidth: 60,
+              }}
+            >
+              <span>{axis.label}</span>
+              <span style={{ fontSize: 8, opacity: 0.7 }}>{axis.desc}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Adjustment Controls */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
           {/* Coarse left -1° */}
-          <button onClick={()=>setRotation(r=>Math.round((r-1)*100)/100)}
+          <button onClick={() => {
+            if (activeAxis === 'X') setTiltX(v => Math.round((v - 1) * 100) / 100);
+            else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 1) * 100) / 100);
+            else setRotation(r => Math.round((r - 1) * 100) / 100);
+          }}
             style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#888',fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
             ‹‹
           </button>
           {/* Fine left -0.05° */}
-          <button onClick={()=>setRotation(r=>Math.round((r-0.05)*100)/100)}
+          <button onClick={() => {
+            if (activeAxis === 'X') setTiltX(v => Math.round((v - 0.05) * 100) / 100);
+            else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 0.05) * 100) / 100);
+            else setRotation(r => Math.round((r - 0.05) * 100) / 100);
+          }}
             style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#555',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
             ‹
           </button>
-          {/* Current rotation */}
+          {/* Current value display */}
           <div style={{minWidth:70,textAlign:'center',padding:'6px 10px',background:'#0a0b0e',borderRadius:6}}>
-            <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:rotation===0?'#00ff88':'#ff9944'}}>{rotation.toFixed(2)}°</div>
+            <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:
+              activeAxis === 'X' ? (tiltX === 0 ? '#00ff88' : '#ff6b6b') :
+              activeAxis === 'Y' ? (tiltY === 0 ? '#00ff88' : '#4ecdc4') :
+              (rotation === 0 ? '#00ff88' : '#ff9944')
+            }}>
+              {activeAxis === 'X' ? tiltX.toFixed(2) : activeAxis === 'Y' ? tiltY.toFixed(2) : rotation.toFixed(2)}°
+            </div>
           </div>
           {/* Fine right +0.05° */}
-          <button onClick={()=>setRotation(r=>Math.round((r+0.05)*100)/100)}
+          <button onClick={() => {
+            if (activeAxis === 'X') setTiltX(v => Math.round((v + 0.05) * 100) / 100);
+            else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 0.05) * 100) / 100);
+            else setRotation(r => Math.round((r + 0.05) * 100) / 100);
+          }}
             style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#555',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
             ›
           </button>
           {/* Coarse right +1° */}
-          <button onClick={()=>setRotation(r=>Math.round((r+1)*100)/100)}
+          <button onClick={() => {
+            if (activeAxis === 'X') setTiltX(v => Math.round((v + 1) * 100) / 100);
+            else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 1) * 100) / 100);
+            else setRotation(r => Math.round((r + 1) * 100) / 100);
+          }}
             style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#888',fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
             ››
           </button>
         </div>
-        <div style={{textAlign:'center',fontFamily:mono,fontSize:8,color:'#444',marginTop:6}}>‹‹/›› = 1° · ‹/› = 0.05°</div>
+
+        {/* All axes summary */}
+        <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:8}}>
+          <span style={{fontFamily:mono,fontSize:9,color:tiltX===0?'#444':'#ff6b6b'}}>X:{tiltX}°</span>
+          <span style={{fontFamily:mono,fontSize:9,color:tiltY===0?'#444':'#4ecdc4'}}>Y:{tiltY}°</span>
+          <span style={{fontFamily:mono,fontSize:9,color:rotation===0?'#444':'#ff9944'}}>Z:{rotation}°</span>
+        </div>
+        <div style={{textAlign:'center',fontFamily:mono,fontSize:8,color:'#444',marginTop:4}}>‹‹/›› = 1° · ‹/› = 0.05°</div>
       </div>
 
       {/* Live centering readout */}
@@ -1802,16 +1828,17 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
         </div>
       </div>
       {/* Legend */}
-      <div style={{padding:'6px 12px',display:'flex',gap:16,borderBottom:'1px solid #0d0f13'}}>
-        <div style={{display:'flex',alignItems:'center',gap:5}}>
-          <svg width={22} height={8}><line x1={0} y1={4} x2={22} y2={4} stroke="#ff9944" strokeWidth={2}/></svg>
-          <span style={{fontFamily:mono,fontSize:9,color:'#666'}}>Card edge</span>
+      <div style={{padding:'6px 12px',display:'flex',gap:12,borderBottom:'1px solid #0d0f13',flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#ff9944" strokeWidth={2}/></svg>
+          <span style={{fontFamily:mono,fontSize:9,color:'#ff9944'}}>Card edge</span>
+          <span style={{fontFamily:mono,fontSize:8,color:'#555'}}>(inside)</span>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:5}}>
-          <svg width={22} height={8}><line x1={0} y1={4} x2={22} y2={4} stroke="#00ff88" strokeWidth={2} strokeDasharray="4,3"/></svg>
-          <span style={{fontFamily:mono,fontSize:9,color:'#666'}}>Artwork border</span>
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#00ff88" strokeWidth={2}/></svg>
+          <span style={{fontFamily:mono,fontSize:9,color:'#00ff88'}}>Artwork</span>
+          <span style={{fontFamily:mono,fontSize:8,color:'#555'}}>(outside)</span>
         </div>
-        <span style={{fontFamily:mono,fontSize:9,color:'#444',marginLeft:'auto'}}>Drag handles</span>
       </div>
       {/* Step 2 label */}
       <div style={{padding:'8px 12px',background:'rgba(0,0,0,.2)',borderBottom:'1px solid #0d0f13'}}>
@@ -1822,7 +1849,7 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
       <div style={{position:'relative',lineHeight:0,touchAction:'none',overflow:'hidden'}}
            onTouchMove={e=>{if(dragging.current)e.preventDefault();}}
            onTouchStart={e=>{if(dragging.current)e.preventDefault();}}>
-        <img src={image} style={{width:'100%',display:'block',transform:`rotate(${rotation}deg)`,transformOrigin:'center center',transition:'transform 0.15s ease'}} draggable={false}/>
+        <img src={image} style={{width:'100%',display:'block',transform:`perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${rotation}deg)`,transformOrigin:'center center',transition:'transform 0.15s ease'}} draggable={false}/>
         {/* Crosshair overlay for alignment */}
         <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
           <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'rgba(0,255,136,0.2)'}}/>
@@ -1844,36 +1871,27 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
           <rect x={inner.left} y={inner.top} width={inner.right-inner.left} height={inner.bottom-inner.top}
             fill="none" stroke="#00ff88" strokeWidth={Math.max(2,lw*0.8)}
             strokeDasharray={`${cW*0.025},${cW*0.012}`} opacity={0.8}/>
-          {/* Connector lines from outer handles to card rect edge — makes it clear what they control */}
-          <line x1={(outer.left+outer.right)/2} y1={outer.top} x2={(outer.left+outer.right)/2} y2={outer.top-outerOffset+pH/2} stroke="#ff994466" strokeWidth={lw*0.6} strokeDasharray="8,6"/>
-          <line x1={(outer.left+outer.right)/2} y1={outer.bottom} x2={(outer.left+outer.right)/2} y2={outer.bottom+outerOffset-pH/2} stroke="#ff994466" strokeWidth={lw*0.6} strokeDasharray="8,6"/>
-          <line x1={outer.left} y1={(outer.top+outer.bottom)/2} x2={outer.left-outerOffset+pHv/2} y2={(outer.top+outer.bottom)/2} stroke="#ff994466" strokeWidth={lw*0.6} strokeDasharray="8,6"/>
-          <line x1={outer.right} y1={(outer.top+outer.bottom)/2} x2={outer.right+outerOffset-pHv/2} y2={(outer.top+outer.bottom)/2} stroke="#ff994466" strokeWidth={lw*0.6} strokeDasharray="8,6"/>
-          {/* 8 drag handles */}
-          {handles.map(([hx,hy,which,isOuter,isHoriz])=>{
+          {/* 8 drag handles - small squares with directional arrows */}
+          {handles.map(([hx, hy, which, isOuter, isHoriz, arrow]) => {
             const color = isOuter ? '#ff9944' : '#00ff88';
-            const hw = isHoriz ? pW : pWv, hh = isHoriz ? pH : pHv;
-            const hr = Math.min(hw,hh)/2;
-            const lineLen = isHoriz ? hw*0.28 : hh*0.28;
+            const bgColor = '#111';
+            const sz = handleSize;
+            const fontSize = sz * 0.6;
             return (
-              <g key={which} style={{cursor:isHoriz?'ns-resize':'ew-resize',touchAction:'none'}}
-                 onPointerDown={e=>{e.stopPropagation();e.currentTarget.setPointerCapture(e.pointerId);dragging.current=which;}}
-                 onPointerMove={e=>{if(dragging.current===which){e.preventDefault();const{x,y}=getCoords(e);moveHandle(which,x,y);}}}
-                 onPointerUp={()=>{dragging.current=null;}}>
+              <g key={which} style={{cursor: isHoriz ? 'ns-resize' : 'ew-resize', touchAction: 'none'}}
+                 onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; }}
+                 onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const {x, y} = getCoords(e); moveHandle(which, x, y); }}}
+                 onPointerUp={() => { dragging.current = null; }}>
                 {/* Invisible large touch target */}
-                <rect x={hx-hw/2-pad} y={hy-hh/2-pad} width={hw+pad*2} height={hh+pad*2} fill="transparent"/>
-                {/* Pill body */}
-                <rect x={hx-hw/2} y={hy-hh/2} width={hw} height={hh} rx={hr}
-                  fill={`${color}15`} stroke={color} strokeWidth={Math.max(2,lw*0.8)}/>
-                {/* Three-line icon */}
-                {[-0.32,0,0.32].map((o,i)=>(
-                  <line key={i}
-                    x1={isHoriz ? hx-lineLen : hx+o*hh*0.32}
-                    y1={isHoriz ? hy+o*hh*0.32 : hy-lineLen}
-                    x2={isHoriz ? hx+lineLen : hx+o*hh*0.32}
-                    y2={isHoriz ? hy+o*hh*0.32 : hy+lineLen}
-                    stroke={color} strokeWidth={Math.max(2,lw*0.7)} strokeLinecap="round"/>
-                ))}
+                <rect x={hx - sz/2 - pad} y={hy - sz/2 - pad} width={sz + pad*2} height={sz + pad*2} fill="transparent"/>
+                {/* Square body with colored border */}
+                <rect x={hx - sz/2} y={hy - sz/2} width={sz} height={sz} rx={4}
+                  fill={bgColor} stroke={color} strokeWidth={Math.max(2, lw * 0.6)}/>
+                {/* Arrow indicator */}
+                <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central"
+                  fill={color} fontSize={fontSize} fontWeight="bold" style={{pointerEvents: 'none'}}>
+                  {arrow}
+                </text>
               </g>
             );
           })}
@@ -2330,6 +2348,42 @@ export default function SlabSense(){
 
   // Auth hook
   const auth = useAuth();
+
+  // Collection stats (for home dashboard)
+  const [collectionStats, setCollectionStats] = useState({ totalCards: 0, totalValue: 0, avgGrade: 0 });
+
+  // Load collection stats when authenticated
+  useEffect(() => {
+    if (auth.isAuthenticated && auth.user?.id) {
+      import('./services/scans.js').then(({ getUserScans }) => {
+        getUserScans(auth.user.id, { limit: 100 }).then(scans => {
+          let totalValue = 0;
+          let gradeSum = 0;
+          let gradeCount = 0;
+
+          scans.forEach(scan => {
+            // Sum up values from card_info.pricing
+            const pricing = scan.card_info?.pricing;
+            const eurPrice = pricing?.trend || pricing?.avg || pricing?.low || 0;
+            if (eurPrice) totalValue += eurPrice * 1.08; // Convert EUR to USD
+
+            // Calculate avg grade (from ai_grades or software grade)
+            const grade = scan.ai_grades?.tag?.score || scan.raw_score || 0;
+            if (grade > 0) {
+              gradeSum += grade / 100; // Convert 1000-point to 10-point
+              gradeCount++;
+            }
+          });
+
+          setCollectionStats({
+            totalCards: scans.length,
+            totalValue: Math.round(totalValue * 100) / 100,
+            avgGrade: gradeCount > 0 ? Math.round(gradeSum / gradeCount * 10) / 10 : 0,
+          });
+        }).catch(console.error);
+      });
+    }
+  }, [auth.isAuthenticated, auth.user?.id]);
 
   // Load user's preferred grading company when profile loads
   useEffect(() => {
@@ -2983,6 +3037,19 @@ export default function SlabSense(){
             {cardInfo?.rarity && (
               <div style={{fontFamily:mono,fontSize:10,color:"#fbbf24",marginTop:4}}>{cardInfo.rarity}</div>
             )}
+            {/* Card Value from TCGDex */}
+            {(tcgdexData?.pricing || cardInfo?.pricing) && (() => {
+              const pricing = tcgdexData?.pricing || cardInfo?.pricing;
+              const eurPrice = pricing?.trend || pricing?.avg || pricing?.low || null;
+              if (!eurPrice) return null;
+              const usdPrice = Math.round(eurPrice * 1.08 * 100) / 100;
+              return (
+                <div style={{marginTop:8,padding:"6px 12px",background:"rgba(0,255,136,0.1)",borderRadius:6,display:"inline-block"}}>
+                  <span style={{fontFamily:mono,fontSize:14,fontWeight:700,color:"#00ff88"}}>${usdPrice.toFixed(2)}</span>
+                  <span style={{fontFamily:mono,fontSize:10,color:"#00ff8866",marginLeft:6}}>raw value</span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* AI/Software Grade Toggle */}
@@ -3589,7 +3656,7 @@ export default function SlabSense(){
         auth={auth}
         onOpenCollection={()=>setTab("cards")}
         onStartScan={()=>setTab("scan")}
-        collectionStats={{totalCards:0,avgGrade:0}}
+        collectionStats={collectionStats}
       />
     )}
 
