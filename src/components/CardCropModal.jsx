@@ -198,28 +198,27 @@ export function CardCropModal({
         )}
       </div>
 
-      {/* Image with corner handles */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        <img
-          src={image}
-          alt="Card"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-          }}
-        />
-
+      {/* Image with corner handles - use SVG image for proper alignment */}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${imgSize.w} ${imgSize.h}`}
+          preserveAspectRatio="xMidYMid meet"
           style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
+            maxWidth: '100%',
+            maxHeight: '100%',
+            width: 'auto',
+            height: 'auto',
           }}
         >
+          {/* Image as SVG background */}
+          <image
+            href={image}
+            x="0"
+            y="0"
+            width={imgSize.w}
+            height={imgSize.h}
+          />
           {/* Darkened overlay outside crop area */}
           <defs>
             <mask id="cropMask">
