@@ -6,7 +6,7 @@ import { UserMenu } from "./components/Auth/UserMenu.jsx";
 import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
-import { saveScan, logMissingImage, uploadUserCardImage } from "./services/scans.js";
+import { saveScan, logMissingImage } from "./services/scans.js";
 import { CardCropModal } from "./components/CardCropModal.jsx";
 import { checkBackendHealth, analyzeCardWithBackend, analyzeCardWithVision, claudeGradingAnalysis } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
@@ -2821,23 +2821,19 @@ export default function SlabSense(){
     setSavingStatus('saving');
 
     try {
-      // First save the scan to get an ID
+      // Include cropped image directly in save data
       const saveData = pendingSaveData || buildSaveData();
-      const savedScan = await saveScan(auth.user.id, saveData);
+      saveData.userCardImage = croppedDataUrl; // Store as data URL directly
 
-      // Upload the cropped image
-      if (croppedDataUrl && savedScan?.id) {
-        const imageUrl = await uploadUserCardImage(auth.user.id, savedScan.id, croppedDataUrl);
-        if (imageUrl) {
-          // Update scan with user card image
-          const { updateScan } = await import('./services/scans.js');
-          await updateScan(savedScan.id, { user_card_image: imageUrl });
-        }
-      }
+      console.log('[CropComplete] Saving with user card image:', croppedDataUrl?.substring(0, 50) + '...');
+      await saveScan(auth.user.id, saveData);
 
       setSavingStatus('saved');
       setPendingSaveData(null);
       setTimeout(() => setSavingStatus(null), 2000);
+
+      // Refresh collection stats to show updated card
+      if (refreshCollectionStats) refreshCollectionStats();
     } catch (err) {
       console.error('Error saving scan with crop:', err);
       setSavingStatus('error');
