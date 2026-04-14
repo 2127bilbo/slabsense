@@ -3038,8 +3038,9 @@ export default function SlabSense(){
               <div style={{fontFamily:mono,fontSize:10,color:"#fbbf24",marginTop:4}}>{cardInfo.rarity}</div>
             )}
             {/* Card Value from TCGDex */}
-            {(tcgdexData?.pricing || cardInfo?.pricing) && (() => {
-              const pricing = tcgdexData?.pricing || cardInfo?.pricing;
+            {(tcgdexData?.pricing?.cardmarket || cardInfo?.pricing) && (() => {
+              // tcgdexData has nested cardmarket, cardInfo.pricing is already flattened
+              const pricing = tcgdexData?.pricing?.cardmarket || cardInfo?.pricing;
               const eurPrice = pricing?.trend || pricing?.avg || pricing?.low || null;
               if (!eurPrice) return null;
               const usdPrice = Math.round(eurPrice * 1.08 * 100) / 100;

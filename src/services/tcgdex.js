@@ -273,14 +273,14 @@ export async function getFullCardData(cardId) {
         year: extractYearFromSet(card.set?.id),
         rarity: card.rarity,
         hp: card.hp,
-        // Cardmarket pricing (EUR)
-        pricing: card.pricing ? {
-          avg: card.pricing.averageSellPrice || card.pricing.avg || null,
-          low: card.pricing.lowPrice || card.pricing.low || null,
-          trend: card.pricing.trendPrice || card.pricing.trend || null,
-          avg1: card.pricing.avg1 || null,
-          avg7: card.pricing.avg7 || null,
-          avg30: card.pricing.avg30 || null,
+        // Cardmarket pricing (EUR) - nested under pricing.cardmarket
+        pricing: card.pricing?.cardmarket ? {
+          avg: card.pricing.cardmarket.avg || null,
+          low: card.pricing.cardmarket.low || null,
+          trend: card.pricing.cardmarket.trend || null,
+          avg1: card.pricing.cardmarket.avg1 || null,
+          avg7: card.pricing.cardmarket.avg7 || null,
+          avg30: card.pricing.cardmarket.avg30 || null,
         } : null,
       },
     };
