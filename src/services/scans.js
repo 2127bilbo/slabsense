@@ -87,6 +87,7 @@ export async function saveScan(userId, scanData) {
       card_info: scanData.cardInfo || null,        // { name, hp, cardNumber, setName, rarity, year, variant, language }
       tcgdex_image: scanData.tcgdexImage || null,  // High-quality card image URL from TCGDex
       tcgdex_id: scanData.tcgdexId || null,        // TCGDex card ID for future lookups
+      user_card_image: scanData.userCardImage || null, // User-cropped image when TCGDex has none
     })
     .select()
     .single();
@@ -255,4 +256,87 @@ export async function searchScans(userId, searchTerm) {
 
   if (error) throw error;
   return data || [];
+}
+
+/**
+ * Log a missing TCGDex image for later resolution
+ * This helps us track cards that need images added to our database
+ */
+export async function logMissingImage(tcgdexId, cardName, setName, cardNumber) {
+  if (!isSupabaseConfigured()) {
+    console.log('[MissingImage] Would log:', { tcgdexId, cardName, setName, cardNumber });
+    return;
+  }
+
+  try {
+    // Check if already logged
+    const { data: existing } = await supabase
+      .from('missing_images')
+      .select('id, report_count')
+      .eq('tcgdex_id', tcgdexId)
+      .single();
+
+    if (existing) {
+      // Increment report count
+      await supabase
+        .from('missing_images')
+        .update({
+          report_count: (existing.report_count || 1) + 1,
+          last_reported: new Date().toISOString()
+        })
+        .eq('tcgdex_id', tcgdexId);
+    } else {
+      // Insert new record
+      await supabase
+        .from('missing_images')
+        .insert({
+          tcgdex_id: tcgdexId,
+          card_name: cardName,
+          set_name: setName,
+          card_number: cardNumber,
+          report_count: 1,
+          last_reported: new Date().toISOString(),
+        });
+    }
+
+    console.log('[MissingImage] Logged:', tcgdexId, cardName);
+  } catch (err) {
+    // Don't throw - this is non-critical logging
+    console.warn('[MissingImage] Failed to log:', err.message);
+  }
+}
+
+/**
+ * Upload user-cropped card image when TCGDex has no image
+ */
+export async function uploadUserCardImage(userId, scanId, croppedDataUrl) {
+  if (!isSupabaseConfigured() || !croppedDataUrl) return null;
+
+  try {
+    const response = await fetch(croppedDataUrl);
+    const blob = await response.blob();
+
+    const filename = `${userId}/${scanId}/user_card_${Date.now()}.jpg`;
+
+    const { error } = await supabase.storage
+      .from('card-images')
+      .upload(filename, blob, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (error) {
+      console.error('[UserCardImage] Upload error:', error);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('card-images')
+      .getPublicUrl(filename);
+
+    return urlData?.publicUrl || null;
+  } catch (err) {
+    console.error('[UserCardImage] Error:', err);
+    return null;
+  }
 }

@@ -173,9 +173,10 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
     };
   };
 
-  // Get card image URL (TCGDex > enhanced > placeholder)
+  // Get card image URL (TCGDex > user-cropped > enhanced > null)
   const getCardImage = (scan) => {
     if (scan.tcgdex_image) return scan.tcgdex_image;
+    if (scan.user_card_image) return scan.user_card_image;
     if (scan.enhanced_front_path) return scan.enhanced_front_path;
     return null;
   };

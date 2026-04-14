@@ -7,7 +7,7 @@
 
 ## Current State Summary
 
-SlabSense is a multi-company card pre-grading application with **Claude AI integration** for accurate grading, **SAM 2** for 3D card cropping, and **automated card identification** via pHash + TCGDex API. The app supports PSA, BGS, SGC, CGC, and TAG grading standards.
+SlabSense is a multi-company card pre-grading application with **Claude AI integration** for accurate grading, **TCGDex** for high-quality card images, and **automated card identification** via pHash + TCGDex API. The app supports PSA, BGS, SGC, CGC, and TAG grading standards.
 
 ---
 
@@ -22,6 +22,8 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 - ✅ Card images from TCGDex used for slabs (perfect quality)
 - ✅ Collection view shows card images instead of text placeholders
 - ✅ Incremental updates (`--update` flag) for new set releases
+- ✅ **Missing image fallback** - User crops their photo when TCGDex has no image
+- ✅ **Missing image logging** - Tracks cards without images for us to fix
 
 ### AI Grading (Claude via Replicate)
 - ✅ Claude Sonnet 4 analyzes card images via Replicate API
@@ -33,10 +35,8 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 - ✅ BGS 4 subgrades displayed when BGS selected
 - ✅ TAG 8 subgrades (front/back for each category)
 
-### 3D Card View (SAM 2 via Replicate)
-- ✅ SAM 2 crops cards for clean 3D display (~$0.02)
-- ✅ **Separate button** from AI grading (avoids rate limits)
-- ✅ Falls back to original images if SAM fails
+### 3D Card View
+- ✅ TCGDex provides clean card images (no SAM2 needed)
 - ✅ 3D rotating slab view with realistic render
 
 ### Card Pricing (NEW)
@@ -141,16 +141,13 @@ User clicks "AI Grade Card"
   → UI displays immediately
 ```
 
-### 3D View Button (~$0.02)
+### 3D View Button (FREE)
 ```
 User clicks "3D Slab View"
-  → samCardCropping(front, back)
-  → Sends to /api/detect-card (SAM 2)
-  → Returns: croppedFront, croppedBack
-  → Opens 3D viewer
+  → Uses TCGDex image (if available) for clean card display
+  → Falls back to user's captured photo if no TCGDex image
+  → Opens 3D rotating slab viewer
 ```
-
-**Key:** These are SEPARATE buttons to avoid Replicate rate limits.
 
 ---
 
@@ -181,7 +178,6 @@ User clicks "3D Slab View"
 | File | Purpose |
 |------|---------|
 | `api/ai-analyze.js` | Claude grading via Replicate |
-| `api/detect-card.js` | SAM 2 card detection via Replicate |
 
 ### Backend (Optional - Python/FastAPI)
 | File | Purpose |
@@ -222,6 +218,21 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS card_info JSONB;
 -- TCGDex card identification
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS tcgdex_image TEXT;
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS tcgdex_id TEXT;
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS user_card_image TEXT;  -- Fallback when TCGDex has no image
+```
+
+The `missing_images` table (for tracking cards without TCGDex images):
+
+```sql
+CREATE TABLE missing_images (
+  id UUID PRIMARY KEY,
+  tcgdex_id TEXT NOT NULL UNIQUE,
+  card_name TEXT,
+  set_name TEXT,
+  card_number TEXT,
+  report_count INTEGER DEFAULT 1,
+  last_reported TIMESTAMPTZ
+);
 ```
 
 ---
@@ -233,7 +244,7 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS tcgdex_id TEXT;
 2. **Cropping** - Removes background, isolates card
 3. **pHash Compute** - Draw to 32×32 grayscale, DCT, median threshold → 64-bit hash
 4. **Hamming Search** - XOR query hash against database, popcount for distance
-5. **Confidence** - Distance ≤8: high, 9-15: medium, >15: low
+5. **Confidence** - Distance ≤5: high, 6-12: medium, >12: low (always shows matches for user confirmation)
 
 ### Performance Targets
 - pHash compute: <30ms
@@ -251,7 +262,7 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS tcgdex_id TEXT;
 
 ### Completed
 1. ✅ AI grading integration (Claude via Replicate)
-2. ✅ 3D slab view (SAM 2 via Replicate)
+2. ✅ 3D slab view (TCGDex images)
 3. ✅ Collection card stack with images
 4. ✅ Centering rotation controls + 3-axis perspective (Pitch/Roll/Rotate)
 5. ✅ UI consolidation

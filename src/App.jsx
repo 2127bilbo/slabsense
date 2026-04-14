@@ -6,8 +6,9 @@ import { UserMenu } from "./components/Auth/UserMenu.jsx";
 import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
-import { saveScan } from "./services/scans.js";
-import { checkBackendHealth, analyzeCardWithBackend, detectAndCropBothCards, analyzeCardWithVision, claudeGradingAnalysis, samCardCropping } from "./services/api.js";
+import { saveScan, logMissingImage, uploadUserCardImage } from "./services/scans.js";
+import { CardCropModal } from "./components/CardCropModal.jsx";
+import { checkBackendHealth, analyzeCardWithBackend, analyzeCardWithVision, claudeGradingAnalysis } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 import { CardIdentifier } from "./components/CardIdentifier/CardIdentifier.jsx";
 import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.jsx";
@@ -2520,6 +2521,8 @@ export default function SlabSense(){
   const[tcgdexData,setTcgdexData]=useState(null); // Full card data from TCGDex
   const[tcgdexImage,setTcgdexImage]=useState(null); // High-quality card image URL from TCGDex
   const[identifyingCard,setIdentifyingCard]=useState(false); // Card identification in progress
+  const[showCropModal,setShowCropModal]=useState(false); // Show crop modal for missing TCGDex images
+  const[pendingSaveData,setPendingSaveData]=useState(null); // Pending save data while waiting for crop
 
   // Auth hook
   const auth = useAuth();
@@ -2739,47 +2742,119 @@ export default function SlabSense(){
     }
   };
 
+  // Build save data object (used by both direct save and crop flow)
+  const buildSaveData = (userCardImage = null) => {
+    const aiGradeForCompany = aiGrades?.[gradingCompany];
+    const gradeValue = aiGradeForCompany?.grade ?? gradeResult.grade.grade;
+    const gradeLabel = aiGradeForCompany?.label ?? gradeResult.grade.label;
+
+    return {
+      gradingCompany,
+      rawScore: gradeResult.rawScore,
+      gradeValue,
+      gradeLabel,
+      subgrades: gradeResult.subgrades,
+      frontCentering: fR?.centering,
+      backCentering: bR?.centering,
+      dings: gradeResult.allDings,
+      enhancedFront: enhancedCards?.front || null,
+      enhancedBack: enhancedCards?.back || null,
+      cardName: cardInfo?.name || null,
+      cardSet: cardInfo?.setName || null,
+      cardNumber: cardInfo?.cardNumber || null,
+      cardGame: 'pokemon',
+      aiGrades: aiGrades || null,
+      aiCondition: aiCondition || null,
+      aiSummary: aiSummary || null,
+      aiCentering: fR?.centering?.source === 'claude-ai' ? {
+        front: { leftRight: fR?.centering?.lrRatio, topBottom: fR?.centering?.tbRatio },
+        back: bR?.centering ? { leftRight: bR?.centering?.lrRatio, topBottom: bR?.centering?.tbRatio } : null,
+      } : null,
+      cardInfo: cardInfo || null,
+      tcgdexImage: tcgdexImage || null,
+      tcgdexId: tcgdexData?.id || null,
+      userCardImage: userCardImage,
+    };
+  };
+
   // Save scan to user's collection (includes AI data and enhanced images)
   const handleSaveScan = async () => {
     if (!auth.isAuthenticated || !gradeResult) return;
+
+    // Check if card was identified but has no TCGDex image
+    const hasCardId = tcgdexData?.id || cardInfo?.name;
+    const missingImage = !tcgdexImage && hasCardId;
+
+    if (missingImage && fI) {
+      // Log the missing image for us to fix later
+      if (tcgdexData?.id) {
+        logMissingImage(
+          tcgdexData.id,
+          cardInfo?.name || tcgdexData?.name,
+          cardInfo?.setName || tcgdexData?.set?.name,
+          cardInfo?.cardNumber || tcgdexData?.localId
+        );
+      }
+
+      // Store pending save data and show crop modal
+      setPendingSaveData(buildSaveData());
+      setShowCropModal(true);
+      return;
+    }
+
+    // Normal save flow
     setSavingStatus('saving');
     try {
-      // Determine grade to save (prefer AI grade if available)
-      const aiGradeForCompany = aiGrades?.[gradingCompany];
-      const gradeValue = aiGradeForCompany?.grade ?? gradeResult.grade.grade;
-      const gradeLabel = aiGradeForCompany?.label ?? gradeResult.grade.label;
-
-      await saveScan(auth.user.id, {
-        gradingCompany,
-        rawScore: gradeResult.rawScore,
-        gradeValue,
-        gradeLabel,
-        subgrades: gradeResult.subgrades,
-        frontCentering: fR?.centering,
-        backCentering: bR?.centering,
-        dings: gradeResult.allDings,
-        // Include AI-enhanced images if available (for 3D viewer in collection)
-        enhancedFront: enhancedCards?.front || null,
-        enhancedBack: enhancedCards?.back || null,
-        // Include OCR-extracted card info
-        cardName: cardInfo?.name || null,
-        cardSet: cardInfo?.setName || null,
-        cardNumber: cardInfo?.cardNumber || null,
-        cardGame: 'pokemon',
-        // AI grading data (from Claude)
-        aiGrades: aiGrades || null,
-        aiCondition: aiCondition || null,
-        aiSummary: aiSummary || null,
-        aiCentering: fR?.centering?.source === 'claude-ai' ? {
-          front: { leftRight: fR?.centering?.lrRatio, topBottom: fR?.centering?.tbRatio },
-          back: bR?.centering ? { leftRight: bR?.centering?.lrRatio, topBottom: bR?.centering?.tbRatio } : null,
-        } : null,
-        cardInfo: cardInfo || null,
-        // TCGDex data (high-quality card image)
-        tcgdexImage: tcgdexImage || null,
-        tcgdexId: tcgdexData?.id || null,
-      });
+      await saveScan(auth.user.id, buildSaveData());
       setSavingStatus('saved');
+      setTimeout(() => setSavingStatus(null), 2000);
+    } catch (err) {
+      console.error('Error saving scan:', err);
+      setSavingStatus('error');
+      setTimeout(() => setSavingStatus(null), 3000);
+    }
+  };
+
+  // Handle cropped image from crop modal
+  const handleCropComplete = async (croppedDataUrl) => {
+    setShowCropModal(false);
+    setSavingStatus('saving');
+
+    try {
+      // First save the scan to get an ID
+      const saveData = pendingSaveData || buildSaveData();
+      const savedScan = await saveScan(auth.user.id, saveData);
+
+      // Upload the cropped image
+      if (croppedDataUrl && savedScan?.id) {
+        const imageUrl = await uploadUserCardImage(auth.user.id, savedScan.id, croppedDataUrl);
+        if (imageUrl) {
+          // Update scan with user card image
+          const { updateScan } = await import('./services/scans.js');
+          await updateScan(savedScan.id, { user_card_image: imageUrl });
+        }
+      }
+
+      setSavingStatus('saved');
+      setPendingSaveData(null);
+      setTimeout(() => setSavingStatus(null), 2000);
+    } catch (err) {
+      console.error('Error saving scan with crop:', err);
+      setSavingStatus('error');
+      setTimeout(() => setSavingStatus(null), 3000);
+    }
+  };
+
+  // Skip cropping and save without user image
+  const handleCropSkip = async () => {
+    setShowCropModal(false);
+    setSavingStatus('saving');
+
+    try {
+      const saveData = pendingSaveData || buildSaveData();
+      await saveScan(auth.user.id, saveData);
+      setSavingStatus('saved');
+      setPendingSaveData(null);
       setTimeout(() => setSavingStatus(null), 2000);
     } catch (err) {
       console.error('Error saving scan:', err);
@@ -2897,46 +2972,16 @@ export default function SlabSense(){
   };
 
   // 3D View - SAM crops cards for 3D display (separate from grading)
-  // Cost: ~$0.02 per card
-  const [croppingFor3D, setCroppingFor3D] = useState(false);
-  const handle3DView = async () => {
+  // 3D View - uses TCGDex images (free) or falls back to captured photos
+  const handle3DView = () => {
     if (!fI || !bI) return;
 
-    // If already have cropped images, just show viewer
-    if (enhancedCards?.front) {
-      setShow3DViewer(true);
-      return;
-    }
-
-    setCroppingFor3D(true);
-    setProg('Preparing 3D view...');
-
-    try {
-      console.log('Starting SAM cropping for 3D view...');
-      const samResult = await samCardCropping(fI, bI);
-
-      if (samResult.success || samResult.croppedFront) {
-        setEnhancedCards({
-          front: samResult.croppedFront,
-          back: samResult.croppedBack,
-        });
-        console.log('SAM cropping complete - 3D view ready');
-        setShow3DViewer(true);
-      } else {
-        // Fall back to original images
-        setEnhancedCards({ front: fI, back: bI });
-        console.warn('SAM failed, using original images');
-        setShow3DViewer(true);
-      }
-    } catch (err) {
-      console.error('SAM error:', err);
-      // Fall back to original images
-      setEnhancedCards({ front: fI, back: bI });
-      setShow3DViewer(true);
-    } finally {
-      setCroppingFor3D(false);
-      setProg('');
-    }
+    // Use TCGDex image if available, otherwise use captured images
+    setEnhancedCards({
+      front: tcgdexImage || fI,
+      back: bI,  // Back always uses captured image
+    });
+    setShow3DViewer(true);
   };
 
 
@@ -2978,6 +3023,15 @@ export default function SlabSense(){
         backImage={bI}
         gradingCompany={gradingCompany}
         onClose={() => setShowExport(false)}
+      />
+    )}
+    {/* Card Crop Modal (for missing TCGDex images) */}
+    {showCropModal && fI && (
+      <CardCropModal
+        image={fI}
+        cardName={cardInfo?.name || tcgdexData?.name}
+        onCrop={handleCropComplete}
+        onCancel={handleCropSkip}
       />
     )}
     {/* Card Identifier Modal (OCR + TCGDex) */}
@@ -3380,16 +3434,14 @@ export default function SlabSense(){
                 </div>
               )}
             </button>
-            <button onClick={handle3DView} disabled={croppingFor3D} title="3D Slab View ($0.02)" style={{
-              background:"transparent",border:"none",cursor:croppingFor3D?"wait":"pointer",padding:4,color:enhancedCards?"#8b5cf6":"#666",transition:"color .2s"
+            <button onClick={handle3DView} title="3D Slab View" style={{
+              background:"transparent",border:"none",cursor:"pointer",padding:4,color:tcgdexImage?"#8b5cf6":"#666",transition:"color .2s"
             }}>
-              {croppingFor3D?<span style={{fontSize:18}}>⏳</span>:(
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <rect x="3" y="5" width="18" height="14" rx="2" fill="none"/>
-                  <rect x="5" y="7" width="14" height="10" rx="1" fill="currentColor" opacity="0.15"/>
-                  <line x1="3" y1="8" x2="21" y2="8" strokeWidth="1"/>
-                </svg>
-              )}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="5" width="18" height="14" rx="2" fill="none"/>
+                <rect x="5" y="7" width="14" height="10" rx="1" fill="currentColor" opacity="0.15"/>
+                <line x1="3" y1="8" x2="21" y2="8" strokeWidth="1"/>
+              </svg>
             </button>
           </div>
 
