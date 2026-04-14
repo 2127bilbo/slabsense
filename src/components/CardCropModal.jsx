@@ -47,10 +47,20 @@ export function CardCropModal({
   const getCoords = (e) => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
-    const rect = svg.getBoundingClientRect();
+
+    // Use SVG's coordinate transformation to handle preserveAspectRatio properly
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+
+    // Transform from screen coordinates to SVG viewBox coordinates
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+
+    const svgPt = pt.matrixTransform(ctm.inverse());
     return {
-      x: Math.round((e.clientX - rect.left) / rect.width * imgSize.w),
-      y: Math.round((e.clientY - rect.top) / rect.height * imgSize.h),
+      x: Math.round(svgPt.x),
+      y: Math.round(svgPt.y),
     };
   };
 
