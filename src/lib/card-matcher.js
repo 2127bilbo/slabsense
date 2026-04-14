@@ -132,11 +132,13 @@ export function getHashDbMeta() {
 
 /**
  * Confidence levels based on Hamming distance
+ * Note: pHash is 64-bit, so max distance is 64
+ * Lower thresholds = stricter matching, fewer false positives
  */
 const CONFIDENCE_THRESHOLDS = {
-  HIGH: 10,      // distance <= 10: auto-accept
-  MEDIUM: 18,    // distance 11-18: show options
-  // distance > 18: low confidence
+  HIGH: 5,       // distance <= 5: very likely correct match
+  MEDIUM: 12,    // distance 6-12: show options for user to pick
+  // distance > 12: low confidence, go to manual search
 };
 
 /**

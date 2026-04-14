@@ -24,6 +24,7 @@ export function CornerHandles({
   onCenteringUpdate
 }) {
   const dragging = useRef(null);
+  const dragOffset = useRef({ x: 0, y: 0 }); // Offset from touch point to actual corner
   const outerRef = useRef(outerCorners);
   const innerRef = useRef(innerCorners);
 
@@ -48,7 +49,37 @@ export function CornerHandles({
     };
   };
 
+  // Get the actual corner position for a given handle
+  const getCornerPosition = (which) => {
+    const o = outerRef.current;
+    const inn = innerRef.current;
+    if (which === 'O_TL') return o.tl;
+    if (which === 'O_TR') return o.tr;
+    if (which === 'O_BL') return o.bl;
+    if (which === 'O_BR') return o.br;
+    if (which === 'I_TL') return inn.tl;
+    if (which === 'I_TR') return inn.tr;
+    if (which === 'I_BL') return inn.bl;
+    if (which === 'I_BR') return inn.br;
+    return { x: 0, y: 0 };
+  };
+
+  // Start drag - calculate offset from touch point to actual corner
+  const startDrag = (which, e) => {
+    const touchPos = getCoords(e);
+    const cornerPos = getCornerPosition(which);
+    dragOffset.current = {
+      x: cornerPos.x - touchPos.x,
+      y: cornerPos.y - touchPos.y
+    };
+    dragging.current = which;
+  };
+
   const moveCorner = (which, x, y) => {
+    // Apply the offset so corner follows the handle, not the finger
+    const adjustedX = x + dragOffset.current.x;
+    const adjustedY = y + dragOffset.current.y;
+
     const o = outerRef.current;
     const inn = innerRef.current;
     const minGap = 20; // Minimum gap between outer and inner corners
@@ -57,64 +88,64 @@ export function CornerHandles({
       setOuterCorners(p => ({
         ...p,
         tl: {
-          x: Math.max(0, Math.min(x, inn.tl.x - minGap)),
-          y: Math.max(0, Math.min(y, inn.tl.y - minGap))
+          x: Math.max(0, Math.min(adjustedX, inn.tl.x - minGap)),
+          y: Math.max(0, Math.min(adjustedY, inn.tl.y - minGap))
         }
       }));
     } else if (which === 'O_TR') {
       setOuterCorners(p => ({
         ...p,
         tr: {
-          x: Math.min(imgW, Math.max(x, inn.tr.x + minGap)),
-          y: Math.max(0, Math.min(y, inn.tr.y - minGap))
+          x: Math.min(imgW, Math.max(adjustedX, inn.tr.x + minGap)),
+          y: Math.max(0, Math.min(adjustedY, inn.tr.y - minGap))
         }
       }));
     } else if (which === 'O_BL') {
       setOuterCorners(p => ({
         ...p,
         bl: {
-          x: Math.max(0, Math.min(x, inn.bl.x - minGap)),
-          y: Math.min(imgH, Math.max(y, inn.bl.y + minGap))
+          x: Math.max(0, Math.min(adjustedX, inn.bl.x - minGap)),
+          y: Math.min(imgH, Math.max(adjustedY, inn.bl.y + minGap))
         }
       }));
     } else if (which === 'O_BR') {
       setOuterCorners(p => ({
         ...p,
         br: {
-          x: Math.min(imgW, Math.max(x, inn.br.x + minGap)),
-          y: Math.min(imgH, Math.max(y, inn.br.y + minGap))
+          x: Math.min(imgW, Math.max(adjustedX, inn.br.x + minGap)),
+          y: Math.min(imgH, Math.max(adjustedY, inn.br.y + minGap))
         }
       }));
     } else if (which === 'I_TL') {
       setInnerCorners(p => ({
         ...p,
         tl: {
-          x: Math.max(o.tl.x + minGap, Math.min(x, p.tr.x - minGap)),
-          y: Math.max(o.tl.y + minGap, Math.min(y, p.bl.y - minGap))
+          x: Math.max(o.tl.x + minGap, Math.min(adjustedX, p.tr.x - minGap)),
+          y: Math.max(o.tl.y + minGap, Math.min(adjustedY, p.bl.y - minGap))
         }
       }));
     } else if (which === 'I_TR') {
       setInnerCorners(p => ({
         ...p,
         tr: {
-          x: Math.min(o.tr.x - minGap, Math.max(x, p.tl.x + minGap)),
-          y: Math.max(o.tr.y + minGap, Math.min(y, p.br.y - minGap))
+          x: Math.min(o.tr.x - minGap, Math.max(adjustedX, p.tl.x + minGap)),
+          y: Math.max(o.tr.y + minGap, Math.min(adjustedY, p.br.y - minGap))
         }
       }));
     } else if (which === 'I_BL') {
       setInnerCorners(p => ({
         ...p,
         bl: {
-          x: Math.max(o.bl.x + minGap, Math.min(x, p.br.x - minGap)),
-          y: Math.min(o.bl.y - minGap, Math.max(y, p.tl.y + minGap))
+          x: Math.max(o.bl.x + minGap, Math.min(adjustedX, p.br.x - minGap)),
+          y: Math.min(o.bl.y - minGap, Math.max(adjustedY, p.tl.y + minGap))
         }
       }));
     } else if (which === 'I_BR') {
       setInnerCorners(p => ({
         ...p,
         br: {
-          x: Math.min(o.br.x - minGap, Math.max(x, p.bl.x + minGap)),
-          y: Math.min(o.br.y - minGap, Math.max(y, p.tr.y + minGap))
+          x: Math.min(o.br.x - minGap, Math.max(adjustedX, p.bl.x + minGap)),
+          y: Math.min(o.br.y - minGap, Math.max(adjustedY, p.tr.y + minGap))
         }
       }));
     }
@@ -217,7 +248,7 @@ export function CornerHandles({
             onPointerDown={e => {
               e.stopPropagation();
               e.currentTarget.setPointerCapture(e.pointerId);
-              dragging.current = which;
+              startDrag(which, e);
             }}
             onPointerMove={e => {
               if (dragging.current === which) {
@@ -226,7 +257,10 @@ export function CornerHandles({
                 moveCorner(which, newX, newY);
               }
             }}
-            onPointerUp={() => { dragging.current = null; }}
+            onPointerUp={() => {
+              dragging.current = null;
+              dragOffset.current = { x: 0, y: 0 };
+            }}
           >
             {/* Invisible large touch target */}
             <rect

@@ -4,10 +4,9 @@
  * Flow:
  * 1. User captures card image
  * 2. pHash computed and matched against database
- * 3. High confidence → auto-select card
- * 4. Medium confidence → show candidates for user to pick
- * 5. Low/error → fall back to manual search
- * 6. Returns full card data + high-quality image
+ * 3. High/Medium confidence → show candidates for user to confirm
+ * 4. Low/error → fall back to manual search
+ * 5. Returns full card data + high-quality image
  */
 
 import { useState, useEffect } from 'react';
@@ -70,13 +69,8 @@ export function CardIdentifier({
         return;
       }
 
-      if (result.status === 'matched' && result.cardData) {
-        // High confidence - auto-select
-        console.log('[CardIdentifier] Auto-matched:', result.cardData.name);
-        onCardIdentified(result.cardData);
-        return;
-      }
-
+      // Always show matches for user confirmation (never auto-accept)
+      // This prevents false positives like Mewtwo matching Oricorio
       if (result.status === 'matched' || result.status === 'ambiguous') {
         // Show matches for user selection
         const matches = result.matches || [];
