@@ -220,18 +220,46 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS tcgdex_id TEXT;
 
 ## Next Steps
 
-1. ✅ ~~AI grading integration~~ - DONE
-2. ✅ ~~3D view separation~~ - DONE
-3. ✅ ~~Collection card stack~~ - DONE
-4. ✅ ~~Centering rotation controls~~ - DONE
-5. ✅ ~~UI consolidation~~ - DONE
-6. ✅ ~~Card identification (OCR + TCGDex)~~ - IMPLEMENTED
-7. ⚠️ **Test OCR with various card types** - IN PROGRESS
-8. [ ] Fine-tune SlabSense slab positioning
-9. [ ] Deploy database schema updates
-10. [ ] Test full flow end-to-end
-11. [ ] Stripe payments for Pro tier
-12. [ ] Production deployment
+### Completed
+1. ✅ AI grading integration (Claude via Replicate)
+2. ✅ 3D slab view (SAM 2 via Replicate)
+3. ✅ Collection card stack with images
+4. ✅ Centering rotation controls
+5. ✅ UI consolidation
+6. ✅ Card identification (pHash + TCGDex) - UPGRADED from OCR
+7. ✅ TCGDex search fix (server-side filtering)
+8. ✅ pHash visual matching pipeline
+
+### Beta Phase (Current)
+9. ⚠️ **Build hash database** - IN PROGRESS (downloading 23k card images)
+10. [ ] Test pHash matching with various card types
+11. [ ] Fine-tune SlabSense slab positioning
+12. [ ] Deploy database schema updates
+13. [ ] Test full flow end-to-end
+14. [ ] Bug fixes and polish
+
+### Launch Phase
+15. [ ] Stripe payments for Pro tier
+16. [ ] Production deployment
+17. [ ] Privacy policy & Terms of Service
+18. [ ] Landing page / marketing site
+
+### Post-Launch / Mobile App
+19. [ ] **Mobile app decision: Capacitor vs React Native**
+   - Capacitor: Wrap existing code, faster launch
+   - React Native: Better native feel, more work
+20. [ ] Apple Developer Account ($99/year)
+21. [ ] iOS app build and submission
+22. [ ] TestFlight beta testing
+23. [ ] App Store launch
+24. [ ] Google Play (Android) - same codebase
+
+### Future Enhancements
+25. [ ] Custom ML model for card recognition (using saved images)
+26. [ ] Sports cards support (baseball, basketball, etc.)
+27. [ ] Price tracking integration
+28. [ ] Social features (share collections)
+29. [ ] Bulk grading mode
 
 ---
 
@@ -243,13 +271,17 @@ cd "G:\Grading App\SlabSense"
 npm run dev
 # Opens at http://localhost:5173
 
-# Test card identification:
+# Test card identification (pHash):
 # 1. Upload a card image (front)
-# 2. CardIdentifier modal appears automatically
-# 3. Watch OCR progress
-# 4. If OCR works: select matching card from results
-# 5. If OCR fails: use manual search (pre-filled with OCR result)
-# 6. Card data + high-quality image loaded
+# 2. CardIdentifier computes visual hash (~50ms)
+# 3. Searches hash database for matches
+# 4. High confidence → auto-selects card
+# 5. Medium confidence → shows candidates to pick
+# 6. Low/error → falls back to manual name search
+# 7. Card data + high-quality image loaded from TCGDex
+
+# Build hash database (required for pHash):
+node scripts/build-hash-db.cjs --save-images
 
 # Deploy to Vercel
 vercel --prod
