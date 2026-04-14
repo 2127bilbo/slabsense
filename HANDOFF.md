@@ -1,27 +1,27 @@
 # SlabSense Development Handoff
 
-**Date:** April 13, 2026
-**Status:** Active Development - Card Pricing Added
+**Date:** April 14, 2026
+**Status:** Active Development - Beta Phase
 
 ---
 
 ## Current State Summary
 
-SlabSense is a multi-company card pre-grading application with **Claude AI integration** for accurate grading, **SAM 2** for 3D card cropping, and **automated card identification** via OCR + TCGDex API. The app supports PSA, BGS, SGC, CGC, and TAG grading standards.
+SlabSense is a multi-company card pre-grading application with **Claude AI integration** for accurate grading, **SAM 2** for 3D card cropping, and **automated card identification** via pHash + TCGDex API. The app supports PSA, BGS, SGC, CGC, and TAG grading standards.
 
 ---
 
 ## What's Working
 
-### Card Identification (NEW - In Testing)
-- ✅ OCR extracts card name from photos using Tesseract.js
+### Card Identification (pHash Pipeline)
+- ✅ pHash visual matching (~30ms per card)
+- ✅ Hash database: 21,900 cards, 1.94MB
 - ✅ Variance-based card detection crops card from background
-- ✅ Otsu's thresholding for better text/background separation
 - ✅ TCGDex API integration for card data + high-quality images
-- ✅ Manual search fallback when OCR confidence < 40%
+- ✅ Manual search fallback for low-confidence matches
 - ✅ Card images from TCGDex used for slabs (perfect quality)
 - ✅ Collection view shows card images instead of text placeholders
-- ⚠️ **Testing needed** - OCR may struggle with holofoil cards
+- ✅ Incremental updates (`--update` flag) for new set releases
 
 ### AI Grading (Claude via Replicate)
 - ✅ Claude Sonnet 4 analyzes card images via Replicate API
@@ -59,11 +59,17 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 
 ### Centering Tab
 - ✅ Two-step alignment flow inside ManualBoundaryEditor:
-  - Step 1: Straighten Card — rotation controls (1° and 0.05° increments)
+  - Step 1: Straighten Card — rotation controls (1° and 0.05° increments) + 3-axis perspective
   - Step 2: Adjust Borders — drag handles for edge/artwork boundaries
 - ✅ Crosshair overlay for visual alignment guidance
 - ✅ "Confirm Alignment" button required before showing score
 - ✅ Centering results only shown after confirmation
+- ✅ **Corner-anchored mode (beta toggle)**:
+  - 8 corner drag handles (4 outer + 4 inner)
+  - 5-sample median per edge for accuracy on tilted/warped cards
+  - Per-edge confidence via coefficient of variation
+  - Sample point visualization
+  - Side-by-side comparison with edge-drag mode
 
 ### Frontend (React/Vite)
 - ✅ Multi-company grading (TAG, PSA, BGS, CGC, SGC)
@@ -81,23 +87,24 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 
 ---
 
-## Card Identification Flow
+## Card Identification Flow (pHash)
 
 ```
 User uploads/captures card image
   → Card cropped from background (variance detection)
-  → Name region extracted (top 10% of card)
-  → Preprocessing: contrast stretch + Otsu's threshold + 2x upscale
-  → OCR reads card name
+  → pHash computed on card image (~30ms)
+  → Hamming distance search against hash database (21,900 cards)
 
-If confidence >= 40%:
-  → TCGDex smart search (name matching + scoring)
-  → User confirms correct card from results
-  → Full card data + high-quality image loaded
+If distance <= 8 (high confidence):
+  → Auto-accept match
+  → Full card data + high-quality image loaded from TCGDex
 
-If confidence < 40%:
+If distance 9-15 (medium confidence):
+  → Show top 3 candidates for user to confirm
+  → User taps correct card
+
+If distance > 15 (low confidence):
   → Manual search UI shown
-  → OCR result pre-filled for user to correct
   → User types card name → TCGDex search
 
 Result:
@@ -105,6 +112,11 @@ Result:
   → TCGDex image used for slab (perfect quality)
   → Data saved with scan
 ```
+
+**Hash Database:**
+- Location: `public/card-hashes.json` (~1.94MB)
+- Build script: `node scripts/build-hash-db.cjs --save-images`
+- Update script: `node scripts/build-hash-db.cjs --update --save-images` (new sets only)
 
 ---
 
@@ -144,12 +156,15 @@ User clicks "3D Slab View"
 
 ## Key Files
 
-### Card Identification (NEW)
+### Card Identification (pHash)
 | File | Purpose |
 |------|---------|
-| `src/services/ocr.js` | Tesseract.js OCR with preprocessing |
+| `src/lib/phash.js` | pHash compute + Hamming distance |
+| `src/lib/card-matcher.js` | Hash database loader + matching |
 | `src/services/tcgdex.js` | TCGDex API wrapper |
 | `src/components/CardIdentifier/CardIdentifier.jsx` | Identification UI flow |
+| `scripts/build-hash-db.cjs` | Hash database builder (dev-only) |
+| `public/card-hashes.json` | Hash database (shipped asset) |
 
 ### Frontend
 | File | Purpose |
@@ -158,6 +173,8 @@ User clicks "3D Slab View"
 | `src/services/api.js` | `claudeGradingAnalysis()`, `samCardCropping()` |
 | `src/services/scans.js` | Saves AI data + TCGDex data with cards |
 | `src/components/Collection/CollectionView.jsx` | Card stack with images |
+| `src/components/CornerHandles.jsx` | Corner-anchored centering UI + breakdown panel |
+| `src/lib/corner-measurement.js` | 5-sample median centering calculation |
 | `src/utils/gradingScales.js` | Multi-company grading scales |
 
 ### API Routes (Vercel)
@@ -209,21 +226,24 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS tcgdex_id TEXT;
 
 ---
 
-## OCR Technical Details
+## pHash Technical Details
 
-### Preprocessing Pipeline
+### How It Works
 1. **Card Detection** - Grid-based variance analysis finds card bounds
 2. **Cropping** - Removes background, isolates card
-3. **Region Extraction** - Top 10% of card (name area)
-4. **Contrast Stretching** - Normalizes lighting conditions
-5. **Otsu's Thresholding** - Optimal text/background separation
-6. **2x Upscaling** - More pixels for better OCR accuracy
+3. **pHash Compute** - Draw to 32×32 grayscale, DCT, median threshold → 64-bit hash
+4. **Hamming Search** - XOR query hash against database, popcount for distance
+5. **Confidence** - Distance ≤8: high, 9-15: medium, >15: low
 
-### Known Limitations
-- Holofoil patterns can confuse OCR (rainbow reflections)
-- Dark/textured backgrounds on some cards
-- Non-standard fonts on special cards
-- **Fallback:** Manual search with pre-filled OCR result
+### Performance Targets
+- pHash compute: <30ms
+- Match search (21k cards): <20ms
+- TCGDex API call: 200-500ms (cached after)
+
+### Known Considerations
+- **Foil/holo cards** may hash with higher distance (test threshold)
+- **Reprints with identical art** return multiple matches (user picks)
+- **Cards newer than hash DB** need `--update` run
 
 ---
 
@@ -233,45 +253,58 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS tcgdex_id TEXT;
 1. ✅ AI grading integration (Claude via Replicate)
 2. ✅ 3D slab view (SAM 2 via Replicate)
 3. ✅ Collection card stack with images
-4. ✅ Centering rotation controls
+4. ✅ Centering rotation controls + 3-axis perspective (Pitch/Roll/Rotate)
 5. ✅ UI consolidation
-6. ✅ Card identification (pHash + TCGDex) - UPGRADED from OCR
+6. ✅ Card identification (pHash + TCGDex)
 7. ✅ TCGDex search fix (server-side filtering)
 8. ✅ pHash visual matching pipeline
 9. ✅ **Card pricing** - TCGDex Cardmarket values on home/collection/grade
 10. ✅ **Incremental hash updates** - `--update` flag for new sets only
+11. ✅ **Hash database built** - 21,900 cards, 18GB images, 1.94MB hash DB
 
 ### Beta Phase (Current)
-11. ⚠️ **Build hash database** - IN PROGRESS (downloading 23k card images)
-12. [ ] Test pHash matching with various card types
-13. [ ] Fine-tune SlabSense slab positioning
-14. [ ] Deploy database schema updates
-15. [ ] Test full flow end-to-end
-16. [ ] Bug fixes and polish
+12. ✅ **Corner-anchored centering mode** - Toggle alternative to edge-drag with 5-sample median per edge
+13. [ ] Test pHash matching with various card types
+14. [ ] Fine-tune SlabSense slab positioning
+15. [ ] Deploy database schema updates
+16. [ ] Test full flow end-to-end
+17. [ ] Bug fixes and polish
+
+### AI Pipeline Migration (Post-Beta)
+18. [ ] **Migrate from Replicate to Anthropic direct API** (see SlabSense-AI-Grading-Pipeline.md)
+   - Prompt caching for 90% cost reduction on static content
+   - Image preprocessing (CLAHE, unsharp mask, edge detection)
+   - Defect annotation rendering with coordinates
+   - Remove Replicate dependency
+19. [ ] Defect feedback capture system (optional, UX TBD with Bob)
 
 ### Launch Phase
-17. [ ] Stripe payments for Pro tier
-18. [ ] Production deployment
-19. [ ] Privacy policy & Terms of Service
-20. [ ] Landing page / marketing site
-21. [ ] **Automated hash DB updates** - Serverless job to sync new TCGDex cards
+20. [ ] **Billing & Subscriptions** (see SlabSense-Billing-Tokens-Subscriptions.md)
+   - Token-based billing (Standard vs Express grades)
+   - Stripe + PayPal integration
+   - Subscription tiers (Free / Pro / Lifetime)
+21. [ ] Production deployment
+22. [ ] Privacy policy & Terms of Service updates
+23. [ ] Landing page / marketing site
+24. [ ] **Automated hash DB updates** - Serverless job to sync new TCGDex cards
 
 ### Post-Launch / Mobile App
-22. [ ] **Mobile app decision: Capacitor vs React Native**
+25. [ ] **Mobile app decision: Capacitor vs React Native**
    - Capacitor: Wrap existing code, faster launch
    - React Native: Better native feel, more work
-23. [ ] Apple Developer Account ($99/year)
-24. [ ] iOS app build and submission
-25. [ ] TestFlight beta testing
-26. [ ] App Store launch
-27. [ ] Google Play (Android) - same codebase
+26. [ ] Apple Developer Account ($99/year)
+27. [ ] iOS app build and submission
+28. [ ] TestFlight beta testing
+29. [ ] App Store launch
+30. [ ] Google Play (Android) - same codebase
 
 ### Future Enhancements
-28. [ ] Custom ML model for card recognition (using saved images)
-29. [ ] Sports cards support (baseball, basketball, etc.)
-30. [ ] Price tracking history & trends
-28. [ ] Social features (share collections)
-29. [ ] Bulk grading mode
+31. [ ] Custom ML model for card recognition (using saved images)
+32. [ ] Sports cards support (baseball, basketball, etc.)
+33. [ ] Price tracking history & trends
+34. [ ] Social features (share collections)
+35. [ ] Bulk grading mode
+36. [ ] Hardware integration (3D printed mount, LED lighting system)
 
 ---
 
@@ -306,11 +339,11 @@ vercel --prod
 
 ## Troubleshooting
 
-### OCR Reading Garbage
-- Check console for OCR confidence %
-- If < 40%, falls back to manual search automatically
-- Pre-filled text can be corrected by user
-- Try cards with clearer text (non-holofoil)
+### pHash Not Matching Cards
+- Distance > 15 indicates low confidence match
+- Holo/foil cards may have higher distances (test threshold 10 vs 8)
+- Card must be in hash database (run `--update` for new sets)
+- Falls back to manual search automatically
 
 ### Card Not Cropping Properly
 - Variance detection needs contrast between card and background
@@ -322,6 +355,25 @@ vercel --prod
 - Try partial name (e.g., "Pikachu" not "Pikachu EX")
 - TCGDex only has Pokemon cards (not other TCGs)
 
+### Hash Database Updates
+- Run `node scripts/build-hash-db.cjs --update --save-images` for new sets
+- Full rebuild: `node scripts/build-hash-db.cjs --save-images` (~6 hours)
+
 ---
 
-*Last Updated: April 12, 2026*
+---
+
+## Reference Documentation
+
+Detailed implementation specs for upcoming features (keep these files):
+
+| File | Purpose |
+|------|---------|
+| `SlabSense-Corner-Anchored-Centering-Mode.md` | Beta toggle for 8-corner centering with 5-sample median per edge |
+| `SlabSense-AI-Grading-Pipeline.md` | Anthropic direct API migration, image preprocessing, defect annotations |
+| `SlabSense-Billing-Tokens-Subscriptions.md` | Token-based billing, Stripe/PayPal integration, subscription tiers |
+| `docs/grading-research/` | Grading standards and defect weights for all 5 companies |
+
+---
+
+*Last Updated: April 14, 2026*

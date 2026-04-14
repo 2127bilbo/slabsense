@@ -18,3 +18,7 @@ src/App1.jsx
 .claude/
 
 .vercel
+
+# Large generated files
+public/card-images/
+docs/my slab/

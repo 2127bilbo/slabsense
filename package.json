@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "canvas": "^3.2.3",
     "vite": "^6.0.0"
   }
 }
