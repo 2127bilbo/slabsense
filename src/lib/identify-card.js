@@ -181,7 +181,7 @@ export async function identifyCard(imageSrc, options = {}) {
     // Step 3: Search hash database
     if (onProgress) onProgress(50);
     console.log('[IdentifyCard] Searching database...');
-    const matchResult = await matchCard(hash, { topN: 10, groupResults: true });
+    const matchResult = await matchCard(hash, { topN: 20, groupResults: true });
 
     if (onProgress) onProgress(70);
 

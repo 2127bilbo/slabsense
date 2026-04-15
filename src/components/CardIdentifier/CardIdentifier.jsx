@@ -82,7 +82,7 @@ export function CardIdentifier({
             variantCount: m.variantCount,
           })) : [m]
         );
-        setSearchResults(flatMatches.slice(0, 20));
+        setSearchResults(flatMatches.slice(0, 50));
         setStatus('results');
         return;
       }

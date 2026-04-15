@@ -39,7 +39,7 @@ export async function getAllSets() {
  * Search for cards by name using TCGDex server-side search
  * Returns brief card objects for quick display
  */
-export async function searchCardsByName(name, limit = 20) {
+export async function searchCardsByName(name, limit = 50) {
   if (!name || name.length < 2) return [];
 
   try {
@@ -230,7 +230,7 @@ export async function smartSearch(ocrResults) {
       return bNum - aNum;
     });
 
-    return scored.slice(0, 20); // Increased from 10 to show more variants
+    return scored.slice(0, 50); // Show up to 50 results for cards with many variants
   } catch (error) {
     console.error('Smart search error:', error);
     return [];

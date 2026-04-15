@@ -133,12 +133,12 @@ export function getHashDbMeta() {
 /**
  * Confidence levels based on Hamming distance
  * Note: pHash is 64-bit, so max distance is 64
- * Lower thresholds = stricter matching, fewer false positives
+ * Thresholds tuned for holo/foil cards which have more variance
  */
 const CONFIDENCE_THRESHOLDS = {
-  HIGH: 5,       // distance <= 5: very likely correct match
-  MEDIUM: 12,    // distance 6-12: show options for user to pick
-  // distance > 12: low confidence, go to manual search
+  HIGH: 8,       // distance <= 8: very likely correct match (loosened for holo)
+  MEDIUM: 16,    // distance 9-16: show options for user to pick
+  // distance > 16: low confidence, go to manual search
 };
 
 /**
@@ -238,7 +238,7 @@ export function groupByArtwork(matches, groupThreshold = 3) {
  * @returns {Promise<object>} Match results with status
  */
 export async function matchCard(queryHash, options = {}) {
-  const { topN = 10, groupResults = true } = options;
+  const { topN = 20, groupResults = true } = options;
 
   // Load hash database
   const { cards, meta } = await loadHashDb();

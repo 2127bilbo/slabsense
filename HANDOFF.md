@@ -242,9 +242,10 @@ CREATE TABLE missing_images (
 ### How It Works
 1. **Card Detection** - Grid-based variance analysis finds card bounds
 2. **Cropping** - Removes background, isolates card
-3. **pHash Compute** - Draw to 32×32 grayscale, DCT, median threshold → 64-bit hash
-4. **Hamming Search** - XOR query hash against database, popcount for distance
-5. **Confidence** - Distance ≤5: high, 6-12: medium, >12: low (always shows matches for user confirmation)
+3. **Preprocessing** - Histogram equalization to normalize holo/foil reflections
+4. **pHash Compute** - Draw to 32×32 grayscale, DCT, median threshold → 64-bit hash
+5. **Hamming Search** - XOR query hash against database, popcount for distance
+6. **Confidence** - Distance ≤8: high, 9-16: medium, >16: low (always shows matches for user confirmation)
 
 ### Performance Targets
 - pHash compute: <30ms

@@ -37,7 +37,52 @@ function initCosineTable() {
 }
 
 /**
+ * Apply histogram equalization to normalize lighting/reflections
+ * Helps with holo/foil cards where reflections change appearance
+ */
+function histogramEqualize(gray) {
+  const size = gray.length;
+  const histogram = new Uint32Array(256);
+
+  // Build histogram
+  for (let i = 0; i < size; i++) {
+    histogram[Math.min(255, Math.max(0, Math.round(gray[i])))]++;
+  }
+
+  // Compute CDF
+  const cdf = new Float32Array(256);
+  cdf[0] = histogram[0];
+  for (let i = 1; i < 256; i++) {
+    cdf[i] = cdf[i - 1] + histogram[i];
+  }
+
+  // Find minimum non-zero CDF value
+  let cdfMin = 0;
+  for (let i = 0; i < 256; i++) {
+    if (cdf[i] > 0) { cdfMin = cdf[i]; break; }
+  }
+
+  // Create lookup table for equalization
+  const lut = new Float32Array(256);
+  const denom = size - cdfMin;
+  if (denom > 0) {
+    for (let i = 0; i < 256; i++) {
+      lut[i] = Math.round(((cdf[i] - cdfMin) / denom) * 255);
+    }
+  }
+
+  // Apply equalization
+  const result = new Float32Array(size);
+  for (let i = 0; i < size; i++) {
+    result[i] = lut[Math.min(255, Math.max(0, Math.round(gray[i])))];
+  }
+
+  return result;
+}
+
+/**
  * Convert image source to 32x32 grayscale pixel array
+ * Includes histogram equalization to normalize holo/foil reflections
  * @param {HTMLImageElement|HTMLCanvasElement|ImageData|string} source
  * @returns {Promise<Float32Array>} 32x32 grayscale values (0-255)
  */
@@ -83,7 +128,9 @@ async function toGrayscale32x32(source) {
     gray[i] = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];
   }
 
-  return gray;
+  // Apply histogram equalization to normalize lighting/reflections
+  // This helps holo/foil cards match better against clean database images
+  return histogramEqualize(gray);
 }
 
 /**
