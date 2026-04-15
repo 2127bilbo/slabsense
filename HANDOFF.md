@@ -275,11 +275,12 @@ CREATE TABLE missing_images (
 
 ### Beta Phase (Current)
 12. ✅ **Corner-anchored centering mode** - Toggle alternative to edge-drag with 5-sample median per edge
-13. [ ] Test pHash matching with various card types
-14. [ ] Fine-tune SlabSense slab positioning
-15. [ ] Deploy database schema updates
-16. [ ] Test full flow end-to-end
-17. [ ] Bug fixes and polish
+13. ✅ **Missing image fallback** - User crops photo when TCGDex has no image
+14. ✅ **Database schema updates** - Added `user_card_image` column
+15. [ ] Test pHash matching with various card types (holo/foil threshold tuning)
+16. [ ] Fine-tune SlabSense slab positioning
+17. [ ] Test full flow end-to-end
+18. [ ] Bug fixes and polish
 
 ### AI Pipeline Migration (Post-Beta)
 18. [ ] **Migrate from Replicate to Anthropic direct API** (see SlabSense-AI-Grading-Pipeline.md)
