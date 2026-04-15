@@ -221,10 +221,16 @@ export async function smartSearch(ocrResults) {
       return { ...card, matchScore: score };
     });
 
-    // Sort by score descending
-    scored.sort((a, b) => b.matchScore - a.matchScore);
+    // Sort by score descending, then by localId for consistent ordering
+    scored.sort((a, b) => {
+      if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+      // Secondary sort by localId (numeric) so higher numbers appear
+      const aNum = parseInt(a.localId) || 0;
+      const bNum = parseInt(b.localId) || 0;
+      return bNum - aNum;
+    });
 
-    return scored.slice(0, 10);
+    return scored.slice(0, 20); // Increased from 10 to show more variants
   } catch (error) {
     console.error('Smart search error:', error);
     return [];
