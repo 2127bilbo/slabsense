@@ -2220,7 +2220,17 @@ function CameraViewfinder({ side, onCapture, onClose }) {
   };
 
   const acceptCapture = () => { streamRef.current?.getTracks().forEach(t=>t.stop()); onCapture(captured); };
-  const retake = () => { setCaptured(null); setValidation(null); setCardOutline(null); setCardStable(0); };
+  const retake = () => {
+    setCaptured(null);
+    setValidation(null);
+    setCardOutline(null);
+    setCardStable(0);
+    // Restart video playback after unhiding
+    if (videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  };
   const closeCam = () => { streamRef.current?.getTracks().forEach(t=>t.stop()); onClose(); };
   const handleFile = e => { const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{const d=ev.target.result;setCaptured(d);setValidating(true);validateCap(d).then(r=>{setValidation(r);setValidating(false);});}; r.readAsDataURL(f); };
 
@@ -2233,18 +2243,18 @@ function CameraViewfinder({ side, onCapture, onClose }) {
       </div>
 
       <div style={{flex:1,position:"relative",overflow:"hidden"}}>
-        {!captured?(<>
-          {camError?(
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",padding:32}}>
-              <div style={{fontFamily:mono,fontSize:12,color:"#ff4444",marginBottom:16,textAlign:"center"}}>{camError}</div>
-              <button onClick={()=>fileRef.current?.click()} style={{padding:"12px 24px",background:"rgba(0,255,136,.15)",border:"1px solid #00ff8844",borderRadius:8,color:"#00ff88",fontFamily:mono,fontSize:12,cursor:"pointer"}}>Upload Photo Instead</button>
-              <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{display:"none"}}/>
-            </div>
-          ):(
-            <video ref={videoRef} playsInline muted style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-          )}
-
-          {active&&(
+        {/* Always keep video in DOM to preserve stream - just hide when captured */}
+        {camError?(
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",padding:32}}>
+            <div style={{fontFamily:mono,fontSize:12,color:"#ff4444",marginBottom:16,textAlign:"center"}}>{camError}</div>
+            <button onClick={()=>fileRef.current?.click()} style={{padding:"12px 24px",background:"rgba(0,255,136,.15)",border:"1px solid #00ff8844",borderRadius:8,color:"#00ff88",fontFamily:mono,fontSize:12,cursor:"pointer"}}>Upload Photo Instead</button>
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{display:"none"}}/>
+          </div>
+        ):(
+          <video ref={videoRef} playsInline muted style={{width:"100%",height:"100%",objectFit:"cover",display:captured?"none":"block"}}/>
+        )}
+        {/* Camera overlay - only show when not captured */}
+        {!captured && active && (
             <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}}>
               {/* Dim overlay with cutout - use detected card or static guide */}
               {cardFound ? (<>
@@ -2295,10 +2305,13 @@ function CameraViewfinder({ side, onCapture, onClose }) {
               <div style={{fontFamily:mono,fontSize:9,color:lvlColor,textTransform:"uppercase",letterSpacing:".1em"}}>{isLevel?"✓ Level":isClose?"Almost level":"Tilted"}</div>
             </div>
           )}
-          {orientPerm==="needs-request"&&active&&(
-            <button onClick={requestOrient} style={{position:"absolute",bottom:110,left:"50%",transform:"translateX(-50%)",padding:"8px 16px",background:"rgba(0,255,136,.15)",border:"1px solid #00ff8844",borderRadius:8,color:"#00ff88",fontFamily:mono,fontSize:10,cursor:"pointer"}}>Enable Level</button>
-          )}
-        </>):(
+        {/* Bubble level permission request */}
+        {!captured && orientPerm==="needs-request" && active && (
+          <button onClick={requestOrient} style={{position:"absolute",bottom:110,left:"50%",transform:"translateX(-50%)",padding:"8px 16px",background:"rgba(0,255,136,.15)",border:"1px solid #00ff8844",borderRadius:8,color:"#00ff88",fontFamily:mono,fontSize:10,cursor:"pointer"}}>Enable Level</button>
+        )}
+
+        {/* Captured image preview */}
+        {captured && (
           <div style={{width:"100%",height:"100%",position:"relative"}}>
             <img src={captured} style={{width:"100%",height:"100%",objectFit:"contain"}}/>
             {validating&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.6)"}}><div style={{fontFamily:mono,fontSize:12,color:"#00ff88"}}>Checking card detection...</div></div>}

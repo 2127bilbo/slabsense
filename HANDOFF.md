@@ -277,46 +277,47 @@ CREATE TABLE missing_images (
 12. ✅ **Corner-anchored centering mode** - Toggle alternative to edge-drag with 5-sample median per edge
 13. ✅ **Missing image fallback** - User crops photo when TCGDex has no image
 14. ✅ **Database schema updates** - Added `user_card_image` column
-15. [ ] Test pHash matching with various card types (holo/foil threshold tuning)
-16. [ ] Fine-tune SlabSense slab positioning
-17. [ ] Test full flow end-to-end
-18. [ ] Bug fixes and polish
+15. ✅ **Camera retake bug fix** - Video playback restarted after retake
+16. [ ] Test pHash matching with various card types (holo/foil threshold tuning)
+17. [ ] Fine-tune SlabSense slab positioning
+18. [ ] Test full flow end-to-end
+19. [ ] Bug fixes and polish
 
 ### AI Pipeline Migration (Post-Beta)
-18. [ ] **Migrate from Replicate to Anthropic direct API** (see SlabSense-AI-Grading-Pipeline.md)
+20. [ ] **Migrate from Replicate to Anthropic direct API** (see SlabSense-AI-Grading-Pipeline.md)
    - Prompt caching for 90% cost reduction on static content
    - Image preprocessing (CLAHE, unsharp mask, edge detection)
    - Defect annotation rendering with coordinates
    - Remove Replicate dependency
-19. [ ] Defect feedback capture system (optional, UX TBD with Bob)
+21. [ ] Defect feedback capture system (optional, UX TBD with Bob)
 
 ### Launch Phase
-20. [ ] **Billing & Subscriptions** (see SlabSense-Billing-Tokens-Subscriptions.md)
+22. [ ] **Billing & Subscriptions** (see SlabSense-Billing-Tokens-Subscriptions.md)
    - Token-based billing (Standard vs Express grades)
    - Stripe + PayPal integration
    - Subscription tiers (Free / Pro / Lifetime)
-21. [ ] Production deployment
-22. [ ] Privacy policy & Terms of Service updates
-23. [ ] Landing page / marketing site
-24. [ ] **Automated hash DB updates** - Serverless job to sync new TCGDex cards
+23. [ ] Production deployment
+24. [ ] Privacy policy & Terms of Service updates
+25. [ ] Landing page / marketing site
+26. [ ] **Automated hash DB updates** - Serverless job to sync new TCGDex cards
 
 ### Post-Launch / Mobile App
-25. [ ] **Mobile app decision: Capacitor vs React Native**
+27. [ ] **Mobile app decision: Capacitor vs React Native**
    - Capacitor: Wrap existing code, faster launch
    - React Native: Better native feel, more work
-26. [ ] Apple Developer Account ($99/year)
-27. [ ] iOS app build and submission
-28. [ ] TestFlight beta testing
-29. [ ] App Store launch
-30. [ ] Google Play (Android) - same codebase
+28. [ ] Apple Developer Account ($99/year)
+29. [ ] iOS app build and submission
+30. [ ] TestFlight beta testing
+31. [ ] App Store launch
+32. [ ] Google Play (Android) - same codebase
 
 ### Future Enhancements
-31. [ ] Custom ML model for card recognition (using saved images)
-32. [ ] Sports cards support (baseball, basketball, etc.)
-33. [ ] Price tracking history & trends
-34. [ ] Social features (share collections)
-35. [ ] Bulk grading mode
-36. [ ] Hardware integration (3D printed mount, LED lighting system)
+33. [ ] Custom ML model for card recognition (using saved images)
+34. [ ] Sports cards support (baseball, basketball, etc.)
+35. [ ] Price tracking history & trends
+36. [ ] Social features (share collections)
+37. [ ] Bulk grading mode
+38. [ ] Hardware integration (3D printed mount, LED lighting system)
 
 ---
 
