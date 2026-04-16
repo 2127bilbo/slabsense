@@ -23,6 +23,9 @@ let modelLoadPromise = null;
 let embeddingsDb = null;
 let embeddingsMeta = null;
 
+// Card info lookup (from card-hashes.json)
+let cardInfoDb = null;
+
 /**
  * Cosine similarity between two vectors
  */
@@ -92,6 +95,37 @@ export async function loadModel(onProgress = null) {
   })();
 
   return modelLoadPromise;
+}
+
+/**
+ * Load card info from card-hashes.json (for name lookups)
+ */
+async function loadCardInfo() {
+  if (cardInfoDb) return cardInfoDb;
+
+  try {
+    const response = await fetch('/card-hashes.json');
+    if (!response.ok) {
+      console.warn('[CLIPMatcher] Could not load card-hashes.json for name lookups');
+      return {};
+    }
+    const data = await response.json();
+
+    // Convert array to lookup object by ID
+    cardInfoDb = {};
+    for (const card of data.cards) {
+      cardInfoDb[card.id] = {
+        name: card.name,
+        set: card.set,
+        number: card.number,
+      };
+    }
+    console.log(`[CLIPMatcher] Loaded card info for ${Object.keys(cardInfoDb).length} cards`);
+    return cardInfoDb;
+  } catch (e) {
+    console.warn('[CLIPMatcher] Failed to load card info:', e);
+    return {};
+  }
 }
 
 /**
@@ -248,9 +282,9 @@ export async function matchCard(imageSource, options = {}) {
     if (onProgress) onProgress({ step: 'model', message: 'Loading AI model...' });
     await loadModel();
 
-    // Step 2: Ensure embeddings are loaded
+    // Step 2: Ensure embeddings and card info are loaded
     if (onProgress) onProgress({ step: 'embeddings', message: 'Loading card database...' });
-    await loadEmbeddings();
+    await Promise.all([loadEmbeddings(), loadCardInfo()]);
 
     // Step 3: Crop card if requested
     let processedImage = imageSource;
@@ -270,9 +304,9 @@ export async function matchCard(imageSource, options = {}) {
     if (onProgress) onProgress({ step: 'embed', message: 'Analyzing image...' });
     const embedding = await computeEmbedding(processedImage);
 
-    // Step 5: Find matches
+    // Step 5: Find matches (use loaded cardInfoDb for names)
     if (onProgress) onProgress({ step: 'match', message: 'Finding matches...' });
-    const matches = findMatches(embedding, cardInfo, topK);
+    const matches = findMatches(embedding, cardInfoDb, topK);
 
     const elapsed = performance.now() - startTime;
 
@@ -331,12 +365,13 @@ export function getEmbeddingsMeta() {
 }
 
 /**
- * Preload model and embeddings (call on app init)
+ * Preload model, embeddings, and card info (call on app init)
  */
 export async function preload(onProgress = null) {
   await Promise.all([
     loadModel(onProgress),
     loadEmbeddings(),
+    loadCardInfo(),
   ]);
 }
 
