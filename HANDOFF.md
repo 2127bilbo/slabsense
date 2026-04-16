@@ -13,15 +13,15 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 
 ## What's Working
 
-### Card Identification (pHash Pipeline)
-- ✅ pHash visual matching (~30ms per card)
-- ✅ Hash database: 21,900 cards, 1.94MB
+### Card Identification (CLIP Visual Matching)
+- ✅ CLIP embedding matching (more accurate than pHash for holo/foil)
+- ✅ Embedding database: 21,899 cards, ~215MB (5 chunks for Vercel)
 - ✅ Variance-based card detection crops card from background
 - ✅ TCGDex API integration for card data + high-quality images
 - ✅ Manual search fallback for low-confidence matches
 - ✅ Card images from TCGDex used for slabs (perfect quality)
 - ✅ Collection view shows card images instead of text placeholders
-- ✅ Incremental updates (`--update` flag) for new set releases
+- ✅ Thumbnails in search results from TCGDex
 - ✅ **Missing image fallback** - User crops their photo when TCGDex has no image
 - ✅ **Missing image logging** - Tracks cards without images for us to fix
 
@@ -87,23 +87,24 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 
 ---
 
-## Card Identification Flow (pHash)
+## Card Identification Flow (CLIP)
 
 ```
 User uploads/captures card image
+  → Image resized to 1920x1440 max (JPEG 0.92)
   → Card cropped from background (variance detection)
-  → pHash computed on card image (~30ms)
-  → Hamming distance search against hash database (21,900 cards)
+  → CLIP embedding computed (512-dim vector)
+  → Cosine similarity search against 21,899 embeddings
 
-If distance <= 8 (high confidence):
-  → Auto-accept match
+If similarity >= 0.85 (high confidence):
+  → Show match with thumbnail for user confirmation
   → Full card data + high-quality image loaded from TCGDex
 
-If distance 9-15 (medium confidence):
-  → Show top 3 candidates for user to confirm
+If similarity 0.75-0.85 (medium confidence):
+  → Show top candidates for user to pick
   → User taps correct card
 
-If distance > 15 (low confidence):
+If similarity < 0.75 (low confidence):
   → Manual search UI shown
   → User types card name → TCGDex search
 
@@ -113,10 +114,10 @@ Result:
   → Data saved with scan
 ```
 
-**Hash Database:**
-- Location: `public/card-hashes.json` (~1.94MB)
-- Build script: `node scripts/build-hash-db.cjs --save-images`
-- Update script: `node scripts/build-hash-db.cjs --update --save-images` (new sets only)
+**CLIP Embeddings:**
+- Location: `public/models/clip_embeddings_*.json` (5 chunks, ~215MB total)
+- Card metadata: `public/card-hashes.json` (~1.94MB)
+- Split script: `node scripts/split-embeddings.cjs`
 
 ---
 
@@ -153,15 +154,17 @@ User clicks "3D Slab View"
 
 ## Key Files
 
-### Card Identification (pHash)
+### Card Identification (CLIP)
 | File | Purpose |
 |------|---------|
-| `src/lib/phash.js` | pHash compute + Hamming distance |
-| `src/lib/card-matcher.js` | Hash database loader + matching |
+| `src/lib/clip-matcher.js` | CLIP embedding computation + cosine similarity matching |
+| `src/lib/card-detector.js` | Variance-based card cropping |
+| `src/lib/identify-card.js` | Main identification pipeline |
 | `src/services/tcgdex.js` | TCGDex API wrapper |
 | `src/components/CardIdentifier/CardIdentifier.jsx` | Identification UI flow |
-| `scripts/build-hash-db.cjs` | Hash database builder (dev-only) |
-| `public/card-hashes.json` | Hash database (shipped asset) |
+| `public/models/clip_embeddings_*.json` | Pre-computed embeddings (5 chunks) |
+| `public/card-hashes.json` | Card metadata (names, sets, numbers) |
+| `scripts/split-embeddings.cjs` | Split embeddings into Vercel-compatible chunks |
 
 ### Frontend
 | File | Purpose |
@@ -237,25 +240,31 @@ CREATE TABLE missing_images (
 
 ---
 
-## pHash Technical Details
+## CLIP Technical Details
 
 ### How It Works
 1. **Card Detection** - Grid-based variance analysis finds card bounds
 2. **Cropping** - Removes background, isolates card
-3. **Preprocessing** - Histogram equalization to normalize holo/foil reflections
-4. **pHash Compute** - Draw to 32×32 grayscale, DCT, median threshold → 64-bit hash
-5. **Hamming Search** - XOR query hash against database, popcount for distance
-6. **Confidence** - Distance ≤8: high, 9-16: medium, >16: low (always shows matches for user confirmation)
+3. **CLIP Embedding** - Transformers.js computes 512-dimension vector
+4. **Cosine Similarity** - Compare against 21,899 pre-computed embeddings
+5. **Confidence** - Similarity ≥0.85: high, 0.75-0.85: medium, <0.75: low
+
+### Model Details
+- **Model:** `Xenova/clip-vit-base-patch32` via Transformers.js
+- **First-time download:** ~90MB (cached in browser IndexedDB)
+- **Embedding dimension:** 512 floats per card
+- **Embeddings storage:** 5 JSON chunks (~43MB each) in `public/models/`
 
 ### Performance Targets
-- pHash compute: <30ms
-- Match search (21k cards): <20ms
+- CLIP model load: 2-5s (first time), instant (cached)
+- Embedding compute: 200-500ms
+- Match search (21k cards): <50ms
 - TCGDex API call: 200-500ms (cached after)
 
-### Known Considerations
-- **Foil/holo cards** may hash with higher distance (test threshold)
-- **Reprints with identical art** return multiple matches (user picks)
-- **Cards newer than hash DB** need `--update` run
+### Advantages over pHash
+- **Better for holo/foil cards** - CLIP understands visual features, not just edges
+- **More robust to lighting** - Semantic matching vs pixel-level hashing
+- **Higher accuracy** - 512-dim vector vs 64-bit hash
 
 ---
 
@@ -279,51 +288,55 @@ CREATE TABLE missing_images (
 13. ✅ **Missing image fallback** - User crops photo when TCGDex has no image
 14. ✅ **Database schema updates** - Added `user_card_image` column
 15. ✅ **Camera retake bug fix** - Video playback restarted after retake
-16. [ ] Test pHash matching with various card types (holo/foil threshold tuning)
-17. [ ] Fine-tune SlabSense slab positioning
-18. [ ] Test full flow end-to-end
-19. [ ] Bug fixes and polish
+16. ✅ **CLIP visual matching** - Replaced pHash with CLIP for better holo/foil card matching
+   - 21,899 card embeddings split into 5 chunks (~43MB each)
+   - Uses Transformers.js (@xenova/transformers) in browser
+   - Cosine similarity matching with confidence thresholds
+17. ✅ **File upload resizing** - Uploaded images now resize to 1920x1440 (matches camera constraints)
+18. ✅ **Technical documentation** - Complete system reference guide (docs/TECHNICAL_REFERENCE.md)
+19. [ ] Fine-tune SlabSense slab positioning
+20. [ ] Test full flow end-to-end
+21. [ ] Bug fixes and polish
 
 ### AI Pipeline Migration (Post-Beta)
-20. [ ] **Migrate from Replicate to Anthropic direct API** (see SlabSense-AI-Grading-Pipeline.md)
+22. [ ] **Migrate from Replicate to Anthropic direct API** (see SlabSense-AI-Grading-Pipeline.md)
    - Prompt caching for 90% cost reduction on static content
    - Image preprocessing (CLAHE, unsharp mask, edge detection)
    - Defect annotation rendering with coordinates
    - Remove Replicate dependency
-21. [ ] Defect feedback capture system (optional, UX TBD with Bob)
+23. [ ] Defect feedback capture system (optional, UX TBD with Bob)
 
 ### Launch Phase
-22. [ ] **Billing & Subscriptions** (see SlabSense-Billing-Tokens-Subscriptions.md)
+24. [ ] **Billing & Subscriptions** (see SlabSense-Billing-Tokens-Subscriptions.md)
    - Token-based billing (Standard vs Express grades)
    - Stripe + PayPal integration
    - Subscription tiers (Free / Pro / Lifetime)
-23. [ ] Production deployment
-24. [ ] Privacy policy & Terms of Service updates
-25. [ ] Landing page / marketing site
-26. [ ] **Automated hash DB updates** - Serverless job to sync new TCGDex cards
+25. [ ] Production deployment
+26. [ ] Privacy policy & Terms of Service updates
+27. [ ] Landing page / marketing site
+28. [ ] **Automated embedding updates** - Serverless job to generate CLIP embeddings for new TCGDex cards
 
 ### Post-Launch / Mobile App
-27. [ ] **Mobile app decision: Capacitor vs React Native**
+29. [ ] **Mobile app decision: Capacitor vs React Native**
    - Capacitor: Wrap existing code, faster launch
    - React Native: Better native feel, more work
-28. [ ] Apple Developer Account ($99/year)
-29. [ ] iOS app build and submission
-30. [ ] TestFlight beta testing
-31. [ ] App Store launch
-32. [ ] Google Play (Android) - same codebase
+30. [ ] Apple Developer Account ($99/year)
+31. [ ] iOS app build and submission
+32. [ ] TestFlight beta testing
+33. [ ] App Store launch
+34. [ ] Google Play (Android) - same codebase
 
 ### Future Enhancements
-33. [ ] Custom ML model for card recognition (using saved images)
-34. [ ] Sports cards support (baseball, basketball, etc.)
-35. [ ] Price tracking history & trends
-36. [ ] Social features (share collections)
-37. [ ] Bulk grading mode
-38. [ ] Hardware integration (3D printed mount, LED lighting system)
-39. [ ] **Upgrade Vercel plan** - Higher payload limits allow larger images for better AI grading accuracy
+35. [ ] Custom ML model for card recognition (using saved images)
+36. [ ] Sports cards support (baseball, basketball, etc.)
+37. [ ] Price tracking history & trends
+38. [ ] Social features (share collections)
+39. [ ] Bulk grading mode
+40. [ ] Hardware integration (3D printed mount, LED lighting system)
+41. [ ] **Upgrade Vercel plan** - Higher payload limits allow larger images for better AI grading accuracy
    - Current: Free tier (4.5MB function payload limit, 100MB deployment size)
    - Pro tier: 50MB payload limit, 1GB deployment size
    - Would enable higher resolution card images for detecting fine defects
-40. [ ] **CLIP visual matching** - More accurate than pHash for holo/foil cards (needs external embedding hosting)
 
 ---
 
@@ -335,20 +348,20 @@ cd "G:\Grading App\SlabSense"
 npm run dev
 # Opens at http://localhost:5173
 
-# Test card identification (pHash):
+# Test card identification (CLIP):
 # 1. Upload a card image (front)
-# 2. CardIdentifier computes visual hash (~50ms)
-# 3. Searches hash database for matches
-# 4. High confidence → auto-selects card
-# 5. Medium confidence → shows candidates to pick
+# 2. CLIP model computes 512-dim embedding
+# 3. Cosine similarity search against 21,899 embeddings
+# 4. High confidence (>0.85) → shows match for confirmation
+# 5. Medium confidence (0.75-0.85) → shows candidates to pick
 # 6. Low/error → falls back to manual name search
 # 7. Card data + high-quality image loaded from TCGDex
 
-# Build hash database (required for pHash):
+# Build hash database (for card metadata):
 node scripts/build-hash-db.cjs --save-images
 
-# Update hash database (new sets only, ~5-15 min):
-node scripts/build-hash-db.cjs --update --save-images
+# Split embeddings into Vercel-compatible chunks:
+node scripts/split-embeddings.cjs
 
 # Deploy to Vercel
 vercel --prod
@@ -358,10 +371,10 @@ vercel --prod
 
 ## Troubleshooting
 
-### pHash Not Matching Cards
-- Distance > 15 indicates low confidence match
-- Holo/foil cards may have higher distances (test threshold 10 vs 8)
-- Card must be in hash database (run `--update` for new sets)
+### CLIP Not Matching Cards
+- Similarity < 0.75 indicates low confidence match
+- Check browser console for CLIP loading errors
+- Verify embedding chunks exist in `public/models/`
 - Falls back to manual search automatically
 
 ### Card Not Cropping Properly
@@ -374,9 +387,16 @@ vercel --prod
 - Try partial name (e.g., "Pikachu" not "Pikachu EX")
 - TCGDex only has Pokemon cards (not other TCGs)
 
-### Hash Database Updates
-- Run `node scripts/build-hash-db.cjs --update --save-images` for new sets
-- Full rebuild: `node scripts/build-hash-db.cjs --save-images` (~6 hours)
+### Missing Thumbnails in Search Results
+- Check TCGDex image URL format includes series prefix
+- URL format: `https://assets.tcgdex.net/en/{series}/{setId}/{number}/low.webp`
+- See series mapping in `src/lib/clip-matcher.js`
+
+### AI Grading Not Working
+- Check Vercel logs for `/api/ai-analyze` errors
+- Verify `REPLICATE_API_TOKEN` environment variable
+- Check Replicate dashboard for API status/billing
+- See `docs/TECHNICAL_REFERENCE.md` for full troubleshooting guide
 
 ---
 
