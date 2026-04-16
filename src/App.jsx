@@ -12,6 +12,7 @@ import { checkBackendHealth, analyzeCardWithBackend, analyzeCardWithVision, clau
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 import { CardIdentifier } from "./components/CardIdentifier/CardIdentifier.jsx";
 import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.jsx";
+import { PostCaptureCentering } from "./components/PostCaptureCentering/PostCaptureCentering.jsx";
 import { calculateCornerCentering } from "./lib/corner-measurement.js";
 
 /* ═══════════════════════════════════════════
@@ -2720,6 +2721,13 @@ export default function SlabSense(){
   const[showCropModal,setShowCropModal]=useState(false); // Show crop modal for missing TCGDex images
   const[pendingSaveData,setPendingSaveData]=useState(null); // Pending save data while waiting for crop
 
+  // Post-capture centering state
+  const[showPostCaptureCentering,setShowPostCaptureCentering]=useState(null); // 'front' | 'back' | null
+  const[frontCenteringData,setFrontCenteringData]=useState(null); // Manual centering data for front
+  const[backCenteringData,setBackCenteringData]=useState(null); // Manual centering data for back
+  const[frontCroppedImage,setFrontCroppedImage]=useState(null); // Manually cropped front image
+  const[backCroppedImage,setBackCroppedImage]=useState(null); // Manually cropped back image
+
   // Auth hook
   const auth = useAuth();
 
@@ -2883,7 +2891,7 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR, useAiCentering, aiCentering]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);setGradeMode('software');setUseAiCentering(false);setAiCentering(null);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);setGradeMode('software');setUseAiCentering(false);setAiCentering(null);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -2892,16 +2900,18 @@ export default function SlabSense(){
       try {
         const quality = await analyzePhotoQuality(img);
         setFrontQuality(quality);
-        // Trigger card identification
-        setShowCardIdentifier(true);
-        setIdentifyingCard(true);
+        // Show post-capture centering instead of directly triggering card identifier
+        setShowPostCaptureCentering('front');
       } catch (e) {
         console.error('Quality analysis failed:', e);
         setFrontQuality(null);
+        // Still show centering on error
+        setShowPostCaptureCentering('front');
       }
     } else {
       setFrontQuality(null);
       setShowCardIdentifier(false);
+      setShowPostCaptureCentering(null);
     }
   }, []);
 
@@ -2911,15 +2921,48 @@ export default function SlabSense(){
       try {
         const quality = await analyzePhotoQuality(img);
         setBackQuality(quality);
+        // Show post-capture centering for back too
+        setShowPostCaptureCentering('back');
       } catch (e) {
         console.error('Quality analysis failed:', e);
         setBackQuality(null);
+        setShowPostCaptureCentering('back');
       }
     } else {
       setBackQuality(null);
+      setShowPostCaptureCentering(null);
     }
   }, []);
   const handleCam=d=>{if(camTarget==="front")handleSetFrontImage(d);else handleSetBackImage(d);setCamTarget(null);};
+
+  // Handle post-capture centering confirm
+  const handleCenteringConfirm = useCallback((side, result) => {
+    if (side === 'front') {
+      setFrontCroppedImage(result.croppedImage);
+      setFrontCenteringData(result.centeringData);
+    } else {
+      setBackCroppedImage(result.croppedImage);
+      setBackCenteringData(result.centeringData);
+    }
+    setShowPostCaptureCentering(null);
+
+    // Only trigger CardIdentifier for front side
+    if (side === 'front') {
+      setShowCardIdentifier(true);
+      setIdentifyingCard(true);
+    }
+  }, []);
+
+  // Handle post-capture centering skip
+  const handleCenteringSkip = useCallback((side) => {
+    setShowPostCaptureCentering(null);
+
+    // Only trigger CardIdentifier for front side (will use auto-crop)
+    if (side === 'front') {
+      setShowCardIdentifier(true);
+      setIdentifyingCard(true);
+    }
+  }, []);
 
   // Handle card identification result from OCR + TCGDex
   const handleCardIdentified = (cardData) => {
@@ -3226,6 +3269,15 @@ export default function SlabSense(){
         onCancel={handleCropSkip}
       />
     )}
+    {/* Post-Capture Centering Modal */}
+    {showPostCaptureCentering && (
+      <PostCaptureCentering
+        image={showPostCaptureCentering === 'front' ? fI : bI}
+        side={showPostCaptureCentering}
+        onConfirm={(result) => handleCenteringConfirm(showPostCaptureCentering, result)}
+        onSkip={() => handleCenteringSkip(showPostCaptureCentering)}
+      />
+    )}
     {/* Card Identifier Modal (OCR + TCGDex) */}
     {showCardIdentifier && fI && (
       <div style={{
@@ -3240,7 +3292,8 @@ export default function SlabSense(){
       }}>
         <div style={{maxWidth:400,width:"100%"}}>
           <CardIdentifier
-            cardImage={fI}
+            cardImage={frontCroppedImage || fI}
+            preCropped={!!frontCroppedImage}
             onCardIdentified={handleCardIdentified}
             onCancel={() => {setShowCardIdentifier(false);setIdentifyingCard(false);}}
           />
@@ -3302,8 +3355,8 @@ export default function SlabSense(){
         )}
         {/* 3D Viewer - use TCGDex image for slab if available (perfect quality) */}
         <CardViewer3D
-          frontImage={tcgdexImage || enhancedCards.front}
-          backImage={enhancedCards.back}
+          frontImage={tcgdexImage || frontCroppedImage || enhancedCards.front}
+          backImage={backCroppedImage || enhancedCards.back}
           grade={gradeResult?.grade?.grade}
           gradeLabel={gradeResult?.grade?.label}
           gradingCompany={gradingCompany}

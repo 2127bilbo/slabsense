@@ -21,6 +21,7 @@ export function CardIdentifier({
   onCardIdentified,    // Callback when card is identified: (cardData) => void
   onCancel,            // Callback to cancel
   autoStart = true,    // Start identification automatically
+  preCropped = false,  // If true, skip auto-crop (image was manually cropped)
 }) {
   const [status, setStatus] = useState('idle'); // idle | identifying | results | loading | manual
   const [progress, setProgress] = useState(0);
@@ -48,9 +49,9 @@ export function CardIdentifier({
     setProgress(0);
 
     try {
-      // Run pHash identification
+      // Run pHash identification (skip crop if image was manually cropped)
       const result = await identifyCard(cardImage, {
-        cropCard: true,
+        cropCard: !preCropped,
         onProgress: setProgress,
       });
 
