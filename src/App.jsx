@@ -2130,13 +2130,32 @@ function CameraViewfinder({ side, onCapture, onClose }) {
   const [camError, setCamError] = useState(null);
   const [cardOutline, setCardOutline] = useState(null);
   const [cardStable, setCardStable] = useState(0); // frames card has been stable
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const [hasCamera, setHasCamera] = useState(null); // null = checking, true/false = result
   const fileRef = useRef(null);
   const detectRef = useRef(null);
 
+  // Check for camera availability first
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        // First check if any video input devices exist
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter(d => d.kind === 'videoinput');
+
+        if (videoInputs.length === 0) {
+          // No camera - go straight to upload mode
+          if (!cancelled) {
+            setHasCamera(false);
+            setCamError(null); // Not an error, just no camera
+          }
+          return;
+        }
+
+        // Camera exists, try to access it
+        setHasCamera(true);
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode:"environment", width:{ideal:1920}, height:{ideal:1440} }, audio:false,
         });
@@ -2144,7 +2163,12 @@ function CameraViewfinder({ side, onCapture, onClose }) {
         streamRef.current = stream;
         if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
         setActive(true);
-      } catch(err) { setCamError(err.name==="NotAllowedError"?"Camera permission denied":"Camera not available — use upload"); }
+      } catch(err) {
+        if (!cancelled) {
+          setHasCamera(false);
+          setCamError(err.name==="NotAllowedError"?"Camera permission denied":"Camera not available");
+        }
+      }
     })();
     return () => { cancelled=true; streamRef.current?.getTracks().forEach(t=>t.stop()); };
   }, []);
@@ -2235,25 +2259,59 @@ function CameraViewfinder({ side, onCapture, onClose }) {
   const handleFile = e => {
     const f = e.target.files?.[0];
     if (!f) return;
+
+    // Reset states
+    setUploadError(null);
+    setIsUploading(true);
+
+    // Check file size (max 25MB before processing)
+    const maxFileSize = 25 * 1024 * 1024;
+    if (f.size > maxFileSize) {
+      setUploadError(`File too large (${Math.round(f.size/1024/1024)}MB). Max 25MB.`);
+      setIsUploading(false);
+      return;
+    }
+
+    // Check file type
+    if (!f.type.startsWith('image/')) {
+      setUploadError('Please select an image file');
+      setIsUploading(false);
+      return;
+    }
+
     const r = new FileReader();
+    r.onerror = () => {
+      setUploadError('Failed to read file');
+      setIsUploading(false);
+    };
     r.onload = ev => {
       const img = new Image();
+      img.onerror = () => {
+        setUploadError('Failed to load image. Try a different file.');
+        setIsUploading(false);
+      };
       img.onload = () => {
-        // Resize to match camera constraints (1920x1440 max)
-        const maxW = 1920, maxH = 1440;
-        let w = img.width, h = img.height;
-        if (w > maxW || h > maxH) {
-          const scale = Math.min(maxW / w, maxH / h);
-          w = Math.round(w * scale);
-          h = Math.round(h * scale);
+        try {
+          // Resize to match camera constraints (1920x1440 max)
+          const maxW = 1920, maxH = 1440;
+          let w = img.width, h = img.height;
+          if (w > maxW || h > maxH) {
+            const scale = Math.min(maxW / w, maxH / h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          const d = c.toDataURL('image/jpeg', 0.92);
+          setCaptured(d);
+          setIsUploading(false);
+          setValidating(true);
+          validateCap(d).then(r => { setValidation(r); setValidating(false); });
+        } catch (err) {
+          setUploadError('Failed to process image');
+          setIsUploading(false);
         }
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        const d = c.toDataURL('image/jpeg', 0.92);
-        setCaptured(d);
-        setValidating(true);
-        validateCap(d).then(r => { setValidation(r); setValidating(false); });
       };
       img.src = ev.target.result;
     };
@@ -2269,14 +2327,78 @@ function CameraViewfinder({ side, onCapture, onClose }) {
       </div>
 
       <div style={{flex:1,position:"relative",overflow:"hidden"}}>
-        {/* Always keep video in DOM to preserve stream - just hide when captured */}
-        {camError?(
+        {/* Checking for camera */}
+        {hasCamera === null && !captured && (
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",padding:32}}>
-            <div style={{fontFamily:mono,fontSize:12,color:"#ff4444",marginBottom:16,textAlign:"center"}}>{camError}</div>
-            <button onClick={()=>fileRef.current?.click()} style={{padding:"12px 24px",background:"rgba(0,255,136,.15)",border:"1px solid #00ff8844",borderRadius:8,color:"#00ff88",fontFamily:mono,fontSize:12,cursor:"pointer"}}>Upload Photo Instead</button>
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{display:"none"}}/>
+            <div style={{fontFamily:mono,fontSize:12,color:"#666"}}>Checking camera...</div>
           </div>
-        ):(
+        )}
+
+        {/* No camera available - show upload-focused UI */}
+        {hasCamera === false && !captured && (
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",padding:32}}>
+            {camError && (
+              <div style={{fontFamily:mono,fontSize:11,color:"#ff9944",marginBottom:20,textAlign:"center"}}>{camError}</div>
+            )}
+            <div
+              onClick={()=>!isUploading && fileRef.current?.click()}
+              onDragOver={(e)=>{e.preventDefault();e.stopPropagation();}}
+              onDrop={(e)=>{
+                e.preventDefault();
+                e.stopPropagation();
+                const file = e.dataTransfer.files?.[0];
+                if (file && fileRef.current) {
+                  const dt = new DataTransfer();
+                  dt.items.add(file);
+                  fileRef.current.files = dt.files;
+                  handleFile({target: fileRef.current});
+                }
+              }}
+              style={{
+                width:"100%",
+                maxWidth:300,
+                aspectRatio:"2.5/3.5",
+                border:"2px dashed #333",
+                borderRadius:16,
+                display:"flex",
+                flexDirection:"column",
+                alignItems:"center",
+                justifyContent:"center",
+                cursor:isUploading?"wait":"pointer",
+                background:"#0d0f13",
+                transition:"all .2s",
+              }}
+            >
+              {isUploading ? (
+                <>
+                  <div style={{width:40,height:40,border:"3px solid #333",borderTopColor:"#00ff88",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
+                  <div style={{fontFamily:mono,fontSize:12,color:"#00ff88",marginTop:16}}>Processing image...</div>
+                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                </>
+              ) : (
+                <>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="17,8 12,3 7,8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  <div style={{fontFamily:mono,fontSize:13,color:"#888",marginTop:16}}>Drop image here</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#555",marginTop:4}}>or click to browse</div>
+                </>
+              )}
+            </div>
+            {uploadError && (
+              <div style={{fontFamily:mono,fontSize:11,color:"#ff4444",marginTop:16,textAlign:"center"}}>{uploadError}</div>
+            )}
+            <div style={{fontFamily:mono,fontSize:10,color:"#444",marginTop:20,textAlign:"center"}}>
+              Supports JPG, PNG, WebP • Max 25MB
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/>
+          </div>
+        )}
+
+        {/* Camera available - show video */}
+        {hasCamera === true && (
           <video ref={videoRef} playsInline muted style={{width:"100%",height:"100%",objectFit:"cover",display:captured?"none":"block"}}/>
         )}
         {/* Camera overlay - only show when not captured */}
@@ -2356,20 +2478,33 @@ function CameraViewfinder({ side, onCapture, onClose }) {
       </div>
 
       <div style={{padding:"16px 20px 28px",background:"rgba(0,0,0,.9)",display:"flex",alignItems:"center",justifyContent:"center",gap:20}}>
-        {!captured?(<>
-          <button onClick={()=>fileRef.current?.click()} style={{width:40,height:40,borderRadius:"50%",background:"transparent",border:"1px solid #444",color:"#888",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-          </button>
-          <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/>
-          {/* Shutter button - changes color when card locked */}
-          <button onClick={captureFrame} disabled={!active&&!camError} style={{width:68,height:68,borderRadius:"50%",background:"transparent",border:`4px solid ${cardLocked?"#00ff88":active?"#fff":"#444"}`,cursor:active?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"border-color .3s"}}>
-            <div style={{width:56,height:56,borderRadius:"50%",background:cardLocked?"#00ff88":active?"#fff":"#333",transition:"all .3s"}}/>
-          </button>
-          <div style={{width:40}}/>
-        </>):(<>
-          <button onClick={retake} style={{padding:"12px 24px",background:"transparent",border:"1px solid #444",borderRadius:10,color:"#fff",fontFamily:mono,fontSize:12,cursor:"pointer"}}>Retake</button>
-          <button onClick={acceptCapture} style={{padding:"12px 24px",background:validation?.valid?"#00ff88":"rgba(0,255,136,.3)",border:"none",borderRadius:10,color:"#000",fontFamily:mono,fontSize:12,fontWeight:700,cursor:"pointer"}}>{validation?.valid?"✓ Use Photo":"Use Anyway"}</button>
-        </>)}
+        {!captured ? (
+          hasCamera === false ? (
+            /* Upload-only mode - no shutter button needed, upload UI is above */
+            <div style={{fontFamily:mono,fontSize:11,color:"#555"}}>
+              {isUploading ? "Processing..." : "Select an image above"}
+            </div>
+          ) : (
+            /* Camera mode - show shutter + upload button */
+            <>
+              <button onClick={()=>fileRef.current?.click()} style={{width:40,height:40,borderRadius:"50%",background:"transparent",border:"1px solid #444",color:"#888",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/>
+              {/* Shutter button - changes color when card locked */}
+              <button onClick={captureFrame} disabled={!active} style={{width:68,height:68,borderRadius:"50%",background:"transparent",border:`4px solid ${cardLocked?"#00ff88":active?"#fff":"#444"}`,cursor:active?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"border-color .3s"}}>
+                <div style={{width:56,height:56,borderRadius:"50%",background:cardLocked?"#00ff88":active?"#fff":"#333",transition:"all .3s"}}/>
+              </button>
+              <div style={{width:40}}/>
+            </>
+          )
+        ) : (
+          /* Image captured - show retake/use buttons */
+          <>
+            <button onClick={retake} style={{padding:"12px 24px",background:"transparent",border:"1px solid #444",borderRadius:10,color:"#fff",fontFamily:mono,fontSize:12,cursor:"pointer"}}>{hasCamera === false ? "Choose Different" : "Retake"}</button>
+            <button onClick={acceptCapture} style={{padding:"12px 24px",background:validation?.valid?"#00ff88":"rgba(0,255,136,.3)",border:"none",borderRadius:10,color:"#000",fontFamily:mono,fontSize:12,fontWeight:700,cursor:"pointer"}}>{validation?.valid?"✓ Use Photo":"Use Anyway"}</button>
+          </>
+        )}
       </div>
     </div>
   );
