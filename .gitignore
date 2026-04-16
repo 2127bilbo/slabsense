@@ -24,7 +24,9 @@ public/card-images/
 public/models/clip_embeddings_tfjs.json
 public/models/clip_embeddings.json
 public/models/*.zip
-models/
+/models/
+# Allow chunked embeddings (each under 50MB for Vercel)
+!public/models/clip_embeddings_*.json
 docs/my slab/
 test-crops/
 test-crops-js/

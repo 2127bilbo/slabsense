@@ -319,6 +319,11 @@ CREATE TABLE missing_images (
 36. [ ] Social features (share collections)
 37. [ ] Bulk grading mode
 38. [ ] Hardware integration (3D printed mount, LED lighting system)
+39. [ ] **Upgrade Vercel plan** - Higher payload limits allow larger images for better AI grading accuracy
+   - Current: Free tier (4.5MB function payload limit, 100MB deployment size)
+   - Pro tier: 50MB payload limit, 1GB deployment size
+   - Would enable higher resolution card images for detecting fine defects
+40. [ ] **CLIP visual matching** - More accurate than pHash for holo/foil cards (needs external embedding hosting)
 
 ---
 
