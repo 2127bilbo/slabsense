@@ -2232,7 +2232,33 @@ function CameraViewfinder({ side, onCapture, onClose }) {
     }
   };
   const closeCam = () => { streamRef.current?.getTracks().forEach(t=>t.stop()); onClose(); };
-  const handleFile = e => { const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{const d=ev.target.result;setCaptured(d);setValidating(true);validateCap(d).then(r=>{setValidation(r);setValidating(false);});}; r.readAsDataURL(f); };
+  const handleFile = e => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize to match camera constraints (1920x1440 max)
+        const maxW = 1920, maxH = 1440;
+        let w = img.width, h = img.height;
+        if (w > maxW || h > maxH) {
+          const scale = Math.min(maxW / w, maxH / h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        const d = c.toDataURL('image/jpeg', 0.92);
+        setCaptured(d);
+        setValidating(true);
+        validateCap(d).then(r => { setValidation(r); setValidating(false); });
+      };
+      img.src = ev.target.result;
+    };
+    r.readAsDataURL(f);
+  };
 
   return (
     <div style={{position:"fixed",inset:0,zIndex:1000,background:"#000",display:"flex",flexDirection:"column"}}>
