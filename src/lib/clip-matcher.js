@@ -234,12 +234,16 @@ export function findMatches(queryEmbedding, cardInfo, topK = 10) {
   for (const [cardId, embedding] of Object.entries(embeddingsDb)) {
     const sim = cosineSimilarity(queryEmbedding, embedding);
     const card = cardInfo?.[cardId] || {};
+    const setId = card.set || cardId.split('-')[0] || '';
+    const number = card.number || cardId.split('-')[1] || '';
 
     similarities.push({
       id: cardId,
       name: card.name || cardId.split('-').slice(1).join('-') || 'Unknown',
-      number: card.number || cardId.split('-')[1] || '?',
-      set: card.set || cardId.split('-')[0] || '?',
+      number,
+      set: setId,
+      // TCGDex image URL for thumbnails
+      image: `https://assets.tcgdex.net/en/${setId}/${number}`,
       similarity: sim,
     });
   }
