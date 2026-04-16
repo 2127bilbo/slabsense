@@ -21,7 +21,12 @@ src/App1.jsx
 
 # Large generated files
 public/card-images/
+public/models/
+models/
 docs/my slab/
+test-crops/
+test-crops-js/
+nul
 
 # Python
 __pycache__/

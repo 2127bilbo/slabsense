@@ -16,6 +16,50 @@ import { smartSearch, getFullCardData } from '../../services/tcgdex.js';
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
 
+/**
+ * Construct image URL from set and number when card.image is not available
+ * Uses TCGDex asset URL pattern
+ */
+function getCardImageUrl(card) {
+  // If card already has image URL, use it
+  if (card.image) {
+    return `${card.image}/low.webp`;
+  }
+
+  // Construct from set and number
+  const setId = card.set?.id || card.set || '';
+  const localId = card.localId || card.number || '';
+
+  if (!setId || !localId) return null;
+
+  // Determine series from set ID
+  let series = 'unknown';
+  if (setId.startsWith('base') || setId.startsWith('gym') || setId.startsWith('neo') ||
+      setId.startsWith('si') || setId.startsWith('lc') || setId.startsWith('ecard')) {
+    series = 'base';
+  } else if (setId.startsWith('swsh')) {
+    series = 'swsh';
+  } else if (setId.startsWith('sv')) {
+    series = 'sv';
+  } else if (setId.startsWith('sm') || setId.startsWith('sma')) {
+    series = 'sm';
+  } else if (setId.startsWith('xy')) {
+    series = 'xy';
+  } else if (setId.startsWith('bw')) {
+    series = 'bw';
+  } else if (setId.startsWith('dp') || setId.startsWith('pl')) {
+    series = 'dp';
+  } else if (setId.startsWith('ex') || setId.startsWith('pop') || setId.startsWith('dc')) {
+    series = 'ex';
+  } else if (setId.startsWith('hgss') || setId.startsWith('col') || setId.startsWith('ru')) {
+    series = 'hgss';
+  } else if (setId.startsWith('A') || setId.startsWith('B') || setId.startsWith('P') || setId.startsWith('me')) {
+    series = 'poke';  // Pokemon TCG Pocket
+  }
+
+  return `https://assets.tcgdex.net/en/${series}/${setId}/${localId}/low.webp`;
+}
+
 export function CardIdentifier({
   cardImage,           // The user's captured card image
   onCardIdentified,    // Callback when card is identified: (cardData) => void
@@ -159,7 +203,15 @@ export function CardIdentifier({
     return '#ff6633';
   };
 
-  // Get distance display
+  // Get match quality display based on similarity score
+  const getMatchDisplay = (similarity) => {
+    if (similarity >= 0.85) return { label: 'Excellent', color: '#00ff88' };
+    if (similarity >= 0.80) return { label: 'Good', color: '#66dd44' };
+    if (similarity >= 0.75) return { label: 'Fair', color: '#ffcc00' };
+    return { label: 'Weak', color: '#ff9944' };
+  };
+
+  // Legacy distance display (for backwards compatibility)
   const getDistanceDisplay = (distance) => {
     if (distance <= 10) return { label: 'Excellent', color: '#00ff88' };
     if (distance <= 15) return { label: 'Good', color: '#66dd44' };
@@ -214,9 +266,10 @@ export function CardIdentifier({
             animation: 'spin 1s linear infinite',
           }} />
           <div style={{ fontFamily: mono, fontSize: 12, color: '#888', marginBottom: 8 }}>
-            {progress < 30 ? 'Detecting card...' :
-             progress < 50 ? 'Computing visual hash...' :
-             progress < 70 ? 'Searching database...' :
+            {progress < 30 ? 'Loading AI model...' :
+             progress < 50 ? 'Detecting card...' :
+             progress < 70 ? 'Analyzing image...' :
+             progress < 90 ? 'Finding matches...' :
              'Loading card data...'}
           </div>
           <div style={{
@@ -270,7 +323,7 @@ export function CardIdentifier({
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>
-                  VISUAL MATCH
+                  AI VISUAL MATCH
                 </div>
                 {identifyResult.topMatch && (
                   <div style={{
@@ -342,14 +395,18 @@ export function CardIdentifier({
                     overflow: 'hidden',
                     flexShrink: 0,
                   }}>
-                    {card.image && (
-                      <img
-                        src={`${card.image}/low.webp`}
-                        alt={card.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    )}
+                    {(() => {
+                      const imgUrl = getCardImageUrl(card);
+                      return imgUrl ? (
+                        <img
+                          src={imgUrl}
+                          alt={card.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                          loading="lazy"
+                        />
+                      ) : null;
+                    })()}
                   </div>
 
                   {/* Card Info */}
@@ -375,8 +432,25 @@ export function CardIdentifier({
                     </div>
                   </div>
 
-                  {/* Match indicator */}
-                  {distInfo ? (
+                  {/* Match indicator - show similarity percentage */}
+                  {card.similarity != null ? (
+                    (() => {
+                      const matchInfo = getMatchDisplay(card.similarity);
+                      const pct = Math.round(card.similarity * 100);
+                      return (
+                        <div style={{
+                          padding: '4px 8px',
+                          background: `${matchInfo.color}15`,
+                          borderRadius: 4,
+                          fontFamily: mono,
+                          fontSize: 9,
+                          color: matchInfo.color,
+                        }}>
+                          {pct}%
+                        </div>
+                      );
+                    })()
+                  ) : distInfo ? (
                     <div style={{
                       padding: '4px 8px',
                       background: `${distInfo.color}15`,
