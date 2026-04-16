@@ -226,17 +226,65 @@ export async function computeEmbedding(imageSource) {
  */
 function getSeriesFromSetId(setId) {
   if (!setId) return 'unknown';
-  if (setId.startsWith('base') || setId.startsWith('gym') || setId.startsWith('neo')) return 'base';
-  if (setId.startsWith('swsh')) return 'swsh';
-  if (setId.startsWith('sv')) return 'sv';
-  if (setId.startsWith('sm')) return 'sm';
-  if (setId.startsWith('xy')) return 'xy';
-  if (setId.startsWith('bw')) return 'bw';
-  if (setId.startsWith('dp') || setId.startsWith('pl')) return 'dp';
-  if (setId.startsWith('ex')) return 'ex';
-  if (setId.startsWith('cel')) return 'cel';
-  if (setId.startsWith('pop')) return 'pop';
-  if (setId.startsWith('mcd')) return 'mcd';
+  const s = setId.toLowerCase();
+
+  // Scarlet & Violet era
+  if (s.startsWith('sv')) return 'sv';
+
+  // Sword & Shield era
+  if (s.startsWith('swsh')) return 'swsh';
+
+  // Sun & Moon era
+  if (s.startsWith('sm')) return 'sm';
+
+  // XY era
+  if (s.startsWith('xy')) return 'xy';
+
+  // Black & White era
+  if (s.startsWith('bw')) return 'bw';
+
+  // HeartGold SoulSilver era
+  if (s.startsWith('hgss')) return 'hgss';
+
+  // Platinum era
+  if (s.startsWith('pl')) return 'pl';
+
+  // Diamond & Pearl era
+  if (s.startsWith('dp') || s.startsWith('dv') || s.startsWith('dpp')) return 'dp';
+
+  // EX era
+  if (s.startsWith('ex')) return 'ex';
+
+  // e-Card era
+  if (s.startsWith('ecard')) return 'ecard';
+
+  // Neo era
+  if (s.startsWith('neo')) return 'neo';
+
+  // Gym era
+  if (s.startsWith('gym')) return 'gym';
+
+  // Base era
+  if (s.startsWith('base') || s === 'lc') return 'base';
+
+  // Promos and special sets
+  if (s.startsWith('pop')) return 'pop';
+  if (s.startsWith('cel')) return 'cel';
+  if (s.startsWith('col')) return 'col';
+  if (s.startsWith('det')) return 'det';
+  if (s.startsWith('dc')) return 'dc';
+  if (s.startsWith('fut')) return 'fut';
+  if (s.startsWith('si')) return 'si';
+  if (s.startsWith('ru')) return 'ru';
+  if (s.startsWith('np')) return 'np';
+  if (s.startsWith('mcd')) return 'mcd';
+  if (s.startsWith('me')) return 'me';
+  if (s === 'g1') return 'g';
+  if (s === 'p') return 'p';
+
+  // Pokemon TCG Pocket
+  if (s.match(/^[ab]\d/)) return 'tcgp';
+
   return 'unknown';
 }
 
