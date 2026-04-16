@@ -222,6 +222,25 @@ export async function computeEmbedding(imageSource) {
 }
 
 /**
+ * Derive TCGDex series from set ID
+ */
+function getSeriesFromSetId(setId) {
+  if (!setId) return 'unknown';
+  if (setId.startsWith('base') || setId.startsWith('gym') || setId.startsWith('neo')) return 'base';
+  if (setId.startsWith('swsh')) return 'swsh';
+  if (setId.startsWith('sv')) return 'sv';
+  if (setId.startsWith('sm')) return 'sm';
+  if (setId.startsWith('xy')) return 'xy';
+  if (setId.startsWith('bw')) return 'bw';
+  if (setId.startsWith('dp') || setId.startsWith('pl')) return 'dp';
+  if (setId.startsWith('ex')) return 'ex';
+  if (setId.startsWith('cel')) return 'cel';
+  if (setId.startsWith('pop')) return 'pop';
+  if (setId.startsWith('mcd')) return 'mcd';
+  return 'unknown';
+}
+
+/**
  * Find best matching cards for an embedding
  */
 export function findMatches(queryEmbedding, cardInfo, topK = 10) {
@@ -236,14 +255,15 @@ export function findMatches(queryEmbedding, cardInfo, topK = 10) {
     const card = cardInfo?.[cardId] || {};
     const setId = card.set || cardId.split('-')[0] || '';
     const number = card.number || cardId.split('-')[1] || '';
+    const series = getSeriesFromSetId(setId);
 
     similarities.push({
       id: cardId,
       name: card.name || cardId.split('-').slice(1).join('-') || 'Unknown',
       number,
       set: setId,
-      // TCGDex image URL for thumbnails
-      image: `https://assets.tcgdex.net/en/${setId}/${number}`,
+      // TCGDex image URL: /en/{series}/{setId}/{localId}
+      image: `https://assets.tcgdex.net/en/${series}/${setId}/${number}`,
       similarity: sim,
     });
   }
