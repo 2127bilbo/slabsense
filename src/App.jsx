@@ -2291,14 +2291,32 @@ function CameraViewfinder({ side, onCapture, onClose }) {
                    f.type === 'image/heic' || f.type === 'image/heif';
     if (isHeic) {
       try {
-        console.log('[Upload] Converting HEIC to JPEG...');
-        const blob = await heic2any({ blob: f, toType: 'image/jpeg', quality: 0.92 });
+        console.log('[Upload] Converting HEIC to JPEG...', { name: f.name, size: f.size, type: f.type });
+
+        // heic2any needs the file as a Blob - ensure we have one
+        const inputBlob = f instanceof Blob ? f : new Blob([f], { type: 'image/heic' });
+
+        const result = await heic2any({
+          blob: inputBlob,
+          toType: 'image/jpeg',
+          quality: 0.92,
+          multiple: false // Force single output
+        });
+
         // heic2any can return array for multi-image HEIC, take first
-        f = Array.isArray(blob) ? blob[0] : blob;
-        console.log('[Upload] HEIC converted successfully');
+        f = Array.isArray(result) ? result[0] : result;
+        console.log('[Upload] HEIC converted successfully, new size:', f.size);
       } catch (err) {
-        console.error('[Upload] HEIC conversion failed:', err);
-        setUploadError('Failed to convert HEIC image. Try converting to JPG first.');
+        console.error('[Upload] HEIC conversion failed:', err?.message || err, err);
+        // Provide more helpful error message
+        const errMsg = err?.message || String(err);
+        if (errMsg.includes('not a HEIC')) {
+          setUploadError('File is not a valid HEIC image. Try a different file.');
+        } else if (errMsg.includes('memory')) {
+          setUploadError('Image too large to convert. Try a smaller HEIC file.');
+        } else {
+          setUploadError('Failed to convert HEIC. Try converting to JPG with another tool first.');
+        }
         setIsUploading(false);
         return;
       }
