@@ -384,10 +384,11 @@ vercel --prod
 
 ## Reference Documentation
 
-Detailed implementation specs for upcoming features (keep these files):
+Detailed implementation specs and technical guides:
 
 | File | Purpose |
 |------|---------|
+| `docs/TECHNICAL_REFERENCE.md` | **Complete system architecture, troubleshooting guide, all features explained** |
 | `SlabSense-Corner-Anchored-Centering-Mode.md` | Beta toggle for 8-corner centering with 5-sample median per edge |
 | `SlabSense-AI-Grading-Pipeline.md` | Anthropic direct API migration, image preprocessing, defect annotations |
 | `SlabSense-Billing-Tokens-Subscriptions.md` | Token-based billing, Stripe/PayPal integration, subscription tiers |
@@ -395,4 +396,4 @@ Detailed implementation specs for upcoming features (keep these files):
 
 ---
 
-*Last Updated: April 14, 2026*
+*Last Updated: April 16, 2026*
