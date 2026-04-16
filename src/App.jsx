@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import heic2any from "heic2any";
 import { GRADING_COMPANIES, getGradeFromScore, getCompanyOptions, DEFAULT_GRADING_COMPANY } from "./utils/gradingScales.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { AuthModal } from "./components/Auth/AuthModal.jsx";
@@ -2286,34 +2285,15 @@ function CameraViewfinder({ side, onCapture, onClose }) {
       return;
     }
 
-    // Convert HEIC/HEIF to JPEG (browsers can't decode HEIC natively)
+    // HEIC works on mobile (iOS Safari) but not desktop browsers
+    // Check if HEIC and on desktop - show convert message
     const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') ||
                    f.type === 'image/heic' || f.type === 'image/heif';
-    if (isHeic) {
-      try {
-        console.log('[Upload] Converting HEIC to JPEG...', { name: f.name, size: f.size, type: f.type });
-
-        // heic2any needs the file as a Blob - ensure we have one
-        const inputBlob = f instanceof Blob ? f : new Blob([f], { type: 'image/heic' });
-
-        const result = await heic2any({
-          blob: inputBlob,
-          toType: 'image/jpeg',
-          quality: 0.92,
-          multiple: false // Force single output
-        });
-
-        // heic2any can return array for multi-image HEIC, take first
-        f = Array.isArray(result) ? result[0] : result;
-        console.log('[Upload] HEIC converted successfully, new size:', f.size);
-      } catch (err) {
-        console.error('[Upload] HEIC conversion failed:', err?.message || err, err);
-        // HEIC conversion often fails - browser JS libraries can't decode all HEIC variants
-        // (especially newer iPhone formats using HEVC codec)
-        setUploadError('HEIC not supported. Convert to JPG first (Photos app, Preview, or online converter).');
-        setIsUploading(false);
-        return;
-      }
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isHeic && !isMobile) {
+      setUploadError('HEIC not supported on desktop. Please convert to JPG first.');
+      setIsUploading(false);
+      return;
     }
 
     // Process the image (now guaranteed to be browser-compatible format)
