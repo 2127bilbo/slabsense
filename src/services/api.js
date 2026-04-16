@@ -468,7 +468,7 @@ export async function claudeGradingAnalysis(frontImageDataUrl, backImageDataUrl 
   console.log('[Claude AI] Has back image:', !!backImageDataUrl);
 
   try {
-    // Compress and stitch images for Claude (must be under 4MB for Vercel)
+    // Stitch ORIGINAL images for Claude (high quality for accurate grading)
     let imageForClaude;
     let isStitched = false;
 
@@ -476,17 +476,9 @@ export async function claudeGradingAnalysis(frontImageDataUrl, backImageDataUrl 
       const stitched = await stitchCroppedCards(frontImageDataUrl, backImageDataUrl);
       imageForClaude = stitched.dataUrl;
       isStitched = true;
-      console.log(`[Claude AI] Stitched: ${stitched.width}x${stitched.height} (${Math.round(stitched.dataUrl.length/1024)}KB)`);
+      console.log(`[Claude AI] Stitched originals: ${stitched.width}x${stitched.height} (${Math.round(stitched.dataUrl.length/1024)}KB)`);
     } else {
       imageForClaude = frontImageDataUrl;
-    }
-
-    // Compress if too large (Vercel limit is 4.5MB, aim for under 3MB to be safe)
-    const maxSize = 3 * 1024 * 1024; // 3MB
-    if (imageForClaude.length > maxSize) {
-      console.log('[Claude AI] Image too large, compressing...');
-      imageForClaude = await compressImage(imageForClaude, maxSize);
-      console.log(`[Claude AI] Compressed to ${Math.round(imageForClaude.length/1024)}KB`);
     }
 
     // Call Claude API with retry logic for rate limits
@@ -908,45 +900,6 @@ function splitMask(maskData, width, height, splitPoint) {
     front: { canvas: frontCanvas, data: frontData, width: frontWidth, height },
     back: { canvas: backCanvas, data: backData, width: backWidth, height },
   };
-}
-
-/**
- * Compress image to fit within size limit
- * Reduces quality and/or dimensions until under maxBytes
- */
-async function compressImage(dataUrl, maxBytes) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      let quality = 0.85;
-      let scale = 1.0;
-      let result = dataUrl;
-
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      // Try reducing quality first, then scale if needed
-      while (result.length > maxBytes && (quality > 0.3 || scale > 0.5)) {
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        result = canvas.toDataURL('image/jpeg', quality);
-
-        if (result.length > maxBytes) {
-          if (quality > 0.4) {
-            quality -= 0.1;
-          } else {
-            scale -= 0.1;
-            quality = 0.7; // Reset quality when scaling down
-          }
-        }
-      }
-
-      console.log(`[Compress] ${img.width}x${img.height} → ${canvas.width}x${canvas.height} @ q=${quality.toFixed(1)}`);
-      resolve(result);
-    };
-    img.src = dataUrl;
-  });
 }
 
 /**
