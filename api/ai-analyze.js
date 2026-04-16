@@ -17,7 +17,8 @@ export const config = {
   maxDuration: 90,
 };
 
-const CLAUDE_MODEL = 'anthropic/claude-4-sonnet';
+// Use Claude 3.5 Sonnet via Replicate (claude-4-sonnet doesn't exist)
+const CLAUDE_MODEL = 'anthropic/claude-3.5-sonnet';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

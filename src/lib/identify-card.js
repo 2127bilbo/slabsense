@@ -39,6 +39,7 @@ export async function preloadHashDb() {
  * @param {object} options - Configuration options
  * @param {boolean} options.cropCard - Whether to auto-crop card (default: true)
  * @param {function} options.onProgress - Progress callback (0-100)
+ * @param {number} options.timeout - Timeout in ms (default: 30000)
  * @returns {Promise<IdentificationResult>}
  *
  * @typedef {object} IdentificationResult
@@ -49,35 +50,52 @@ export async function preloadHashDb() {
  * @property {object} cardData - Full card data (if high confidence match)
  */
 export async function identifyCard(imageSrc, options = {}) {
-  const { cropCard = true, onProgress = null } = options;
+  const { cropCard = true, onProgress = null, timeout = 30000 } = options;
 
   const startTime = performance.now();
+
+  // Create timeout promise
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Identification timed out. Try manual search.')), timeout);
+  });
 
   try {
     console.log('[IdentifyCard] Starting CLIP-based identification...');
 
-    // Use CLIP matcher which handles crop + embed + match
-    const result = await clipMatchCard(imageSrc, {
-      cropCard,
-      topK: 20,
-      onProgress: (progress) => {
-        // Map CLIP progress steps to percentage
-        const stepMap = {
-          'model': 10,
-          'embeddings': 30,
-          'crop': 50,
-          'embed': 70,
-          'match': 85,
-          'done': 100,
-        };
-        if (onProgress && progress.step) {
-          onProgress(stepMap[progress.step] || 50);
-        }
-      },
-    });
+    // Race between CLIP matching and timeout
+    const result = await Promise.race([
+      clipMatchCard(imageSrc, {
+        cropCard,
+        topK: 20,
+        onProgress: (progress) => {
+          // Map CLIP progress steps to percentage
+          const stepMap = {
+            'model': 10,
+            'embeddings': 30,
+            'crop': 50,
+            'embed': 70,
+            'match': 85,
+            'done': 100,
+          };
+          if (onProgress && progress.step) {
+            onProgress(stepMap[progress.step] || 50);
+          }
+        },
+      }),
+      timeoutPromise,
+    ]);
 
     const elapsed = performance.now() - startTime;
     console.log(`[IdentifyCard] Complete in ${elapsed.toFixed(0)}ms - Status: ${result.status}`);
+
+    // Handle error status from CLIP matcher
+    if (result.status === 'error') {
+      return {
+        status: 'error',
+        error: result.error || 'CLIP matching failed',
+        matches: [],
+      };
+    }
 
     // Transform CLIP matches to CardIdentifier expected format
     const transformedMatches = (result.matches || []).map(match => ({
@@ -123,7 +141,7 @@ export async function identifyCard(imageSrc, options = {}) {
     console.error('[IdentifyCard] Error:', error);
     return {
       status: 'error',
-      error: error.message,
+      error: error.message || 'Identification failed',
       matches: [],
     };
   }
