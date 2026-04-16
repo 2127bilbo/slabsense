@@ -96,6 +96,7 @@ export async function loadModel(onProgress = null) {
 
 /**
  * Load pre-computed embeddings database
+ * Supports chunked loading for large databases
  */
 export async function loadEmbeddings(forceRefresh = false) {
   if (embeddingsDb && !forceRefresh) {
@@ -106,28 +107,61 @@ export async function loadEmbeddings(forceRefresh = false) {
   const startTime = performance.now();
 
   try {
-    // Try Transformers.js embeddings first, fall back to Python CLIP
-    let response = await fetch('/models/clip_embeddings_tfjs.json');
-    if (!response.ok) {
-      console.log('[CLIPMatcher] TFJS embeddings not found, trying Python CLIP embeddings...');
-      response = await fetch('/models/clip_embeddings.json');
-    }
+    // Try loading chunked embeddings first (for Vercel deployment)
+    let response = await fetch('/models/clip_embeddings_0.json');
 
-    if (!response.ok) {
-      throw new Error(`Failed to load embeddings: ${response.status}`);
-    }
+    if (response.ok) {
+      // Chunked format - load all chunks
+      const firstChunk = await response.json();
+      const totalChunks = firstChunk.totalChunks || 1;
 
-    const data = await response.json();
-    embeddingsDb = data.embeddings;
-    embeddingsMeta = {
-      version: data.version,
-      model: data.model,
-      count: data.count,
-      generated: data.generated,
-    };
+      console.log(`[CLIPMatcher] Loading ${totalChunks} embedding chunks...`);
+      embeddingsDb = { ...firstChunk.embeddings };
+
+      // Load remaining chunks in parallel
+      if (totalChunks > 1) {
+        const chunkPromises = [];
+        for (let i = 1; i < totalChunks; i++) {
+          chunkPromises.push(
+            fetch(`/models/clip_embeddings_${i}.json`).then(r => r.json())
+          );
+        }
+        const chunks = await Promise.all(chunkPromises);
+        for (const chunk of chunks) {
+          Object.assign(embeddingsDb, chunk.embeddings);
+        }
+      }
+
+      embeddingsMeta = {
+        version: firstChunk.version,
+        model: firstChunk.model,
+        count: Object.keys(embeddingsDb).length,
+        chunked: true,
+      };
+    } else {
+      // Try single file format (local development)
+      console.log('[CLIPMatcher] Trying single-file embeddings...');
+      response = await fetch('/models/clip_embeddings_tfjs.json');
+      if (!response.ok) {
+        response = await fetch('/models/clip_embeddings.json');
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to load embeddings: ${response.status}`);
+      }
+
+      const data = await response.json();
+      embeddingsDb = data.embeddings;
+      embeddingsMeta = {
+        version: data.version,
+        model: data.model,
+        count: data.count,
+        generated: data.generated,
+      };
+    }
 
     const elapsed = performance.now() - startTime;
-    console.log(`[CLIPMatcher] Loaded ${data.count} embeddings in ${elapsed.toFixed(0)}ms`);
+    console.log(`[CLIPMatcher] Loaded ${embeddingsMeta.count} embeddings in ${elapsed.toFixed(0)}ms`);
 
     return { embeddings: embeddingsDb, meta: embeddingsMeta };
 

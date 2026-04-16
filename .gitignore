@@ -21,7 +21,9 @@ src/App1.jsx
 
 # Large generated files
 public/card-images/
-public/models/
+public/models/clip_embeddings_tfjs.json
+public/models/clip_embeddings.json
+public/models/*.zip
 models/
 docs/my slab/
 test-crops/
