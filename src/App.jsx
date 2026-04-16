@@ -2308,15 +2308,9 @@ function CameraViewfinder({ side, onCapture, onClose }) {
         console.log('[Upload] HEIC converted successfully, new size:', f.size);
       } catch (err) {
         console.error('[Upload] HEIC conversion failed:', err?.message || err, err);
-        // Provide more helpful error message
-        const errMsg = err?.message || String(err);
-        if (errMsg.includes('not a HEIC')) {
-          setUploadError('File is not a valid HEIC image. Try a different file.');
-        } else if (errMsg.includes('memory')) {
-          setUploadError('Image too large to convert. Try a smaller HEIC file.');
-        } else {
-          setUploadError('Failed to convert HEIC. Try converting to JPG with another tool first.');
-        }
+        // HEIC conversion often fails - browser JS libraries can't decode all HEIC variants
+        // (especially newer iPhone formats using HEVC codec)
+        setUploadError('HEIC not supported. Convert to JPG first (Photos app, Preview, or online converter).');
         setIsUploading(false);
         return;
       }
