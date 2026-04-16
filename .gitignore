@@ -27,10 +27,10 @@ public/models/*.zip
 /models/
 # Allow chunked embeddings (each under 50MB for Vercel)
 !public/models/clip_embeddings_*.json
+
+# Unused/archived
+scripts/unused/
 docs/my slab/
-test-crops/
-test-crops-js/
-nul
 
 # Python
 __pycache__/

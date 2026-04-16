@@ -299,7 +299,7 @@ CREATE TABLE missing_images (
 21. [ ] Bug fixes and polish
 
 ### AI Pipeline Migration (Post-Beta)
-22. [ ] **Migrate from Replicate to Anthropic direct API** (see SlabSense-AI-Grading-Pipeline.md)
+22. [ ] **Migrate from Replicate to Anthropic direct API**
    - Prompt caching for 90% cost reduction on static content
    - Image preprocessing (CLAHE, unsharp mask, edge detection)
    - Defect annotation rendering with coordinates
@@ -307,7 +307,7 @@ CREATE TABLE missing_images (
 23. [ ] Defect feedback capture system (optional, UX TBD with Bob)
 
 ### Launch Phase
-24. [ ] **Billing & Subscriptions** (see SlabSense-Billing-Tokens-Subscriptions.md)
+24. [ ] **Billing & Subscriptions**
    - Token-based billing (Standard vs Express grades)
    - Stripe + PayPal integration
    - Subscription tiers (Free / Pro / Lifetime)
@@ -404,14 +404,9 @@ vercel --prod
 
 ## Reference Documentation
 
-Detailed implementation specs and technical guides:
-
 | File | Purpose |
 |------|---------|
 | `docs/TECHNICAL_REFERENCE.md` | **Complete system architecture, troubleshooting guide, all features explained** |
-| `SlabSense-Corner-Anchored-Centering-Mode.md` | Beta toggle for 8-corner centering with 5-sample median per edge |
-| `SlabSense-AI-Grading-Pipeline.md` | Anthropic direct API migration, image preprocessing, defect annotations |
-| `SlabSense-Billing-Tokens-Subscriptions.md` | Token-based billing, Stripe/PayPal integration, subscription tiers |
 | `docs/grading-research/` | Grading standards and defect weights for all 5 companies |
 
 ---
