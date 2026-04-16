@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import heic2any from "heic2any";
 import { GRADING_COMPANIES, getGradeFromScore, getCompanyOptions, DEFAULT_GRADING_COMPANY } from "./utils/gradingScales.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { AuthModal } from "./components/Auth/AuthModal.jsx";
@@ -2256,8 +2257,8 @@ function CameraViewfinder({ side, onCapture, onClose }) {
     }
   };
   const closeCam = () => { streamRef.current?.getTracks().forEach(t=>t.stop()); onClose(); };
-  const handleFile = e => {
-    const f = e.target.files?.[0];
+  const handleFile = async (e) => {
+    let f = e.target.files?.[0];
     if (!f) return;
 
     // Reset states
@@ -2285,43 +2286,66 @@ function CameraViewfinder({ side, onCapture, onClose }) {
       return;
     }
 
-    const r = new FileReader();
-    r.onerror = () => {
-      setUploadError('Failed to read file');
-      setIsUploading(false);
-    };
-    r.onload = ev => {
-      const img = new Image();
-      img.onerror = () => {
-        setUploadError('Failed to load image. Try a different file.');
+    // Convert HEIC/HEIF to JPEG (browsers can't decode HEIC natively)
+    const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') ||
+                   f.type === 'image/heic' || f.type === 'image/heif';
+    if (isHeic) {
+      try {
+        console.log('[Upload] Converting HEIC to JPEG...');
+        const blob = await heic2any({ blob: f, toType: 'image/jpeg', quality: 0.92 });
+        // heic2any can return array for multi-image HEIC, take first
+        f = Array.isArray(blob) ? blob[0] : blob;
+        console.log('[Upload] HEIC converted successfully');
+      } catch (err) {
+        console.error('[Upload] HEIC conversion failed:', err);
+        setUploadError('Failed to convert HEIC image. Try converting to JPG first.');
+        setIsUploading(false);
+        return;
+      }
+    }
+
+    // Process the image (now guaranteed to be browser-compatible format)
+    const processImage = (file) => {
+      const r = new FileReader();
+      r.onerror = () => {
+        setUploadError('Failed to read file');
         setIsUploading(false);
       };
-      img.onload = () => {
-        try {
-          // Resize to match camera constraints (1920x1440 max)
-          const maxW = 1920, maxH = 1440;
-          let w = img.width, h = img.height;
-          if (w > maxW || h > maxH) {
-            const scale = Math.min(maxW / w, maxH / h);
-            w = Math.round(w * scale);
-            h = Math.round(h * scale);
+      r.onload = ev => {
+        const img = new Image();
+        img.onerror = () => {
+          setUploadError('Failed to load image. Try a different file.');
+          setIsUploading(false);
+        };
+        img.onload = () => {
+          try {
+            // Resize to match camera constraints (1920x1440 max)
+            const maxW = 1920, maxH = 1440;
+            let w = img.width, h = img.height;
+            if (w > maxW || h > maxH) {
+              const scale = Math.min(maxW / w, maxH / h);
+              w = Math.round(w * scale);
+              h = Math.round(h * scale);
+            }
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            c.getContext('2d').drawImage(img, 0, 0, w, h);
+            const d = c.toDataURL('image/jpeg', 0.92);
+            setCaptured(d);
+            setIsUploading(false);
+            setValidating(true);
+            validateCap(d).then(r => { setValidation(r); setValidating(false); });
+          } catch (err) {
+            setUploadError('Failed to process image');
+            setIsUploading(false);
           }
-          const c = document.createElement('canvas');
-          c.width = w; c.height = h;
-          c.getContext('2d').drawImage(img, 0, 0, w, h);
-          const d = c.toDataURL('image/jpeg', 0.92);
-          setCaptured(d);
-          setIsUploading(false);
-          setValidating(true);
-          validateCap(d).then(r => { setValidation(r); setValidating(false); });
-        } catch (err) {
-          setUploadError('Failed to process image');
-          setIsUploading(false);
-        }
+        };
+        img.src = ev.target.result;
       };
-      img.src = ev.target.result;
+      r.readAsDataURL(file);
     };
-    r.readAsDataURL(f);
+
+    processImage(f);
   };
 
   return (
