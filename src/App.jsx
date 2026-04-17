@@ -3121,7 +3121,23 @@ export default function SlabSense(){
         );
       }
 
-      // Store pending save data and show crop modal
+      // If user already cropped during upload centering, use that image directly
+      if (frontCroppedImage) {
+        setSavingStatus('saving');
+        try {
+          const saveData = buildSaveData(frontCroppedImage);
+          await saveScan(auth.user.id, saveData);
+          setSavingStatus('saved');
+          setTimeout(() => setSavingStatus(null), 2000);
+        } catch (err) {
+          console.error('Error saving scan with upload crop:', err);
+          setSavingStatus('error');
+          setTimeout(() => setSavingStatus(null), 3000);
+        }
+        return;
+      }
+
+      // No pre-cropped image - show crop modal
       setPendingSaveData(buildSaveData());
       setShowCropModal(true);
       return;
@@ -3293,14 +3309,14 @@ export default function SlabSense(){
   };
 
   // 3D View - SAM crops cards for 3D display (separate from grading)
-  // 3D View - uses TCGDex images (free) or falls back to captured photos
+  // 3D View - uses TCGDex images (free) or falls back to cropped/captured photos
   const handle3DView = () => {
     if (!fI || !bI) return;
 
-    // Use TCGDex image if available, otherwise use captured images
+    // Use TCGDex image if available, otherwise use upload-cropped or captured images
     setEnhancedCards({
-      front: tcgdexImage || fI,
-      back: bI,  // Back always uses captured image
+      front: tcgdexImage || frontCroppedImage || fI,
+      back: backCroppedImage || bI,
     });
     setShow3DViewer(true);
   };
