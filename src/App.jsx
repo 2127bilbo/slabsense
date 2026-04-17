@@ -2909,10 +2909,17 @@ export default function SlabSense(){
   useEffect(()=>{
     if(fR && bR){
       // Determine which centering to use for software grade
+      // Priority: ignoreCentering > manual upload centering > AI centering > auto-detected
       let effFront, effBack;
       if (ignoreCentering) {
         effFront = PERFECT_CENTER;
         effBack = PERFECT_CENTER;
+      } else if (frontCenteringData?.didManualCenter) {
+        // Use manual centering from upload
+        effFront = { lrRatio: frontCenteringData.lrRatio, tbRatio: frontCenteringData.tbRatio };
+        effBack = backCenteringData?.didManualCenter
+          ? { lrRatio: backCenteringData.lrRatio, tbRatio: backCenteringData.tbRatio }
+          : bR.centering;
       } else if (useAiCentering && aiCentering?.front && aiCentering?.back) {
         // Use AI centering values (stored as numbers)
         effFront = { lrRatio: aiCentering.front.lrRatio, tbRatio: aiCentering.front.tbRatio };
@@ -2925,7 +2932,7 @@ export default function SlabSense(){
       const grade = computeGrade(fR.allDings, bR.allDings, effFront, effBack, gradingCompany);
       setGradeResult(grade);
     }
-  },[ignoreCentering, gradingCompany, fR, bR, useAiCentering, aiCentering]);
+  },[ignoreCentering, gradingCompany, fR, bR, useAiCentering, aiCentering, frontCenteringData, backCenteringData]);
 
   const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);setGradeMode('software');setUseAiCentering(false);setAiCentering(null);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
 
@@ -3741,8 +3748,8 @@ export default function SlabSense(){
               <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:aiCondition?.surface>=9?"#00ff88":aiCondition?.surface>=7?"#ffcc00":"#ff6633"}}>{aiCondition?.surface || "--"}</div>
             </div>
             <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-              <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>CENTERING</div>
-              <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:"#00ff88"}}>{fR?.centering?.lrRatio||50}/{100-(fR?.centering?.lrRatio||50)}</div>
+              <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>CENTERING {frontCenteringData?.didManualCenter ? '(M)' : ''}</div>
+              <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:frontCenteringData?.didManualCenter ? "#ff9944" : "#00ff88"}}>{frontCenteringData?.didManualCenter ? Math.round(frontCenteringData.lrRatio) : (fR?.centering?.lrRatio||50)}/{frontCenteringData?.didManualCenter ? Math.round(100-frontCenteringData.lrRatio) : (100-(fR?.centering?.lrRatio||50))}</div>
             </div>
           </div>
 
@@ -3866,11 +3873,16 @@ export default function SlabSense(){
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT {useAiCentering && aiCentering?.front ? '(AI)' : '(Software)'}</div>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT {useAiCentering && aiCentering?.front ? '(AI)' : frontCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
                   {useAiCentering && aiCentering?.front ? (
                     <>
                       <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.front.lrDisplay} L/R</div>
                       <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.front.tbDisplay} T/B</div>
+                    </>
+                  ) : frontCenteringData?.didManualCenter ? (
+                    <>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#ff9944"}}>{Math.round(frontCenteringData.lrRatio*10)/10}/{Math.round((100-frontCenteringData.lrRatio)*10)/10} L/R</div>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#ff9944"}}>{Math.round(frontCenteringData.tbRatio*10)/10}/{Math.round((100-frontCenteringData.tbRatio)*10)/10} T/B</div>
                     </>
                   ) : (
                     <>
@@ -3880,11 +3892,16 @@ export default function SlabSense(){
                   )}
                 </div>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK {useAiCentering && aiCentering?.back ? '(AI)' : '(Software)'}</div>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK {useAiCentering && aiCentering?.back ? '(AI)' : backCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
                   {useAiCentering && aiCentering?.back ? (
                     <>
                       <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.back.lrDisplay} L/R</div>
                       <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.back.tbDisplay} T/B</div>
+                    </>
+                  ) : backCenteringData?.didManualCenter ? (
+                    <>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#ff9944"}}>{Math.round(backCenteringData.lrRatio*10)/10}/{Math.round((100-backCenteringData.lrRatio)*10)/10} L/R</div>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#ff9944"}}>{Math.round(backCenteringData.tbRatio*10)/10}/{Math.round((100-backCenteringData.tbRatio)*10)/10} T/B</div>
                     </>
                   ) : (
                     <>
