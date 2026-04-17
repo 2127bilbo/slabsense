@@ -77,8 +77,9 @@ export function PostCaptureCentering({
       const h = img.height;
       setImgSize({ w, h });
 
-      // Initialize outer bounds (card edge) with 8% margin
-      const margin = 0.08;
+      // Initialize outer bounds (card edge) with small margin (2%)
+      // This puts the handles near the edges so user can drag them to the card
+      const margin = 0.02;
       const initOuter = {
         left: Math.round(w * margin),
         right: Math.round(w * (1 - margin)),
@@ -87,8 +88,8 @@ export function PostCaptureCentering({
       };
       setOuter(initOuter);
 
-      // Initialize inner bounds (artwork) with offset from outer
-      const offsetPct = 0.06;
+      // Initialize inner bounds (artwork) with offset from outer (8% inward)
+      const offsetPct = 0.08;
       const cardW = initOuter.right - initOuter.left;
       const cardH = initOuter.bottom - initOuter.top;
       const initInner = {
@@ -153,7 +154,7 @@ export function PostCaptureCentering({
   const handleReset = () => {
     if (!imgSize.w) return;
     const w = imgSize.w, h = imgSize.h;
-    const margin = 0.08;
+    const margin = 0.02;
     const initOuter = {
       left: Math.round(w * margin),
       right: Math.round(w * (1 - margin)),
@@ -162,7 +163,7 @@ export function PostCaptureCentering({
     };
     setOuter(initOuter);
 
-    const offsetPct = 0.06;
+    const offsetPct = 0.08;
     const cardW = initOuter.right - initOuter.left;
     const cardH = initOuter.bottom - initOuter.top;
     const initInner = {
@@ -307,12 +308,11 @@ export function PostCaptureCentering({
       inset: 0,
       background: '#0a0b0e',
       zIndex: 1100,
-      display: 'flex',
-      flexDirection: 'column',
       overflow: 'auto',
+      WebkitOverflowScrolling: 'touch',
     }}>
       {/* Main container matching ManualBoundaryEditor */}
-      <div style={{ background: '#0d0f13', borderRadius: 0, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: '#0d0f13', minHeight: '100%' }}>
         {/* Header */}
         <div style={{ padding: '10px 12px', borderBottom: '1px solid #1a1c22', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: mono, fontSize: 11, color: '#ff9944', textTransform: 'uppercase', letterSpacing: '.06em' }}>
@@ -528,7 +528,7 @@ export function PostCaptureCentering({
 
         {/* Image + drag canvas */}
         <div
-          style={{ position: 'relative', lineHeight: 0, touchAction: 'none', overflow: 'hidden', flex: 1 }}
+          style={{ position: 'relative', lineHeight: 0, touchAction: 'none', overflow: 'visible' }}
           onTouchMove={e => { if (dragging.current) e.preventDefault(); }}
           onTouchStart={e => { if (dragging.current) e.preventDefault(); }}
         >
@@ -647,8 +647,17 @@ export function PostCaptureCentering({
           </div>
         )}
 
-        {/* Action buttons */}
-        <div style={{ padding: '10px 12px', display: 'flex', gap: 8, borderTop: '1px solid #1a1c22' }}>
+        {/* Action buttons - sticky at bottom */}
+        <div style={{
+          position: 'sticky',
+          bottom: 0,
+          padding: '10px 12px',
+          display: 'flex',
+          gap: 8,
+          borderTop: '1px solid #1a1c22',
+          background: '#0d0f13',
+          zIndex: 10,
+        }}>
           <button
             onClick={onSkip}
             style={{
@@ -656,7 +665,7 @@ export function PostCaptureCentering({
               padding: '11px 0',
               borderRadius: 7,
               border: '1px solid #333',
-              background: 'transparent',
+              background: '#1a1c22',
               color: '#888',
               fontFamily: mono,
               fontSize: 11,
