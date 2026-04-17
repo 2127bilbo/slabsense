@@ -1593,7 +1593,7 @@ function DingsPreview({frontResult,backResult,frontMaps,backMaps,frontImg,backIm
    inner (artwork border) boundaries.
    Corrects centering + re-runs analysis.
    ═══════════════════════════════════════════ */
-function ManualBoundaryEditor({ image, result, side, onApply }) {
+function ManualBoundaryEditor({ image, result, side, onApply, manualCenteringData = null }) {
   const imgW = result.imgW || 1400;
   const imgH = result.imgH || 1960;
   const bn = result.bounds;
@@ -1602,13 +1602,44 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
   // Try to seed from localStorage training data first
   const trained = loadTrainingBounds(result.surface?.isHolo, imgW, imgH);
 
-  const initOuter = trained?.outer || { left:bn.left, right:bn.right, top:bn.top, bottom:bn.bottom };
-  const initInner = trained?.inner || {
-    left: Math.min(bn.left + c.borderL, (bn.left+bn.right)/2 - 10),
-    right: Math.max(bn.right - c.borderR, (bn.left+bn.right)/2 + 10),
-    top: Math.min(bn.top + c.borderT, (bn.top+bn.bottom)/2 - 10),
-    bottom: Math.max(bn.bottom - c.borderB, (bn.top+bn.bottom)/2 + 10),
-  };
+  // If manual centering data from post-capture exists, use that first
+  let initOuter, initInner;
+  if (manualCenteringData?.didManualCenter) {
+    if (manualCenteringData.measureMode === 'corner' && manualCenteringData.outerCorners) {
+      // Corner mode data
+      const oc = manualCenteringData.outerCorners;
+      const ic = manualCenteringData.innerCorners;
+      initOuter = { left: oc.tl.x, right: oc.tr.x, top: oc.tl.y, bottom: oc.bl.y };
+      initInner = ic ? { left: ic.tl.x, right: ic.tr.x, top: ic.tl.y, bottom: ic.bl.y } : {
+        left: initOuter.left + 50, right: initOuter.right - 50,
+        top: initOuter.top + 50, bottom: initOuter.bottom - 50,
+      };
+    } else if (manualCenteringData.outer) {
+      // Edge mode data
+      initOuter = manualCenteringData.outer;
+      initInner = manualCenteringData.inner || {
+        left: initOuter.left + 50, right: initOuter.right - 50,
+        top: initOuter.top + 50, bottom: initOuter.bottom - 50,
+      };
+    } else {
+      // Fallback to result
+      initOuter = trained?.outer || { left: bn.left, right: bn.right, top: bn.top, bottom: bn.bottom };
+      initInner = trained?.inner || {
+        left: Math.min(bn.left + c.borderL, (bn.left + bn.right) / 2 - 10),
+        right: Math.max(bn.right - c.borderR, (bn.left + bn.right) / 2 + 10),
+        top: Math.min(bn.top + c.borderT, (bn.top + bn.bottom) / 2 - 10),
+        bottom: Math.max(bn.bottom - c.borderB, (bn.top + bn.bottom) / 2 + 10),
+      };
+    }
+  } else {
+    initOuter = trained?.outer || { left: bn.left, right: bn.right, top: bn.top, bottom: bn.bottom };
+    initInner = trained?.inner || {
+      left: Math.min(bn.left + c.borderL, (bn.left + bn.right) / 2 - 10),
+      right: Math.max(bn.right - c.borderR, (bn.left + bn.right) / 2 + 10),
+      top: Math.min(bn.top + c.borderT, (bn.top + bn.bottom) / 2 - 10),
+      bottom: Math.max(bn.bottom - c.borderB, (bn.top + bn.bottom) / 2 + 10),
+    };
+  }
 
   // Measurement mode toggle: 'edge' (v1) or 'corner' (beta)
   const [measureMode, setMeasureMode] = useState(() => {
@@ -1640,9 +1671,14 @@ function ManualBoundaryEditor({ image, result, side, onApply }) {
   const [innerCorners, setInnerCorners] = useState(initInnerCorners);
   const [cornerCenteringResult, setCornerCenteringResult] = useState(null);
 
-  const [rotation, setRotation] = useState(0); // Z-axis rotation in degrees
-  const [tiltX, setTiltX] = useState(0); // X-axis tilt (pitch - forward/back)
-  const [tiltY, setTiltY] = useState(0); // Y-axis tilt (roll - left/right)
+  // Initialize rotation/tilt from manualCenteringData if available, otherwise 0
+  const initRotation = manualCenteringData?.didManualCenter ? (manualCenteringData.rotation || 0) : 0;
+  const initTiltX = manualCenteringData?.didManualCenter ? (manualCenteringData.tiltX || 0) : 0;
+  const initTiltY = manualCenteringData?.didManualCenter ? (manualCenteringData.tiltY || 0) : 0;
+
+  const [rotation, setRotation] = useState(initRotation); // Z-axis rotation in degrees
+  const [tiltX, setTiltX] = useState(initTiltX); // X-axis tilt (pitch - forward/back)
+  const [tiltY, setTiltY] = useState(initTiltY); // Y-axis tilt (roll - left/right)
   const [activeAxis, setActiveAxis] = useState('Z'); // Which axis the rotation controls affect
   const [applying, setApplying] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -4022,10 +4058,12 @@ export default function SlabSense(){
           {/* Manual editors */}
           {manualMode==="front"&&fR&&fI&&(
             <ManualBoundaryEditor image={fI} result={fR} side="Front"
+              manualCenteringData={frontCenteringData}
               onApply={(bounds,centering)=>{applyManualCorrection("front",bounds,centering);setCenteringConfirmed(true);}}/>
           )}
           {manualMode==="back"&&bR&&bI&&(
             <ManualBoundaryEditor image={bI} result={bR} side="Back"
+              manualCenteringData={backCenteringData}
               onApply={(bounds,centering)=>{applyManualCorrection("back",bounds,centering);setCenteringConfirmed(true);}}/>
           )}
 

@@ -68,13 +68,21 @@ export function PostCaptureCentering({
   useEffect(() => { innerRef.current = inner; }, [inner]);
 
   // Load image and initialize bounds
+  // IMPORTANT: Use same max dimension (1400px) as analyzeCardFull to ensure coordinate consistency
   useEffect(() => {
     if (!image) return;
 
+    const MAX_DIM = 1400; // Must match loadImg() in App.jsx
     const img = new Image();
     img.onload = () => {
-      const w = img.width;
-      const h = img.height;
+      let w = img.width;
+      let h = img.height;
+      // Apply same scaling as analyzeCardFull to match ManualBoundaryEditor coordinates
+      if (Math.max(w, h) > MAX_DIM) {
+        const scale = MAX_DIM / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
       setImgSize({ w, h });
 
       // Initialize outer bounds (card edge) with small margin (2%)
