@@ -2889,10 +2889,53 @@ export default function SlabSense(){
         setStep(2);
       } else {
         // Fall back to client-side analysis
-        setProg("Detecting card bounds (front)...");await new Promise(r=>setTimeout(r,30));
-        const fr=await analyzeCardFull(fI,"front"); setFR(fr);
-        setProg("Detecting card bounds (back)...");await new Promise(r=>setTimeout(r,30));
-        const br=await analyzeCardFull(bI,"back"); setBR(br);
+        // If user did manual centering during upload, use those bounds for analysis
+        let frontOverrideBounds = null, frontOverrideCentering = null;
+        let backOverrideBounds = null, backOverrideCentering = null;
+
+        if (frontCenteringData?.didManualCenter) {
+          // Extract bounds from manual centering data
+          if (frontCenteringData.measureMode === 'corner' && frontCenteringData.outerCorners) {
+            const oc = frontCenteringData.outerCorners;
+            frontOverrideBounds = { left: oc.tl.x, right: oc.tr.x, top: oc.tl.y, bottom: oc.bl.y };
+          } else if (frontCenteringData.outer) {
+            frontOverrideBounds = frontCenteringData.outer;
+          }
+          frontOverrideCentering = {
+            lrRatio: frontCenteringData.lrRatio,
+            tbRatio: frontCenteringData.tbRatio,
+            borderL: frontCenteringData.borderL,
+            borderR: frontCenteringData.borderR,
+            borderT: frontCenteringData.borderT,
+            borderB: frontCenteringData.borderB,
+          };
+        }
+
+        if (backCenteringData?.didManualCenter) {
+          if (backCenteringData.measureMode === 'corner' && backCenteringData.outerCorners) {
+            const oc = backCenteringData.outerCorners;
+            backOverrideBounds = { left: oc.tl.x, right: oc.tr.x, top: oc.tl.y, bottom: oc.bl.y };
+          } else if (backCenteringData.outer) {
+            backOverrideBounds = backCenteringData.outer;
+          }
+          backOverrideCentering = {
+            lrRatio: backCenteringData.lrRatio,
+            tbRatio: backCenteringData.tbRatio,
+            borderL: backCenteringData.borderL,
+            borderR: backCenteringData.borderR,
+            borderT: backCenteringData.borderT,
+            borderB: backCenteringData.borderB,
+          };
+        }
+
+        setProg(frontOverrideBounds ? "Analyzing with manual bounds (front)..." : "Detecting card bounds (front)...");
+        await new Promise(r=>setTimeout(r,30));
+        const fr=await analyzeCardFull(fI,"front", frontOverrideBounds, frontOverrideCentering); setFR(fr);
+
+        setProg(backOverrideBounds ? "Analyzing with manual bounds (back)..." : "Detecting card bounds (back)...");
+        await new Promise(r=>setTimeout(r,30));
+        const br=await analyzeCardFull(bI,"back", backOverrideBounds, backOverrideCentering); setBR(br);
+
         setProg(`Computing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
         const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
         const effBack = ignoreCentering ? PERFECT_CENTER : br.centering;
@@ -2903,7 +2946,7 @@ export default function SlabSense(){
         setStep(2);
       }
     }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);}
-  },[fI,bI,ignoreCentering,gradingCompany,useBackend,backendStatus.available]);
+  },[fI,bI,ignoreCentering,gradingCompany,useBackend,backendStatus.available,frontCenteringData,backCenteringData]);
 
   // Recompute grade when settings change and results exist
   useEffect(()=>{
