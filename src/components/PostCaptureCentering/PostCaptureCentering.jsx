@@ -216,7 +216,8 @@ export function PostCaptureCentering({
           };
 
       // Crop image to outer bounds
-      const croppedImage = await cropToOuterBounds(image, cropCorners, rotation);
+      // Pass the scaled width so crop function can scale coordinates to natural image dimensions
+      const croppedImage = await cropToOuterBounds(image, cropCorners, rotation, imgSize.w);
 
       // Build centering data
       let centeringData;

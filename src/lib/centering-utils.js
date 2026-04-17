@@ -58,18 +58,26 @@ export function initializeInnerCorners(outerCorners, offsetPct = 0.08) {
 /**
  * Crop image to outer corner bounds with rotation applied
  * @param {string} imageDataUrl - Source image data URL
- * @param {object} corners - Corner positions { tl, tr, bl, br }
+ * @param {object} corners - Corner positions { tl, tr, bl, br } in scaled coordinates
  * @param {number} rotation - Rotation in degrees (Z-axis)
+ * @param {number} scaledWidth - Width of scaled coordinate space (default 1400 to match analysis)
  * @returns {Promise<string>} Cropped image as data URL
  */
-export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0) {
+export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0, scaledWidth = null) {
   const img = await loadImage(imageDataUrl);
 
-  // Calculate bounding box from corners
-  const minX = Math.min(corners.tl.x, corners.bl.x);
-  const maxX = Math.max(corners.tr.x, corners.br.x);
-  const minY = Math.min(corners.tl.y, corners.tr.y);
-  const maxY = Math.max(corners.bl.y, corners.br.y);
+  // Calculate scale factor if corners are in scaled space
+  // Coordinates from PostCaptureCentering are in 1400px-max space, but image is at natural resolution
+  let scale = 1;
+  if (scaledWidth && img.width !== scaledWidth) {
+    scale = img.width / scaledWidth;
+  }
+
+  // Calculate bounding box from corners, scaling to natural image coordinates
+  const minX = Math.min(corners.tl.x, corners.bl.x) * scale;
+  const maxX = Math.max(corners.tr.x, corners.br.x) * scale;
+  const minY = Math.min(corners.tl.y, corners.tr.y) * scale;
+  const maxY = Math.max(corners.bl.y, corners.br.y) * scale;
 
   const cropW = maxX - minX;
   const cropH = maxY - minY;
@@ -90,7 +98,7 @@ export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0) {
   // Draw cropped region
   ctx.drawImage(
     img,
-    minX, minY, cropW, cropH,  // Source rectangle
+    minX, minY, cropW, cropH,  // Source rectangle (in natural image coordinates)
     0, 0, cropW, cropH          // Destination rectangle
   );
 
