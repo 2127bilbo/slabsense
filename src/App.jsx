@@ -14,6 +14,9 @@ import { CardIdentifier } from "./components/CardIdentifier/CardIdentifier.jsx";
 import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.jsx";
 import { PostCaptureCentering } from "./components/PostCaptureCentering/PostCaptureCentering.jsx";
 import { calculateCornerCentering } from "./lib/corner-measurement.js";
+import { HoloLogo } from "./components/HoloLogo/HoloLogo.jsx";
+import { getGyroInput } from "./lib/gyro-input.js";
+import holoConfig from "../config/holo-config.json";
 
 /* ═══════════════════════════════════════════
    SLABSENSE v0.1.0-beta
@@ -2767,6 +2770,15 @@ export default function SlabSense(){
   // Auth hook
   const auth = useAuth();
 
+  // Holographic effects - gyro input singleton
+  const gyroInputRef = useRef(null);
+  if (!gyroInputRef.current) {
+    gyroInputRef.current = getGyroInput({
+      deadZone: holoConfig.logo.sparkles.deadZone,
+      rampPower: holoConfig.logo.sparkles.rampPower,
+    });
+  }
+
   // Collection stats (for home dashboard)
   const [collectionStats, setCollectionStats] = useState({ totalCards: 0, totalValue: 0, avgGrade: 0 });
 
@@ -3508,7 +3520,15 @@ export default function SlabSense(){
     {/* Header */}
     <div style={{padding:"14px 16px",borderBottom:"1px solid #1a1c22",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,background:"#0a0b0e"}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <div style={{width:30,height:30,borderRadius:7,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:mono,fontWeight:900,fontSize:11,color:"#fff"}}>SS</div>
+        <HoloLogo
+          size={32}
+          gyroInput={gyroInputRef.current}
+          config={{
+            ...holoConfig.logo,
+            availableOptions: holoConfig.availableOptions,
+          }}
+          showSparkles={true}
+        />
         <div><div style={{fontSize:14,fontWeight:600}}>SlabSense</div><div style={{fontFamily:mono,fontSize:9,color:"#444",textTransform:"uppercase",letterSpacing:".1em"}}>v0.1.0-beta</div></div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>

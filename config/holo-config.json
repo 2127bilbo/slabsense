@@ -1,0 +1,129 @@
+{
+  "logo": {
+    "background": "void",
+    "surfaceEffect": "gold_pulse",
+    "chromeTint": "original",
+    "textGlare": "sharp_band",
+
+    "sparkles": {
+      "count": 90,
+      "sizeMin": 2,
+      "sizeMax": 5,
+      "style": "cosmic_dust",
+      "motionOnly": false,
+      "idlePulse": {
+        "enabled": true,
+        "intervalSeconds": 12,
+        "durationSeconds": 2
+      },
+      "deadZone": 0.15,
+      "rampPower": 1.8
+    }
+  },
+
+  "collectionCards": {
+    "sparkles": {
+      "count": 12,
+      "sizeMin": 2,
+      "sizeMax": 4,
+      "style": "cosmic_dust",
+      "motionOnly": true,
+      "deadZone": 0.12,
+      "rampPower": 1.5,
+      "maxVisibleCanvases": 8
+    }
+  },
+
+  "availableOptions": {
+    "backgrounds": {
+      "void": {
+        "label": "Void",
+        "css": "radial-gradient(ellipse at 50% 50%, #0a0a10 0%, #030305 50%, #000 100%)"
+      },
+      "abyss": {
+        "label": "Abyss",
+        "css": "radial-gradient(ellipse at 50% 50%, #060614 0%, #000006 60%, #000 100%)"
+      },
+      "midnight": {
+        "label": "Midnight",
+        "css": "radial-gradient(ellipse at 50% 30%, #0c0c30 0%, transparent 50%), radial-gradient(ellipse at 50% 70%, #0a0a22 0%, transparent 50%), radial-gradient(#040410, #010108)"
+      },
+      "ember": {
+        "label": "Ember",
+        "css": "radial-gradient(ellipse at 30% 70%, #200a08 0%, transparent 50%), radial-gradient(ellipse at 70% 30%, #201200 0%, transparent 50%), radial-gradient(#0a0505, #030202)"
+      }
+    },
+
+    "surfaceEffects": {
+      "gold_pulse": {
+        "label": "Gold Pulse",
+        "type": "metallic",
+        "color": [200, 160, 80],
+        "innerOpacity": 0.14,
+        "outerOpacity": 0.06,
+        "bandWidth": 20
+      },
+      "ice": {
+        "label": "Ice Crystal",
+        "type": "metallic",
+        "color": [160, 200, 240],
+        "innerOpacity": 0.12,
+        "outerOpacity": 0.05,
+        "bandWidth": 22
+      },
+      "emerald_glow": {
+        "label": "Emerald Glow",
+        "type": "metallic",
+        "color": [60, 180, 100],
+        "innerOpacity": 0.12,
+        "outerOpacity": 0.05,
+        "bandWidth": 20
+      },
+      "silver_shimmer": {
+        "label": "Silver Shimmer",
+        "type": "metallic",
+        "color": [220, 220, 240],
+        "innerOpacity": 0.14,
+        "outerOpacity": 0.06,
+        "bandWidth": 20
+      }
+    },
+
+    "chromeTints": {
+      "original": {
+        "label": "Original",
+        "color": "transparent",
+        "blendMode": "normal"
+      },
+      "bronze": {
+        "label": "Bronze",
+        "color": "rgba(170, 115, 55, 0.4)",
+        "blendMode": "color"
+      },
+      "darkgold": {
+        "label": "Dark Gold",
+        "color": "rgba(170, 145, 55, 0.4)",
+        "blendMode": "color"
+      },
+      "ice_blue": {
+        "label": "Ice Blue",
+        "color": "rgba(80, 130, 190, 0.35)",
+        "blendMode": "color"
+      },
+      "carbon": {
+        "label": "Carbon",
+        "color": "rgba(90, 100, 130, 0.45)",
+        "blendMode": "color"
+      }
+    },
+
+    "textGlares": {
+      "sharp_band": {
+        "label": "Sharp Band",
+        "bandWidth": 10,
+        "peakOpacity": 0.4,
+        "falloffOpacity": 0.06
+      }
+    }
+  }
+}
