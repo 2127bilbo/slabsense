@@ -6,6 +6,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { getUserScans, deleteScan } from '../../services/scans.js';
 import { getGradeFromScore, GRADING_COMPANIES as GRADE_SCALES } from '../../utils/gradingScales.js';
+import { HoloCard } from '../HoloCard/HoloCard.jsx';
+import { getGyroInput } from '../../lib/gyro-input.js';
+import holoConfig from '../../../config/holo-config.json';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
@@ -53,6 +56,21 @@ function formatPrice(price, currency = 'usd') {
   return `€${price.eur?.toFixed(2) || '—'}`;
 }
 
+// Check if card is holo based on rarity string
+function isHoloCard(scan) {
+  const rarity = scan.card_info?.rarity?.toLowerCase() || '';
+  return rarity.includes('holo') ||
+         rarity.includes('rare v') ||
+         rarity.includes('ultra') ||
+         rarity.includes('secret') ||
+         rarity.includes('rainbow') ||
+         rarity.includes('gold') ||
+         rarity.includes('radiant') ||
+         rarity.includes('shiny') ||
+         rarity.includes('full art') ||
+         rarity.includes('illustration');
+}
+
 export function CollectionView({ userId, onClose, isInline = false, onCollectionChange }) {
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +82,15 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [touchStart, setTouchStart] = useState(null);
   const stackRef = useRef(null);
+
+  // Gyro input for holo sparkles
+  const gyroInputRef = useRef(null);
+  if (!gyroInputRef.current) {
+    gyroInputRef.current = getGyroInput({
+      deadZone: holoConfig.collectionCards.sparkles.deadZone,
+      rampPower: holoConfig.collectionCards.sparkles.rampPower,
+    });
+  }
 
   useEffect(() => {
     loadScans();
@@ -262,48 +289,55 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 overflow: 'hidden',
               }}
             >
-              {/* Card Image */}
-              {cardImage ? (
-                <img
-                  src={cardImage}
-                  alt={scan.card_name || 'Card'}
-                  style={{
-                    width: '100%',
+              {/* Card Image with Holo Sparkles */}
+              <HoloCard
+                gyroInput={gyroInputRef.current}
+                config={holoConfig.collectionCards}
+                enabled={isTop && isHoloCard(scan)}
+                style={{ width: '100%', height: '100%' }}
+              >
+                {cardImage ? (
+                  <img
+                    src={cardImage}
+                    alt={scan.card_name || 'Card'}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block',
+                    }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  /* Fallback: Show card info text */
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
                     height: '100%',
-                    objectFit: 'cover',
-                    display: 'block',
-                  }}
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-              ) : (
-                /* Fallback: Show card info text */
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  height: '100%',
-                  padding: 16,
-                  textAlign: 'center',
-                }}>
-                  <div style={{
-                    fontFamily: sans,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: '#888',
-                    marginBottom: 4,
+                    padding: 16,
+                    textAlign: 'center',
                   }}>
-                    {scan.card_name || scan.card_info?.name || 'Card'}
+                    <div style={{
+                      fontFamily: sans,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#888',
+                      marginBottom: 4,
+                    }}>
+                      {scan.card_name || scan.card_info?.name || 'Card'}
+                    </div>
+                    <div style={{
+                      fontFamily: mono,
+                      fontSize: 9,
+                      color: '#555',
+                    }}>
+                      {scan.card_set || scan.card_info?.setName || ''}
+                    </div>
                   </div>
-                  <div style={{
-                    fontFamily: mono,
-                    fontSize: 9,
-                    color: '#555',
-                  }}>
-                    {scan.card_set || scan.card_info?.setName || ''}
-                  </div>
-                </div>
-              )}
+                )}
+              </HoloCard>
 
               {/* Grade Badge Overlay - top right */}
               <div style={{
