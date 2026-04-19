@@ -106,43 +106,53 @@ export function HoloLogo({
     };
   }, [idlePulseActive, idlePulseConfig.durationSeconds]);
 
-  // Render sparkles
+  // Render sparkles - continuous mode (runs independent animation loop)
   useEffect(() => {
+    if (!sparkleConfig.continuous) return;
     if (!showSparkles || !canvasRef.current || !starsRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
 
-    // Set canvas size for retina
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+
+    let running = true;
+    const animate = () => {
+      if (!running) return;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      renderSparkles(ctx, size, size, starsRef.current, tiltData, sparkleConfig);
+      animationRef.current = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      running = false;
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [size, showSparkles, sparkleConfig.continuous]);
+
+  // Render sparkles - motion-based mode
+  useEffect(() => {
+    if (sparkleConfig.continuous) return;
+    if (!showSparkles || !canvasRef.current || !starsRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+
     canvas.width = size * dpr;
     canvas.height = size * dpr;
     ctx.scale(dpr, dpr);
 
-    // Continuous mode: run animation loop
-    if (sparkleConfig.continuous) {
-      let running = true;
-      const animate = () => {
-        if (!running) return;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(dpr, dpr);
-        renderSparkles(ctx, size, size, starsRef.current, tiltData, sparkleConfig);
-        animationRef.current = requestAnimationFrame(animate);
-      };
-      animate();
-      return () => {
-        running = false;
-        if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      };
-    }
-
-    // Motion-based mode
     if (idlePulseActive) {
       renderIdlePulse(ctx, size, size, starsRef.current, idlePulseProgress, sparkleConfig);
     } else {
       renderSparkles(ctx, size, size, starsRef.current, tiltData, sparkleConfig);
     }
-  }, [tiltData, size, showSparkles, sparkleConfig, sparkleConfig.continuous, idlePulseActive, idlePulseProgress]);
+  }, [tiltData, size, showSparkles, sparkleConfig, idlePulseActive, idlePulseProgress]);
 
   // Compute surface effect gradient
   const computeSurfaceFX = useCallback(() => {

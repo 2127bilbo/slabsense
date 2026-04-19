@@ -79,8 +79,9 @@ export const HoloCard = memo(function HoloCard({
     return unsub;
   }, [gyroInput, isVisible, enabled]);
 
-  // Render sparkles
+  // Render sparkles - continuous mode (runs independent animation loop)
   useEffect(() => {
+    if (!sparkleConfig.continuous) return;
     if (!isVisible || !enabled || !canvasRef.current || !starsRef.current) return;
     if (dimensions.width === 0 || dimensions.height === 0) return;
 
@@ -88,29 +89,39 @@ export const HoloCard = memo(function HoloCard({
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
 
-    // Set canvas size for retina
+    canvas.width = dimensions.width * dpr;
+    canvas.height = dimensions.height * dpr;
+
+    let running = true;
+    const animate = () => {
+      if (!running) return;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      renderSparkles(ctx, dimensions.width, dimensions.height, starsRef.current, tiltData, sparkleConfig);
+      animationRef.current = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      running = false;
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [dimensions, isVisible, enabled, sparkleConfig.continuous]);
+
+  // Render sparkles - motion-based mode
+  useEffect(() => {
+    if (sparkleConfig.continuous) return;
+    if (!isVisible || !enabled || !canvasRef.current || !starsRef.current) return;
+    if (dimensions.width === 0 || dimensions.height === 0) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+
     canvas.width = dimensions.width * dpr;
     canvas.height = dimensions.height * dpr;
     ctx.scale(dpr, dpr);
 
-    // Continuous mode: run animation loop
-    if (sparkleConfig.continuous) {
-      let running = true;
-      const animate = () => {
-        if (!running) return;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(dpr, dpr);
-        renderSparkles(ctx, dimensions.width, dimensions.height, starsRef.current, tiltData, sparkleConfig);
-        animationRef.current = requestAnimationFrame(animate);
-      };
-      animate();
-      return () => {
-        running = false;
-        if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      };
-    }
-
-    // Motion-based mode
     renderSparkles(ctx, dimensions.width, dimensions.height, starsRef.current, tiltData, sparkleConfig);
   }, [tiltData, dimensions, isVisible, enabled, sparkleConfig]);
 
