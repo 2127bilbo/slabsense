@@ -110,6 +110,8 @@ export const HoloCard = memo(function HoloCard({
       className={className}
       style={{
         position: 'relative',
+        width: '100%',
+        height: '100%',
         ...style,
       }}
     >

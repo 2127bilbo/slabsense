@@ -294,7 +294,6 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 gyroInput={gyroInputRef.current}
                 config={holoConfig.collectionCards}
                 enabled={isTop && isHoloCard(scan)}
-                style={{ width: '100%', height: '100%' }}
               >
                 {cardImage ? (
                   <img
