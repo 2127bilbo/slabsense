@@ -1,20 +1,20 @@
 {
   "logo": {
-    "background": "void",
+    "background": "Abyss",
     "surfaceEffect": "gold_pulse",
-    "chromeTint": "original",
+    "chromeTint": "Carbon",
     "textGlare": "sharp_band",
 
     "sparkles": {
-      "count": 90,
+      "count": 5,
       "sizeMin": 2,
       "sizeMax": 5,
       "style": "cosmic_dust",
-      "motionOnly": false,
+      "motionOnly": true,
       "idlePulse": {
         "enabled": true,
         "intervalSeconds": 12,
-        "durationSeconds": 2
+        "durationSeconds": 1
       },
       "deadZone": 0.15,
       "rampPower": 1.8
