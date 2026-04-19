@@ -57,6 +57,11 @@ export function createGyroInput(config = {}) {
 
   // Gyroscope (mobile)
   function handleGyro(e) {
+    // Only mark gyro as available if we get real values (not null/0)
+    // Desktop browsers may fire this event with empty data
+    if (e.gamma === null && e.beta === null) return;
+    if (e.gamma === 0 && e.beta === 0 && e.alpha === 0) return;
+
     gyroAvailable = true;
     const x = Math.max(0, Math.min(100, 50 + (e.gamma || 0) * 1.5));
     const y = Math.max(0, Math.min(100, 50 + ((e.beta || 0) - 40) * 1.2));
