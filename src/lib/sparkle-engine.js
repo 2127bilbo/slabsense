@@ -13,7 +13,7 @@
  * Create a random star field
  */
 export function createSparkleField(config) {
-  const { count, sizeMin, sizeMax } = config;
+  const { count, sizeMin, sizeMax, useColorPalette } = config;
   const stars = [];
 
   for (let i = 0; i < count; i++) {
@@ -24,6 +24,8 @@ export function createSparkleField(config) {
       phase: Math.random() * Math.PI * 2,
       speed: 1 + Math.random() * 2.5,
       hue: Math.random() * 360,
+      // Assign a color from palette if enabled, otherwise null (white)
+      color: useColorPalette ? VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)] : null,
       // For continuous mode
       lifeStart: Date.now() - Math.random() * 1000, // Stagger start times
       lifeDuration: 500 + Math.random() * 500, // 0.5-1.0s per cycle (quick flash)
@@ -85,22 +87,46 @@ function repositionStar(star, config) {
   star.y = newPos.y;
   star.size = config.sizeMin + Math.random() * (config.sizeMax - config.sizeMin);
   star.hue = Math.random() * 360;
+  // Assign new random color if using palette
+  if (config.useColorPalette) {
+    star.color = VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)];
+  }
   star.lifeStart = Date.now();
   star.lifeDuration = 500 + Math.random() * 500; // 0.5-1.0s quick flash
 }
 
+// Vibrant color palette for collection cards
+const VIBRANT_COLORS = [
+  { r: 255, g: 255, b: 255 }, // White
+  { r: 0, g: 255, b: 255 },   // Cyan
+  { r: 0, g: 150, b: 255 },   // Blue
+  { r: 0, g: 255, b: 150 },   // Green
+  { r: 255, g: 215, b: 0 },   // Gold
+  { r: 255, g: 140, b: 0 },   // Orange
+  { r: 255, g: 80, b: 80 },   // Red
+  { r: 255, g: 100, b: 255 }, // Magenta
+  { r: 180, g: 100, b: 255 }, // Purple
+  { r: 255, g: 255, b: 150 }, // Light Yellow
+];
+
 /**
  * Draw a single sparkle
+ * @param color - optional {r,g,b} object. If not provided, uses white
  */
-function drawSparkle(ctx, cx, cy, sz, hue, brightness) {
+function drawSparkle(ctx, cx, cy, sz, brightness, color = null) {
   if (brightness < 0.02) return;
 
-  // Glow
-  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, sz * 3);
-  g.addColorStop(0, `rgba(255,255,255,${brightness * 0.8})`);
-  g.addColorStop(0.2, `hsla(${hue},40%,90%,${brightness * 0.3})`);
-  g.addColorStop(1, 'transparent');
-  ctx.fillStyle = g;
+  const r = color?.r ?? 255;
+  const g = color?.g ?? 255;
+  const b = color?.b ?? 255;
+
+  // Glow - brighter center with colored halo
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, sz * 3);
+  glow.addColorStop(0, `rgba(255,255,255,${brightness * 0.9})`);
+  glow.addColorStop(0.15, `rgba(${r},${g},${b},${brightness * 0.5})`);
+  glow.addColorStop(0.4, `rgba(${r},${g},${b},${brightness * 0.2})`);
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
   ctx.fillRect(cx - sz * 4, cy - sz * 4, sz * 8, sz * 8);
 
   // Star spikes (8-point)
@@ -161,12 +187,13 @@ export function renderContinuous(ctx, width, height, stars, config) {
 
     // Camera flash: smooth bell curve (sine-based)
     // 0% = off, 50% = peak brightness, 100% = off
-    const brightness = Math.sin(progress * Math.PI);
+    // Boost brightness slightly (1.1x)
+    const brightness = Math.sin(progress * Math.PI) * 1.1;
 
     const cx = s.x * width;
     const cy = s.y * height;
 
-    drawSparkle(ctx, cx, cy, s.size, s.hue, brightness);
+    drawSparkle(ctx, cx, cy, s.size, brightness, s.color);
   });
 }
 
@@ -199,9 +226,8 @@ export function renderSparkles(ctx, width, height, stars, tiltData, config) {
 
     const cx = s.x * width;
     const cy = s.y * height;
-    const hue = (s.hue + xP * 3 + yP * 2) % 360;
 
-    drawSparkle(ctx, cx, cy, s.size, hue, brightness);
+    drawSparkle(ctx, cx, cy, s.size, brightness, s.color);
   });
 }
 

@@ -1,8 +1,8 @@
 {
   "logo": {
-    "background": "Abyss",
+    "background": "abyss",
     "surfaceEffect": "gold_pulse",
-    "chromeTint": "Carbon",
+    "chromeTint": "carbon",
     "textGlare": "sharp_band",
 
     "sparkles": {
@@ -29,6 +29,7 @@
       "sizeMax": 3,
       "style": "cosmic_dust",
       "continuous": true,
+      "useColorPalette": true,
       "motionOnly": false,
       "deadZone": 0.12,
       "rampPower": 1.5,
