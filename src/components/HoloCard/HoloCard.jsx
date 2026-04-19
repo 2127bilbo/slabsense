@@ -20,6 +20,7 @@ export const HoloCard = memo(function HoloCard({
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const starsRef = useRef(null);
+  const animationRef = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
   const [tiltData, setTiltData] = useState({ xP: 50, yP: 50, angle: 0, tiltDist: 0 });
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -92,6 +93,24 @@ export const HoloCard = memo(function HoloCard({
     canvas.height = dimensions.height * dpr;
     ctx.scale(dpr, dpr);
 
+    // Continuous mode: run animation loop
+    if (sparkleConfig.continuous) {
+      let running = true;
+      const animate = () => {
+        if (!running) return;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+        renderSparkles(ctx, dimensions.width, dimensions.height, starsRef.current, tiltData, sparkleConfig);
+        animationRef.current = requestAnimationFrame(animate);
+      };
+      animate();
+      return () => {
+        running = false;
+        if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      };
+    }
+
+    // Motion-based mode
     renderSparkles(ctx, dimensions.width, dimensions.height, starsRef.current, tiltData, sparkleConfig);
   }, [tiltData, dimensions, isVisible, enabled, sparkleConfig]);
 

@@ -119,12 +119,30 @@ export function HoloLogo({
     canvas.height = size * dpr;
     ctx.scale(dpr, dpr);
 
+    // Continuous mode: run animation loop
+    if (sparkleConfig.continuous) {
+      let running = true;
+      const animate = () => {
+        if (!running) return;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+        renderSparkles(ctx, size, size, starsRef.current, tiltData, sparkleConfig);
+        animationRef.current = requestAnimationFrame(animate);
+      };
+      animate();
+      return () => {
+        running = false;
+        if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      };
+    }
+
+    // Motion-based mode
     if (idlePulseActive) {
       renderIdlePulse(ctx, size, size, starsRef.current, idlePulseProgress, sparkleConfig);
     } else {
       renderSparkles(ctx, size, size, starsRef.current, tiltData, sparkleConfig);
     }
-  }, [tiltData, size, showSparkles, sparkleConfig, idlePulseActive, idlePulseProgress]);
+  }, [tiltData, size, showSparkles, sparkleConfig, sparkleConfig.continuous, idlePulseActive, idlePulseProgress]);
 
   // Compute surface effect gradient
   const computeSurfaceFX = useCallback(() => {

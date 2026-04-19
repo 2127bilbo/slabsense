@@ -6,13 +6,14 @@
     "textGlare": "sharp_band",
 
     "sparkles": {
-      "count": 3,
+      "count": 1,
       "sizeMin": 0.8,
       "sizeMax": 1.5,
       "style": "cosmic_dust",
-      "motionOnly": true,
+      "continuous": true,
+      "motionOnly": false,
       "idlePulse": {
-        "enabled": true,
+        "enabled": false,
         "intervalSeconds": 12,
         "durationSeconds": 1
       },
@@ -23,11 +24,12 @@
 
   "collectionCards": {
     "sparkles": {
-      "count": 12,
-      "sizeMin": 2,
-      "sizeMax": 4,
+      "count": 5,
+      "sizeMin": 1.5,
+      "sizeMax": 3,
       "style": "cosmic_dust",
-      "motionOnly": true,
+      "continuous": true,
+      "motionOnly": false,
       "deadZone": 0.12,
       "rampPower": 1.5,
       "maxVisibleCanvases": 8
