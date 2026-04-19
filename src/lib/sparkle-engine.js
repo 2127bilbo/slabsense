@@ -25,8 +25,10 @@ export function createSparkleField(config) {
       speed: 1 + Math.random() * 2.5,
       hue: Math.random() * 360,
       // For continuous mode
-      lifeStart: Date.now() - Math.random() * 3000, // Stagger start times
-      lifeDuration: 1500 + Math.random() * 2000, // 1.5-3.5s per cycle
+      lifeStart: Date.now() - Math.random() * 1000, // Stagger start times
+      lifeDuration: 500 + Math.random() * 500, // 0.5-1.0s per cycle (quick flash)
+      // Track recent positions to avoid repeats
+      recentPositions: [],
     });
   }
 
@@ -34,15 +36,57 @@ export function createSparkleField(config) {
 }
 
 /**
- * Reposition a star to a new random location
+ * Get distance between two points (0-1 normalized space)
+ */
+function getDistance(x1, y1, x2, y2) {
+  return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+}
+
+/**
+ * Find a new position that's far from recent positions
+ */
+function findNewPosition(recentPositions, minDistance = 0.25, maxAttempts = 20) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const newX = 0.04 + Math.random() * 0.92;
+    const newY = 0.04 + Math.random() * 0.92;
+
+    // Check distance from all recent positions
+    let tooClose = false;
+    for (const pos of recentPositions) {
+      if (getDistance(newX, newY, pos.x, pos.y) < minDistance) {
+        tooClose = true;
+        break;
+      }
+    }
+
+    if (!tooClose) {
+      return { x: newX, y: newY };
+    }
+  }
+
+  // Fallback: return random position if can't find good one
+  return { x: 0.04 + Math.random() * 0.92, y: 0.04 + Math.random() * 0.92 };
+}
+
+/**
+ * Reposition a star to a new random location, avoiding recent spots
  */
 function repositionStar(star, config) {
-  star.x = 0.04 + Math.random() * 0.92;
-  star.y = 0.04 + Math.random() * 0.92;
+  // Find new position far from recent ones
+  const newPos = findNewPosition(star.recentPositions, 0.25);
+
+  // Track this position (keep last 5)
+  star.recentPositions.push({ x: star.x, y: star.y });
+  if (star.recentPositions.length > 5) {
+    star.recentPositions.shift();
+  }
+
+  star.x = newPos.x;
+  star.y = newPos.y;
   star.size = config.sizeMin + Math.random() * (config.sizeMax - config.sizeMin);
   star.hue = Math.random() * 360;
   star.lifeStart = Date.now();
-  star.lifeDuration = 1500 + Math.random() * 2000;
+  star.lifeDuration = 500 + Math.random() * 500; // 0.5-1.0s quick flash
 }
 
 /**
@@ -99,6 +143,7 @@ function drawSparkle(ctx, cx, cy, sz, hue, brightness) {
 
 /**
  * Render sparkles in continuous mode (time-based, random repositioning)
+ * Camera flash style: smooth fade in → peak → fade out
  */
 export function renderContinuous(ctx, width, height, stars, config) {
   ctx.clearRect(0, 0, width, height);
@@ -114,20 +159,9 @@ export function renderContinuous(ctx, width, height, stars, config) {
       return; // Skip this frame, will render next frame
     }
 
-    // Brightness: fade in, hold, fade out
-    // 0-20%: fade in, 20-80%: hold with twinkle, 80-100%: fade out
-    let brightness;
-    if (progress < 0.2) {
-      brightness = progress / 0.2; // Fade in
-    } else if (progress > 0.8) {
-      brightness = (1 - progress) / 0.2; // Fade out
-    } else {
-      // Twinkle during hold phase
-      const twinkle = Math.sin(elapsed * 0.01 * s.speed) * 0.3 + 0.7;
-      brightness = twinkle;
-    }
-
-    brightness = Math.min(Math.max(brightness, 0), 1);
+    // Camera flash: smooth bell curve (sine-based)
+    // 0% = off, 50% = peak brightness, 100% = off
+    const brightness = Math.sin(progress * Math.PI);
 
     const cx = s.x * width;
     const cy = s.y * height;
