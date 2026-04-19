@@ -10,6 +10,7 @@ export function createGyroInput(config = {}) {
   let gyroAvailable = false;
   let listeners = [];
   let permissionGranted = false;
+  let permissionRequested = false;
 
   const deadZone = config.deadZone || 0.15;
   const rampPower = config.rampPower || 1.8;
@@ -40,6 +41,18 @@ export function createGyroInput(config = {}) {
       (e.clientX / window.innerWidth) * 100,
       (e.clientY / window.innerHeight) * 100
     );
+  }
+
+  // Touch move (mobile fallback when gyro unavailable)
+  function handleTouchMove(e) {
+    if (gyroAvailable) return;
+    const touch = e.touches[0];
+    if (touch) {
+      notify(
+        (touch.clientX / window.innerWidth) * 100,
+        (touch.clientY / window.innerHeight) * 100
+      );
+    }
   }
 
   // Gyroscope (mobile)
@@ -78,6 +91,14 @@ export function createGyroInput(config = {}) {
     return Promise.resolve('unavailable');
   }
 
+  // Auto-request permission on first touch (for iOS)
+  function handleFirstTouch() {
+    if (permissionRequested) return;
+    permissionRequested = true;
+    requestPermission();
+    document.removeEventListener('touchstart', handleFirstTouch);
+  }
+
   function subscribe(fn) {
     listeners.push(fn);
     // Immediately call with current state
@@ -95,9 +116,25 @@ export function createGyroInput(config = {}) {
     return gyroAvailable;
   }
 
-  // Initialize mouse listener
+  // Initialize listeners
   if (typeof document !== 'undefined') {
+    // Mouse for desktop
     document.addEventListener('mousemove', handleMouseMove);
+
+    // Touch move for mobile fallback
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+
+    // Check if iOS needs permission or if we can auto-init
+    if (typeof DeviceOrientationEvent !== 'undefined') {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        // iOS 13+ - need to wait for user gesture
+        document.addEventListener('touchstart', handleFirstTouch, { once: true });
+      } else {
+        // Android / older iOS - can init immediately
+        window.addEventListener('deviceorientation', handleGyro);
+        permissionGranted = true;
+      }
+    }
   }
 
   return {
