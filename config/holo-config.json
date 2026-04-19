@@ -6,9 +6,9 @@
     "textGlare": "sharp_band",
 
     "sparkles": {
-      "count": 5,
-      "sizeMin": 2,
-      "sizeMax": 5,
+      "count": 3,
+      "sizeMin": 0.8,
+      "sizeMax": 1.5,
       "style": "cosmic_dust",
       "motionOnly": true,
       "idlePulse": {
