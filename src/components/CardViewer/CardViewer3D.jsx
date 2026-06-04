@@ -199,7 +199,7 @@ export function CardViewer3D({
             )}
           </div>
 
-          {/* Edge (visible during rotation) */}
+          {/* Right Edge (visible during clockwise rotation) */}
           <div style={{
             position: 'absolute',
             width: viewMode === 'slab' ? 10 : 4,
@@ -211,6 +211,20 @@ export function CardViewer3D({
               ? 'linear-gradient(180deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(180deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
             borderRadius: '0 2px 2px 0',
+          }} />
+
+          {/* Left Edge (visible during counter-clockwise rotation) */}
+          <div style={{
+            position: 'absolute',
+            width: viewMode === 'slab' ? 10 : 4,
+            height: '100%',
+            left: 0,
+            transformOrigin: 'right center',
+            transform: 'rotateY(-90deg)',
+            background: viewMode === 'slab'
+              ? 'linear-gradient(180deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
+              : `linear-gradient(180deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
+            borderRadius: '2px 0 0 2px',
           }} />
 
           {/* Back Face */}
