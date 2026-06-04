@@ -173,11 +173,20 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
     }
   };
 
+  // Get best available front/back images from scan
+  const getFrontImage = (scan) => {
+    return scan?.enhanced_front_path || scan?.user_card_image || scan?.tcgdex_image || scan?.front_image_path || null;
+  };
+
+  const getBackImage = (scan) => {
+    return scan?.enhanced_back_path || scan?.back_image_path || null;
+  };
+
   // Generate vision maps when card is selected
   useEffect(() => {
     if (selectedCard) {
-      const frontImg = selectedCard.front_image_path;
-      const backImg = selectedCard.back_image_path;
+      const frontImg = getFrontImage(selectedCard);
+      const backImg = getBackImage(selectedCard);
 
       // Reset state for new card
       setVisionMode('normal');
@@ -209,12 +218,14 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
 
   // Handle re-grading with AI
   const handleRegrade = async () => {
-    if (!selectedCard?.front_image || !selectedCard?.back_image) return;
+    const frontImg = getFrontImage(selectedCard);
+    const backImg = getBackImage(selectedCard);
+    if (!frontImg || !backImg) return;
     setEnhancingStatus('enhancing');
     try {
       const result = await claudeGradingAnalysis(
-        selectedCard.front_image_path,
-        selectedCard.back_image_path,
+        frontImg,
+        backImg,
         'pokemon'
       );
       if (result.success) {
@@ -668,7 +679,11 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           )}
 
           {/* Card Images with Vision Modes */}
-          {(selectedCard.front_image_path || selectedCard.back_image_path) && (
+          {(() => {
+            const frontImg = getFrontImage(selectedCard);
+            const backImg = getBackImage(selectedCard);
+            if (!frontImg && !backImg) return null;
+            return (
             <div style={{ marginBottom: 16 }}>
               {/* Vision Mode Buttons */}
               <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
@@ -739,10 +754,10 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   background: '#0a0a0a',
                   position: 'relative',
                 }}>
-                  {selectedCard.front_image_path ? (
+                  {frontImg ? (
                     <>
                       <img
-                        src={selectedCard.front_image_path}
+                        src={frontImg}
                         alt="Front"
                         style={{
                           width: '100%',
@@ -805,10 +820,10 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   background: '#0a0a0a',
                   position: 'relative',
                 }}>
-                  {selectedCard.back_image_path ? (
+                  {backImg ? (
                     <>
                       <img
-                        src={selectedCard.back_image_path}
+                        src={backImg}
                         alt="Back"
                         style={{
                           width: '100%',
@@ -895,7 +910,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 {/* Re-grade Button */}
                 <button
                   onClick={handleRegrade}
-                  disabled={enhancingStatus === 'enhancing' || !selectedCard.front_image_path || !selectedCard.back_image_path}
+                  disabled={enhancingStatus === 'enhancing' || !frontImg || !backImg}
                   style={{
                     flex: 1,
                     padding: '10px 12px',
@@ -919,7 +934,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                     fontSize: 11,
                     fontWeight: 600,
                     cursor: enhancingStatus === 'enhancing' ? 'wait' : 'pointer',
-                    opacity: (!selectedCard.front_image_path || !selectedCard.back_image_path) ? 0.5 : 1,
+                    opacity: (!frontImg || !backImg) ? 0.5 : 1,
                   }}
                 >
                   {enhancingStatus === 'enhancing' ? '⏳ Grading...' :
@@ -929,7 +944,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 </button>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* Company Tabs - Show for both AI and Software grades */}
           <div style={{
