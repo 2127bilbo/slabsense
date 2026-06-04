@@ -4,10 +4,12 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { getUserScans, deleteScan } from '../../services/scans.js';
+import { getUserScans, deleteScan, updateScan } from '../../services/scans.js';
 import { getGradeFromScore, GRADING_COMPANIES as GRADE_SCALES } from '../../utils/gradingScales.js';
 import { HoloCard } from '../HoloCard/HoloCard.jsx';
 import { getGyroInput } from '../../lib/gyro-input.js';
+import { CardViewer3D } from '../CardViewer/CardViewer3D.jsx';
+import { claudeGradingAnalysis } from '../../services/api.js';
 import holoConfig from '../../../config/holo-config.json';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
@@ -23,6 +25,38 @@ const GRADING_COMPANIES = {
 
 // EUR to USD conversion rate (approximate)
 const EUR_TO_USD = 1.08;
+
+/* ═══════════════════════════════════════════
+   SURFACE VISION HELPERS
+   ═══════════════════════════════════════════ */
+function loadImg(src,mx=1400){return new Promise(r=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>{let w=img.width,h=img.height;if(Math.max(w,h)>mx){const s=mx/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d",{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);r({canvas:c,ctx,w,h,data:ctx.getImageData(0,0,w,h)});};img.onerror=()=>r(null);img.src=src;});}
+
+const LUM=(r,g,b)=>.299*r+.587*g+.114*b;
+
+function genMaps(src){return new Promise(async r=>{
+  const result=await loadImg(src,1400);
+  if(!result){r(null);return;}
+  const{canvas,w,h,data}=result;const d=data.data;
+  const mk=()=>{const c=document.createElement("canvas");c.width=w;c.height=h;return c;};
+  const L=(Y,X)=>LUM(d[(Y*w+X)*4],d[(Y*w+X)*4+1],d[(Y*w+X)*4+2]);
+
+  // Emboss
+  const eC=mk(),eX=eC.getContext("2d"),eD=eX.createImageData(w,h),e=eD.data;
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=(y*w+x)*4,v=Math.min(255,Math.max(0,128+(L(y+1,x+1)-L(y-1,x-1))*2));e[i]=e[i+1]=e[i+2]=v;e[i+3]=255;}
+  eX.putImageData(eD,0,0);
+
+  // High-pass
+  const hC=mk(),hX=hC.getContext("2d"),hD=hX.createImageData(w,h),hp=hD.data;
+  for(let y=8;y<h-8;y++)for(let x=8;x<w-8;x++){const i=(y*w+x)*4;let ls=0,ln=0;for(let dy=-8;dy<=8;dy+=2)for(let dx=-8;dx<=8;dx+=2){ls+=L(y+dy,x+dx);ln++;}const v=Math.min(255,Math.max(0,128+(L(y,x)-ls/ln)*3));hp[i]=hp[i+1]=hp[i+2]=v;hp[i+3]=255;}
+  hX.putImageData(hD,0,0);
+
+  // Sobel edges
+  const dC=mk(),dX=dC.getContext("2d"),dD=dX.createImageData(w,h),ed=dD.data;
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=(y*w+x)*4;const gx=-L(y-1,x-1)+L(y-1,x+1)-2*L(y,x-1)+2*L(y,x+1)-L(y+1,x-1)+L(y+1,x+1);const gy=-L(y-1,x-1)-2*L(y-1,x)-L(y-1,x+1)+L(y+1,x-1)+2*L(y+1,x)+L(y+1,x+1);const m=Math.min(255,Math.sqrt(gx*gx+gy*gy));ed[i]=~~(m*.2);ed[i+1]=~~(m*.9);ed[i+2]=~~m;ed[i+3]=255;}
+  dX.putImageData(dD,0,0);
+
+  r({original:canvas.toDataURL(),emboss:eC.toDataURL(),highpass:hC.toDataURL(),edges:dC.toDataURL(),width:w,height:h});
+});}
 
 /**
  * Get card price from scan data
@@ -83,6 +117,20 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   const [touchStart, setTouchStart] = useState(null);
   const stackRef = useRef(null);
 
+  // Vision mode state for card detail
+  const [visionMode, setVisionMode] = useState('normal');
+  const [visionIntensity, setVisionIntensity] = useState(50);
+  const [fM, setFM] = useState(null);  // Front vision maps
+  const [bM, setBM] = useState(null);  // Back vision maps
+  const [mapsLoading, setMapsLoading] = useState(false);
+
+  // 3D viewer state
+  const [show3DViewer, setShow3DViewer] = useState(false);
+
+  // Re-grading state
+  const [enhancingStatus, setEnhancingStatus] = useState(null);
+  const [regradeResult, setRegradeResult] = useState(null);
+
   // Gyro input for holo sparkles
   const gyroInputRef = useRef(null);
   if (!gyroInputRef.current) {
@@ -122,6 +170,81 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       if (onCollectionChange) onCollectionChange();
     } catch (err) {
       console.error('Delete failed:', err);
+    }
+  };
+
+  // Generate vision maps when card is selected
+  useEffect(() => {
+    if (selectedCard) {
+      const frontImg = selectedCard.front_image;
+      const backImg = selectedCard.back_image;
+
+      // Reset state for new card
+      setVisionMode('normal');
+      setVisionIntensity(50);
+      setShow3DViewer(false);
+      setEnhancingStatus(null);
+      setRegradeResult(null);
+      setFM(null);
+      setBM(null);
+
+      // Generate vision maps if images exist
+      if (frontImg || backImg) {
+        setMapsLoading(true);
+        Promise.all([
+          frontImg ? genMaps(frontImg) : Promise.resolve(null),
+          backImg ? genMaps(backImg) : Promise.resolve(null),
+        ]).then(([frontMaps, backMaps]) => {
+          setFM(frontMaps);
+          setBM(backMaps);
+          setMapsLoading(false);
+        }).catch(() => setMapsLoading(false));
+      }
+    } else {
+      setFM(null);
+      setBM(null);
+      setShow3DViewer(false);
+    }
+  }, [selectedCard]);
+
+  // Handle re-grading with AI
+  const handleRegrade = async () => {
+    if (!selectedCard?.front_image || !selectedCard?.back_image) return;
+    setEnhancingStatus('enhancing');
+    try {
+      const result = await claudeGradingAnalysis(
+        selectedCard.front_image,
+        selectedCard.back_image,
+        'pokemon'
+      );
+      if (result.success) {
+        setRegradeResult(result);
+
+        // Update the scan in database with new grades
+        const updateData = {};
+        if (result.grades) updateData.ai_grades = result.grades;
+        if (result.condition) updateData.ai_condition = result.condition;
+        if (result.summary) updateData.ai_summary = result.summary;
+        if (result.centering) updateData.ai_centering = result.centering;
+
+        if (Object.keys(updateData).length > 0) {
+          await updateScan(selectedCard.id, updateData);
+          // Update local state
+          setSelectedCard(prev => ({ ...prev, ...updateData }));
+          setScans(prev => prev.map(s =>
+            s.id === selectedCard.id ? { ...s, ...updateData } : s
+          ));
+        }
+
+        setEnhancingStatus('done');
+      } else {
+        setEnhancingStatus('error');
+        setTimeout(() => setEnhancingStatus(null), 3000);
+      }
+    } catch (err) {
+      console.error('Re-grade error:', err);
+      setEnhancingStatus('error');
+      setTimeout(() => setEnhancingStatus(null), 3000);
     }
   };
 
@@ -541,6 +664,270 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
               >
                 Software Grade
               </button>
+            </div>
+          )}
+
+          {/* Card Images with Vision Modes */}
+          {(selectedCard.front_image || selectedCard.back_image) && (
+            <div style={{ marginBottom: 16 }}>
+              {/* Vision Mode Buttons */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                {[['normal','Normal'],['emboss','Emboss'],['highpass','Hi-Pass'],['edges','Edges']]
+                  .map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      onClick={() => setVisionMode(mode)}
+                      disabled={mapsLoading}
+                      style={{
+                        flex: 1,
+                        padding: '8px 0',
+                        borderRadius: 6,
+                        border: visionMode === mode ? '1px solid #6366f1' : '1px solid #2a2d35',
+                        background: visionMode === mode ? 'rgba(99,102,241,0.15)' : 'transparent',
+                        color: visionMode === mode ? '#8b5cf6' : '#666',
+                        fontFamily: mono,
+                        fontSize: 9,
+                        cursor: mapsLoading ? 'wait' : 'pointer',
+                        textTransform: 'uppercase',
+                        opacity: mapsLoading ? 0.5 : 1,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+              </div>
+
+              {/* Intensity Slider */}
+              {visionMode !== 'normal' && (
+                <div style={{ marginBottom: 10 }}>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={visionIntensity}
+                    onChange={e => setVisionIntensity(Number(e.target.value))}
+                    style={{
+                      width: '100%',
+                      height: 6,
+                      borderRadius: 3,
+                      background: `linear-gradient(90deg, #6366f1 ${visionIntensity}%, #1a1c22 ${visionIntensity}%)`,
+                      appearance: 'none',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <style>{`input[type=range]::-webkit-slider-thumb{appearance:none;width:14px;height:14px;border-radius:50%;background:#8b5cf6;cursor:pointer;border:2px solid #0a0b0e;}`}</style>
+                  <div style={{
+                    fontFamily: mono,
+                    fontSize: 9,
+                    color: '#555',
+                    textAlign: 'center',
+                    marginTop: 4,
+                  }}>
+                    Intensity: {visionIntensity}%
+                  </div>
+                </div>
+              )}
+
+              {/* Front + Back Images */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                {/* Front Image */}
+                <div style={{
+                  flex: 1,
+                  aspectRatio: '2.5/3.5',
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  background: '#0a0a0a',
+                  position: 'relative',
+                }}>
+                  {selectedCard.front_image ? (
+                    <>
+                      <img
+                        src={selectedCard.front_image}
+                        alt="Front"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          position: 'absolute',
+                          inset: 0,
+                        }}
+                      />
+                      {visionMode !== 'normal' && fM?.[visionMode] && (
+                        <img
+                          src={fM[visionMode]}
+                          alt={`Front ${visionMode}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            position: 'absolute',
+                            inset: 0,
+                            opacity: visionIntensity / 100,
+                          }}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      color: '#444',
+                      fontFamily: mono,
+                      fontSize: 10,
+                    }}>
+                      No image
+                    </div>
+                  )}
+                  <div style={{
+                    position: 'absolute',
+                    bottom: 4,
+                    left: 4,
+                    fontFamily: mono,
+                    fontSize: 8,
+                    color: '#555',
+                    background: 'rgba(0,0,0,0.7)',
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    zIndex: 1,
+                  }}>
+                    FRONT
+                  </div>
+                </div>
+
+                {/* Back Image */}
+                <div style={{
+                  flex: 1,
+                  aspectRatio: '2.5/3.5',
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  background: '#0a0a0a',
+                  position: 'relative',
+                }}>
+                  {selectedCard.back_image ? (
+                    <>
+                      <img
+                        src={selectedCard.back_image}
+                        alt="Back"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          position: 'absolute',
+                          inset: 0,
+                        }}
+                      />
+                      {visionMode !== 'normal' && bM?.[visionMode] && (
+                        <img
+                          src={bM[visionMode]}
+                          alt={`Back ${visionMode}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            position: 'absolute',
+                            inset: 0,
+                            opacity: visionIntensity / 100,
+                          }}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      color: '#444',
+                      fontFamily: mono,
+                      fontSize: 10,
+                    }}>
+                      No image
+                    </div>
+                  )}
+                  <div style={{
+                    position: 'absolute',
+                    bottom: 4,
+                    left: 4,
+                    fontFamily: mono,
+                    fontSize: 8,
+                    color: '#555',
+                    background: 'rgba(0,0,0,0.7)',
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    zIndex: 1,
+                  }}>
+                    BACK
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons (3D View + Re-grade) */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                {/* 3D View Button */}
+                <button
+                  onClick={() => setShow3DViewer(true)}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    background: 'rgba(99,102,241,0.1)',
+                    border: '1px solid rgba(99,102,241,0.3)',
+                    borderRadius: 8,
+                    color: '#8b5cf6',
+                    fontFamily: mono,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <line x1="3" y1="9" x2="21" y2="9" />
+                  </svg>
+                  3D Slab View
+                </button>
+
+                {/* Re-grade Button */}
+                <button
+                  onClick={handleRegrade}
+                  disabled={enhancingStatus === 'enhancing' || !selectedCard.front_image || !selectedCard.back_image}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    background: enhancingStatus === 'done'
+                      ? 'rgba(0,255,136,0.1)'
+                      : enhancingStatus === 'error'
+                      ? 'rgba(255,100,100,0.1)'
+                      : 'rgba(139,92,246,0.1)',
+                    border: enhancingStatus === 'done'
+                      ? '1px solid rgba(0,255,136,0.3)'
+                      : enhancingStatus === 'error'
+                      ? '1px solid rgba(255,100,100,0.3)'
+                      : '1px solid rgba(139,92,246,0.3)',
+                    borderRadius: 8,
+                    color: enhancingStatus === 'done'
+                      ? '#00ff88'
+                      : enhancingStatus === 'error'
+                      ? '#ff6666'
+                      : '#8b5cf6',
+                    fontFamily: mono,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: enhancingStatus === 'enhancing' ? 'wait' : 'pointer',
+                    opacity: (!selectedCard.front_image || !selectedCard.back_image) ? 0.5 : 1,
+                  }}
+                >
+                  {enhancingStatus === 'enhancing' ? '⏳ Grading...' :
+                   enhancingStatus === 'done' ? '✓ Re-graded' :
+                   enhancingStatus === 'error' ? '✗ Failed' :
+                   'Re-grade (~$0.03)'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -1028,6 +1415,55 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 Delete
               </button>
             </div>
+          </div>
+        )}
+
+        {/* 3D Viewer Modal */}
+        {show3DViewer && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.98)',
+            zIndex: 3000,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            {/* Close Button */}
+            <button
+              onClick={() => setShow3DViewer(false)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                background: 'rgba(255,255,255,0.1)',
+                border: 'none',
+                borderRadius: '50%',
+                width: 40,
+                height: 40,
+                color: '#888',
+                fontSize: 20,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+              }}
+            >
+              ✕
+            </button>
+
+            {/* 3D Viewer */}
+            <CardViewer3D
+              frontImage={selectedCard.tcgdex_image || selectedCard.user_card_image || selectedCard.front_image}
+              backImage={selectedCard.back_image}
+              grade={grade.value}
+              gradeLabel={grade.label}
+              gradingCompany={selectedCompany}
+              cardInfo={selectedCard.card_info}
+              subgrades={grade.subgrades}
+            />
           </div>
         )}
       </div>
