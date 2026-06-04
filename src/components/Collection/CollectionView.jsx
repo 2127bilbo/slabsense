@@ -176,8 +176,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   // Generate vision maps when card is selected
   useEffect(() => {
     if (selectedCard) {
-      const frontImg = selectedCard.front_image;
-      const backImg = selectedCard.back_image;
+      const frontImg = selectedCard.front_image_path;
+      const backImg = selectedCard.back_image_path;
 
       // Reset state for new card
       setVisionMode('normal');
@@ -213,8 +213,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
     setEnhancingStatus('enhancing');
     try {
       const result = await claudeGradingAnalysis(
-        selectedCard.front_image,
-        selectedCard.back_image,
+        selectedCard.front_image_path,
+        selectedCard.back_image_path,
         'pokemon'
       );
       if (result.success) {
@@ -668,7 +668,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           )}
 
           {/* Card Images with Vision Modes */}
-          {(selectedCard.front_image || selectedCard.back_image) && (
+          {(selectedCard.front_image_path || selectedCard.back_image_path) && (
             <div style={{ marginBottom: 16 }}>
               {/* Vision Mode Buttons */}
               <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
@@ -739,10 +739,10 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   background: '#0a0a0a',
                   position: 'relative',
                 }}>
-                  {selectedCard.front_image ? (
+                  {selectedCard.front_image_path ? (
                     <>
                       <img
-                        src={selectedCard.front_image}
+                        src={selectedCard.front_image_path}
                         alt="Front"
                         style={{
                           width: '100%',
@@ -805,10 +805,10 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   background: '#0a0a0a',
                   position: 'relative',
                 }}>
-                  {selectedCard.back_image ? (
+                  {selectedCard.back_image_path ? (
                     <>
                       <img
-                        src={selectedCard.back_image}
+                        src={selectedCard.back_image_path}
                         alt="Back"
                         style={{
                           width: '100%',
@@ -895,7 +895,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 {/* Re-grade Button */}
                 <button
                   onClick={handleRegrade}
-                  disabled={enhancingStatus === 'enhancing' || !selectedCard.front_image || !selectedCard.back_image}
+                  disabled={enhancingStatus === 'enhancing' || !selectedCard.front_image_path || !selectedCard.back_image_path}
                   style={{
                     flex: 1,
                     padding: '10px 12px',
@@ -919,7 +919,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                     fontSize: 11,
                     fontWeight: 600,
                     cursor: enhancingStatus === 'enhancing' ? 'wait' : 'pointer',
-                    opacity: (!selectedCard.front_image || !selectedCard.back_image) ? 0.5 : 1,
+                    opacity: (!selectedCard.front_image_path || !selectedCard.back_image_path) ? 0.5 : 1,
                   }}
                 >
                   {enhancingStatus === 'enhancing' ? '⏳ Grading...' :
@@ -1456,8 +1456,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
 
             {/* 3D Viewer */}
             <CardViewer3D
-              frontImage={selectedCard.tcgdex_image || selectedCard.user_card_image || selectedCard.front_image}
-              backImage={selectedCard.back_image}
+              frontImage={selectedCard.tcgdex_image || selectedCard.user_card_image || selectedCard.front_image_path}
+              backImage={selectedCard.back_image_path}
               grade={grade.value}
               gradeLabel={grade.label}
               gradingCompany={selectedCompany}
