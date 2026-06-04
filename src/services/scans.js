@@ -95,16 +95,24 @@ export async function saveScan(userId, scanData) {
   if (error) throw error;
 
   // If enhanced images provided, upload them and update the scan
+  console.log('[saveScan] Enhanced images provided:', {
+    front: !!scanData.enhancedFront,
+    back: !!scanData.enhancedBack,
+  });
   if (scanData.enhancedFront || scanData.enhancedBack) {
     const updates = {};
 
     if (scanData.enhancedFront) {
+      console.log('[saveScan] Uploading front image...');
       const url = await uploadCardImage(userId, scan.id, scanData.enhancedFront, 'enhanced_front');
+      console.log('[saveScan] Front upload result:', url ? 'success' : 'failed');
       if (url) updates.enhanced_front_path = url;
     }
 
     if (scanData.enhancedBack) {
+      console.log('[saveScan] Uploading back image...');
       const url = await uploadCardImage(userId, scan.id, scanData.enhancedBack, 'enhanced_back');
+      console.log('[saveScan] Back upload result:', url ? 'success' : 'failed');
       if (url) updates.enhanced_back_path = url;
     }
 

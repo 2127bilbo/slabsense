@@ -3085,6 +3085,22 @@ export default function SlabSense(){
     const gradeValue = aiGradeForCompany?.grade ?? gradeResult.grade.grade;
     const gradeLabel = aiGradeForCompany?.label ?? gradeResult.grade.label;
 
+    // Debug: log what images are being saved
+    const enhancedFrontToSave = enhancedCards?.front || frontCroppedImage || fI || null;
+    const enhancedBackToSave = enhancedCards?.back || backCroppedImage || bI || null;
+    console.log('[buildSaveData] Images:', {
+      enhancedFront: enhancedFrontToSave ? (enhancedFrontToSave.substring(0, 50) + '...') : null,
+      enhancedBack: enhancedBackToSave ? (enhancedBackToSave.substring(0, 50) + '...') : null,
+      sources: {
+        'enhancedCards.front': !!enhancedCards?.front,
+        'enhancedCards.back': !!enhancedCards?.back,
+        'frontCroppedImage': !!frontCroppedImage,
+        'backCroppedImage': !!backCroppedImage,
+        'fI': !!fI,
+        'bI': !!bI,
+      }
+    });
+
     return {
       gradingCompany,
       rawScore: gradeResult.rawScore,
@@ -3094,8 +3110,8 @@ export default function SlabSense(){
       frontCentering: fR?.centering,
       backCentering: bR?.centering,
       dings: gradeResult.allDings,
-      enhancedFront: enhancedCards?.front || frontCroppedImage || fI || null,
-      enhancedBack: enhancedCards?.back || backCroppedImage || bI || null,
+      enhancedFront: enhancedFrontToSave,
+      enhancedBack: enhancedBackToSave,
       cardName: cardInfo?.name || null,
       cardSet: cardInfo?.setName || null,
       cardNumber: cardInfo?.cardNumber || null,

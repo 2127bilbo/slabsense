@@ -283,7 +283,7 @@ CREATE TABLE missing_images (
 10. ✅ **Incremental hash updates** - `--update` flag for new sets only
 11. ✅ **Hash database built** - 21,900 cards, 18GB images, 1.94MB hash DB
 
-### Beta Phase (Current)
+### Beta Phase (Current) - Completed
 12. ✅ **Corner-anchored centering mode** - Toggle alternative to edge-drag with 5-sample median per edge
 13. ✅ **Missing image fallback** - User crops photo when TCGDex has no image
 14. ✅ **Database schema updates** - Added `user_card_image` column
@@ -294,46 +294,63 @@ CREATE TABLE missing_images (
    - Cosine similarity matching with confidence thresholds
 17. ✅ **File upload resizing** - Uploaded images now resize to 1920x1440 (matches camera constraints)
 18. ✅ **Technical documentation** - Complete system reference guide (docs/TECHNICAL_REFERENCE.md)
+
+---
+
+## 🎯 PRIORITY CHECKLIST (Sorted: Easy → Hard)
+
+### Tier 1: Quick Wins (1-2 hours each)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| P1 | **Fix 3D card view** | [ ] | Debug current issues with slab positioning/rendering |
+| P2 | **Card View Tab - Add surface vision modes** | [ ] | Enable Emboss, Hi-Pass, Edge Detection on saved cards (already built, just need to expose in card view) |
+| P3 | **Card View Tab - Show cropped images** | [ ] | Display the user's cropped front/back images in card detail view |
+
+### Tier 2: Medium Tasks (Half-day each)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| P4 | **Card View Tab - Add 360 card viewer** | [ ] | Enable 3D slab viewer from collection/card view (reuse existing component) |
+| P5 | **Card View Tab - Re-run grading option** | [ ] | Button to re-analyze card with AI (uses existing flow) |
+| P6 | **High-res crop preservation** | [ ] | Edge adjustment must keep highest resolution cropped image. Currently forcing lower quality on capture - fix this |
+| P7 | **Resolution scaling for standard scan** | [ ] | After high-res crop, rescale for standard scan (pair front+back for Claude). Deep scan skips rescaling |
+
+### Tier 3: Significant Development (1-2 days each)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| P8 | **Deep Scan feature** | [ ] | Higher quality images sent independently (front, then back). Better prompting for thorough defect analysis. Calculate cost (~$0.06+ per scan?) |
+| P9 | **Domain setup - slabsense.com** | [ ] | Purchase domain, configure DNS, connect to Vercel deployment |
+| P10 | **Migrate to Anthropic direct API** | [ ] | Remove Replicate dependency, enable prompt caching (90% cost reduction), image preprocessing |
+
+### Tier 4: Major Features (Multiple days)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| P11 | **Token system & billing** | [ ] | Token-based billing (Standard vs Deep grades), Stripe + PayPal integration |
+| P12 | **Subscription tiers** | [ ] | Free / Pro / Lifetime tiers with token allocations |
+| P13 | **Production deployment** | [ ] | Full production setup, monitoring, error tracking |
+
+### Tier 5: Post-Launch
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| P14 | **3D photo rig build** | [ ] | Purchase lights, diffusers, build physical rig for consistent card photography |
+| P15 | **Mobile app (Capacitor)** | [ ] | Wrap existing code for iOS/Android |
+| P16 | **Automated embedding updates** | [ ] | Serverless job to generate CLIP embeddings for new TCGDex cards |
+
+---
+
+## Original Remaining Items (For Reference)
+
+### Testing & Polish
 19. [ ] Fine-tune SlabSense slab positioning
 20. [ ] Test full flow end-to-end
 21. [ ] Bug fixes and polish
 
-### AI Pipeline Migration (Post-Beta)
-22. [ ] **Migrate from Replicate to Anthropic direct API**
-   - Prompt caching for 90% cost reduction on static content
-   - Image preprocessing (CLAHE, unsharp mask, edge detection)
-   - Defect annotation rendering with coordinates
-   - Remove Replicate dependency
-23. [ ] Defect feedback capture system (optional, UX TBD with Bob)
-
-### Launch Phase
-24. [ ] **Billing & Subscriptions**
-   - Token-based billing (Standard vs Express grades)
-   - Stripe + PayPal integration
-   - Subscription tiers (Free / Pro / Lifetime)
-25. [ ] Production deployment
-26. [ ] Privacy policy & Terms of Service updates
-27. [ ] Landing page / marketing site
-28. [ ] **Automated embedding updates** - Serverless job to generate CLIP embeddings for new TCGDex cards
-
-### Post-Launch / Mobile App
-29. [ ] **Mobile app decision: Capacitor vs React Native**
-   - Capacitor: Wrap existing code, faster launch
-   - React Native: Better native feel, more work
-30. [ ] Apple Developer Account ($99/year)
-31. [ ] iOS app build and submission
-32. [ ] TestFlight beta testing
-33. [ ] App Store launch
-34. [ ] Google Play (Android) - same codebase
-
 ### Future Enhancements
-35. [ ] Custom ML model for card recognition (using saved images)
-36. [ ] Sports cards support (baseball, basketball, etc.)
-37. [ ] Price tracking history & trends
-38. [ ] Social features (share collections)
-39. [ ] Bulk grading mode
-40. [ ] Hardware integration (3D printed mount, LED lighting system)
-41. [ ] **Upgrade Vercel plan** - Higher payload limits allow larger images for better AI grading accuracy
+- [ ] Custom ML model for card recognition (using saved images)
+- [ ] Sports cards support (baseball, basketball, etc.)
+- [ ] Price tracking history & trends
+- [ ] Social features (share collections)
+- [ ] Bulk grading mode
+- [ ] **Upgrade Vercel plan** - Higher payload limits allow larger images for better AI grading accuracy
    - Current: Free tier (4.5MB function payload limit, 100MB deployment size)
    - Pro tier: 50MB payload limit, 1GB deployment size
    - Would enable higher resolution card images for detecting fine defects

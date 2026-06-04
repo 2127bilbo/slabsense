@@ -1472,8 +1472,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
 
             {/* 3D Viewer */}
             <CardViewer3D
-              frontImage={selectedCard.tcgdex_image || selectedCard.user_card_image || selectedCard.front_image_path}
-              backImage={selectedCard.back_image_path}
+              frontImage={selectedCard.tcgdex_image || selectedCard.user_card_image || selectedCard.enhanced_front_path}
+              backImage={selectedCard.enhanced_back_path}
               grade={grade.value}
               gradeLabel={grade.label}
               gradingCompany={selectedCompany}
