@@ -3085,14 +3085,15 @@ export default function SlabSense(){
     const gradeValue = aiGradeForCompany?.grade ?? gradeResult.grade.grade;
     const gradeLabel = aiGradeForCompany?.label ?? gradeResult.grade.label;
 
-    // Determine best images to save - prioritize user crops, then captured images
-    // Don't rely on enhancedCards since it's only set when 3D viewer is opened
-    const enhancedFrontToSave = frontCroppedImage || fI || tcgdexImage || null;
+    // Enhanced images for vision modes - user's captured/cropped photos
+    // Use cropped version if available, fall back to original capture
+    const enhancedFrontToSave = frontCroppedImage || fI || null;
     const enhancedBackToSave = backCroppedImage || bI || null;
 
     console.log('[buildSaveData] Images:', {
-      enhancedFront: enhancedFrontToSave ? (enhancedFrontToSave.substring(0, 50) + '...') : null,
-      enhancedBack: enhancedBackToSave ? (enhancedBackToSave.substring(0, 50) + '...') : null,
+      enhancedFront: enhancedFrontToSave ? 'HAS_IMAGE' : null,
+      enhancedBack: enhancedBackToSave ? 'HAS_IMAGE' : null,
+      tcgdexImage: tcgdexImage ? 'HAS_IMAGE' : null,
       sources: {
         'frontCroppedImage': !!frontCroppedImage,
         'backCroppedImage': !!backCroppedImage,
