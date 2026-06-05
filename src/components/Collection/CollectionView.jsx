@@ -188,6 +188,18 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       const frontImg = getFrontImage(selectedCard);
       const backImg = getBackImage(selectedCard);
 
+      // Debug: log available image fields
+      console.log('[CollectionView] Selected card images:', {
+        enhanced_front_path: selectedCard.enhanced_front_path ? 'EXISTS' : null,
+        enhanced_back_path: selectedCard.enhanced_back_path ? 'EXISTS' : null,
+        tcgdex_image: selectedCard.tcgdex_image ? 'EXISTS' : null,
+        user_card_image: selectedCard.user_card_image ? 'EXISTS' : null,
+        front_image_path: selectedCard.front_image_path ? 'EXISTS' : null,
+        back_image_path: selectedCard.back_image_path ? 'EXISTS' : null,
+        frontImg: frontImg ? 'RESOLVED' : null,
+        backImg: backImg ? 'RESOLVED' : null,
+      });
+
       // Reset state for new card
       setVisionMode('normal');
       setVisionIntensity(50);
