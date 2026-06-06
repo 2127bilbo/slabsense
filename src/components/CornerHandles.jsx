@@ -11,6 +11,56 @@ import { getSamplePoints, calculateCornerCentering } from '../lib/corner-measure
 const mono = '"SF Mono", Monaco, "Fira Code", monospace';
 
 /**
+ * Generate SVG path for a rounded quadrilateral
+ * @param {object} corners - { tl, tr, br, bl } each with { x, y }
+ * @param {number} radius - Corner radius in pixels
+ * @returns {string} SVG path d attribute
+ */
+function getRoundedQuadPath(corners, radius) {
+  const { tl, tr, br, bl } = corners;
+
+  // Helper to get point along edge, offset from corner by radius
+  const getOffsetPoint = (from, to, dist) => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len === 0) return from;
+    const ratio = Math.min(dist / len, 0.4); // Cap at 40% of edge length
+    return {
+      x: from.x + dx * ratio,
+      y: from.y + dy * ratio
+    };
+  };
+
+  // Get points before and after each corner
+  const tlFromLeft = getOffsetPoint(tl, bl, radius);
+  const tlFromTop = getOffsetPoint(tl, tr, radius);
+
+  const trFromTop = getOffsetPoint(tr, tl, radius);
+  const trFromRight = getOffsetPoint(tr, br, radius);
+
+  const brFromRight = getOffsetPoint(br, tr, radius);
+  const brFromBottom = getOffsetPoint(br, bl, radius);
+
+  const blFromBottom = getOffsetPoint(bl, br, radius);
+  const blFromLeft = getOffsetPoint(bl, tl, radius);
+
+  // Build path: M start, then L + Q for each corner
+  return `
+    M ${tlFromTop.x} ${tlFromTop.y}
+    L ${trFromTop.x} ${trFromTop.y}
+    Q ${tr.x} ${tr.y} ${trFromRight.x} ${trFromRight.y}
+    L ${brFromRight.x} ${brFromRight.y}
+    Q ${br.x} ${br.y} ${brFromBottom.x} ${brFromBottom.y}
+    L ${blFromBottom.x} ${blFromBottom.y}
+    Q ${bl.x} ${bl.y} ${blFromLeft.x} ${blFromLeft.y}
+    L ${tlFromLeft.x} ${tlFromLeft.y}
+    Q ${tl.x} ${tl.y} ${tlFromTop.x} ${tlFromTop.y}
+    Z
+  `;
+}
+
+/**
  * Main CornerHandles SVG overlay component
  */
 export function CornerHandles({
@@ -180,16 +230,16 @@ export function CornerHandles({
 
   return (
     <>
-      {/* Outer boundary polygon */}
-      <polygon
-        points={`${outerCorners.tl.x},${outerCorners.tl.y} ${outerCorners.tr.x},${outerCorners.tr.y} ${outerCorners.br.x},${outerCorners.br.y} ${outerCorners.bl.x},${outerCorners.bl.y}`}
+      {/* Outer boundary - rounded corners (~4.8% of width) */}
+      <path
+        d={getRoundedQuadPath(outerCorners, cW * 0.048)}
         fill="none"
         stroke="#00bcd4"
         strokeWidth={lw}
         opacity={0.85}
       />
 
-      {/* Inner boundary polygon */}
+      {/* Inner boundary - no rounded corners (artwork edge is sharp) */}
       <polygon
         points={`${innerCorners.tl.x},${innerCorners.tl.y} ${innerCorners.tr.x},${innerCorners.tr.y} ${innerCorners.br.x},${innerCorners.br.y} ${innerCorners.bl.x},${innerCorners.bl.y}`}
         fill="none"
