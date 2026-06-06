@@ -160,7 +160,7 @@ export function CardViewer3D({
           transform: `rotateY(${rotateY}deg)`,
           transition: isDragging ? 'none' : 'transform 0.6s ease-out',
         }}>
-          {/* Front Face - offset forward by half thickness */}
+          {/* Front Face - at z=0 */}
           <div style={{
             position: 'absolute',
             width: '100%',
@@ -169,7 +169,6 @@ export function CardViewer3D({
             borderRadius: viewMode === 'slab' ? 6 : 8,
             overflow: 'hidden',
             boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
-            transform: `translateZ(${viewMode === 'slab' ? 5 : 2}px)`,
           }}>
             {viewMode === 'slab' ? (
               gradingCompany === 'tag' ? (
@@ -205,9 +204,9 @@ export function CardViewer3D({
             position: 'absolute',
             width: viewMode === 'slab' ? 10 : 4,
             height: '100%',
-            right: 0,
-            transformOrigin: 'right center',
-            transform: `translateX(${viewMode === 'slab' ? 5 : 2}px) rotateY(90deg)`,
+            left: '100%',
+            transformOrigin: 'left center',
+            transform: 'rotateY(90deg)',
             background: viewMode === 'slab'
               ? 'linear-gradient(180deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(180deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
@@ -218,9 +217,9 @@ export function CardViewer3D({
             position: 'absolute',
             width: viewMode === 'slab' ? 10 : 4,
             height: '100%',
-            left: 0,
-            transformOrigin: 'left center',
-            transform: `translateX(${viewMode === 'slab' ? -5 : -2}px) rotateY(-90deg)`,
+            right: '100%',
+            transformOrigin: 'right center',
+            transform: 'rotateY(-90deg)',
             background: viewMode === 'slab'
               ? 'linear-gradient(180deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(180deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
@@ -231,9 +230,9 @@ export function CardViewer3D({
             position: 'absolute',
             width: '100%',
             height: viewMode === 'slab' ? 10 : 4,
-            top: 0,
-            transformOrigin: 'top center',
-            transform: `translateY(${viewMode === 'slab' ? -5 : -2}px) rotateX(90deg)`,
+            bottom: '100%',
+            transformOrigin: 'bottom center',
+            transform: 'rotateX(90deg)',
             background: viewMode === 'slab'
               ? 'linear-gradient(90deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(90deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
@@ -244,21 +243,21 @@ export function CardViewer3D({
             position: 'absolute',
             width: '100%',
             height: viewMode === 'slab' ? 10 : 4,
-            bottom: 0,
-            transformOrigin: 'bottom center',
-            transform: `translateY(${viewMode === 'slab' ? 5 : 2}px) rotateX(-90deg)`,
+            top: '100%',
+            transformOrigin: 'top center',
+            transform: 'rotateX(-90deg)',
             background: viewMode === 'slab'
               ? 'linear-gradient(90deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(90deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
           }} />
 
-          {/* Back Face - offset backward by half thickness */}
+          {/* Back Face - offset backward by full thickness */}
           <div style={{
             position: 'absolute',
             width: '100%',
             height: '100%',
             backfaceVisibility: 'hidden',
-            transform: `translateZ(${viewMode === 'slab' ? -5 : -2}px) rotateY(180deg)`,
+            transform: `translateZ(${viewMode === 'slab' ? -10 : -4}px) rotateY(180deg)`,
             borderRadius: viewMode === 'slab' ? 6 : 8,
             overflow: 'hidden',
             boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
