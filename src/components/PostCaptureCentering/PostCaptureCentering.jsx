@@ -565,24 +565,19 @@ export function PostCaptureCentering({
           >
             {measureMode === 'edge' ? (
               <>
-                {/* Outer boundary (orange) */}
+                {/* Outer boundary (orange) - rounded corners match real card (~4.8% radius) */}
                 <rect
                   x={outer.left}
                   y={outer.top}
                   width={cW}
                   height={cH}
+                  rx={cW * 0.048}
+                  ry={cW * 0.048}
                   fill="none"
                   stroke="#ff9944"
                   strokeWidth={lw}
                   opacity={0.85}
                 />
-                {/* Corner brackets */}
-                {[[outer.left, outer.top, 1, 1], [outer.right, outer.top, -1, 1], [outer.left, outer.bottom, 1, -1], [outer.right, outer.bottom, -1, -1]].map(([x, y, sx, sy], i) => (
-                  <g key={i}>
-                    <line x1={x} y1={y} x2={x + sx * cW * 0.06} y2={y} stroke="#ff9944" strokeWidth={lw * 1.5} />
-                    <line x1={x} y1={y} x2={x} y2={y + sy * cH * 0.04} stroke="#ff9944" strokeWidth={lw * 1.5} />
-                  </g>
-                ))}
                 {/* Inner boundary (green dashed) */}
                 <rect
                   x={inner.left}
