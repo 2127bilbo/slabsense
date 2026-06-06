@@ -73,6 +73,13 @@ export async function detectAndCropCard(source, options = {}) {
   cropCanvas.width = bounds.width;
   cropCanvas.height = bounds.height;
   const cropCtx = cropCanvas.getContext('2d');
+
+  // Apply rounded corners - real cards have ~3mm radius on 63mm width (~4.8%)
+  const cornerRadius = Math.round(bounds.width * 0.048);
+  cropCtx.beginPath();
+  cropCtx.roundRect(0, 0, bounds.width, bounds.height, cornerRadius);
+  cropCtx.clip();
+
   cropCtx.drawImage(
     canvas,
     bounds.x, bounds.y, bounds.width, bounds.height,

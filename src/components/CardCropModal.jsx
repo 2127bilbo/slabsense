@@ -131,6 +131,12 @@ export function CardCropModal({
       canvas.height = Math.round(cropH);
       const ctx = canvas.getContext('2d');
 
+      // Apply rounded corners - real cards have ~3mm radius on 63mm width (~4.8%)
+      const cornerRadius = Math.round(cropW * 0.048);
+      ctx.beginPath();
+      ctx.roundRect(0, 0, Math.round(cropW), Math.round(cropH), cornerRadius);
+      ctx.clip();
+
       ctx.drawImage(
         img,
         minX, minY, cropW, cropH,

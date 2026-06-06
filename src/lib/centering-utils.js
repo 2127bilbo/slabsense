@@ -95,6 +95,12 @@ export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0, sca
     ctx.translate(-cropW / 2, -cropH / 2);
   }
 
+  // Apply rounded corners - real cards have ~3mm radius on 63mm width (~4.8%)
+  const cornerRadius = Math.round(cropW * 0.048);
+  ctx.beginPath();
+  ctx.roundRect(0, 0, Math.round(cropW), Math.round(cropH), cornerRadius);
+  ctx.clip();
+
   // Draw cropped region
   ctx.drawImage(
     img,
