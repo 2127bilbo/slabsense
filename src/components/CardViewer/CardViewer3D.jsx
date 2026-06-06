@@ -6,6 +6,9 @@
  * - Drag to rotate 360 with realistic thickness
  * - Canvas-rendered photorealistic slabs for PSA, BGS, CGC, SGC, TAG
  * - Uses our card info and grade on authentic-looking labels
+ *
+ * TODO: SlabSenseSlab view is disabled - needs polish before re-enabling.
+ *       Search for "TODO: Re-enable slab view" to find the commented toggle.
  */
 
 import { useState, useRef } from 'react';
@@ -117,6 +120,7 @@ export function CardViewer3D({
         >
           Raw Card
         </button>
+        {/* TODO: Re-enable slab view once SlabSenseSlab component is polished
         <button
           onClick={() => setViewMode('slab')}
           style={{
@@ -133,6 +137,7 @@ export function CardViewer3D({
         >
           {gradingCompany === 'tag' ? 'SlabSense' : companyNames[gradingCompany] || 'TAG'} Slab
         </button>
+        */}
       </div>
 
       {/* 3D Card/Slab Container */}
