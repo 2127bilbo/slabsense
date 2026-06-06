@@ -210,6 +210,7 @@ export function CardViewer3D({
             background: viewMode === 'slab'
               ? 'linear-gradient(180deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(180deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
+            borderRadius: viewMode === 'slab' ? '0 6px 6px 0' : '0 8px 8px 0',
           }} />
 
           {/* Left Edge - connects front to back */}
@@ -223,6 +224,7 @@ export function CardViewer3D({
             background: viewMode === 'slab'
               ? 'linear-gradient(180deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(180deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
+            borderRadius: viewMode === 'slab' ? '6px 0 0 6px' : '8px 0 0 8px',
           }} />
 
           {/* Top Edge - connects front to back */}
@@ -236,6 +238,7 @@ export function CardViewer3D({
             background: viewMode === 'slab'
               ? 'linear-gradient(90deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(90deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
+            borderRadius: viewMode === 'slab' ? '6px 6px 0 0' : '8px 8px 0 0',
           }} />
 
           {/* Bottom Edge - connects front to back */}
@@ -249,6 +252,7 @@ export function CardViewer3D({
             background: viewMode === 'slab'
               ? 'linear-gradient(90deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(90deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
+            borderRadius: viewMode === 'slab' ? '0 0 6px 6px' : '0 0 8px 8px',
           }} />
 
           {/* Back Face - offset backward by full thickness */}
