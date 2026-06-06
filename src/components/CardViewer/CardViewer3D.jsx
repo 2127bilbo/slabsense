@@ -160,7 +160,7 @@ export function CardViewer3D({
           transform: `rotateY(${rotateY}deg)`,
           transition: isDragging ? 'none' : 'transform 0.6s ease-out',
         }}>
-          {/* Front Face */}
+          {/* Front Face - offset forward by half thickness */}
           <div style={{
             position: 'absolute',
             width: '100%',
@@ -169,6 +169,7 @@ export function CardViewer3D({
             borderRadius: viewMode === 'slab' ? 6 : 8,
             overflow: 'hidden',
             boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            transform: `translateZ(${viewMode === 'slab' ? 5 : 2}px)`,
           }}>
             {viewMode === 'slab' ? (
               gradingCompany === 'tag' ? (
@@ -199,41 +200,65 @@ export function CardViewer3D({
             )}
           </div>
 
-          {/* Right Edge (visible during clockwise rotation) */}
+          {/* Right Edge - connects front to back */}
           <div style={{
             position: 'absolute',
             width: viewMode === 'slab' ? 10 : 4,
             height: '100%',
-            left: '100%',
-            transformOrigin: 'left center',
-            transform: 'rotateY(90deg)',
+            right: 0,
+            transformOrigin: 'right center',
+            transform: `translateX(${viewMode === 'slab' ? 5 : 2}px) rotateY(90deg)`,
             background: viewMode === 'slab'
               ? 'linear-gradient(180deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(180deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
-            borderRadius: '0 2px 2px 0',
           }} />
 
-          {/* Left Edge (visible during counter-clockwise rotation) */}
+          {/* Left Edge - connects front to back */}
           <div style={{
             position: 'absolute',
             width: viewMode === 'slab' ? 10 : 4,
             height: '100%',
             left: 0,
-            transformOrigin: 'right center',
-            transform: 'rotateY(-90deg)',
+            transformOrigin: 'left center',
+            transform: `translateX(${viewMode === 'slab' ? -5 : -2}px) rotateY(-90deg)`,
             background: viewMode === 'slab'
               ? 'linear-gradient(180deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
               : `linear-gradient(180deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
-            borderRadius: '2px 0 0 2px',
           }} />
 
-          {/* Back Face */}
+          {/* Top Edge - connects front to back */}
+          <div style={{
+            position: 'absolute',
+            width: '100%',
+            height: viewMode === 'slab' ? 10 : 4,
+            top: 0,
+            transformOrigin: 'top center',
+            transform: `translateY(${viewMode === 'slab' ? -5 : -2}px) rotateX(90deg)`,
+            background: viewMode === 'slab'
+              ? 'linear-gradient(90deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
+              : `linear-gradient(90deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
+          }} />
+
+          {/* Bottom Edge - connects front to back */}
+          <div style={{
+            position: 'absolute',
+            width: '100%',
+            height: viewMode === 'slab' ? 10 : 4,
+            bottom: 0,
+            transformOrigin: 'bottom center',
+            transform: `translateY(${viewMode === 'slab' ? 5 : 2}px) rotateX(-90deg)`,
+            background: viewMode === 'slab'
+              ? 'linear-gradient(90deg, #e8e8e8 0%, #ccc 20%, #ddd 50%, #ccc 80%, #e8e8e8 100%)'
+              : `linear-gradient(90deg, ${CARD_EDGE_COLOR} 0%, #ddd 50%, ${CARD_EDGE_COLOR} 100%)`,
+          }} />
+
+          {/* Back Face - offset backward by half thickness */}
           <div style={{
             position: 'absolute',
             width: '100%',
             height: '100%',
             backfaceVisibility: 'hidden',
-            transform: 'rotateY(180deg)',
+            transform: `translateZ(${viewMode === 'slab' ? -5 : -2}px) rotateY(180deg)`,
             borderRadius: viewMode === 'slab' ? 6 : 8,
             overflow: 'hidden',
             boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
