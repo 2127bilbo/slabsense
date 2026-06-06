@@ -1111,17 +1111,17 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 <CenteringBox
                   label="FRONT"
                   lr={selectedCard.ai_centering?.front?.leftRight ||
-                      `${Math.round(selectedCard.front_centering?.lrRatio || 50)}/${Math.round(100 - (selectedCard.front_centering?.lrRatio || 50))}`}
+                      `${(selectedCard.front_centering?.lrRatio || 50).toFixed(1)}/${(100 - (selectedCard.front_centering?.lrRatio || 50)).toFixed(1)}`}
                   tb={selectedCard.ai_centering?.front?.topBottom ||
-                      `${Math.round(selectedCard.front_centering?.tbRatio || 50)}/${Math.round(100 - (selectedCard.front_centering?.tbRatio || 50))}`}
+                      `${(selectedCard.front_centering?.tbRatio || 50).toFixed(1)}/${(100 - (selectedCard.front_centering?.tbRatio || 50)).toFixed(1)}`}
                 />
                 {(selectedCard.ai_centering?.back || selectedCard.back_centering) && (
                   <CenteringBox
                     label="BACK"
                     lr={selectedCard.ai_centering?.back?.leftRight ||
-                        `${Math.round(selectedCard.back_centering?.lrRatio || 50)}/${Math.round(100 - (selectedCard.back_centering?.lrRatio || 50))}`}
+                        `${(selectedCard.back_centering?.lrRatio || 50).toFixed(1)}/${(100 - (selectedCard.back_centering?.lrRatio || 50)).toFixed(1)}`}
                     tb={selectedCard.ai_centering?.back?.topBottom ||
-                        `${Math.round(selectedCard.back_centering?.tbRatio || 50)}/${Math.round(100 - (selectedCard.back_centering?.tbRatio || 50))}`}
+                        `${(selectedCard.back_centering?.tbRatio || 50).toFixed(1)}/${(100 - (selectedCard.back_centering?.tbRatio || 50)).toFixed(1)}`}
                   />
                 )}
               </div>
