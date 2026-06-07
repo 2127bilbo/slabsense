@@ -2727,7 +2727,10 @@ export default function SlabSense(){
   const[backQuality,setBackQuality]=useState(null);
 
   // UI state
-  const[showDisclaimer,setShowDisclaimer]=useState(true); // Show disclaimer on first load
+  const[showDisclaimer,setShowDisclaimer]=useState(() => {
+    // Only show disclaimer if user hasn't acknowledged it before
+    return !localStorage.getItem('slabsense_disclaimer_acknowledged');
+  });
   const[showAuthModal,setShowAuthModal]=useState(false); // Auth modal visibility
   const[savingStatus,setSavingStatus]=useState(null); // 'saving' | 'saved' | 'error' | null
   const[showCollection,setShowCollection]=useState(false); // Collection view visibility
@@ -3528,7 +3531,7 @@ export default function SlabSense(){
           <div style={{fontSize:12,color:"#666",lineHeight:1.5,marginBottom:20}}>
             All grades shown are <strong style={{color:"#ff9944"}}>estimates only</strong>. Actual grades from professional services may vary significantly. Do not make financial decisions based solely on these estimates.
           </div>
-          <button onClick={()=>setShowDisclaimer(false)} style={{width:"100%",padding:"12px 0",borderRadius:8,border:"none",background:"linear-gradient(135deg,#00ff88,#0088ff)",color:"#000",fontFamily:mono,fontSize:12,fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>I Understand</button>
+          <button onClick={()=>{localStorage.setItem('slabsense_disclaimer_acknowledged','true');setShowDisclaimer(false);}} style={{width:"100%",padding:"12px 0",borderRadius:8,border:"none",background:"linear-gradient(135deg,#00ff88,#0088ff)",color:"#000",fontFamily:mono,fontSize:12,fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>I Understand</button>
         </div>
       </div>
     )}
