@@ -281,13 +281,14 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   const handleDeepRegrade = async () => {
     const frontImg = getFrontImage(selectedCard);
     const backImg = getBackImage(selectedCard);
-    if (!frontImg || !backImg) return;
+    if (!frontImg || !backImg || !userId) return;
     setDeepGradeStatus('grading');
     try {
       const result = await deepGradingAnalysis(
         frontImg,
         backImg,
-        'pokemon'
+        'pokemon',
+        userId
       );
       if (result.success) {
         setDeepGradeResult(result);

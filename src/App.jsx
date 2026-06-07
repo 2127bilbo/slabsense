@@ -2197,7 +2197,7 @@ function CameraViewfinder({ side, onCapture, onClose }) {
         // Camera exists, try to access it
         setHasCamera(true);
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode:"environment", width:{ideal:1920}, height:{ideal:1440} }, audio:false,
+          video: { facingMode:"environment", width:{ideal:4096}, height:{ideal:3072} }, audio:false,
         });
         if (cancelled) { stream.getTracks().forEach(t=>t.stop()); return; }
         streamRef.current = stream;
@@ -2351,18 +2351,13 @@ function CameraViewfinder({ side, onCapture, onClose }) {
         };
         img.onload = () => {
           try {
-            // Resize to match camera constraints (1920x1440 max)
-            const maxW = 1920, maxH = 1440;
-            let w = img.width, h = img.height;
-            if (w > maxW || h > maxH) {
-              const scale = Math.min(maxW / w, maxH / h);
-              w = Math.round(w * scale);
-              h = Math.round(h * scale);
-            }
+            // Use full resolution - no resize
+            // Compression happens at API call time for standard AI grade
+            // Deep grade uses full resolution via Supabase URLs
             const c = document.createElement('canvas');
-            c.width = w; c.height = h;
-            c.getContext('2d').drawImage(img, 0, 0, w, h);
-            const d = c.toDataURL('image/jpeg', 0.92);
+            c.width = img.width; c.height = img.height;
+            c.getContext('2d').drawImage(img, 0, 0);
+            const d = c.toDataURL('image/jpeg', 0.95); // Higher quality for full-res
             setCaptured(d);
             setIsUploading(false);
             setValidating(true);
@@ -3346,12 +3341,16 @@ export default function SlabSense(){
   // Cost: ~$0.05 per card (higher quality analysis)
   const handleDeepGrade = async () => {
     if (!fI || !bI) return;
+    if (!auth.user?.id) {
+      console.error('[Deep AI] User must be logged in for Deep Grade');
+      return;
+    }
     setDeepGradeStatus('grading');
     try {
       console.log('Starting Deep AI grading analysis...');
       setProg('Deep analyzing (full-res)...');
 
-      const result = await deepGradingAnalysis(fI, bI, 'pokemon');
+      const result = await deepGradingAnalysis(fI, bI, 'pokemon', auth.user.id);
 
       if (result.success) {
         setDeepGradeResult(result);

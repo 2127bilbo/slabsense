@@ -40,18 +40,30 @@ function dataURLtoBlob(dataURL) {
   return new Blob([u8arr], { type: mime });
 }
 
-// Max dimension for images sent to Claude (balance quality vs payload size)
+// ═══════════════════════════════════════════════════════════════════════════
+// IMAGE COMPRESSION CONFIG
+// This compression is required while using Replicate (Vercel 4.5MB payload limit)
+// TODO: Remove this when migrating to direct Anthropic API for standard AI grade
+// ═══════════════════════════════════════════════════════════════════════════
+const ENABLE_COMPRESSION = true; // Set to false when Replicate is removed
 const MAX_CLAUDE_DIMENSION = 1500;
+const DEFAULT_JPEG_QUALITY = 0.85;
 
 /**
  * Compress image for API calls to stay under Vercel's 4.5MB payload limit
- * Used by SAM detection and other APIs that don't use standardization
+ * Required for Replicate-based AI grade. Will be removed post-Replicate migration.
+ *
  * @param {string} dataUrl - Original image data URL
  * @param {number} maxDimension - Max width/height (default 1500)
  * @param {number} quality - JPEG quality 0-1 (default 0.85)
- * @returns {Promise<string>} Compressed image data URL
+ * @returns {Promise<string>} Compressed image data URL (or original if compression disabled)
  */
-async function compressImageForAPI(dataUrl, maxDimension = 1500, quality = 0.85) {
+async function compressImageForAPI(dataUrl, maxDimension = MAX_CLAUDE_DIMENSION, quality = DEFAULT_JPEG_QUALITY) {
+  // Easy toggle to disable compression when Replicate is removed
+  if (!ENABLE_COMPRESSION) {
+    console.log('[Compress] Compression disabled, using original image');
+    return dataUrl;
+  }
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -294,66 +306,6 @@ export async function analyzeCardWithBackend(frontImageDataUrl, backImageDataUrl
 }
 
 /**
- * AI Card Detection - Detect card(s) using SAM 2
- * Uses Segment Anything Model 2 via Replicate
- *
- * Single mode: ~$0.02 for one card
- * Dual mode: ~$0.02 for BOTH front and back (stitched)
- *
- * @param {string} imageDataUrl - Base64 data URL of image
- * @param {object} options - { mode: 'single'|'dual', points: {...} }
- * @returns {Promise<object>} Detection result with mask URL(s)
- */
-export async function detectCard(imageDataUrl, options = {}) {
-  const { mode = 'single', points = null, timeout = 55000 } = options;
-
-  // Create AbortController for timeout
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    console.log(`[detectCard] Starting ${mode} mode detection...`);
-
-    // Compress image to avoid Vercel's 4.5MB payload limit
-    // Use 2000px max for SAM detection (needs more detail for accurate masks)
-    const compressedImage = await compressImageForAPI(imageDataUrl, 2000, 0.9);
-
-    const response = await fetch('/api/detect-card', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        image: compressedImage,
-        mode,
-        points: points || (mode === 'single' ? { x: 0.5, y: 0.5 } : null),
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('[detectCard] API error:', error);
-      throw new Error(error.error || `API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('[detectCard] Success:', result.success, 'masks:', result.masks?.length);
-    return result;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      console.error('[detectCard] Request timed out after', timeout, 'ms');
-      throw new Error('Detection timed out - Replicate may be slow. Try again.');
-    }
-    console.error('[detectCard] Error:', error);
-    throw error;
-  }
-}
-
-/**
  * Analyze card using Claude Vision AI
  * Extracts card info, condition assessment, and grading notes
  * @param {string} imageDataUrl - Card image (cropped preferred)
@@ -565,9 +517,13 @@ export async function claudeGradingAnalysis(frontImageDataUrl, backImageDataUrl 
  * Upload image to Supabase for Deep AI analysis
  * Returns public URL that Claude can fetch directly
  */
-async function uploadImageForDeepAnalysis(dataUrl, side) {
+async function uploadImageForDeepAnalysis(dataUrl, side, userId) {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase not configured - required for Deep AI Grade');
+  }
+
+  if (!userId) {
+    throw new Error('User ID required for Deep AI Grade uploads');
   }
 
   try {
@@ -575,10 +531,10 @@ async function uploadImageForDeepAnalysis(dataUrl, side) {
     const response = await fetch(dataUrl);
     const blob = await response.blob();
 
-    // Generate unique filename in temp folder
+    // Generate unique filename under user's folder (required by RLS policy)
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(2, 8);
-    const filename = `deep-analysis/${timestamp}_${randomId}_${side}.jpg`;
+    const filename = `${userId}/deep-analysis/${timestamp}_${randomId}_${side}.jpg`;
 
     // Upload to storage bucket
     const { data, error } = await supabase.storage
@@ -625,21 +581,26 @@ async function uploadImageForDeepAnalysis(dataUrl, side) {
  * @param {string} frontImageDataUrl - Full resolution front image
  * @param {string} backImageDataUrl - Full resolution back image
  * @param {string} cardGame - 'pokemon' | 'sports' | 'tcg'
+ * @param {string} userId - User ID for storage path (required for RLS)
  * @returns {Promise<object>} Detailed analysis result
  */
-export async function deepGradingAnalysis(frontImageDataUrl, backImageDataUrl, cardGame = 'pokemon') {
+export async function deepGradingAnalysis(frontImageDataUrl, backImageDataUrl, cardGame = 'pokemon', userId = null) {
   console.log('[Deep AI] Starting full-resolution analysis...');
 
   if (!frontImageDataUrl || !backImageDataUrl) {
     throw new Error('Both front and back images required for Deep AI Grade');
   }
 
+  if (!userId) {
+    throw new Error('User ID required for Deep AI Grade');
+  }
+
   try {
     // Step 1: Upload full-res images to Supabase to get public URLs
     console.log('[Deep AI] Uploading images to storage...');
     const [frontUrl, backUrl] = await Promise.all([
-      uploadImageForDeepAnalysis(frontImageDataUrl, 'front'),
-      uploadImageForDeepAnalysis(backImageDataUrl, 'back'),
+      uploadImageForDeepAnalysis(frontImageDataUrl, 'front', userId),
+      uploadImageForDeepAnalysis(backImageDataUrl, 'back', userId),
     ]);
 
     console.log('[Deep AI] Images uploaded, calling Anthropic API...');
@@ -697,107 +658,6 @@ export async function deepGradingAnalysis(frontImageDataUrl, backImageDataUrl, c
     throw error;
   }
 }
-
-/**
- * SAM CARD CROPPING - For 3D view display
- *
- * Crops cards using SAM model for clean 3D display
- * Call this AFTER Claude analysis with 5s delay to avoid rate limits
- *
- * Cost: ~$0.02 per crop
- */
-export async function samCardCropping(frontImageDataUrl, backImageDataUrl = null) {
-  console.log('[SAM] Starting card cropping for 3D view...');
-
-  try {
-    let croppedFront = null;
-    let croppedBack = null;
-    let samResult = null;
-
-    if (backImageDataUrl) {
-      // Dual mode - ONE SAM call for both cards
-      samResult = await detectAndCropBothCards(frontImageDataUrl, backImageDataUrl, {
-        targetWidth: 600,
-        targetHeight: 840,
-      });
-
-      if (samResult.success) {
-        croppedFront = samResult.front.croppedCard;
-        croppedBack = samResult.back.croppedCard;
-        console.log('[SAM] Cropping successful (front:', samResult.front.method, ', back:', samResult.back.method, ')');
-      } else {
-        console.warn('[SAM] Failed:', samResult.error);
-        // Fall back to originals for 3D view
-        croppedFront = frontImageDataUrl;
-        croppedBack = backImageDataUrl;
-      }
-    } else {
-      // Single card mode
-      samResult = await detectAndCropCard(frontImageDataUrl, {
-        targetWidth: 600,
-        targetHeight: 840,
-      });
-
-      if (samResult.success) {
-        croppedFront = samResult.croppedCard;
-        console.log('[SAM] Cropping successful:', samResult.method);
-      } else {
-        console.warn('[SAM] Failed:', samResult.error);
-        croppedFront = frontImageDataUrl;
-      }
-    }
-
-    return {
-      success: true,
-      croppedFront,
-      croppedBack,
-      model: samResult?.model || 'sam-2',
-      cost: samResult?.cost || 0.02,
-    };
-
-  } catch (error) {
-    console.error('[SAM] Error:', error);
-    // Return originals as fallback
-    return {
-      success: false,
-      error: error.message,
-      croppedFront: frontImageDataUrl,
-      croppedBack: backImageDataUrl,
-    };
-  }
-}
-
-/**
- * UNIFIED CARD ANALYSIS - Legacy wrapper (calls both Claude + SAM)
- * Use claudeGradingAnalysis + samCardCropping separately for better UX
- */
-export async function unifiedCardAnalysis(frontImageDataUrl, backImageDataUrl = null, cardType = 'pokemon') {
-  // Get Claude results first
-  const claudeResult = await claudeGradingAnalysis(frontImageDataUrl, backImageDataUrl, cardType);
-
-  if (!claudeResult.success) {
-    return claudeResult;
-  }
-
-  // Wait 5s then get SAM results
-  console.log('[Unified] Waiting 5s before SAM call (rate limit buffer)...');
-  await new Promise(r => setTimeout(r, 5000));
-
-  const samResult = await samCardCropping(frontImageDataUrl, backImageDataUrl);
-
-  return {
-    ...claudeResult,
-    croppedFront: samResult.croppedFront,
-    croppedBack: samResult.croppedBack,
-    samModel: samResult.model,
-    cost: {
-      claude: claudeResult.cost,
-      sam: samResult.cost || 0.02,
-      total: (claudeResult.cost || 0.03) + (samResult.cost || 0.02),
-    },
-  };
-}
-
 
 /**
  * Crop and rotate card image based on Claude's detected coordinates
@@ -1371,132 +1231,3 @@ async function processCardFromMask(originalImg, maskData, targetWidth, targetHei
     corners: scaledCorners,
   };
 }
-
-/**
- * Full AI card detection and cropping pipeline with SAM 2
- * Single card mode - processes one image
- *
- * @param {string} imageDataUrl - Original photo with card
- * @param {object} options - { point: {x, y}, targetWidth, targetHeight }
- * @returns {Promise<object>} Result with croppedCard data URL and metadata
- */
-export async function detectAndCropCard(imageDataUrl, options = {}) {
-  const { point, targetWidth = 500, targetHeight = 700 } = options;
-
-  console.log('Calling SAM for single card detection...');
-  const detection = await detectCard(imageDataUrl, { mode: 'single', points: point });
-
-  if (!detection.success) {
-    return {
-      success: false,
-      error: detection.error,
-      suggestion: detection.suggestion,
-    };
-  }
-
-  let maskData;
-  try {
-    maskData = await loadImageFromUrl(detection.maskUrl);
-  } catch (err) {
-    return {
-      success: false,
-      error: 'Failed to load mask image',
-      maskUrl: detection.maskUrl,
-    };
-  }
-
-  const originalImg = await loadImageFromUrl(imageDataUrl);
-  const result = await processCardFromMask(originalImg, maskData, targetWidth, targetHeight);
-
-  return {
-    success: true,
-    ...result,
-    cost: detection.cost_estimate,
-    maskUrl: detection.maskUrl,
-  };
-}
-
-/**
- * DUAL CARD DETECTION - Process front AND back in ONE API call
- * Cost: $0.02 for BOTH cards (same as single!)
- *
- * @param {string} frontDataUrl - Front of card image
- * @param {string} backDataUrl - Back of card image
- * @param {object} options - { targetWidth, targetHeight }
- * @returns {Promise<object>} Result with both croppedFront and croppedBack
- */
-export async function detectAndCropBothCards(frontDataUrl, backDataUrl, options = {}) {
-  const { targetWidth = 500, targetHeight = 700 } = options;
-
-  console.log('Stitching front and back images...');
-
-  // Step 1: Stitch images side by side
-  const stitched = await stitchImages(frontDataUrl, backDataUrl);
-
-  console.log(`Stitched image: ${stitched.frontWidth}+${stitched.backWidth} x ${stitched.height}`);
-  console.log('Calling SAM for dual card detection...');
-
-  // Step 2: Call SAM with dual mode (two point prompts)
-  const detection = await detectCard(stitched.dataUrl, {
-    mode: 'dual',
-    points: {
-      // Points at center of each card (25% and 75% horizontally)
-      coords: '0.25,0.5,0.75,0.5',
-      labels: '1,1',
-    },
-  });
-
-  if (!detection.success) {
-    return {
-      success: false,
-      error: detection.error,
-      suggestion: detection.suggestion,
-    };
-  }
-
-  console.log('SAM returned masks:', detection.masks?.length || 1);
-
-  // Step 3: Load the mask
-  let maskData;
-  try {
-    maskData = await loadImageFromUrl(detection.maskUrl);
-  } catch (err) {
-    return {
-      success: false,
-      error: 'Failed to load mask image',
-    };
-  }
-
-  // Step 4: Split mask into front and back portions
-  // Calculate split point proportionally
-  const maskSplitPoint = Math.round(maskData.width * (stitched.frontWidth / (stitched.frontWidth + stitched.backWidth)));
-
-  const splitMasks = splitMask(maskData.data, maskData.width, maskData.height, maskSplitPoint);
-
-  // Step 5: Load original images
-  const [frontImg, backImg] = await Promise.all([
-    loadImageFromUrl(frontDataUrl),
-    loadImageFromUrl(backDataUrl),
-  ]);
-
-  // Step 6: Process each card
-  const frontResult = await processCardFromMask(frontImg, splitMasks.front, targetWidth, targetHeight);
-  const backResult = await processCardFromMask(backImg, splitMasks.back, targetWidth, targetHeight);
-
-  return {
-    success: true,
-    front: {
-      croppedCard: frontResult.croppedCard,
-      corners: frontResult.corners,
-      method: frontResult.method,
-    },
-    back: {
-      croppedCard: backResult.croppedCard,
-      corners: backResult.corners,
-      method: backResult.method,
-    },
-    cost: detection.cost_estimate, // $0.02 for BOTH!
-    model: 'sam-2-dual',
-  };
-}
-
