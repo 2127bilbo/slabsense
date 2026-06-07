@@ -8,7 +8,7 @@ import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan, logMissingImage } from "./services/scans.js";
 import { CardCropModal } from "./components/CardCropModal.jsx";
-import { checkBackendHealth, analyzeCardWithBackend, analyzeCardWithVision, claudeGradingAnalysis } from "./services/api.js";
+import { checkBackendHealth, analyzeCardWithBackend, analyzeCardWithVision, claudeGradingAnalysis, deepGradingAnalysis } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 import { CardIdentifier } from "./components/CardIdentifier/CardIdentifier.jsx";
 import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.jsx";
@@ -2747,6 +2747,8 @@ export default function SlabSense(){
   // 3D Viewer / AI Enhanced Cards state
   const[enhancedCards,setEnhancedCards]=useState(null); // { front, back } - AI cropped cards
   const[enhancingStatus,setEnhancingStatus]=useState(null); // 'enhancing' | 'done' | 'error' | null
+  const[deepGradeStatus,setDeepGradeStatus]=useState(null); // 'grading' | 'done' | 'error' | null
+  const[deepGradeResult,setDeepGradeResult]=useState(null); // Deep AI grade result
   const[show3DViewer,setShow3DViewer]=useState(false); // 3D viewer modal visibility
   const[cardInfo,setCardInfo]=useState(null); // Card info: { name, cardNumber, setName, etc. }
   const[aiCondition,setAiCondition]=useState(null); // AI condition assessment: { overall, corners, edges, surface, notes }
@@ -3340,6 +3342,109 @@ export default function SlabSense(){
     }
   };
 
+  // DEEP AI Grade - Full resolution analysis via Anthropic API
+  // Cost: ~$0.05 per card (higher quality analysis)
+  const handleDeepGrade = async () => {
+    if (!fI || !bI) return;
+    setDeepGradeStatus('grading');
+    try {
+      console.log('Starting Deep AI grading analysis...');
+      setProg('Deep analyzing (full-res)...');
+
+      const result = await deepGradingAnalysis(fI, bI, 'pokemon');
+
+      if (result.success) {
+        setDeepGradeResult(result);
+
+        // Update card info from deep analysis
+        if (result.cardInfo) {
+          setCardInfo(prev => prev ? { ...prev, ...result.cardInfo, pricing: prev.pricing } : result.cardInfo);
+        }
+
+        // Condition assessment (more detailed from deep scan)
+        if (result.condition) {
+          setAiCondition(result.condition);
+        }
+
+        // Multi-company grades
+        if (result.grades) {
+          setAiGrades(result.grades);
+          console.log('Deep AI grades:', result.grades);
+        }
+
+        // Summary with recommendations
+        if (result.summary) {
+          setAiSummary(result.summary);
+          setAiGradingNotes({
+            positives: result.summary.positives || [],
+            concerns: result.summary.concerns || [],
+            estimatedGrade: result.grades?.[gradingCompany]?.grade || result.grades?.tag?.grade,
+            recommendation: result.summary.recommendation,
+          });
+        }
+
+        // Centering from deep analysis
+        if (result.centering) {
+          console.log('Deep AI Centering:', result.centering);
+
+          const parseCentering = (str) => {
+            if (!str) return null;
+            const parts = str.split('/').map(s => parseFloat(s.trim()));
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+              return { left: parts[0], right: parts[1] };
+            }
+            return null;
+          };
+
+          let frontAiCentering = null;
+          if (result.centering.front) {
+            const lrParsed = parseCentering(result.centering.front.leftRight);
+            const tbParsed = parseCentering(result.centering.front.topBottom);
+            if (lrParsed || tbParsed) {
+              frontAiCentering = {
+                lrRatio: lrParsed ? lrParsed.left : 50,
+                tbRatio: tbParsed ? tbParsed.left : 50,
+                lrDisplay: lrParsed ? `${lrParsed.left}/${lrParsed.right}` : '50/50',
+                tbDisplay: tbParsed ? `${tbParsed.left}/${tbParsed.right}` : '50/50',
+              };
+            }
+          }
+
+          let backAiCentering = null;
+          if (result.centering.back) {
+            const lrParsed = parseCentering(result.centering.back.leftRight);
+            const tbParsed = parseCentering(result.centering.back.topBottom);
+            if (lrParsed || tbParsed) {
+              backAiCentering = {
+                lrRatio: lrParsed ? lrParsed.left : 50,
+                tbRatio: tbParsed ? tbParsed.left : 50,
+                lrDisplay: lrParsed ? `${lrParsed.left}/${lrParsed.right}` : '50/50',
+                tbDisplay: tbParsed ? `${tbParsed.left}/${tbParsed.right}` : '50/50',
+              };
+            }
+          }
+
+          setAiCentering({ front: frontAiCentering, back: backAiCentering });
+        }
+
+        setDeepGradeStatus('done');
+        setProg('');
+        console.log('Deep AI analysis complete:', result.cardInfo?.name, 'defects:', result.defects?.length);
+
+      } else {
+        console.error('Deep AI analysis failed:', result.error);
+        setDeepGradeStatus('error');
+        setProg('');
+        setTimeout(() => setDeepGradeStatus(null), 3000);
+      }
+    } catch (err) {
+      console.error('Error in Deep AI analysis:', err);
+      setDeepGradeStatus('error');
+      setProg('');
+      setTimeout(() => setDeepGradeStatus(null), 3000);
+    }
+  };
+
   // 3D View - SAM crops cards for 3D display (separate from grading)
   // 3D View - uses TCGDex images (free) or falls back to cropped/captured photos
   const handle3DView = () => {
@@ -3818,6 +3923,16 @@ export default function SlabSense(){
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1.1}}>
                   <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:"#8b5cf6"}}>AI</span>
                   <span style={{fontFamily:mono,fontSize:9,fontWeight:600,color:"#6366f1"}}>Grade</span>
+                </div>
+              )}
+            </button>
+            <button onClick={handleDeepGrade} disabled={deepGradeStatus==='grading'||deepGradeStatus==='done'} title="Deep AI Grade - Full Resolution ($0.05)" style={{
+              background:"transparent",border:"none",cursor:deepGradeStatus==='grading'?"wait":"pointer",padding:4,transition:"opacity .2s",opacity:deepGradeStatus==='done'?0.5:1
+            }}>
+              {deepGradeStatus==='grading'?<span style={{fontSize:18,color:"#666"}}>⏳</span>:deepGradeStatus==='done'?<span style={{fontSize:18,color:"#00ff88"}}>✓</span>:(
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1.1}}>
+                  <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:"#f59e0b"}}>DEEP</span>
+                  <span style={{fontFamily:mono,fontSize:9,fontWeight:600,color:"#d97706"}}>Grade</span>
                 </div>
               )}
             </button>

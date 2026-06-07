@@ -3,6 +3,8 @@
  * Connects to the Python/OpenCV grading backend
  */
 
+import { supabase, isSupabaseConfigured } from './supabase.js';
+
 // Backend URL - defaults to localhost for development
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -555,6 +557,143 @@ export async function claudeGradingAnalysis(frontImageDataUrl, backImageDataUrl 
 
   } catch (error) {
     console.error('[Claude AI] Error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upload image to Supabase for Deep AI analysis
+ * Returns public URL that Claude can fetch directly
+ */
+async function uploadImageForDeepAnalysis(dataUrl, side) {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured - required for Deep AI Grade');
+  }
+
+  try {
+    // Convert data URL to blob
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    // Generate unique filename in temp folder
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const filename = `deep-analysis/${timestamp}_${randomId}_${side}.jpg`;
+
+    // Upload to storage bucket
+    const { data, error } = await supabase.storage
+      .from('card-images')
+      .upload(filename, blob, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (error) {
+      console.error('[Deep AI] Upload error:', error);
+      throw new Error(`Failed to upload ${side} image: ${error.message}`);
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('card-images')
+      .getPublicUrl(filename);
+
+    const publicUrl = urlData?.publicUrl;
+    if (!publicUrl) {
+      throw new Error(`Failed to get public URL for ${side} image`);
+    }
+
+    console.log(`[Deep AI] Uploaded ${side}:`, publicUrl.substring(0, 60) + '...');
+    return publicUrl;
+  } catch (err) {
+    console.error(`[Deep AI] Upload ${side} error:`, err);
+    throw err;
+  }
+}
+
+/**
+ * DEEP AI GRADING ANALYSIS - Full resolution via Anthropic API
+ *
+ * Uses direct Anthropic Claude API with image URLs for maximum quality analysis.
+ * Bypasses Vercel's 4.5MB payload limit by uploading images to Supabase
+ * and passing URLs to Claude instead of base64 data.
+ *
+ * Returns detailed grades for ALL companies, defect list, precise centering.
+ *
+ * Cost: ~$0.03-0.05 per analysis (higher due to full-res images)
+ *
+ * @param {string} frontImageDataUrl - Full resolution front image
+ * @param {string} backImageDataUrl - Full resolution back image
+ * @param {string} cardGame - 'pokemon' | 'sports' | 'tcg'
+ * @returns {Promise<object>} Detailed analysis result
+ */
+export async function deepGradingAnalysis(frontImageDataUrl, backImageDataUrl, cardGame = 'pokemon') {
+  console.log('[Deep AI] Starting full-resolution analysis...');
+
+  if (!frontImageDataUrl || !backImageDataUrl) {
+    throw new Error('Both front and back images required for Deep AI Grade');
+  }
+
+  try {
+    // Step 1: Upload full-res images to Supabase to get public URLs
+    console.log('[Deep AI] Uploading images to storage...');
+    const [frontUrl, backUrl] = await Promise.all([
+      uploadImageForDeepAnalysis(frontImageDataUrl, 'front'),
+      uploadImageForDeepAnalysis(backImageDataUrl, 'back'),
+    ]);
+
+    console.log('[Deep AI] Images uploaded, calling Anthropic API...');
+
+    // Step 2: Call our deep-analyze endpoint with just the URLs
+    const response = await fetch('/api/deep-analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        frontUrl,
+        backUrl,
+        cardGame,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('[Deep AI] API error:', errorData);
+      throw new Error(errorData.error || `API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Deep analysis failed');
+    }
+
+    console.log('[Deep AI] Analysis complete:', {
+      card: result.cardInfo?.name,
+      psa: result.grades?.psa?.grade,
+      defects: result.defects?.length || 0,
+    });
+
+    return {
+      success: true,
+      // Card identification
+      cardInfo: result.cardInfo,
+      // Precise centering measurements
+      centering: result.centering,
+      // Condition scores (1-10)
+      condition: result.condition,
+      // Detailed defect list
+      defects: result.defects,
+      // Grades for all companies (PSA, BGS, CGC, SGC, TAG)
+      grades: result.grades,
+      // Summary with recommendations
+      summary: result.summary,
+      // Analysis metadata
+      analysisType: 'deep',
+      cost: 0.05,
+    };
+
+  } catch (error) {
+    console.error('[Deep AI] Error:', error);
     throw error;
   }
 }
