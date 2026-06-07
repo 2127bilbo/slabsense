@@ -9,7 +9,7 @@ import { getGradeFromScore, GRADING_COMPANIES as GRADE_SCALES } from '../../util
 import { HoloCard } from '../HoloCard/HoloCard.jsx';
 import { getGyroInput } from '../../lib/gyro-input.js';
 import { CardViewer3D } from '../CardViewer/CardViewer3D.jsx';
-import { claudeGradingAnalysis } from '../../services/api.js';
+import { claudeGradingAnalysis, deepGradingAnalysis } from '../../services/api.js';
 import holoConfig from '../../../config/holo-config.json';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
@@ -131,6 +131,10 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   const [enhancingStatus, setEnhancingStatus] = useState(null);
   const [regradeResult, setRegradeResult] = useState(null);
 
+  // Deep AI grading state
+  const [deepGradeStatus, setDeepGradeStatus] = useState(null);
+  const [deepGradeResult, setDeepGradeResult] = useState(null);
+
   // Gyro input for holo sparkles
   const gyroInputRef = useRef(null);
   if (!gyroInputRef.current) {
@@ -206,6 +210,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       setShow3DViewer(false);
       setEnhancingStatus(null);
       setRegradeResult(null);
+      setDeepGradeStatus(null);
+      setDeepGradeResult(null);
       setFM(null);
       setBM(null);
 
@@ -268,6 +274,49 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       console.error('Re-grade error:', err);
       setEnhancingStatus('error');
       setTimeout(() => setEnhancingStatus(null), 3000);
+    }
+  };
+
+  // Handle Deep AI re-grading (full resolution)
+  const handleDeepRegrade = async () => {
+    const frontImg = getFrontImage(selectedCard);
+    const backImg = getBackImage(selectedCard);
+    if (!frontImg || !backImg) return;
+    setDeepGradeStatus('grading');
+    try {
+      const result = await deepGradingAnalysis(
+        frontImg,
+        backImg,
+        'pokemon'
+      );
+      if (result.success) {
+        setDeepGradeResult(result);
+
+        // Update the scan in database with new grades
+        const updateData = {};
+        if (result.grades) updateData.ai_grades = result.grades;
+        if (result.condition) updateData.ai_condition = result.condition;
+        if (result.summary) updateData.ai_summary = result.summary;
+        if (result.centering) updateData.ai_centering = result.centering;
+
+        if (Object.keys(updateData).length > 0) {
+          await updateScan(selectedCard.id, updateData);
+          // Update local state
+          setSelectedCard(prev => ({ ...prev, ...updateData }));
+          setScans(prev => prev.map(s =>
+            s.id === selectedCard.id ? { ...s, ...updateData } : s
+          ));
+        }
+
+        setDeepGradeStatus('done');
+      } else {
+        setDeepGradeStatus('error');
+        setTimeout(() => setDeepGradeStatus(null), 3000);
+      }
+    } catch (err) {
+      console.error('Deep re-grade error:', err);
+      setDeepGradeStatus('error');
+      setTimeout(() => setDeepGradeStatus(null), 3000);
     }
   };
 
@@ -952,7 +1001,43 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   {enhancingStatus === 'enhancing' ? '⏳ Grading...' :
                    enhancingStatus === 'done' ? '✓ Re-graded' :
                    enhancingStatus === 'error' ? '✗ Failed' :
-                   'Re-grade (~$0.03)'}
+                   'AI Grade ($0.03)'}
+                </button>
+
+                {/* Deep Re-grade Button */}
+                <button
+                  onClick={handleDeepRegrade}
+                  disabled={deepGradeStatus === 'grading' || !frontImg || !backImg}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    background: deepGradeStatus === 'done'
+                      ? 'rgba(0,255,136,0.1)'
+                      : deepGradeStatus === 'error'
+                      ? 'rgba(255,100,100,0.1)'
+                      : 'rgba(245,158,11,0.1)',
+                    border: deepGradeStatus === 'done'
+                      ? '1px solid rgba(0,255,136,0.3)'
+                      : deepGradeStatus === 'error'
+                      ? '1px solid rgba(255,100,100,0.3)'
+                      : '1px solid rgba(245,158,11,0.3)',
+                    borderRadius: 8,
+                    color: deepGradeStatus === 'done'
+                      ? '#00ff88'
+                      : deepGradeStatus === 'error'
+                      ? '#ff6666'
+                      : '#f59e0b',
+                    fontFamily: mono,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: deepGradeStatus === 'grading' ? 'wait' : 'pointer',
+                    opacity: (!frontImg || !backImg) ? 0.5 : 1,
+                  }}
+                >
+                  {deepGradeStatus === 'grading' ? '⏳ Deep...' :
+                   deepGradeStatus === 'done' ? '✓ Deep Done' :
+                   deepGradeStatus === 'error' ? '✗ Failed' :
+                   'Deep Grade ($0.05)'}
                 </button>
               </div>
             </div>
