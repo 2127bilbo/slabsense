@@ -999,9 +999,9 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   }}
                 >
                   {enhancingStatus === 'enhancing' ? '⏳ Grading...' :
-                   enhancingStatus === 'done' ? '✓ Re-graded' :
+                   enhancingStatus === 'done' ? '✓ Done' :
                    enhancingStatus === 'error' ? '✗ Failed' :
-                   'AI Grade ($0.03)'}
+                   'AI Grade'}
                 </button>
 
                 {/* Deep Re-grade Button */}
@@ -1034,10 +1034,10 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                     opacity: (!frontImg || !backImg) ? 0.5 : 1,
                   }}
                 >
-                  {deepGradeStatus === 'grading' ? '⏳ Deep...' :
-                   deepGradeStatus === 'done' ? '✓ Deep Done' :
+                  {deepGradeStatus === 'grading' ? '⏳ Grading...' :
+                   deepGradeStatus === 'done' ? '✓ Done' :
                    deepGradeStatus === 'error' ? '✗ Failed' :
-                   'Deep Grade ($0.05)'}
+                   'Deep Grade'}
                 </button>
               </div>
             </div>
