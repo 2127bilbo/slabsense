@@ -3356,7 +3356,25 @@ export default function SlabSense(){
       console.log('Starting Deep AI grading analysis...');
       setProg('Deep analyzing (full-res)...');
 
-      const result = await deepGradingAnalysis(fI, bI, 'pokemon', auth.user.id);
+      // 4-image approach: originals for centering, cropped for defect detection
+      const originalFront = fI; // Original with background visible
+      const originalBack = bI;  // Original with background visible
+      const croppedFront = frontCroppedImage || fI; // Cropped or fallback to original
+      const croppedBack = backCroppedImage || bI;   // Cropped or fallback to original
+
+      console.log('[Deep AI] Using 4-image mode:', {
+        hasOriginals: !!fI && !!bI,
+        hasCropped: !!frontCroppedImage && !!backCroppedImage,
+      });
+
+      const result = await deepGradingAnalysis(
+        originalFront,
+        originalBack,
+        croppedFront,
+        croppedBack,
+        'pokemon',
+        auth.user.id
+      );
 
       if (result.success) {
         setDeepGradeResult(result);
@@ -3817,16 +3835,17 @@ export default function SlabSense(){
 
           {/* Use AI Centering Checkbox (only shows when AI has been run and in software mode) */}
           {aiCentering && gradeMode === 'software' && (
-            <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:8,marginBottom:12}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,marginBottom:12}}>
               <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}}>
                 <input type="checkbox" checked={useAiCentering} onChange={e=>setUseAiCentering(e.target.checked)}
                   style={{width:14,height:14,accentColor:"#8b5cf6",cursor:"pointer"}}/>
                 <span style={{fontFamily:mono,fontSize:10,color:useAiCentering?"#8b5cf6":"#666"}}>Use AI Centering</span>
               </label>
               {useAiCentering && aiCentering?.front && (
-                <span style={{fontFamily:mono,fontSize:9,color:"#555"}}>
-                  ({aiCentering.front.lrDisplay} L/R)
-                </span>
+                <div style={{display:"flex",gap:12,fontFamily:mono,fontSize:9,color:"#555"}}>
+                  <span>F: {aiCentering.front.lrDisplay} · {aiCentering.front.tbDisplay}</span>
+                  {aiCentering.back && <span>B: {aiCentering.back.lrDisplay} · {aiCentering.back.tbDisplay}</span>}
+                </div>
               )}
             </div>
           )}
@@ -4175,9 +4194,19 @@ export default function SlabSense(){
               {aiCentering?.front && !isAi && !isDeep && (
                 <div style={{marginTop:8,padding:"6px 8px",background:"rgba(139,92,246,0.08)",borderRadius:4}}>
                   <div style={{fontFamily:mono,fontSize:8,color:"#8b5cf6",marginBottom:4}}>AI DETECTED</div>
-                  <div style={{display:"flex",gap:16}}>
-                    <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>F: {aiCentering.front.lrDisplay}</span>
-                    {aiCentering.back && <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>B: {aiCentering.back.lrDisplay}</span>}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <div>
+                      <span style={{fontFamily:mono,fontSize:8,color:"#555"}}>FRONT</span>
+                      <div style={{fontFamily:mono,fontSize:9,color:"#666"}}>{aiCentering.front.lrDisplay} L/R</div>
+                      <div style={{fontFamily:mono,fontSize:9,color:"#666"}}>{aiCentering.front.tbDisplay} T/B</div>
+                    </div>
+                    {aiCentering.back && (
+                      <div>
+                        <span style={{fontFamily:mono,fontSize:8,color:"#555"}}>BACK</span>
+                        <div style={{fontFamily:mono,fontSize:9,color:"#666"}}>{aiCentering.back.lrDisplay} L/R</div>
+                        <div style={{fontFamily:mono,fontSize:9,color:"#666"}}>{aiCentering.back.tbDisplay} T/B</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

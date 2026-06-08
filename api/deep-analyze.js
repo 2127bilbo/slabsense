@@ -11,13 +11,31 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Detailed grading prompt for deep analysis
-const DEEP_GRADING_PROMPT = `You are an expert trading card grader with years of experience at professional grading companies. Analyze these card images in EXTREME detail.
+// Detailed grading prompt for deep analysis (4-image version)
+const DEEP_GRADING_PROMPT_4IMG = `You are an expert trading card grader with years of experience at professional grading companies. Analyze these card images in EXTREME detail.
+
+## IMAGE LAYOUT (4 IMAGES PROVIDED):
+- **IMAGE 1**: Front of card WITH BACKGROUND VISIBLE (use for CENTERING measurement)
+- **IMAGE 2**: Back of card WITH BACKGROUND VISIBLE (use for CENTERING measurement)
+- **IMAGE 3**: Front of card CROPPED TO BORDERS (use for DEFECT detection - corners, edges, surface)
+- **IMAGE 4**: Back of card CROPPED TO BORDERS (use for DEFECT detection - corners, edges, surface)
+
+**IMPORTANT**:
+- For CENTERING: Use images 1 & 2 (with background) - you can see the card edge vs background clearly
+- For DEFECTS: Use images 3 & 4 (cropped) - higher detail view of the card surface, corners, edges
+
+Examine every pixel carefully. This is a DEEP SCAN - the user expects thorough defect detection.`;
+
+// Detailed grading prompt for deep analysis (legacy 2-image version)
+const DEEP_GRADING_PROMPT_2IMG = `You are an expert trading card grader with years of experience at professional grading companies. Analyze these card images in EXTREME detail.
 
 IMAGE 1: Front of the card (full resolution)
 IMAGE 2: Back of the card (full resolution)
 
-Examine every pixel carefully. This is a DEEP SCAN - the user expects thorough defect detection.
+Examine every pixel carefully. This is a DEEP SCAN - the user expects thorough defect detection.`;
+
+// Shared analysis instructions (appended to both prompts)
+const ANALYSIS_INSTRUCTIONS = `
 
 ## Your Analysis Must Include:
 
@@ -196,6 +214,12 @@ CRITICAL RULES:
 - BGS subgrades must mathematically support the final grade (final = lowest + 0.5 max)
 - Return ONLY valid JSON, no markdown`;
 
+// Build full prompt based on image count
+const buildPrompt = (has4Images) => {
+  const intro = has4Images ? DEEP_GRADING_PROMPT_4IMG : DEEP_GRADING_PROMPT_2IMG;
+  return intro + ANALYSIS_INSTRUCTIONS;
+};
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -210,16 +234,36 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { frontUrl, backUrl, cardGame = 'pokemon' } = req.body;
+  const {
+    // 4-image mode (preferred)
+    frontOriginalUrl,
+    backOriginalUrl,
+    frontCroppedUrl,
+    backCroppedUrl,
+    // Legacy 2-image mode (backwards compatibility)
+    frontUrl,
+    backUrl,
+    cardGame = 'pokemon'
+  } = req.body;
 
-  if (!frontUrl || !backUrl) {
-    return res.status(400).json({ error: 'Missing image URLs (frontUrl and backUrl required)' });
+  // Determine if using 4-image mode or legacy 2-image mode
+  const has4Images = frontOriginalUrl && backOriginalUrl && frontCroppedUrl && backCroppedUrl;
+  const hasLegacy = frontUrl && backUrl;
+
+  if (!has4Images && !hasLegacy) {
+    return res.status(400).json({
+      error: 'Missing image URLs. Provide either 4 URLs (frontOriginalUrl, backOriginalUrl, frontCroppedUrl, backCroppedUrl) or legacy 2 URLs (frontUrl, backUrl)'
+    });
   }
 
-  // Validate URLs
+  // Build image URLs array based on mode
+  const imageUrls = has4Images
+    ? [frontOriginalUrl, backOriginalUrl, frontCroppedUrl, backCroppedUrl]
+    : [frontUrl, backUrl];
+
+  // Validate all URLs
   try {
-    new URL(frontUrl);
-    new URL(backUrl);
+    imageUrls.forEach(url => new URL(url));
   } catch {
     return res.status(400).json({ error: 'Invalid image URLs provided' });
   }
@@ -229,36 +273,36 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('[DeepAnalyze] Starting analysis with URLs:', {
-      front: frontUrl.substring(0, 50) + '...',
-      back: backUrl.substring(0, 50) + '...',
+    console.log('[DeepAnalyze] Starting analysis:', {
+      mode: has4Images ? '4-image' : 'legacy-2-image',
+      imageCount: imageUrls.length,
+      urls: imageUrls.map(url => url.substring(0, 50) + '...'),
     });
+
+    // Build image content array
+    const imageContent = imageUrls.map(url => ({
+      type: 'image',
+      source: {
+        type: 'url',
+        url: url,
+      },
+    }));
+
+    // Add prompt text
+    const messageContent = [
+      ...imageContent,
+      {
+        type: 'text',
+        text: buildPrompt(has4Images),
+      },
+    ];
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
       messages: [{
         role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'url',
-              url: frontUrl,
-            },
-          },
-          {
-            type: 'image',
-            source: {
-              type: 'url',
-              url: backUrl,
-            },
-          },
-          {
-            type: 'text',
-            text: DEEP_GRADING_PROMPT,
-          },
-        ],
+        content: messageContent,
       }],
     });
 
@@ -304,6 +348,7 @@ export default async function handler(req, res) {
       grades: result.grades,
       summary: result.summary,
       analysisType: 'deep',
+      imageMode: has4Images ? '4-image' : '2-image',
     });
 
   } catch (error) {

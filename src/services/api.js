@@ -707,20 +707,32 @@ async function uploadImageForDeepAnalysis(dataUrl, side, userId) {
  * Bypasses Vercel's 4.5MB payload limit by uploading images to Supabase
  * and passing URLs to Claude instead of base64 data.
  *
+ * 4-IMAGE APPROACH:
+ * - Original front/back: Used for CENTERING measurement (shows card edge vs background)
+ * - Cropped front/back: Used for DEFECT detection (high detail on card surface)
+ *
  * Returns detailed grades for ALL companies, defect list, precise centering.
  *
- * Cost: ~$0.03-0.05 per analysis (higher due to full-res images)
+ * Cost: ~$0.08-0.10 per analysis (4 images for maximum accuracy)
  *
- * @param {string} frontImageDataUrl - Full resolution front image
- * @param {string} backImageDataUrl - Full resolution back image
+ * @param {string} originalFrontImage - Original photo with background (for centering)
+ * @param {string} originalBackImage - Original photo with background (for centering)
+ * @param {string} croppedFrontImage - Cropped card image (for defect detection)
+ * @param {string} croppedBackImage - Cropped card image (for defect detection)
  * @param {string} cardGame - 'pokemon' | 'sports' | 'tcg'
  * @param {string} userId - User ID for storage path (required for RLS)
  * @returns {Promise<object>} Detailed analysis result
  */
-export async function deepGradingAnalysis(frontImageDataUrl, backImageDataUrl, cardGame = 'pokemon', userId = null) {
-  console.log('[Deep AI] Starting full-resolution analysis...');
+export async function deepGradingAnalysis(originalFrontImage, originalBackImage, croppedFrontImage = null, croppedBackImage = null, cardGame = 'pokemon', userId = null) {
+  console.log('[Deep AI] Starting 4-image full-resolution analysis...');
 
-  if (!frontImageDataUrl || !backImageDataUrl) {
+  // Support legacy 2-image calls: if cropped images not provided, use originals for both
+  const frontOriginal = originalFrontImage;
+  const backOriginal = originalBackImage;
+  const frontCropped = croppedFrontImage || originalFrontImage;
+  const backCropped = croppedBackImage || originalBackImage;
+
+  if (!frontOriginal || !backOriginal) {
     throw new Error('Both front and back images required for Deep AI Grade');
   }
 
@@ -729,22 +741,29 @@ export async function deepGradingAnalysis(frontImageDataUrl, backImageDataUrl, c
   }
 
   try {
-    // Step 1: Upload full-res images to Supabase to get public URLs
-    console.log('[Deep AI] Uploading images to storage...');
-    const [frontUrl, backUrl] = await Promise.all([
-      uploadImageForDeepAnalysis(frontImageDataUrl, 'front', userId),
-      uploadImageForDeepAnalysis(backImageDataUrl, 'back', userId),
+    // Step 1: Upload all images to Supabase to get public URLs
+    console.log('[Deep AI] Uploading 4 images to storage...');
+    const [frontOriginalUrl, backOriginalUrl, frontCroppedUrl, backCroppedUrl] = await Promise.all([
+      uploadImageForDeepAnalysis(frontOriginal, 'front-original', userId),
+      uploadImageForDeepAnalysis(backOriginal, 'back-original', userId),
+      uploadImageForDeepAnalysis(frontCropped, 'front-cropped', userId),
+      uploadImageForDeepAnalysis(backCropped, 'back-cropped', userId),
     ]);
 
-    console.log('[Deep AI] Images uploaded, calling Anthropic API...');
+    console.log('[Deep AI] Images uploaded, calling Anthropic API with 4 images...');
 
-    // Step 2: Call our deep-analyze endpoint with just the URLs
+    // Step 2: Call our deep-analyze endpoint with all 4 URLs
     const response = await fetch('/api/deep-analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        frontUrl,
-        backUrl,
+        frontOriginalUrl,
+        backOriginalUrl,
+        frontCroppedUrl,
+        backCroppedUrl,
+        // Legacy support
+        frontUrl: frontCroppedUrl,
+        backUrl: backCroppedUrl,
         cardGame,
       }),
     });
