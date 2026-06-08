@@ -2735,7 +2735,7 @@ export default function SlabSense(){
   const[visionIntensity,setVisionIntensity]=useState(50); // 0-100% intensity slider
 
   // Grade display mode
-  const[gradeMode,setGradeMode]=useState('software'); // 'software' | 'ai' - which grade to display
+  const[gradeMode,setGradeMode]=useState('software'); // 'software' | 'ai' | 'deep' - which grade to display
   const[useAiCentering,setUseAiCentering]=useState(false); // Use AI centering in software grade calc
   const[aiCentering,setAiCentering]=useState(null); // AI centering data: { front: {lrRatio, tbRatio}, back: {...} }
 
@@ -2750,6 +2750,12 @@ export default function SlabSense(){
   const[aiGradingNotes,setAiGradingNotes]=useState(null); // AI grading notes: { positives, concerns, estimatedGrade }
   const[aiGrades,setAiGrades]=useState(null); // Multi-company grades from Claude: { psa, bgs, sgc, cgc, tag }
   const[aiSummary,setAiSummary]=useState(null); // AI summary: { positives, concerns, recommendation }
+
+  // Deep AI grade results (separate from standard AI)
+  const[deepAiGrades,setDeepAiGrades]=useState(null); // Deep AI grades: { psa, bgs, sgc, cgc, tag }
+  const[deepAiCentering,setDeepAiCentering]=useState(null); // Deep AI centering: { front, back }
+  const[deepAiCondition,setDeepAiCondition]=useState(null); // Deep AI condition assessment
+  const[deepAiSummary,setDeepAiSummary]=useState(null); // Deep AI summary
   const[extractingInfo,setExtractingInfo]=useState(false); // AI analysis in progress
 
   // Card identification (OCR + TCGDex)
@@ -3239,7 +3245,7 @@ export default function SlabSense(){
       console.log('Starting Claude grading analysis...');
       setProg('AI grading card...');
 
-      const result = await claudeGradingAnalysis(fI, bI, 'pokemon');
+      const result = await claudeGradingAnalysis(fI, bI, 'pokemon', auth.user?.id);
 
       if (result.success) {
         // Card info from OCR - merge with existing cardInfo to preserve TCGDex pricing
@@ -3355,31 +3361,23 @@ export default function SlabSense(){
       if (result.success) {
         setDeepGradeResult(result);
 
-        // Update card info from deep analysis
+        // Update card info from deep analysis (shared)
         if (result.cardInfo) {
           setCardInfo(prev => prev ? { ...prev, ...result.cardInfo, pricing: prev.pricing } : result.cardInfo);
         }
 
-        // Condition assessment (more detailed from deep scan)
+        // Store in DEEP-specific state (not overwriting standard AI)
         if (result.condition) {
-          setAiCondition(result.condition);
+          setDeepAiCondition(result.condition);
         }
 
-        // Multi-company grades
         if (result.grades) {
-          setAiGrades(result.grades);
+          setDeepAiGrades(result.grades);
           console.log('Deep AI grades:', result.grades);
         }
 
-        // Summary with recommendations
         if (result.summary) {
-          setAiSummary(result.summary);
-          setAiGradingNotes({
-            positives: result.summary.positives || [],
-            concerns: result.summary.concerns || [],
-            estimatedGrade: result.grades?.[gradingCompany]?.grade || result.grades?.tag?.grade,
-            recommendation: result.summary.recommendation,
-          });
+          setDeepAiSummary(result.summary);
         }
 
         // Centering from deep analysis
@@ -3395,12 +3393,12 @@ export default function SlabSense(){
             return null;
           };
 
-          let frontAiCentering = null;
+          let frontDeepCentering = null;
           if (result.centering.front) {
             const lrParsed = parseCentering(result.centering.front.leftRight);
             const tbParsed = parseCentering(result.centering.front.topBottom);
             if (lrParsed || tbParsed) {
-              frontAiCentering = {
+              frontDeepCentering = {
                 lrRatio: lrParsed ? lrParsed.left : 50,
                 tbRatio: tbParsed ? tbParsed.left : 50,
                 lrDisplay: lrParsed ? `${lrParsed.left}/${lrParsed.right}` : '50/50',
@@ -3409,12 +3407,12 @@ export default function SlabSense(){
             }
           }
 
-          let backAiCentering = null;
+          let backDeepCentering = null;
           if (result.centering.back) {
             const lrParsed = parseCentering(result.centering.back.leftRight);
             const tbParsed = parseCentering(result.centering.back.topBottom);
             if (lrParsed || tbParsed) {
-              backAiCentering = {
+              backDeepCentering = {
                 lrRatio: lrParsed ? lrParsed.left : 50,
                 tbRatio: tbParsed ? tbParsed.left : 50,
                 lrDisplay: lrParsed ? `${lrParsed.left}/${lrParsed.right}` : '50/50',
@@ -3423,9 +3421,11 @@ export default function SlabSense(){
             }
           }
 
-          setAiCentering({ front: frontAiCentering, back: backAiCentering });
+          setDeepAiCentering({ front: frontDeepCentering, back: backDeepCentering });
         }
 
+        // Switch to deep grade display mode
+        setGradeMode('deep');
         setDeepGradeStatus('done');
         setProg('');
         console.log('Deep AI analysis complete:', result.cardInfo?.name, 'defects:', result.defects?.length);
@@ -3591,9 +3591,9 @@ export default function SlabSense(){
             </div>
           </div>
         )}
-        {/* 3D Viewer - use TCGDex image for slab if available (perfect quality) */}
+        {/* 3D Viewer - always use actual card image, not TCGDex */}
         <CardViewer3D
-          frontImage={tcgdexImage || frontCroppedImage || enhancedCards.front}
+          frontImage={frontCroppedImage || enhancedCards?.front || fI}
           backImage={backCroppedImage || enhancedCards.back}
           grade={gradeResult?.grade?.grade}
           gradeLabel={gradeResult?.grade?.label}
@@ -3741,7 +3741,7 @@ export default function SlabSense(){
         <div style={{fontFamily:sans,fontSize:18,fontWeight:600,color:"#00ff88",marginBottom:4}}>Analysis Complete</div>
         <div style={{fontFamily:mono,fontSize:12,color:"#666"}}>View results in Grade tab</div>
       </div>
-      <button onClick={()=>{setStep(0);setFI(null);setBI(null);setGradeResult(null);setFR(null);setBR(null);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiSummary(null);setAiGrades(null);setAiCentering(null);setGradeMode('software');setUseAiCentering(false);setEnhancingStatus('idle');setSavingStatus('idle');}} style={{
+      <button onClick={()=>{setStep(0);setFI(null);setBI(null);setGradeResult(null);setFR(null);setBR(null);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiSummary(null);setAiGrades(null);setAiCentering(null);setDeepAiGrades(null);setDeepAiCentering(null);setDeepAiCondition(null);setDeepAiSummary(null);setDeepGradeStatus(null);setDeepGradeResult(null);setGradeMode('software');setUseAiCentering(false);setEnhancingStatus('idle');setSavingStatus('idle');}} style={{
         padding:"14px 32px",borderRadius:10,border:"none",
         background:"linear-gradient(135deg,#6366f1,#8b5cf6)",
         color:"#fff",fontFamily:mono,fontSize:13,fontWeight:700,cursor:"pointer",
@@ -3780,23 +3780,34 @@ export default function SlabSense(){
             })()}
           </div>
 
-          {/* AI/Software Grade Toggle */}
-          {aiGrades && (
-            <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:12}}>
+          {/* Software/AI/Deep Grade Toggle */}
+          {(aiGrades || deepAiGrades) && (
+            <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:12,flexWrap:"wrap"}}>
               <button onClick={()=>setGradeMode('software')} style={{
-                padding:"8px 16px",borderRadius:6,border:"none",
+                padding:"8px 14px",borderRadius:6,border:"none",
                 background:gradeMode==='software'?"#6366f1":"#1a1c22",
                 color:gradeMode==='software'?"#fff":"#666",
                 fontFamily:mono,fontSize:10,fontWeight:600,cursor:"pointer",
                 transition:"all .2s"
-              }}>Software Grade</button>
-              <button onClick={()=>setGradeMode('ai')} style={{
-                padding:"8px 16px",borderRadius:6,border:"none",
-                background:gradeMode==='ai'?"#8b5cf6":"#1a1c22",
-                color:gradeMode==='ai'?"#fff":"#666",
-                fontFamily:mono,fontSize:10,fontWeight:600,cursor:"pointer",
-                transition:"all .2s"
-              }}>AI Grade</button>
+              }}>Software</button>
+              {aiGrades && (
+                <button onClick={()=>setGradeMode('ai')} style={{
+                  padding:"8px 14px",borderRadius:6,border:"none",
+                  background:gradeMode==='ai'?"#8b5cf6":"#1a1c22",
+                  color:gradeMode==='ai'?"#fff":"#666",
+                  fontFamily:mono,fontSize:10,fontWeight:600,cursor:"pointer",
+                  transition:"all .2s"
+                }}>AI Grade</button>
+              )}
+              {deepAiGrades && (
+                <button onClick={()=>setGradeMode('deep')} style={{
+                  padding:"8px 14px",borderRadius:6,border:"none",
+                  background:gradeMode==='deep'?"#f97316":"#1a1c22",
+                  color:gradeMode==='deep'?"#fff":"#666",
+                  fontFamily:mono,fontSize:10,fontWeight:600,cursor:"pointer",
+                  transition:"all .2s"
+                }}>Deep AI</button>
+              )}
             </div>
           )}
 
@@ -3836,8 +3847,8 @@ export default function SlabSense(){
                 <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:gr?.grade?.color || '#666'}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
               </div>
             </div>
-          ) : (
-            /* AI Grade Display */
+          ) : gradeMode === 'ai' ? (
+            /* Standard AI Grade Display */
             <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:16,marginBottom:16,padding:20,background:"#0d0f13",borderRadius:10,border:"1px solid #8b5cf633"}}>
               {/* TAG: Show AI raw score if available */}
               {gradingCompany === 'tag' && aiGrades?.tag?.score !== undefined && (
@@ -3855,6 +3866,27 @@ export default function SlabSense(){
               <div style={{padding:"8px 12px",background:"rgba(139,92,246,0.15)",borderRadius:8,border:"1px solid rgba(139,92,246,0.3)"}}>
                 <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:"#8b5cf6"}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
                 <div style={{fontFamily:mono,fontSize:8,color:"#6366f1",marginTop:2}}>AI ESTIMATE</div>
+              </div>
+            </div>
+          ) : (
+            /* Deep AI Grade Display */
+            <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:16,marginBottom:16,padding:20,background:"#0d0f13",borderRadius:10,border:"1px solid #f9731633"}}>
+              {/* TAG: Show Deep AI raw score if available */}
+              {gradingCompany === 'tag' && deepAiGrades?.tag?.score !== undefined && (
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontFamily:mono,fontSize:32,fontWeight:800,color:"#888"}}>{deepAiGrades.tag.score}</div>
+                  <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>/ 1000</div>
+                </div>
+              )}
+              {/* Deep AI Grade Number */}
+              <div style={{textAlign:"center"}}>
+                <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:"#f97316"}}>{deepAiGrades?.[gradingCompany]?.grade ?? '--'}</div>
+                <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:"#f97316",marginTop:2}}>{deepAiGrades?.[gradingCompany]?.label || 'Deep AI'}</div>
+              </div>
+              {/* Company Badge with Deep AI indicator */}
+              <div style={{padding:"8px 12px",background:"rgba(249,115,22,0.15)",borderRadius:8,border:"1px solid rgba(249,115,22,0.3)"}}>
+                <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:"#f97316"}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
+                <div style={{fontFamily:mono,fontSize:8,color:"#ea580c",marginTop:2}}>DEEP AI</div>
               </div>
             </div>
           )}
@@ -4004,10 +4036,10 @@ export default function SlabSense(){
             } catch(e) { return null; }
           })()}
 
-          {/* TAG 8 Subgrades (DIG Report Style) */}
-          {gradingCompany === 'tag' && aiGrades?.tag?.subgrades && (
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #8b5cf633",marginBottom:12}}>
-              <div style={{fontFamily:mono,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",marginBottom:10}}>TAG DIG Subgrades (8 Categories)</div>
+          {/* TAG 8 Subgrades (DIG Report Style) - AI or Deep AI */}
+          {gradingCompany === 'tag' && (gradeMode === 'ai' ? aiGrades?.tag?.subgrades : gradeMode === 'deep' ? deepAiGrades?.tag?.subgrades : null) && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${gradeMode==='deep'?'#f97316':'#8b5cf6'}33`,marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:gradeMode==='deep'?'#f97316':'#8b5cf6',textTransform:"uppercase",marginBottom:10}}>TAG DIG Subgrades {gradeMode==='deep'?'(Deep AI)':'(AI)'}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {[
                   {k:"frontCentering",l:"Front Centering"},
@@ -4019,7 +4051,8 @@ export default function SlabSense(){
                   {k:"frontSurface",l:"Front Surface"},
                   {k:"backSurface",l:"Back Surface"},
                 ].map(({k,l})=>{
-                  const val = aiGrades.tag.subgrades?.[k];
+                  const grades = gradeMode==='deep' ? deepAiGrades : aiGrades;
+                  const val = grades?.tag?.subgrades?.[k];
                   if(val==null)return null;
                   const color = val>=120?"#00ff88":val>=100?"#66dd44":val>=80?"#ffcc00":"#ff6633";
                   return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
@@ -4031,10 +4064,10 @@ export default function SlabSense(){
             </div>
           )}
 
-          {/* BGS 4 Subgrades */}
-          {gradingCompany === 'bgs' && aiGrades?.bgs?.subgrades && (
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #ffd93d33",marginBottom:12}}>
-              <div style={{fontFamily:mono,fontSize:10,color:"#ffd93d",textTransform:"uppercase",marginBottom:10}}>BGS Subgrades</div>
+          {/* BGS 4 Subgrades - AI or Deep AI */}
+          {gradingCompany === 'bgs' && (gradeMode === 'ai' ? aiGrades?.bgs?.subgrades : gradeMode === 'deep' ? deepAiGrades?.bgs?.subgrades : null) && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${gradeMode==='deep'?'#f97316':'#ffd93d'}33`,marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:gradeMode==='deep'?'#f97316':'#ffd93d',textTransform:"uppercase",marginBottom:10}}>BGS Subgrades {gradeMode==='deep'?'(Deep AI)':'(AI)'}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {[
                   {k:"centering",l:"Centering"},
@@ -4042,7 +4075,8 @@ export default function SlabSense(){
                   {k:"edges",l:"Edges"},
                   {k:"surface",l:"Surface"},
                 ].map(({k,l})=>{
-                  const val = aiGrades.bgs.subgrades?.[k];
+                  const grades = gradeMode==='deep' ? deepAiGrades : aiGrades;
+                  const val = grades?.bgs?.subgrades?.[k];
                   if(val==null)return null;
                   const color = val>=9.5?"#00ff88":val>=9?"#66dd44":val>=8?"#ffcc00":"#ff6633";
                   return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
@@ -4054,10 +4088,10 @@ export default function SlabSense(){
             </div>
           )}
 
-          {/* CGC 4 Subgrades */}
-          {gradingCompany === 'cgc' && aiGrades?.cgc?.subgrades && (
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #4d96ff33",marginBottom:12}}>
-              <div style={{fontFamily:mono,fontSize:10,color:"#4d96ff",textTransform:"uppercase",marginBottom:10}}>CGC Subgrades</div>
+          {/* CGC 4 Subgrades - AI or Deep AI */}
+          {gradingCompany === 'cgc' && (gradeMode === 'ai' ? aiGrades?.cgc?.subgrades : gradeMode === 'deep' ? deepAiGrades?.cgc?.subgrades : null) && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${gradeMode==='deep'?'#f97316':'#4d96ff'}33`,marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:gradeMode==='deep'?'#f97316':'#4d96ff',textTransform:"uppercase",marginBottom:10}}>CGC Subgrades {gradeMode==='deep'?'(Deep AI)':'(AI)'}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {[
                   {k:"centering",l:"Centering"},
@@ -4065,7 +4099,8 @@ export default function SlabSense(){
                   {k:"edges",l:"Edges"},
                   {k:"surface",l:"Surface"},
                 ].map(({k,l})=>{
-                  const val = aiGrades.cgc.subgrades?.[k];
+                  const grades = gradeMode==='deep' ? deepAiGrades : aiGrades;
+                  const val = grades?.cgc?.subgrades?.[k];
                   if(val==null)return null;
                   const color = val>=9.5?"#00ff88":val>=9?"#66dd44":val>=8?"#ffcc00":"#ff6633";
                   return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>

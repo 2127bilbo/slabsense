@@ -112,7 +112,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState('tag');
-  const [showAiGrade, setShowAiGrade] = useState(true);
+  const [gradeMode, setGradeMode] = useState('ai'); // 'software' | 'ai' | 'deep'
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [touchStart, setTouchStart] = useState(null);
   const stackRef = useRef(null);
@@ -131,9 +131,11 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   const [enhancingStatus, setEnhancingStatus] = useState(null);
   const [regradeResult, setRegradeResult] = useState(null);
 
-  // Deep AI grading state
+  // Deep AI grading state (separate from standard AI re-grade)
   const [deepGradeStatus, setDeepGradeStatus] = useState(null);
   const [deepGradeResult, setDeepGradeResult] = useState(null);
+  const [deepAiGrades, setDeepAiGrades] = useState(null);
+  const [deepAiCentering, setDeepAiCentering] = useState(null);
 
   // Gyro input for holo sparkles
   const gyroInputRef = useRef(null);
@@ -212,6 +214,9 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       setRegradeResult(null);
       setDeepGradeStatus(null);
       setDeepGradeResult(null);
+      setDeepAiGrades(null);
+      setDeepAiCentering(null);
+      setGradeMode(selectedCard.ai_grades ? 'ai' : 'software'); // Default to AI if available
       setFM(null);
       setBM(null);
 
@@ -244,7 +249,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       const result = await claudeGradingAnalysis(
         frontImg,
         backImg,
-        'pokemon'
+        'pokemon',
+        userId
       );
       if (result.success) {
         setRegradeResult(result);
@@ -278,6 +284,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   };
 
   // Handle Deep AI re-grading (full resolution)
+  // Stores in separate state - does NOT overwrite standard AI grades
   const handleDeepRegrade = async () => {
     const frontImg = getFrontImage(selectedCard);
     const backImg = getBackImage(selectedCard);
@@ -293,22 +300,16 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       if (result.success) {
         setDeepGradeResult(result);
 
-        // Update the scan in database with new grades
-        const updateData = {};
-        if (result.grades) updateData.ai_grades = result.grades;
-        if (result.condition) updateData.ai_condition = result.condition;
-        if (result.summary) updateData.ai_summary = result.summary;
-        if (result.centering) updateData.ai_centering = result.centering;
-
-        if (Object.keys(updateData).length > 0) {
-          await updateScan(selectedCard.id, updateData);
-          // Update local state
-          setSelectedCard(prev => ({ ...prev, ...updateData }));
-          setScans(prev => prev.map(s =>
-            s.id === selectedCard.id ? { ...s, ...updateData } : s
-          ));
+        // Store in SEPARATE deep state (not overwriting standard AI)
+        if (result.grades) {
+          setDeepAiGrades(result.grades);
+        }
+        if (result.centering) {
+          setDeepAiCentering(result.centering);
         }
 
+        // Switch to deep grade display mode
+        setGradeMode('deep');
         setDeepGradeStatus('done');
       } else {
         setDeepGradeStatus('error');
@@ -363,12 +364,29 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
     setTouchStart(null);
   };
 
-  // Get grade for display (AI or software)
+  // Get grade for display (software, AI, or deep AI)
   // Recalculates grade from score for accuracy based on selected company
   const getDisplayGrade = (scan, company = selectedCompany) => {
-    if (showAiGrade && scan.ai_grades?.[company]) {
+    // Deep AI grade (from session state)
+    if (gradeMode === 'deep' && deepAiGrades?.[company]) {
+      const deepGrade = deepAiGrades[company];
+      const score = deepGrade.score || 0;
+      const recalcGrade = score > 0 ? getGradeFromScore(score, company) : null;
+      return {
+        value: recalcGrade?.grade ?? deepGrade.grade,
+        label: recalcGrade?.label ?? deepGrade.label,
+        color: '#f97316', // Orange for deep AI
+        isAi: true,
+        isDeep: true,
+        score: company === 'tag' ? score : null,
+        subgrades: deepGrade.subgrades,
+        notes: deepGrade.notes,
+        company: company,
+      };
+    }
+    // Standard AI grade (from scan record)
+    if (gradeMode === 'ai' && scan.ai_grades?.[company]) {
       const aiGrade = scan.ai_grades[company];
-      // Recalculate grade from score for accuracy
       const score = aiGrade.score || 0;
       const recalcGrade = score > 0 ? getGradeFromScore(score, company) : null;
       return {
@@ -376,6 +394,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
         label: recalcGrade?.label ?? aiGrade.label,
         color: recalcGrade?.color ?? GRADING_COMPANIES[company]?.color,
         isAi: true,
+        isDeep: false,
         score: company === 'tag' ? score : null,
         subgrades: aiGrade.subgrades,
         notes: aiGrade.notes,
@@ -390,6 +409,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       label: recalcGrade?.label ?? scan.grade_label,
       color: recalcGrade?.color ?? GRADING_COMPANIES[company]?.color,
       isAi: false,
+      isDeep: false,
       score: company === 'tag' ? rawScore : null,
       rawScore: rawScore,
       company: company,
@@ -706,37 +726,57 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
               borderRadius: 8,
             }}>
               <button
-                onClick={() => setShowAiGrade(true)}
+                onClick={() => setGradeMode('software')}
                 style={{
                   flex: 1,
                   padding: '8px 12px',
-                  background: showAiGrade ? 'rgba(139,92,246,0.2)' : 'transparent',
-                  border: showAiGrade ? '1px solid rgba(139,92,246,0.3)' : '1px solid transparent',
+                  background: gradeMode === 'software' ? 'rgba(0,255,136,0.1)' : 'transparent',
+                  border: gradeMode === 'software' ? '1px solid rgba(0,255,136,0.2)' : '1px solid transparent',
                   borderRadius: 6,
-                  color: showAiGrade ? '#8b5cf6' : '#666',
+                  color: gradeMode === 'software' ? '#00ff88' : '#666',
                   fontFamily: mono,
-                  fontSize: 11,
+                  fontSize: 10,
                   cursor: 'pointer',
                 }}
               >
-                AI Grade
+                Software
               </button>
-              <button
-                onClick={() => setShowAiGrade(false)}
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  background: !showAiGrade ? 'rgba(0,255,136,0.1)' : 'transparent',
-                  border: !showAiGrade ? '1px solid rgba(0,255,136,0.2)' : '1px solid transparent',
-                  borderRadius: 6,
-                  color: !showAiGrade ? '#00ff88' : '#666',
-                  fontFamily: mono,
-                  fontSize: 11,
-                  cursor: 'pointer',
-                }}
-              >
-                Software Grade
-              </button>
+              {selectedCard.ai_grades && (
+                <button
+                  onClick={() => setGradeMode('ai')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    background: gradeMode === 'ai' ? 'rgba(139,92,246,0.2)' : 'transparent',
+                    border: gradeMode === 'ai' ? '1px solid rgba(139,92,246,0.3)' : '1px solid transparent',
+                    borderRadius: 6,
+                    color: gradeMode === 'ai' ? '#8b5cf6' : '#666',
+                    fontFamily: mono,
+                    fontSize: 10,
+                    cursor: 'pointer',
+                  }}
+                >
+                  AI Grade
+                </button>
+              )}
+              {deepAiGrades && (
+                <button
+                  onClick={() => setGradeMode('deep')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    background: gradeMode === 'deep' ? 'rgba(249,115,22,0.2)' : 'transparent',
+                    border: gradeMode === 'deep' ? '1px solid rgba(249,115,22,0.3)' : '1px solid transparent',
+                    borderRadius: 6,
+                    color: gradeMode === 'deep' ? '#f97316' : '#666',
+                    fontFamily: mono,
+                    fontSize: 10,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Deep AI
+                </button>
+              )}
             </div>
           )}
 
@@ -1177,8 +1217,12 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
             </div>
           )}
 
-          {/* Centering */}
-          {(selectedCard.ai_centering || selectedCard.front_centering) && (
+          {/* Centering - supports software, AI, and deep AI */}
+          {(selectedCard.ai_centering || selectedCard.front_centering || deepAiCentering) && (()=>{
+            // Get centering based on mode
+            const aiCent = gradeMode === 'deep' ? deepAiCentering : selectedCard.ai_centering;
+            const useAi = gradeMode !== 'software' && aiCent;
+            return (
             <div style={{
               padding: 14,
               background: '#0d0f13',
@@ -1192,39 +1236,45 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 marginBottom: 10,
               }}>
                 CENTERING
+                {gradeMode === 'deep' && <span style={{color:'#f97316'}}> (Deep AI)</span>}
+                {gradeMode === 'ai' && <span style={{color:'#8b5cf6'}}> (AI)</span>}
+                {gradeMode === 'software' && <span style={{color:'#00ff88'}}> (Software)</span>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <CenteringBox
                   label="FRONT"
-                  lr={selectedCard.ai_centering?.front?.leftRight ||
+                  lr={useAi && aiCent?.front?.leftRight ? aiCent.front.leftRight :
                       `${(selectedCard.front_centering?.lrRatio || 50).toFixed(1)}/${(100 - (selectedCard.front_centering?.lrRatio || 50)).toFixed(1)}`}
-                  tb={selectedCard.ai_centering?.front?.topBottom ||
+                  tb={useAi && aiCent?.front?.topBottom ? aiCent.front.topBottom :
                       `${(selectedCard.front_centering?.tbRatio || 50).toFixed(1)}/${(100 - (selectedCard.front_centering?.tbRatio || 50)).toFixed(1)}`}
                 />
-                {(selectedCard.ai_centering?.back || selectedCard.back_centering) && (
+                {(aiCent?.back || selectedCard.back_centering) && (
                   <CenteringBox
                     label="BACK"
-                    lr={selectedCard.ai_centering?.back?.leftRight ||
+                    lr={useAi && aiCent?.back?.leftRight ? aiCent.back.leftRight :
                         `${(selectedCard.back_centering?.lrRatio || 50).toFixed(1)}/${(100 - (selectedCard.back_centering?.lrRatio || 50)).toFixed(1)}`}
-                    tb={selectedCard.ai_centering?.back?.topBottom ||
+                    tb={useAi && aiCent?.back?.topBottom ? aiCent.back.topBottom :
                         `${(selectedCard.back_centering?.tbRatio || 50).toFixed(1)}/${(100 - (selectedCard.back_centering?.tbRatio || 50)).toFixed(1)}`}
                   />
                 )}
               </div>
             </div>
-          )}
+          );})()}
 
-          {/* Condition - AI or Software */}
+          {/* Condition - Software, AI, or Deep AI */}
           {(()=>{
-            const conditionData = showAiGrade ? selectedCard.ai_condition : selectedCard.subgrades;
+            const isAiMode = gradeMode === 'ai' || gradeMode === 'deep';
+            const conditionData = gradeMode === 'deep' ? (deepGradeResult?.condition || selectedCard.ai_condition) :
+                                  gradeMode === 'ai' ? selectedCard.ai_condition :
+                                  selectedCard.subgrades;
             if (!conditionData) return null;
             const isTAG = selectedCompany === 'tag';
             // For software grades, subgrades has corners, edges, surface as scores
-            const corners = showAiGrade ? conditionData.corners : conditionData.corners?.score;
-            const edges = showAiGrade ? conditionData.edges : conditionData.edges?.score;
-            const surface = showAiGrade ? conditionData.surface : conditionData.surface?.score;
-            const centering = showAiGrade ? conditionData.centering : conditionData.centering?.score;
-            const defects = showAiGrade ? conditionData.defects : null;
+            const corners = isAiMode ? conditionData.corners : conditionData.corners?.score;
+            const edges = isAiMode ? conditionData.edges : conditionData.edges?.score;
+            const surface = isAiMode ? conditionData.surface : conditionData.surface?.score;
+            const centering = isAiMode ? conditionData.centering : conditionData.centering?.score;
+            const defects = isAiMode ? conditionData.defects : null;
 
             return (
               <div style={{
@@ -1240,7 +1290,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   marginBottom: 10,
                 }}>
                   CONDITION {isTAG && <span style={{color:'#8b5cf6'}}>(TAG 1000-Point)</span>}
-                  {!showAiGrade && <span style={{color:'#00ff88'}}> (Software)</span>}
+                  {gradeMode === 'software' && <span style={{color:'#00ff88'}}> (Software)</span>}
+                  {gradeMode === 'deep' && <span style={{color:'#f97316'}}> (Deep AI)</span>}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {corners != null && (
@@ -1277,25 +1328,27 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
             );
           })()}
 
-          {/* AI Summary */}
-          {selectedCard.ai_summary && showAiGrade && (
+          {/* AI Summary - from standard AI or deep AI */}
+          {((gradeMode === 'ai' && selectedCard.ai_summary) || (gradeMode === 'deep' && (deepGradeResult?.summary || selectedCard.ai_summary))) && (()=>{
+            const summary = gradeMode === 'deep' ? (deepGradeResult?.summary || selectedCard.ai_summary) : selectedCard.ai_summary;
+            return (
             <div style={{
               padding: 14,
               background: '#0d0f13',
               borderRadius: 10,
               marginBottom: 16,
             }}>
-              {selectedCard.ai_summary.positives?.length > 0 && (
+              {summary.positives?.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{
                     fontFamily: mono,
                     fontSize: 9,
-                    color: '#00ff88',
+                    color: gradeMode === 'deep' ? '#f97316' : '#00ff88',
                     marginBottom: 6,
                   }}>
-                    POSITIVES
+                    POSITIVES {gradeMode === 'deep' && '(Deep AI)'}
                   </div>
-                  {selectedCard.ai_summary.positives.map((p, i) => (
+                  {summary.positives.map((p, i) => (
                     <div key={i} style={{
                       fontFamily: sans,
                       fontSize: 11,
@@ -1307,7 +1360,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   ))}
                 </div>
               )}
-              {selectedCard.ai_summary.concerns?.length > 0 && (
+              {summary.concerns?.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{
                     fontFamily: mono,
@@ -1317,7 +1370,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   }}>
                     CONCERNS
                   </div>
-                  {selectedCard.ai_summary.concerns.map((c, i) => (
+                  {summary.concerns.map((c, i) => (
                     <div key={i} style={{
                       fontFamily: sans,
                       fontSize: 11,
@@ -1329,17 +1382,17 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   ))}
                 </div>
               )}
-              {selectedCard.ai_summary.recommendation && (
+              {summary.recommendation && (
                 <div style={{
                   padding: '10px 12px',
-                  background: 'rgba(0,255,136,0.05)',
+                  background: gradeMode === 'deep' ? 'rgba(249,115,22,0.05)' : 'rgba(0,255,136,0.05)',
                   borderRadius: 8,
-                  border: '1px solid rgba(0,255,136,0.1)',
+                  border: gradeMode === 'deep' ? '1px solid rgba(249,115,22,0.1)' : '1px solid rgba(0,255,136,0.1)',
                 }}>
                   <div style={{
                     fontFamily: mono,
                     fontSize: 9,
-                    color: '#00ff88',
+                    color: gradeMode === 'deep' ? '#f97316' : '#00ff88',
                     marginBottom: 4,
                   }}>
                     RECOMMENDATION
@@ -1349,12 +1402,12 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                     fontSize: 12,
                     color: '#aaa',
                   }}>
-                    {selectedCard.ai_summary.recommendation}
+                    {summary.recommendation}
                   </div>
                 </div>
               )}
             </div>
-          )}
+          );})()}
 
           {/* Grade Notes */}
           {grade.notes && (
@@ -1570,7 +1623,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
 
             {/* 3D Viewer */}
             <CardViewer3D
-              frontImage={selectedCard.tcgdex_image || selectedCard.user_card_image || selectedCard.enhanced_front_path}
+              frontImage={selectedCard.user_card_image || selectedCard.enhanced_front_path || selectedCard.front_image_path}
               backImage={selectedCard.enhanced_back_path}
               grade={grade.value}
               gradeLabel={grade.label}

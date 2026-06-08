@@ -1,123 +1,112 @@
 /**
- * Claude AI Card Grading Analysis - Multi-Company Format
+ * Claude AI Card Grading Analysis - Direct Anthropic API
+ *
+ * Same grading logic as ai-analyze.js but uses Anthropic SDK directly
+ * instead of Replicate. Requires uploading images to get URLs first.
  *
  * Returns grades for ALL major grading companies:
  * - PSA, BGS, SGC, CGC, TAG
- *
- * Each company has different standards - Claude applies them all
- * and returns grades in each format for easy tab switching.
  */
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-  maxDuration: 90,
-};
+import Anthropic from '@anthropic-ai/sdk';
 
-const CLAUDE_MODEL = 'anthropic/claude-4-sonnet';
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
+  const { frontUrl, backUrl, cardType = 'pokemon' } = req.body;
 
-  if (!REPLICATE_API_TOKEN) {
-    return res.status(500).json({
-      error: 'Replicate API not configured',
-      message: 'Server missing REPLICATE_API_TOKEN'
-    });
+  if (!frontUrl) {
+    return res.status(400).json({ error: 'Missing frontUrl' });
+  }
+
+  // Validate URLs
+  try {
+    new URL(frontUrl);
+    if (backUrl) new URL(backUrl);
+  } catch {
+    return res.status(400).json({ error: 'Invalid image URLs provided' });
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
   }
 
   try {
-    const { image, isStitched = false, cardType = 'pokemon' } = req.body;
-
-    if (!image) {
-      return res.status(400).json({ error: 'No image provided' });
-    }
-
-    console.log('[Claude] Starting multi-company grading analysis...');
-    console.log('[Claude] Stitched (front+back):', isStitched);
-    console.log('[Claude] Card type:', cardType);
-    console.log('[Claude] Image size:', Math.round(image.length / 1024), 'KB');
-
-    const apiUrl = `https://api.replicate.com/v1/models/${CLAUDE_MODEL}/predictions`;
-
+    const isStitched = !!backUrl;
     const prompt = isStitched
       ? buildStitchedGradingPrompt(cardType)
       : buildSingleGradingPrompt(cardType);
 
-    console.log('[Claude] Sending to Replicate...');
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'wait',
-      },
-      body: JSON.stringify({
-        input: {
-          prompt,
-          image,
-          max_tokens: 6000,
-          temperature: 0.1,
-        }
-      }),
+    console.log('[AI-Direct] Starting analysis with URLs:', {
+      front: frontUrl.substring(0, 50) + '...',
+      back: backUrl ? backUrl.substring(0, 50) + '...' : 'none',
+      isStitched,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Claude] API error:', response.status, errorText);
-      return res.status(500).json({
-        error: 'Replicate API error',
-        status: response.status,
-        details: errorText.substring(0, 500),
+    // Build message content with images
+    const content = [];
+
+    // Add front image
+    content.push({
+      type: 'image',
+      source: {
+        type: 'url',
+        url: frontUrl,
+      },
+    });
+
+    // Add back image if provided
+    if (backUrl) {
+      content.push({
+        type: 'image',
+        source: {
+          type: 'url',
+          url: backUrl,
+        },
       });
     }
 
-    let prediction = await response.json();
-    console.log('[Claude] Prediction ID:', prediction.id, 'Status:', prediction.status);
+    // Add prompt
+    content.push({
+      type: 'text',
+      text: prompt,
+    });
 
-    if (prediction.status === 'starting' || prediction.status === 'processing') {
-      console.log('[Claude] Polling for result...');
-      prediction = await pollForResult(prediction.urls.get, REPLICATE_API_TOKEN);
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 6000,
+      messages: [{
+        role: 'user',
+        content,
+      }],
+    });
+
+    // Extract text response
+    const textContent = response.content.find(c => c.type === 'text');
+    if (!textContent) {
+      throw new Error('No text response from Claude');
     }
 
-    if (prediction.status !== 'succeeded') {
-      return res.status(500).json({
-        error: 'Claude analysis failed',
-        status: prediction.status,
-        details: prediction.error,
-      });
-    }
-
-    if (!prediction.output) {
-      return res.status(500).json({
-        error: 'No output from Claude',
-        prediction: { id: prediction.id, status: prediction.status },
-      });
-    }
-
-    const text = Array.isArray(prediction.output)
-      ? prediction.output.join('')
-      : prediction.output;
-
-    console.log('[Claude] Response length:', text?.length || 0);
-
-    if (!text) {
-      return res.status(500).json({
-        error: 'Empty response from Claude',
-      });
-    }
-
+    // Parse JSON response
+    const text = textContent.text;
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error('[Claude] No JSON found:', text.substring(0, 500));
+      console.error('[AI-Direct] No JSON found:', text.substring(0, 500));
       return res.status(500).json({
         error: 'No JSON in response',
         response: text.substring(0, 1000),
@@ -128,6 +117,7 @@ export default async function handler(req, res) {
     try {
       analysis = JSON.parse(jsonMatch[0]);
     } catch (parseError) {
+      console.error('[AI-Direct] Parse error:', parseError.message);
       return res.status(500).json({
         error: 'Failed to parse JSON',
         parseError: parseError.message,
@@ -135,16 +125,31 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log('[Claude] Analysis complete');
+    console.log('[AI-Direct] Analysis complete:', {
+      card: analysis.cardInfo?.name,
+      psa: analysis.grades?.psa?.grade,
+    });
 
     return res.status(200).json({
       success: true,
       analysis,
-      model: CLAUDE_MODEL,
+      model: 'claude-sonnet-4-20250514',
     });
 
   } catch (error) {
-    console.error('[Claude] Error:', error);
+    console.error('[AI-Direct] Error:', error);
+
+    // Handle specific Anthropic errors
+    if (error.status === 401) {
+      return res.status(500).json({ error: 'Invalid Anthropic API key' });
+    }
+    if (error.status === 429) {
+      return res.status(429).json({ error: 'Rate limited - please try again in a moment' });
+    }
+    if (error.message?.includes('Could not download image')) {
+      return res.status(400).json({ error: 'Claude could not access the image URLs. Ensure images are publicly accessible.' });
+    }
+
     return res.status(500).json({
       error: 'Analysis failed',
       message: error.message,
@@ -152,41 +157,15 @@ export default async function handler(req, res) {
   }
 }
 
-async function pollForResult(url, token, maxAttempts = 45) {
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, 2000));
-
-    try {
-      const response = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) continue;
-
-      const prediction = await response.json();
-
-      if (prediction.status === 'succeeded' || prediction.status === 'failed') {
-        return prediction;
-      }
-
-      console.log(`[Claude] Poll ${i + 1}/${maxAttempts}: ${prediction.status}`);
-    } catch (e) {
-      console.error(`[Claude] Poll ${i + 1} failed:`, e.message);
-    }
-  }
-
-  return { status: 'failed', error: 'Timeout (90s)' };
-}
-
 /**
- * Comprehensive grading prompt for STITCHED image (front+back)
+ * Comprehensive grading prompt for BOTH front and back images
  */
 function buildStitchedGradingPrompt(cardType) {
-  return `You are an expert trading card grader with deep knowledge of PSA, BGS, SGC, CGC, and TAG grading standards. Analyze this ${cardType} card image.
+  return `You are an expert trading card grader with deep knowledge of PSA, BGS, SGC, CGC, and TAG grading standards. Analyze this ${cardType} card.
 
 ## IMAGE LAYOUT
-- LEFT HALF: Card FRONT (artwork side)
-- RIGHT HALF: Card BACK
+- IMAGE 1: Card FRONT (artwork side)
+- IMAGE 2: Card BACK
 Both sides are shown. Analyze BOTH.
 
 ## TASK 1: MEASURE CENTERING (Critical - be precise to one decimal!)

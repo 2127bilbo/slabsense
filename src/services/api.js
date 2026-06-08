@@ -41,11 +41,18 @@ function dataURLtoBlob(dataURL) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// API PROVIDER CONFIG
+// Toggle between Replicate (current) and Direct Anthropic API
+// ═══════════════════════════════════════════════════════════════════════════
+const USE_DIRECT_ANTHROPIC = true;  // true = Direct Anthropic, false = Replicate
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
 // IMAGE COMPRESSION CONFIG
 // This compression is required while using Replicate (Vercel 4.5MB payload limit)
-// TODO: Remove this when migrating to direct Anthropic API for standard AI grade
+// Not needed when USE_DIRECT_ANTHROPIC = true (images uploaded to Supabase)
 // ═══════════════════════════════════════════════════════════════════════════
-const ENABLE_COMPRESSION = true; // Set to false when Replicate is removed
+const ENABLE_COMPRESSION = !USE_DIRECT_ANTHROPIC; // Auto-disable when using direct API
 const MAX_CLAUDE_DIMENSION = 1500;
 const DEFAULT_JPEG_QUALITY = 0.85;
 
@@ -410,19 +417,145 @@ async function stitchCroppedCards(frontDataUrl, backDataUrl) {
 }
 
 /**
+ * Upload image to Supabase for Standard AI analysis (Direct Anthropic path)
+ * Returns public URL that Claude can fetch directly
+ */
+async function uploadImageForStandardAnalysis(dataUrl, side, userId) {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase not configured - required for Direct Anthropic API');
+  }
+
+  if (!userId) {
+    throw new Error('User ID required for Direct Anthropic uploads');
+  }
+
+  try {
+    // Convert data URL to blob
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    // Generate unique filename under user's folder (required by RLS policy)
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const filename = `${userId}/standard-analysis/${timestamp}_${randomId}_${side}.jpg`;
+
+    // Upload to storage bucket
+    const { data, error } = await supabase.storage
+      .from('card-images')
+      .upload(filename, blob, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (error) {
+      console.error('[Standard AI] Upload error:', error);
+      throw new Error(`Failed to upload ${side} image: ${error.message}`);
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('card-images')
+      .getPublicUrl(filename);
+
+    const publicUrl = urlData?.publicUrl;
+    if (!publicUrl) {
+      throw new Error(`Failed to get public URL for ${side} image`);
+    }
+
+    console.log(`[Standard AI] Uploaded ${side}:`, publicUrl.substring(0, 60) + '...');
+    return publicUrl;
+  } catch (err) {
+    console.error(`[Standard AI] Upload ${side} error:`, err);
+    throw err;
+  }
+}
+
+/**
  * CLAUDE GRADING ANALYSIS - Returns grades immediately
  *
- * Analyzes ORIGINAL images for accurate grading (ONE Replicate call)
- * Returns immediately so UI can show results while SAM runs separately
+ * Supports two modes based on USE_DIRECT_ANTHROPIC config:
+ * - Direct Anthropic: Uploads images to Supabase, calls /api/ai-analyze-direct
+ * - Replicate: Stitches images, calls /api/ai-analyze (legacy)
  *
  * Cost: ~$0.02-0.03 per analysis
+ *
+ * @param {string} frontImageDataUrl - Front card image
+ * @param {string} backImageDataUrl - Back card image (optional for Replicate, recommended for Direct)
+ * @param {string} cardType - 'pokemon' | 'sports' | 'tcg'
+ * @param {string} userId - User ID (required when USE_DIRECT_ANTHROPIC = true)
  */
-export async function claudeGradingAnalysis(frontImageDataUrl, backImageDataUrl = null, cardType = 'pokemon') {
+export async function claudeGradingAnalysis(frontImageDataUrl, backImageDataUrl = null, cardType = 'pokemon', userId = null) {
   console.log('[Claude AI] Starting grading analysis...');
+  console.log('[Claude AI] Provider:', USE_DIRECT_ANTHROPIC ? 'Direct Anthropic' : 'Replicate');
   console.log('[Claude AI] Has back image:', !!backImageDataUrl);
 
   try {
-    // Stitch ORIGINAL images for Claude (high quality for accurate grading)
+    // ═══════════════════════════════════════════════════════════════════════
+    // DIRECT ANTHROPIC PATH - Upload images, call direct endpoint
+    // ═══════════════════════════════════════════════════════════════════════
+    if (USE_DIRECT_ANTHROPIC) {
+      if (!userId) {
+        throw new Error('User ID required for Direct Anthropic API. Please sign in.');
+      }
+
+      // Upload images to Supabase to get public URLs
+      console.log('[Claude AI] Uploading images to Supabase...');
+      const uploadPromises = [uploadImageForStandardAnalysis(frontImageDataUrl, 'front', userId)];
+      if (backImageDataUrl) {
+        uploadPromises.push(uploadImageForStandardAnalysis(backImageDataUrl, 'back', userId));
+      }
+
+      const urls = await Promise.all(uploadPromises);
+      const frontUrl = urls[0];
+      const backUrl = urls[1] || null;
+
+      console.log('[Claude AI] Images uploaded, calling Direct Anthropic API...');
+
+      // Call direct Anthropic endpoint
+      const response = await fetch('/api/ai-analyze-direct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          frontUrl,
+          backUrl,
+          cardType,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[Claude AI] Direct API error:', errorData);
+        throw new Error(errorData.error || `API error: ${response.status}`);
+      }
+
+      const claudeResult = await response.json();
+
+      if (!claudeResult.success) {
+        throw new Error(claudeResult.error || 'Direct analysis failed');
+      }
+
+      const analysis = claudeResult.analysis;
+      console.log('[Claude AI] Card identified:', analysis.cardInfo?.name);
+
+      return {
+        success: true,
+        cardInfo: analysis.cardInfo || null,
+        centering: analysis.centering || {
+          front: { leftRight: '50/50', topBottom: '50/50' },
+          back: null,
+        },
+        condition: analysis.condition || null,
+        grades: analysis.grades || null,
+        summary: analysis.summary || null,
+        rawAnalysis: analysis,
+        model: claudeResult.model,
+        cost: 0.02, // Direct API is cheaper
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // REPLICATE PATH - Stitch images, call Replicate endpoint (legacy)
+    // ═══════════════════════════════════════════════════════════════════════
     let imageForClaude;
     let isStitched = false;
 

@@ -32,12 +32,13 @@ Extract from the card:
 - Any variant info (holo, reverse holo, full art, etc.)
 - Language
 
-### 2. CENTERING MEASUREMENT
-Measure border widths precisely:
-- Front: Left/Right ratio (e.g., "55/45" means left border is 55% of total horizontal border)
-- Front: Top/Bottom ratio
-- Back: Left/Right ratio
-- Back: Top/Bottom ratio
+### 2. CENTERING MEASUREMENT (use decimal precision)
+Measure border widths precisely WITH ONE DECIMAL PLACE:
+- Front: Left/Right ratio (e.g., "54.2/45.8" means left border is 54.2% of total horizontal border)
+- Front: Top/Bottom ratio (e.g., "49.5/50.5")
+- Back: Left/Right ratio (e.g., "52.3/47.7")
+- Back: Top/Bottom ratio (e.g., "50.0/50.0")
+- ALWAYS include one decimal for accuracy
 
 ### 3. CONDITION ASSESSMENT (Score each 1-10)
 **CORNERS** - Examine all 8 corners (4 front, 4 back):
@@ -84,8 +85,8 @@ Based on your analysis, provide grades for:
     "language": "string"
   },
   "centering": {
-    "front": { "leftRight": "55/45", "topBottom": "52/48" },
-    "back": { "leftRight": "50/50", "topBottom": "51/49" }
+    "front": { "leftRight": "54.2/45.8", "topBottom": "49.5/50.5" },
+    "back": { "leftRight": "52.3/47.7", "topBottom": "50.0/50.0" }
   },
   "condition": {
     "corners": 8.5,
