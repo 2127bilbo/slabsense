@@ -50,6 +50,9 @@ For FRONT Top/Bottom:
 
 For BACK Left/Right and Top/Bottom:
 - Repeat for back image
+- **PAY EXTRA ATTENTION TO THE BACK** - the orange border on Pokemon backs makes centering very visible
+- Look at the orange border width on LEFT vs RIGHT carefully
+- Back centering is often MORE off-center than front - don't assume it's centered
 
 **Critical rules:**
 - If borders look "about equal," look HARDER - one is almost always wider
