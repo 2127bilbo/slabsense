@@ -32,13 +32,30 @@ Extract from the card:
 - Any variant info (holo, reverse holo, full art, etc.)
 - Language
 
-### 2. CENTERING MEASUREMENT (use decimal precision)
-Measure border widths precisely WITH ONE DECIMAL PLACE:
-- Front: Left/Right ratio (e.g., "54.2/45.8" means left border is 54.2% of total horizontal border)
-- Front: Top/Bottom ratio (e.g., "49.5/50.5")
-- Back: Left/Right ratio (e.g., "52.3/47.7")
-- Back: Top/Bottom ratio (e.g., "50.0/50.0")
-- ALWAYS include one decimal for accuracy
+### 2. CENTERING MEASUREMENT (CRITICAL - be extremely precise)
+Measure EACH border independently, then calculate ratios WITH ONE DECIMAL PLACE:
+
+**Method:**
+1. Measure the LEFT border width in pixels
+2. Measure the RIGHT border width in pixels
+3. Calculate: Left% = Left / (Left + Right) * 100
+4. Repeat for Top/Bottom
+5. Do this separately for FRONT and BACK
+
+**Important:**
+- Do NOT assume the card is centered - most cards are off-center
+- A difference of just 2-3% affects the grade significantly
+- Double-check which border is actually wider
+- "46.0/54.0" means LEFT border is 46% (right-heavy card)
+- "54.0/46.0" means LEFT border is 54% (left-heavy card)
+
+**Output format:**
+- Front: Left/Right ratio (e.g., "46.0/54.0" = right-heavy)
+- Front: Top/Bottom ratio (e.g., "45.5/54.5" = bottom-heavy)
+- Back: Left/Right ratio (e.g., "56.0/44.0" = left-heavy)
+- Back: Top/Bottom ratio (e.g., "46.0/54.0" = bottom-heavy)
+
+ALWAYS use one decimal place. Be critical - even small offsets matter for grading.
 
 ### 3. CONDITION ASSESSMENT (Score each 1-10)
 **CORNERS** - Examine all 8 corners (4 front, 4 back):

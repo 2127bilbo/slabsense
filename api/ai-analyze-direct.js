@@ -168,12 +168,24 @@ function buildStitchedGradingPrompt(cardType) {
 - IMAGE 2: Card BACK
 Both sides are shown. Analyze BOTH.
 
-## TASK 1: MEASURE CENTERING (Critical - be precise to one decimal!)
+## TASK 1: MEASURE CENTERING (CRITICAL - be extremely precise!)
 
-For BOTH front and back, measure the border widths and calculate ratios WITH DECIMAL PRECISION:
-- Left/Right ratio (e.g., "54.2/45.8" means 54.2% of total LR border is on left)
-- Top/Bottom ratio (e.g., "48.5/51.5" means 48.5% of total TB border is on top)
-- ALWAYS use one decimal place for accuracy (e.g., "50.0/50.0" not "50/50")
+Measure EACH border independently, then calculate ratios WITH ONE DECIMAL PLACE:
+
+**Method:**
+1. Measure the LEFT border width in pixels
+2. Measure the RIGHT border width in pixels
+3. Calculate: Left% = Left / (Left + Right) * 100
+4. Repeat for Top/Bottom, then do BACK side
+
+**Important:**
+- Do NOT assume the card is centered - most cards are off-center
+- A 2-3% difference significantly affects the grade
+- Double-check which border is actually wider
+- "46.0/54.0" means LEFT is 46% of total (card is RIGHT-heavy)
+- "54.0/46.0" means LEFT is 54% of total (card is LEFT-heavy)
+
+ALWAYS use one decimal place. Be critical - small offsets matter.
 
 ## TASK 2: ASSESS CONDITION
 
