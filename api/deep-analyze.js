@@ -90,12 +90,33 @@ BE AGGRESSIVE - graders are critical, you should be too.
 - Severity (minor/moderate/severe)
 
 ### 4. GRADES FOR ALL COMPANIES
-Based on your analysis, provide grades for:
-- **PSA** (1-10 scale, half points allowed: 9.5, etc.)
-- **BGS** (1-10 scale with subgrades for Centering, Corners, Edges, Surface)
-- **CGC** (1-10 scale with subgrades)
-- **SGC** (1-10 scale)
-- **TAG** (1-1000 scale with 8 subgrades for front/back of each category)
+Based on your analysis, provide grades for each company using their specific standards:
+
+**PSA** (1-10 scale, NO 9.5 exists):
+- Labels: 10=Gem Mint, 9=Mint, 8=NM-MT, 7=NM, 6=EX-MT, 5=EX, 4=VG-EX, 3=VG, 2=Good, 1=Poor
+- Half grades available: 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5 (but NOT 9.5)
+
+**BGS** (1-10 scale with 4 subgrades):
+- Labels: 10=Pristine, 9.5=Gem Mint, 9=Mint, 8.5=NM-MT+, 8=NM-MT, 7.5=NM+, 7=NM
+- Subgrades: centering, corners, edges, surface (each 1-10)
+- Final grade can only be 0.5 above lowest subgrade
+
+**CGC** (1-10 scale with 4 subgrades):
+- Labels: 10=Pristine/Gem Mint, 9.5=Mint+, 9=Mint, 8.5=NM/Mint+, 8=NM/Mint, 7=NM
+- Subgrades: centering, corners, edges, surface (each 1-10)
+
+**SGC** (1-10 scale):
+- Labels: 10=Pristine or Gem Mint, 9.5=Mint+, 9=Mint, 8.5=NM/MT+, 8=NM/MT, 7=NM
+
+**TAG** (1000-point score system, NO 9.5):
+- Score 990-1000 = Grade 10 "Pristine"
+- Score 950-989 = Grade 10 "Gem Mint"
+- Score 900-949 = Grade 9 "Mint"
+- Score 850-899 = Grade 8.5 "NM-MT+"
+- Score 800-849 = Grade 8 "NM-MT"
+- Score 750-799 = Grade 7.5 "NM+"
+- Score 700-749 = Grade 7 "NM"
+- 8 subgrades (each ~100-125 max): frontCentering, backCentering, frontCorners, backCorners, frontEdges, backEdges, frontSurface, backSurface
 
 ### 5. SUMMARY
 - Key positives (what's good about this card's condition)
@@ -129,27 +150,35 @@ Based on your analysis, provide grades for:
     { "type": "scratch", "location": "center surface front", "severity": "moderate" }
   ],
   "grades": {
-    "psa": { "grade": 8, "label": "NM-MT" },
+    "psa": { "grade": 8, "label": "NM-MT", "notes": "Centering and condition analysis" },
     "bgs": {
       "grade": 8.5,
       "label": "NM-MT+",
-      "subgrades": { "centering": 9, "corners": 8.5, "edges": 9, "surface": 8 }
+      "subgrades": { "centering": 9, "corners": 8.5, "edges": 9, "surface": 8 },
+      "notes": "Lowest subgrade limits final grade"
     },
     "cgc": {
       "grade": 8.5,
       "label": "NM/Mint+",
-      "subgrades": { "centering": 9, "corners": 8.5, "edges": 9, "surface": 8 }
+      "subgrades": { "centering": 9, "corners": 8.5, "edges": 9, "surface": 8 },
+      "notes": "Holistic assessment"
     },
-    "sgc": { "grade": 8.5, "label": "NM-MT+" },
+    "sgc": { "grade": 8.5, "label": "NM/MT+", "notes": "Back centering assessment" },
     "tag": {
-      "grade": 850,
-      "label": "NM-MT+",
+      "score": 845,
+      "grade": 8,
+      "label": "NM-MT",
       "subgrades": {
-        "centeringFront": 90, "centeringBack": 95,
-        "cornersFront": 85, "cornersBack": 88,
-        "edgesFront": 90, "edgesBack": 92,
-        "surfaceFront": 80, "surfaceBack": 85
-      }
+        "frontCentering": 105,
+        "backCentering": 108,
+        "frontCorners": 110,
+        "backCorners": 105,
+        "frontEdges": 107,
+        "backEdges": 110,
+        "frontSurface": 100,
+        "backSurface": 100
+      },
+      "notes": "Score 845 = NM-MT range (800-849)"
     }
   },
   "summary": {
@@ -159,7 +188,13 @@ Based on your analysis, provide grades for:
   }
 }
 
-IMPORTANT: Return ONLY the JSON object, no markdown formatting or explanation.`;
+CRITICAL RULES:
+- PSA has NO 9.5 grade - use 9 or 10 only at top end
+- TAG has NO 9.5 - jumps from 9 Mint to 10 Gem Mint
+- TAG must have BOTH "score" (1000-point) AND "grade" (1-10) fields
+- TAG subgrade keys must be: frontCentering, backCentering, frontCorners, backCorners, frontEdges, backEdges, frontSurface, backSurface
+- BGS subgrades must mathematically support the final grade (final = lowest + 0.5 max)
+- Return ONLY valid JSON, no markdown`;
 
 export default async function handler(req, res) {
   // CORS headers
