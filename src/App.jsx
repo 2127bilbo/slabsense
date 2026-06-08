@@ -3367,8 +3367,12 @@ export default function SlabSense(){
         }
 
         // Store in DEEP-specific state (not overwriting standard AI)
+        // Merge defects into condition for consistent display access
         if (result.condition) {
-          setDeepAiCondition(result.condition);
+          setDeepAiCondition({
+            ...result.condition,
+            defects: result.defects || [],
+          });
         }
 
         if (result.grades) {
@@ -4113,19 +4117,27 @@ export default function SlabSense(){
           )}
 
           {/* Centering Measurements */}
-          {(fR?.centering || bR?.centering) && (
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${useAiCentering ? '#8b5cf633' : '#1a1c22'}`,marginBottom:12}}>
+          {(fR?.centering || bR?.centering) && (()=>{
+            // Determine which centering data to use based on mode
+            const isDeep = gradeMode === 'deep' && deepAiCentering;
+            const isAi = gradeMode === 'ai' && useAiCentering && aiCentering;
+            const activeCentering = isDeep ? deepAiCentering : (isAi ? aiCentering : null);
+            const centerColor = isDeep ? '#f97316' : (isAi ? '#8b5cf6' : '#00ff88');
+            const borderColor = isDeep ? '#f9731633' : (isAi ? '#8b5cf633' : '#1a1c22');
+            return (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${borderColor}`,marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                 <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase"}}>Centering Measurements</div>
-                {useAiCentering && <span style={{fontFamily:mono,fontSize:8,color:"#8b5cf6",background:"rgba(139,92,246,0.15)",padding:"2px 6px",borderRadius:4}}>AI</span>}
+                {isDeep && <span style={{fontFamily:mono,fontSize:8,color:"#f97316",background:"rgba(249,115,22,0.15)",padding:"2px 6px",borderRadius:4}}>DEEP AI</span>}
+                {isAi && !isDeep && <span style={{fontFamily:mono,fontSize:8,color:"#8b5cf6",background:"rgba(139,92,246,0.15)",padding:"2px 6px",borderRadius:4}}>AI</span>}
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT {useAiCentering && aiCentering?.front ? '(AI)' : frontCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
-                  {useAiCentering && aiCentering?.front ? (
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT {isDeep ? '(Deep AI)' : isAi && aiCentering?.front ? '(AI)' : frontCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
+                  {activeCentering?.front ? (
                     <>
-                      <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.front.lrDisplay} L/R</div>
-                      <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.front.tbDisplay} T/B</div>
+                      <div style={{fontFamily:mono,fontSize:11,color:centerColor}}>{activeCentering.front.lrDisplay} L/R</div>
+                      <div style={{fontFamily:mono,fontSize:11,color:centerColor}}>{activeCentering.front.tbDisplay} T/B</div>
                     </>
                   ) : frontCenteringData?.didManualCenter ? (
                     <>
@@ -4140,11 +4152,11 @@ export default function SlabSense(){
                   )}
                 </div>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK {useAiCentering && aiCentering?.back ? '(AI)' : backCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
-                  {useAiCentering && aiCentering?.back ? (
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK {isDeep ? '(Deep AI)' : isAi && aiCentering?.back ? '(AI)' : backCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
+                  {activeCentering?.back ? (
                     <>
-                      <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.back.lrDisplay} L/R</div>
-                      <div style={{fontFamily:mono,fontSize:11,color:"#8b5cf6"}}>{aiCentering.back.tbDisplay} T/B</div>
+                      <div style={{fontFamily:mono,fontSize:11,color:centerColor}}>{activeCentering.back.lrDisplay} L/R</div>
+                      <div style={{fontFamily:mono,fontSize:11,color:centerColor}}>{activeCentering.back.tbDisplay} T/B</div>
                     </>
                   ) : backCenteringData?.didManualCenter ? (
                     <>
@@ -4160,7 +4172,7 @@ export default function SlabSense(){
                 </div>
               </div>
               {/* Show AI centering comparison if available but not in use */}
-              {aiCentering?.front && !useAiCentering && (
+              {aiCentering?.front && !isAi && !isDeep && (
                 <div style={{marginTop:8,padding:"6px 8px",background:"rgba(139,92,246,0.08)",borderRadius:4}}>
                   <div style={{fontFamily:mono,fontSize:8,color:"#8b5cf6",marginBottom:4}}>AI DETECTED</div>
                   <div style={{display:"flex",gap:16}}>
@@ -4170,63 +4182,92 @@ export default function SlabSense(){
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
-          {/* AI Condition Assessment */}
-          {aiCondition && (
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
-              <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase",marginBottom:10}}>Condition Assessment</div>
+          {/* AI/Deep AI Condition Assessment */}
+          {(()=>{
+            const isDeep = gradeMode === 'deep';
+            const condition = isDeep ? deepAiCondition : aiCondition;
+            if (!condition) return null;
+            const borderColor = isDeep ? '#f9731633' : '#1a1c22';
+            const labelColor = isDeep ? '#f97316' : '#666';
+            return (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${borderColor}`,marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase"}}>Condition Assessment</div>
+                {isDeep && <span style={{fontFamily:mono,fontSize:8,color:"#f97316",background:"rgba(249,115,22,0.15)",padding:"2px 6px",borderRadius:4}}>DEEP AI</span>}
+              </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                {aiCondition.corners!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                {condition.corners!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Corners</span>
-                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:aiCondition.corners>=9?"#00ff88":aiCondition.corners>=7?"#ffcc00":"#ff6633"}}>{aiCondition.corners}/10</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:condition.corners>=9?"#00ff88":condition.corners>=7?"#ffcc00":"#ff6633"}}>{condition.corners}/10</span>
                 </div>)}
-                {aiCondition.edges!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                {condition.edges!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Edges</span>
-                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:aiCondition.edges>=9?"#00ff88":aiCondition.edges>=7?"#ffcc00":"#ff6633"}}>{aiCondition.edges}/10</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:condition.edges>=9?"#00ff88":condition.edges>=7?"#ffcc00":"#ff6633"}}>{condition.edges}/10</span>
                 </div>)}
-                {aiCondition.surface!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                {condition.surface!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Surface</span>
-                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:aiCondition.surface>=9?"#00ff88":aiCondition.surface>=7?"#ffcc00":"#ff6633"}}>{aiCondition.surface}/10</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:condition.surface>=9?"#00ff88":condition.surface>=7?"#ffcc00":"#ff6633"}}>{condition.surface}/10</span>
                 </div>)}
-                {aiCondition.centering!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                {condition.centering!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Centering</span>
-                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:aiCondition.centering>=9?"#00ff88":aiCondition.centering>=7?"#ffcc00":"#ff6633"}}>{aiCondition.centering}/10</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:condition.centering>=9?"#00ff88":condition.centering>=7?"#ffcc00":"#ff6633"}}>{condition.centering}/10</span>
+                </div>)}
+                {condition.overall!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                  <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Overall</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:condition.overall>=9?"#00ff88":condition.overall>=7?"#ffcc00":"#ff6633"}}>{condition.overall}/10</span>
                 </div>)}
               </div>
-              {aiCondition.defects?.length > 0 && (
+              {condition.defects?.length > 0 && (
                 <div style={{marginTop:10}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#ff9944",marginBottom:4}}>DEFECTS NOTED</div>
-                  {aiCondition.defects.map((d,i)=>(<div key={i} style={{fontFamily:sans,fontSize:11,color:"#888",marginBottom:2}}>• {d}</div>))}
+                  <div style={{fontFamily:mono,fontSize:9,color:"#ff9944",marginBottom:4}}>DEFECTS NOTED {isDeep && '(Deep AI)'}</div>
+                  {condition.defects.map((d,i)=>{
+                    // Handle both string defects (AI) and object defects (Deep AI)
+                    const text = typeof d === 'string' ? d :
+                      `${d.type}${d.location ? ` - ${d.location}` : ''}${d.severity ? ` (${d.severity})` : ''}`;
+                    return (<div key={i} style={{fontFamily:sans,fontSize:11,color:"#888",marginBottom:2}}>• {text}</div>);
+                  })}
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
-          {/* AI Summary - Positives, Concerns, Recommendation */}
-          {(aiGradingNotes?.positives?.length > 0 || aiGradingNotes?.concerns?.length > 0 || aiSummary?.recommendation) && (
-            <div style={{padding:14,background:"linear-gradient(135deg, #0d0f13 0%, #12141a 100%)",borderRadius:10,border:"1px solid rgba(139,92,246,0.3)",marginBottom:12}}>
-              <div style={{fontFamily:mono,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",marginBottom:10}}>AI Analysis Summary</div>
-              {aiGradingNotes?.positives?.length > 0 && (
+          {/* AI/Deep AI Summary - Positives, Concerns, Recommendation */}
+          {(()=>{
+            const isDeep = gradeMode === 'deep';
+            const summary = isDeep ? deepAiSummary : aiSummary;
+            const notes = isDeep ? deepAiSummary : aiGradingNotes;
+            const hasContent = notes?.positives?.length > 0 || notes?.concerns?.length > 0 || summary?.recommendation;
+            if (!hasContent) return null;
+            const accentColor = isDeep ? '#f97316' : '#8b5cf6';
+            const borderColor = isDeep ? 'rgba(249,115,22,0.3)' : 'rgba(139,92,246,0.3)';
+            return (
+            <div style={{padding:14,background:"linear-gradient(135deg, #0d0f13 0%, #12141a 100%)",borderRadius:10,border:`1px solid ${borderColor}`,marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:accentColor,textTransform:"uppercase",marginBottom:10}}>{isDeep ? 'Deep AI' : 'AI'} Analysis Summary</div>
+              {notes?.positives?.length > 0 && (
                 <div style={{marginBottom:10}}>
                   <div style={{fontFamily:mono,fontSize:9,color:"#00ff88",marginBottom:6}}>✓ POSITIVES</div>
-                  {aiGradingNotes.positives.map((p,i)=>(<div key={i} style={{fontFamily:sans,fontSize:12,color:"#aaa",paddingLeft:12,marginBottom:3}}>• {p}</div>))}
+                  {notes.positives.map((p,i)=>(<div key={i} style={{fontFamily:sans,fontSize:12,color:"#aaa",paddingLeft:12,marginBottom:3}}>• {p}</div>))}
                 </div>
               )}
-              {aiGradingNotes?.concerns?.length > 0 && (
+              {notes?.concerns?.length > 0 && (
                 <div style={{marginBottom:10}}>
                   <div style={{fontFamily:mono,fontSize:9,color:"#ff9944",marginBottom:6}}>⚠ CONCERNS</div>
-                  {aiGradingNotes.concerns.map((c,i)=>(<div key={i} style={{fontFamily:sans,fontSize:12,color:"#999",paddingLeft:12,marginBottom:3}}>• {c}</div>))}
+                  {notes.concerns.map((c,i)=>(<div key={i} style={{fontFamily:sans,fontSize:12,color:"#999",paddingLeft:12,marginBottom:3}}>• {c}</div>))}
                 </div>
               )}
-              {aiSummary?.recommendation && (
-                <div style={{padding:"10px 12px",background:"rgba(0,255,136,0.05)",borderRadius:8,border:"1px solid rgba(0,255,136,0.2)"}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#00ff88",marginBottom:6}}>💡 RECOMMENDATION</div>
-                  <div style={{fontFamily:sans,fontSize:12,color:"#aaa",lineHeight:1.5}}>{aiSummary.recommendation}</div>
+              {summary?.recommendation && (
+                <div style={{padding:"10px 12px",background:isDeep?"rgba(249,115,22,0.05)":"rgba(0,255,136,0.05)",borderRadius:8,border:isDeep?"1px solid rgba(249,115,22,0.2)":"1px solid rgba(0,255,136,0.2)"}}>
+                  <div style={{fontFamily:mono,fontSize:9,color:isDeep?"#f97316":"#00ff88",marginBottom:6}}>💡 RECOMMENDATION</div>
+                  <div style={{fontFamily:sans,fontSize:12,color:"#aaa",lineHeight:1.5}}>{summary.recommendation}</div>
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
     </div>)}
 

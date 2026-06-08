@@ -1274,7 +1274,9 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
             const edges = isAiMode ? conditionData.edges : conditionData.edges?.score;
             const surface = isAiMode ? conditionData.surface : conditionData.surface?.score;
             const centering = isAiMode ? conditionData.centering : conditionData.centering?.score;
-            const defects = isAiMode ? conditionData.defects : null;
+            // Deep mode: defects at root level of deepGradeResult, AI mode: inside ai_condition
+            const defects = gradeMode === 'deep' ? (deepGradeResult?.defects || conditionData.defects) :
+                            gradeMode === 'ai' ? conditionData.defects : null;
 
             return (
               <div style={{
@@ -1310,18 +1312,23 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 {defects?.length > 0 && (
                   <div style={{ marginTop: 10 }}>
                     <div style={{ fontFamily: mono, fontSize: 9, color: '#ff9944', marginBottom: 4 }}>
-                      DEFECTS
+                      DEFECTS {gradeMode === 'deep' && '(Deep AI)'}
                     </div>
-                    {defects.map((d, i) => (
-                      <div key={i} style={{
-                        fontFamily: sans,
-                        fontSize: 11,
-                        color: '#888',
-                        marginBottom: 2,
-                      }}>
-                        • {d}
-                      </div>
-                    ))}
+                    {defects.map((d, i) => {
+                      // Handle both string defects (AI) and object defects (Deep AI)
+                      const text = typeof d === 'string' ? d :
+                        `${d.type}${d.location ? ` - ${d.location}` : ''}${d.severity ? ` (${d.severity})` : ''}`;
+                      return (
+                        <div key={i} style={{
+                          fontFamily: sans,
+                          fontSize: 11,
+                          color: '#888',
+                          marginBottom: 2,
+                        }}>
+                          • {text}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
