@@ -33,29 +33,39 @@ Extract from the card:
 - Language
 
 ### 2. CENTERING MEASUREMENT (CRITICAL - be extremely precise)
-Measure EACH border independently, then calculate ratios WITH ONE DECIMAL PLACE:
 
-**Method:**
-1. Measure the LEFT border width in pixels
-2. Measure the RIGHT border width in pixels
-3. Calculate: Left% = Left / (Left + Right) * 100
-4. Repeat for Top/Bottom
-5. Do this separately for FRONT and BACK
+**IMPORTANT: Most cards are NOT centered. Assume off-center until proven otherwise.**
 
-**Important:**
-- Do NOT assume the card is centered - most cards are off-center
-- A difference of just 2-3% affects the grade significantly
-- Double-check which border is actually wider
-- "46.0/54.0" means LEFT border is 46% (right-heavy card)
-- "54.0/46.0" means LEFT border is 54% (left-heavy card)
+**Step-by-step method (you MUST follow this):**
 
-**Output format:**
-- Front: Left/Right ratio (e.g., "46.0/54.0" = right-heavy)
-- Front: Top/Bottom ratio (e.g., "45.5/54.5" = bottom-heavy)
-- Back: Left/Right ratio (e.g., "56.0/44.0" = left-heavy)
-- Back: Top/Bottom ratio (e.g., "46.0/54.0" = bottom-heavy)
+For FRONT Left/Right:
+1. Look at the LEFT border (edge of card to edge of artwork/frame)
+2. Look at the RIGHT border
+3. Ask yourself: "Which border is visibly WIDER?"
+4. Estimate HOW MUCH wider (e.g., "right border is about 15-20% wider than left")
+5. Convert to ratio: if right is 20% wider, that's roughly 45/55
 
-ALWAYS use one decimal place. Be critical - even small offsets matter for grading.
+For FRONT Top/Bottom:
+- Repeat the same process
+
+For BACK Left/Right and Top/Bottom:
+- Repeat for back image
+
+**Critical rules:**
+- If borders look "about equal," look HARDER - one is almost always wider
+- A border that's 15-20% wider than the other = roughly 45/55 or 55/45
+- A border that's 25-30% wider = roughly 43/57 or 57/43
+- Do NOT round toward 50/50 - be aggressive in your estimates
+- "46.0/54.0" means LEFT is 46% (card shifted LEFT, right border wider)
+- "56.0/44.0" means LEFT is 56% (card shifted RIGHT, left border wider)
+
+**Output with one decimal place:**
+- Front L/R: e.g., "46.0/54.0"
+- Front T/B: e.g., "45.0/55.0"
+- Back L/R: e.g., "56.0/44.0"
+- Back T/B: e.g., "46.0/54.0"
+
+BE AGGRESSIVE - graders are critical, you should be too.
 
 ### 3. CONDITION ASSESSMENT (Score each 1-10)
 **CORNERS** - Examine all 8 corners (4 front, 4 back):
