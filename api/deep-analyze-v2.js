@@ -62,6 +62,17 @@ YOUR JOB:
 - Compare defect severity to the reference cards
 - Calculate final grade based on: OUR CENTERING + YOUR DEFECT FINDINGS
 
+TAG GRADE HIERARCHY (highest to lowest):
+- 10 PRISTINE (985-1000 pts) = PERFECT. Zero defects, perfect centering (<2% deviation)
+- 10 GEM MINT (950-984 pts) = Near perfect. May have 1-2 trivial flaws invisible to naked eye
+- 9.5 GEM MINT (925-949 pts) = Excellent. Minor flaws only visible under magnification
+- 9 MINT (900-924 pts) = Great condition. Small flaws may be visible
+- 8.5 NM-MT+ (875-899 pts) = Light wear visible
+- 8 NM-MT (850-874 pts) = Noticeable minor wear
+
+IMPORTANT: PRISTINE is HIGHER than GEM MINT. Only award PRISTINE for truly flawless cards.
+If ANY defects exist (even minor surface issues), the card is NOT PRISTINE.
+
 GRADING PHILOSOPHY: TAG is STRICT. When uncertain, choose the LOWER grade.`;
 
 const buildPass2Prompt = (quickAssessment, references, softwareCentering = null) => {
