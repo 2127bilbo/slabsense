@@ -1383,3 +1383,124 @@ async function processCardFromMask(originalImg, maskData, targetWidth, targetHei
     corners: scaledCorners,
   };
 }
+
+/**
+ * Deep Grading Analysis V2 - Two-Pass with Reference Comparison
+ *
+ * This version uses a two-pass system:
+ * 1. Quick estimate to determine grade range
+ * 2. Query similar reference cards from database
+ * 3. Compare against real TAG-graded examples for final grade
+ *
+ * More accurate than V1, similar cost (~$0.04-0.05 per grade)
+ *
+ * @param {string} originalFrontImage - Full card image with background (for centering)
+ * @param {string} originalBackImage - Full card image with background (for centering)
+ * @param {string} croppedFrontImage - Cropped card image (for defect detection)
+ * @param {string} croppedBackImage - Cropped card image (for defect detection)
+ * @param {string} cardGame - 'pokemon' | 'sports' | 'tcg'
+ * @param {string} cardType - 'modern_holo' | 'vintage_holo' | 'non_holo'
+ * @param {string} userId - User ID for storage path (required for RLS)
+ * @returns {Promise<object>} Detailed analysis result with reference comparison
+ */
+export async function deepGradingAnalysisV2(
+  originalFrontImage,
+  originalBackImage,
+  croppedFrontImage = null,
+  croppedBackImage = null,
+  cardGame = 'pokemon',
+  cardType = 'modern_holo',
+  userId = null
+) {
+  console.log('[Deep AI V2] Starting two-pass reference comparison analysis...');
+
+  // Support legacy 2-image calls
+  const frontOriginal = originalFrontImage;
+  const backOriginal = originalBackImage;
+  const frontCropped = croppedFrontImage || originalFrontImage;
+  const backCropped = croppedBackImage || originalBackImage;
+
+  if (!frontOriginal || !backOriginal) {
+    throw new Error('Both front and back images required for Deep AI Grade V2');
+  }
+
+  if (!userId) {
+    throw new Error('User ID required for Deep AI Grade V2');
+  }
+
+  try {
+    // Step 1: Upload all images to Supabase to get public URLs
+    console.log('[Deep AI V2] Uploading images to storage...');
+    const [frontOriginalUrl, backOriginalUrl, frontCroppedUrl, backCroppedUrl] = await Promise.all([
+      uploadImageForDeepAnalysis(frontOriginal, 'front-original', userId),
+      uploadImageForDeepAnalysis(backOriginal, 'back-original', userId),
+      uploadImageForDeepAnalysis(frontCropped, 'front-cropped', userId),
+      uploadImageForDeepAnalysis(backCropped, 'back-cropped', userId),
+    ]);
+
+    console.log('[Deep AI V2] Images uploaded, starting two-pass analysis...');
+
+    // Step 2: Call our deep-analyze-v2 endpoint
+    const response = await fetch('/api/deep-analyze-v2', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        frontOriginalUrl,
+        backOriginalUrl,
+        frontCroppedUrl,
+        backCroppedUrl,
+        frontUrl: frontCroppedUrl,
+        backUrl: backCroppedUrl,
+        cardGame,
+        cardType,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('[Deep AI V2] API error:', errorData);
+      throw new Error(errorData.error || `API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Deep analysis V2 failed');
+    }
+
+    console.log('[Deep AI V2] Analysis complete:', {
+      card: result.cardInfo?.name,
+      tag: result.grades?.tag?.grade,
+      confidence: result.grades?.tag?.confidence,
+      referencesUsed: result.passes?.referencesUsed,
+      elapsedMs: result.meta?.elapsedMs,
+    });
+
+    return {
+      success: true,
+      version: 'v2',
+      // Two-pass metadata
+      passes: result.passes,
+      // Card identification
+      cardInfo: result.cardInfo,
+      // Precise centering measurements with deviation %
+      centering: result.centering,
+      // Defect analysis
+      defects: result.defects,
+      // Reference comparison info
+      comparison: result.comparison,
+      // Grades for all companies (PSA, BGS, CGC, SGC, TAG)
+      grades: result.grades,
+      // Summary with recommendations
+      summary: result.summary,
+      // Analysis metadata
+      analysisType: 'deep-v2',
+      meta: result.meta,
+      cost: 0.05,
+    };
+
+  } catch (error) {
+    console.error('[Deep AI V2] Error:', error);
+    throw error;
+  }
+}
