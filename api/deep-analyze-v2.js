@@ -20,49 +20,52 @@ const supabase = createClient(
 );
 
 // ============================================================================
-// PASS 1: Quick Estimate Prompt (minimal, fast)
+// PASS 1: Defect Detection (centering is measured by software, not AI)
 // ============================================================================
-const PASS1_SYSTEM = `You are an expert Pokemon card grader. Provide a QUICK initial assessment.
-Be conservative - when uncertain, estimate lower rather than higher.`;
+const PASS1_SYSTEM = `You are an expert Pokemon card defect detector. Your ONLY job is to find physical defects.
+DO NOT assess centering - centering is measured separately by software with pixel-level precision.
+Be thorough - look carefully at all four corners, all edges, and the entire surface.`;
 
-const PASS1_PROMPT = `Analyze this Pokemon card and provide a quick grade estimate.
+const PASS1_PROMPT = `Identify the card and detect all physical defects. DO NOT assess centering.
 
-Look at:
-1. CENTERING - Compare border widths (left vs right, top vs bottom) for front AND back
-2. CORNERS - Any whitening, dings, or wear?
-3. EDGES - Any whitening, chips, or damage?
-4. SURFACE - Any scratches, print lines, or defects?
+DEFECT DETECTION ONLY:
+1. CORNERS - Check all 4 corners on front AND back for: whitening, dings, bends, wear, rounding
+2. EDGES - Check all 4 edges on front AND back for: whitening, chips, nicks, peeling, damage
+3. SURFACE - Check entire surface front AND back for: scratches, print lines, silvering, indentations, holo scratches
 
 Respond with ONLY this JSON (no other text):
 {
-  "cardName": "Pokemon name",
-  "estimatedGrade": 8.5,
-  "gradeRange": { "low": 8, "high": 9 },
-  "quickAssessment": {
-    "centeringFront": "good/moderate/poor",
-    "centeringBack": "good/moderate/poor",
-    "corners": "clean/minor wear/moderate wear",
-    "edges": "clean/minor wear/moderate wear",
-    "surface": "clean/minor issues/moderate issues"
-  }
+  "cardName": "Pokemon name and set if visible",
+  "defectAssessment": {
+    "corners": "clean/minor wear/moderate wear/heavy wear",
+    "cornerDetails": "describe any corner issues found",
+    "edges": "clean/minor wear/moderate wear/heavy wear",
+    "edgeDetails": "describe any edge issues found",
+    "surface": "clean/minor issues/moderate issues/heavy issues",
+    "surfaceDetails": "describe any surface issues found"
+  },
+  "estimatedDefectImpact": "minimal/minor/moderate/significant",
+  "gradeRange": { "low": 8, "high": 9.5 }
 }`;
 
 // ============================================================================
-// PASS 2: Comparison Grading Prompt
+// PASS 2: Final Grading (uses our centering + AI defect detection)
 // ============================================================================
-const PASS2_SYSTEM = `You are an expert Pokemon card grader performing a detailed comparison analysis.
+const PASS2_SYSTEM = `You are an expert Pokemon card grader. You will receive:
+1. CENTERING DATA - Pre-measured with pixel-level precision. USE THESE EXACT VALUES. Do not re-estimate.
+2. Card images - For detailed defect detection only
+3. Reference cards - TAG-graded examples to compare defect levels
 
-You will receive:
-1. The card images to grade
-2. Reference cards that TAG has already graded (with their exact measurements and grades)
+YOUR JOB:
+- Accept the provided centering measurements as ground truth
+- Detect and count all defects (corners, edges, surface)
+- Compare defect severity to the reference cards
+- Calculate final grade based on: OUR CENTERING + YOUR DEFECT FINDINGS
 
-Your job: Compare the card to the references and determine where it fits.
-
-GRADING PHILOSOPHY: TAG is STRICT. When uncertain between two grades, choose the LOWER grade.
-The references show you exactly what each grade looks like in terms of centering and defects.`;
+GRADING PHILOSOPHY: TAG is STRICT. When uncertain, choose the LOWER grade.`;
 
 const buildPass2Prompt = (quickAssessment, references, softwareCentering = null) => {
-  // Format reference cards
+  // Format reference cards for comparison
   const refText = references.map((ref, i) => {
     const defectList = ref.defect_details?.map(d => `${d.type} (${d.location})`).join(', ') || 'None noted';
     return `
@@ -73,55 +76,78 @@ Defects: ${ref.defect_count} total (${ref.corner_defects} corner, ${ref.edge_def
 Details: ${defectList}`;
   }).join('\n');
 
-  // Build centering section - use software values if provided, otherwise AI must estimate
-  let centeringSection;
+  // Build the centering section based on whether we have software measurements
+  let centeringBlock;
   if (softwareCentering) {
     const { front, back } = softwareCentering;
-    const fLR = front.lrRatio.toFixed(1);
-    const fTB = front.tbRatio.toFixed(1);
-    const bLR = back.lrRatio.toFixed(1);
-    const bTB = back.tbRatio.toFixed(1);
-    const fDevLR = Math.abs(50 - front.lrRatio).toFixed(1);
-    const fDevTB = Math.abs(50 - front.tbRatio).toFixed(1);
-    const bDevLR = Math.abs(50 - back.lrRatio).toFixed(1);
-    const bDevTB = Math.abs(50 - back.tbRatio).toFixed(1);
+    const fDevLR = Math.abs(50 - front.lrRatio);
+    const fDevTB = Math.abs(50 - front.tbRatio);
+    const bDevLR = Math.abs(50 - back.lrRatio);
+    const bDevTB = Math.abs(50 - back.tbRatio);
+    const maxDev = Math.max(fDevLR, fDevTB, bDevLR, bDevTB);
 
-    centeringSection = `
-## CENTERING (Pre-measured via software - USE THESE VALUES)
-Front: ${fLR}/${(100 - front.lrRatio).toFixed(1)} LR (${fDevLR}% deviation), ${fTB}/${(100 - front.tbRatio).toFixed(1)} TB (${fDevTB}% deviation)
-Back: ${bLR}/${(100 - back.lrRatio).toFixed(1)} LR (${bDevLR}% deviation), ${bTB}/${(100 - back.tbRatio).toFixed(1)} TB (${bDevTB}% deviation)
+    centeringBlock = `
+═══════════════════════════════════════════════════════════════════════════════
+                    CENTERING DATA (MEASURED - USE THESE EXACT VALUES)
+═══════════════════════════════════════════════════════════════════════════════
+FRONT: ${front.lrRatio.toFixed(1)}/${(100 - front.lrRatio).toFixed(1)} Left/Right | ${front.tbRatio.toFixed(1)}/${(100 - front.tbRatio).toFixed(1)} Top/Bottom
+       Deviation: ${fDevLR.toFixed(1)}% LR, ${fDevTB.toFixed(1)}% TB
 
-These centering values are EXACT measurements from pixel analysis. Use them directly - do NOT re-estimate centering.`;
+BACK:  ${back.lrRatio.toFixed(1)}/${(100 - back.lrRatio).toFixed(1)} Left/Right | ${back.tbRatio.toFixed(1)}/${(100 - back.tbRatio).toFixed(1)} Top/Bottom
+       Deviation: ${bDevLR.toFixed(1)}% LR, ${bDevTB.toFixed(1)}% TB
+
+MAX DEVIATION: ${maxDev.toFixed(1)}%
+═══════════════════════════════════════════════════════════════════════════════
+⚠️  THESE ARE PIXEL-MEASURED VALUES. DO NOT RE-ESTIMATE CENTERING.
+    Use these numbers directly when calculating the grade.
+═══════════════════════════════════════════════════════════════════════════════`;
   } else {
-    centeringSection = `
-## CENTERING (Must be estimated)
-You must visually estimate the centering by comparing border widths.
-- Front Centering: ${quickAssessment.quickAssessment.centeringFront}
-- Back Centering: ${quickAssessment.quickAssessment.centeringBack}`;
+    centeringBlock = `
+═══════════════════════════════════════════════════════════════════════════════
+                    CENTERING (NO SOFTWARE DATA - MUST ESTIMATE)
+═══════════════════════════════════════════════════════════════════════════════
+Software centering not available. You must visually estimate by comparing borders.
+═══════════════════════════════════════════════════════════════════════════════`;
   }
 
-  return `## CARD BEING GRADED
-Initial Assessment: Estimated ${quickAssessment.estimatedGrade} (range ${quickAssessment.gradeRange.low}-${quickAssessment.gradeRange.high})
-Card: ${quickAssessment.cardName}
-${centeringSection}
+  // Get defect info from Pass 1
+  const defectInfo = quickAssessment.defectAssessment || quickAssessment.quickAssessment || {};
 
-## DEFECT NOTES (from initial scan)
-- Corners: ${quickAssessment.quickAssessment.corners}
-- Edges: ${quickAssessment.quickAssessment.edges}
-- Surface: ${quickAssessment.quickAssessment.surface}
+  return `## CARD: ${quickAssessment.cardName}
+${centeringBlock}
 
-## REFERENCE CARDS (Confirmed TAG Grades)
+## YOUR TASK - DEFECT DETECTION ONLY
+
+Look at the card images and find ALL defects:
+
+1. CORNERS (all 4, front and back):
+   - Whitening, dings, bends, rounding, wear
+
+2. EDGES (all 4, front and back):
+   - Whitening, chips, nicks, peeling
+
+3. SURFACE (entire card, front and back):
+   - Scratches, print lines, silvering, indentations, holo damage
+
+## INITIAL DEFECT SCAN NOTES
+- Corners: ${defectInfo.corners || 'unknown'} ${defectInfo.cornerDetails ? `(${defectInfo.cornerDetails})` : ''}
+- Edges: ${defectInfo.edges || 'unknown'} ${defectInfo.edgeDetails ? `(${defectInfo.edgeDetails})` : ''}
+- Surface: ${defectInfo.surface || 'unknown'} ${defectInfo.surfaceDetails ? `(${defectInfo.surfaceDetails})` : ''}
+
+## REFERENCE CARDS (Compare your defect findings to these)
 ${refText}
 
-## YOUR TASK
-${softwareCentering ? '1. Use the pre-measured centering values above (already calculated)' : '1. Measure the card\'s centering precisely (estimate deviation %)'}
-2. Count and categorize all defects (corners, edges, surface)
-3. Compare to the reference cards above
-4. Determine the final TAG grade
+## FINAL GRADING INSTRUCTIONS
 
-Which reference card(s) does this card most closely match in condition?
-If it's better than all references shown, it could grade higher.
-If it's worse than all references shown, it could grade lower.
+1. ${softwareCentering ? 'CENTERING IS ALREADY MEASURED (see above). Use those exact values.' : 'Estimate centering from the images.'}
+2. Count and describe every defect you find
+3. Compare your defect findings to the reference cards
+4. Calculate final grade using: ${softwareCentering ? 'PROVIDED CENTERING' : 'ESTIMATED CENTERING'} + YOUR DEFECT FINDINGS
+
+The grade should reflect:
+- The centering data ${softwareCentering ? '(provided above)' : '(your estimate)'}
+- Your defect count and severity vs the references`;
+}
 
 Respond with this JSON (no other text):
 {
@@ -278,9 +304,9 @@ export default async function handler(req, res) {
     const startTime = Date.now();
 
     // ========================================================================
-    // PASS 1: Quick Estimate
+    // PASS 1: Defect Detection (centering handled by software)
     // ========================================================================
-    console.log('[DeepAnalyzeV2] Pass 1: Quick estimate...');
+    console.log('[DeepAnalyzeV2] Pass 1: Defect detection...', hasSoftwareCentering ? '(centering pre-measured)' : '(no centering data)');
 
     const imageContent = imageUrls.map(url => ({
       type: 'image',
@@ -312,26 +338,32 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to parse quick assessment', raw: pass1Text });
     }
 
+    // Calculate estimated grade from range midpoint for reference query
+    const gradeRangeMid = quickAssessment.gradeRange
+      ? (quickAssessment.gradeRange.low + quickAssessment.gradeRange.high) / 2
+      : 8.5;
+
     console.log('[DeepAnalyzeV2] Pass 1 result:', {
       card: quickAssessment.cardName,
-      estimated: quickAssessment.estimatedGrade,
-      range: quickAssessment.gradeRange
+      defectImpact: quickAssessment.estimatedDefectImpact,
+      range: quickAssessment.gradeRange,
+      estimatedMidpoint: gradeRangeMid
     });
 
     // ========================================================================
     // QUERY REFERENCES from Supabase
     // ========================================================================
-    console.log('[DeepAnalyzeV2] Querying references for grade ~', quickAssessment.estimatedGrade);
+    console.log('[DeepAnalyzeV2] Querying references for grade ~', gradeRangeMid);
 
-    const references = await getReferences(quickAssessment.estimatedGrade, cardType);
+    const references = await getReferences(gradeRangeMid, cardType);
 
     console.log('[DeepAnalyzeV2] Found', references.length, 'reference cards:',
       references.map(r => r.grade).join(', '));
 
     // ========================================================================
-    // PASS 2: Comparison Grading
+    // PASS 2: Final Grade (our centering + AI defect detection)
     // ========================================================================
-    console.log('[DeepAnalyzeV2] Pass 2: Comparison grading...', hasSoftwareCentering ? '(using software centering)' : '(AI estimating centering)');
+    console.log('[DeepAnalyzeV2] Pass 2: Final grading...', hasSoftwareCentering ? '(SOFTWARE CENTERING + AI defects)' : '(AI centering + AI defects)');
 
     // Build software centering object if we have it
     const softwareCentering = hasSoftwareCentering ? {
