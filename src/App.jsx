@@ -15,6 +15,8 @@ import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.js
 import { PostCaptureCentering } from "./components/PostCaptureCentering/PostCaptureCentering.jsx";
 import { HoloLogo } from "./components/HoloLogo/HoloLogo.jsx";
 import { GradeResultDisplay } from "./components/Grading/GradeResultDisplay.jsx";
+import { CreditBalance, PricingPage } from "./components/Billing";
+import { spendCredits, refundCredits } from "./services/credits.js";
 import {
   TAG_CENTERING_THRESHOLDS,
   GRADE_CEILINGS,
@@ -2875,6 +2877,8 @@ export default function SlabSense(){
   const[tcgdexImage,setTcgdexImage]=useState(null); // High-quality card image URL from TCGDex
   const[identifyingCard,setIdentifyingCard]=useState(false); // Card identification in progress
   const[showCropModal,setShowCropModal]=useState(false); // Show crop modal for missing TCGDex images
+  const[showPricing,setShowPricing]=useState(false); // Pricing/credits modal visibility
+  const[insufficientCredits,setInsufficientCredits]=useState(null); // { type: 'ai'|'deep', needed: number }
   const[pendingSaveData,setPendingSaveData]=useState(null); // Pending save data while waiting for crop
 
   // Post-capture centering state
@@ -3416,9 +3420,25 @@ export default function SlabSense(){
   };
 
   // AI Grade - Claude analyzes card and returns grades (no SAM, no 3D)
-  // Cost: ~$0.03 per card
+  // Cost: 1 credit
   const handleEnhanceCards = async () => {
     if (!fI || !bI) return;
+
+    // Check credits before proceeding
+    if (auth.user?.id) {
+      const spendResult = await spendCredits(auth.user.id, 'ai');
+      if (!spendResult.success) {
+        console.log('[AI Grade] Insufficient credits:', spendResult);
+        setInsufficientCredits({ type: 'ai', needed: spendResult.creditsRequired || 1 });
+        setShowPricing(true);
+        return;
+      }
+      console.log('[AI Grade] Credits spent:', spendResult.creditsSpent, 'Remaining:', spendResult.creditsRemaining);
+      window._lastAiTransactionId = spendResult.transactionId;
+      // Refresh credit balance display
+      if (window.refreshCreditBalance) window.refreshCreditBalance();
+    }
+
     setEnhancingStatus('enhancing');
     setExtractingInfo(true);
     try {
@@ -3536,6 +3556,16 @@ export default function SlabSense(){
       }
     } catch (err) {
       console.error('Error in AI analysis:', err);
+      // Refund credits on failure
+      if (auth.user?.id && window._lastAiTransactionId) {
+        try {
+          await refundCredits(auth.user.id, window._lastAiTransactionId, null, 'AI grading failed');
+          console.log('[AI Grade] Credits refunded due to error');
+          if (window.refreshCreditBalance) window.refreshCreditBalance();
+        } catch (refundErr) {
+          console.error('[AI Grade] Failed to refund credits:', refundErr);
+        }
+      }
       setEnhancingStatus('error');
       setExtractingInfo(false);
       setProg('');
@@ -3544,13 +3574,27 @@ export default function SlabSense(){
   };
 
   // DEEP AI Grade - Full resolution analysis via Anthropic API
-  // Cost: ~$0.05 per card (higher quality analysis)
+  // Cost: 2 credits
   const handleDeepGrade = async () => {
     if (!fI || !bI) return;
     if (!auth.user?.id) {
       console.error('[Deep AI] User must be logged in for Deep Grade');
       return;
     }
+
+    // Check credits before proceeding (2 credits for deep grade)
+    const spendResult = await spendCredits(auth.user.id, 'deep');
+    if (!spendResult.success) {
+      console.log('[Deep AI] Insufficient credits:', spendResult);
+      setInsufficientCredits({ type: 'deep', needed: spendResult.creditsRequired || 2 });
+      setShowPricing(true);
+      return;
+    }
+    console.log('[Deep AI] Credits spent:', spendResult.creditsSpent, 'Remaining:', spendResult.creditsRemaining);
+    window._lastDeepTransactionId = spendResult.transactionId;
+    // Refresh credit balance display
+    if (window.refreshCreditBalance) window.refreshCreditBalance();
+
     setDeepGradeStatus('grading');
     try {
       console.log('Starting Deep AI grading analysis...');
@@ -3680,12 +3724,32 @@ export default function SlabSense(){
 
       } else {
         console.error('Deep AI analysis failed:', result.error);
+        // Refund credits on failure
+        if (auth.user?.id && window._lastDeepTransactionId) {
+          try {
+            await refundCredits(auth.user.id, window._lastDeepTransactionId, null, 'Deep AI analysis failed');
+            console.log('[Deep AI] Credits refunded due to error');
+            if (window.refreshCreditBalance) window.refreshCreditBalance();
+          } catch (refundErr) {
+            console.error('[Deep AI] Failed to refund credits:', refundErr);
+          }
+        }
         setDeepGradeStatus('error');
         setProg('');
         setTimeout(() => setDeepGradeStatus(null), 3000);
       }
     } catch (err) {
       console.error('Error in Deep AI analysis:', err);
+      // Refund credits on failure
+      if (auth.user?.id && window._lastDeepTransactionId) {
+        try {
+          await refundCredits(auth.user.id, window._lastDeepTransactionId, null, 'Deep AI analysis error');
+          console.log('[Deep AI] Credits refunded due to error');
+          if (window.refreshCreditBalance) window.refreshCreditBalance();
+        } catch (refundErr) {
+          console.error('[Deep AI] Failed to refund credits:', refundErr);
+        }
+      }
       setDeepGradeStatus('error');
       setProg('');
       setTimeout(() => setDeepGradeStatus(null), 3000);
@@ -3872,6 +3936,17 @@ export default function SlabSense(){
         onSignOut={auth.signOut}
       />
     )}
+    {/* Pricing/Credits Modal */}
+    {showPricing && (
+      <PricingPage
+        userId={auth.user?.id}
+        onClose={() => {
+          setShowPricing(false);
+          setInsufficientCredits(null);
+          if (window.refreshCreditBalance) window.refreshCreditBalance();
+        }}
+      />
+    )}
     {/* Disclaimer Modal */}
     {showDisclaimer&&(
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -3909,6 +3984,10 @@ export default function SlabSense(){
           {getCompanyOptions().map(c=>(<option key={c.id} value={c.id}>{c.name}</option>))}
         </select>
         {step===2&&<button onClick={reset} style={{background:"transparent",border:"1px solid #2a2d35",borderRadius:6,color:"#666",fontFamily:mono,fontSize:10,padding:"5px 10px",cursor:"pointer",textTransform:"uppercase"}}>New</button>}
+        {/* Credits Display */}
+        {auth.isAuthenticated && (
+          <CreditBalance userId={auth.user?.id} onBuyCredits={() => setShowPricing(true)} compact />
+        )}
         {/* Auth UI */}
         {auth.isConfigured && (
           auth.isAuthenticated ? (
