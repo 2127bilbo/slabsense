@@ -3245,7 +3245,27 @@ export default function SlabSense(){
       console.log('Starting Claude grading analysis...');
       setProg('AI grading card...');
 
-      const result = await claudeGradingAnalysis(fI, bI, 'pokemon', auth.user?.id);
+      // Prepare software centering if available (more accurate than AI estimation)
+      const softwareFrontCentering = frontCenteringData?.didManualCenter
+        ? { lrRatio: frontCenteringData.lrRatio, tbRatio: frontCenteringData.tbRatio }
+        : fR?.centering
+        ? { lrRatio: fR.centering.lrRatio, tbRatio: fR.centering.tbRatio }
+        : null;
+
+      const softwareBackCentering = backCenteringData?.didManualCenter
+        ? { lrRatio: backCenteringData.lrRatio, tbRatio: backCenteringData.tbRatio }
+        : bR?.centering
+        ? { lrRatio: bR.centering.lrRatio, tbRatio: bR.centering.tbRatio }
+        : null;
+
+      const result = await claudeGradingAnalysis(
+        fI,
+        bI,
+        'pokemon',
+        auth.user?.id,
+        softwareFrontCentering,
+        softwareBackCentering
+      );
 
       if (result.success) {
         // Card info from OCR - merge with existing cardInfo to preserve TCGDex pricing

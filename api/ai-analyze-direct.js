@@ -28,7 +28,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { frontUrl, backUrl, cardType = 'pokemon' } = req.body;
+  const {
+    frontUrl,
+    backUrl,
+    cardType = 'pokemon',
+    // Optional software-calculated centering (more accurate than AI estimation)
+    frontCentering,  // { lrRatio, tbRatio }
+    backCentering    // { lrRatio, tbRatio }
+  } = req.body;
+
+  // Check if we have pre-calculated centering
+  const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
 
   if (!frontUrl) {
     return res.status(400).json({ error: 'Missing frontUrl' });
@@ -48,14 +58,19 @@ export default async function handler(req, res) {
 
   try {
     const isStitched = !!backUrl;
-    const prompt = isStitched
-      ? buildStitchedGradingPrompt(cardType)
-      : buildSingleGradingPrompt(cardType);
 
-    console.log('[AI-Direct] Starting analysis with URLs:', {
+    // Build centering data for prompt if available
+    const centeringData = hasSoftwareCentering ? { front: frontCentering, back: backCentering } : null;
+
+    const prompt = isStitched
+      ? buildStitchedGradingPrompt(cardType, centeringData)
+      : buildSingleGradingPrompt(cardType, centeringData);
+
+    console.log('[AI-Direct] Starting analysis:', {
       front: frontUrl.substring(0, 50) + '...',
       back: backUrl ? backUrl.substring(0, 50) + '...' : 'none',
       isStitched,
+      hasSoftwareCentering,
     });
 
     // Build message content with images
@@ -159,16 +174,29 @@ export default async function handler(req, res) {
 
 /**
  * Comprehensive grading prompt for BOTH front and back images
+ * Now supports pre-measured centering data for higher accuracy
  */
-function buildStitchedGradingPrompt(cardType) {
-  return `You are an expert trading card grader with deep knowledge of PSA, BGS, SGC, CGC, and TAG grading standards. Analyze this ${cardType} card.
+function buildStitchedGradingPrompt(cardType, centeringData = null) {
+  // Build centering section based on whether we have software measurements
+  let centeringSection;
+  if (centeringData) {
+    const { front, back } = centeringData;
+    const fDevLR = Math.abs(50 - front.lrRatio).toFixed(1);
+    const fDevTB = Math.abs(50 - front.tbRatio).toFixed(1);
+    const bDevLR = Math.abs(50 - back.lrRatio).toFixed(1);
+    const bDevTB = Math.abs(50 - back.tbRatio).toFixed(1);
 
-## IMAGE LAYOUT
-- IMAGE 1: Card FRONT (artwork side)
-- IMAGE 2: Card BACK
-Both sides are shown. Analyze BOTH.
+    centeringSection = `## CENTERING DATA (PRE-MEASURED - USE THESE EXACT VALUES)
 
-## TASK 1: MEASURE CENTERING (CRITICAL - assume cards are OFF-CENTER)
+═══════════════════════════════════════════════════════════════════════════════
+FRONT: ${front.lrRatio.toFixed(1)}/${(100 - front.lrRatio).toFixed(1)} L/R (${fDevLR}% dev) | ${front.tbRatio.toFixed(1)}/${(100 - front.tbRatio).toFixed(1)} T/B (${fDevTB}% dev)
+BACK:  ${back.lrRatio.toFixed(1)}/${(100 - back.lrRatio).toFixed(1)} L/R (${bDevLR}% dev) | ${back.tbRatio.toFixed(1)}/${(100 - back.tbRatio).toFixed(1)} T/B (${bDevTB}% dev)
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️ THESE ARE PIXEL-MEASURED VALUES. Use them directly - do NOT re-estimate centering.
+Your job is DEFECT DETECTION only. The centering is already measured accurately.`;
+  } else {
+    centeringSection = `## TASK 1: MEASURE CENTERING (CRITICAL - assume cards are OFF-CENTER)
 
 **IMPORTANT: Most cards are NOT centered. Assume off-center until proven otherwise.**
 
@@ -185,24 +213,70 @@ For each side (Front L/R, Front T/B, Back L/R, Back T/B):
 - "46.0/54.0" means LEFT is 46% (card shifted LEFT, right border wider)
 - "56.0/44.0" means LEFT is 56% (card shifted RIGHT, left border wider)
 
-ALWAYS use one decimal. BE AGGRESSIVE - graders are critical, you should be too.
+ALWAYS use one decimal. BE AGGRESSIVE - graders are critical, you should be too.`;
+  }
 
-## TASK 2: ASSESS CONDITION
+  return `You are an expert Pokemon trading card grader with years of experience at professional grading companies (PSA, BGS, CGC, TAG).
 
-Examine and score (1-10 scale):
-- Corners: whitening, dings, bends, softness
-- Edges: whitening, chips, rough spots, fraying
-- Surface: scratches, print lines, holo damage, scuffs, dents
+## GRADING PHILOSOPHY
+TAG uses a 1000-point system that is MORE STRICT than PSA or BGS. When uncertain between two grades, choose the LOWER grade. Your estimates should lean CONSERVATIVE.
 
-**IGNORE photographic artifacts - only grade ACTUAL physical defects**
+## TAG GRADE HIERARCHY (highest to lowest):
+- 10 PRISTINE (985-1000) = PERFECT. Zero defects, perfect centering (<2% deviation)
+- 10 GEM MINT (950-984) = Near perfect. May have 1-2 trivial flaws invisible to naked eye
+- 9.5 GEM MINT (925-949) = Excellent. Minor flaws only visible under magnification
+- 9 MINT (900-924) = Great condition. Small flaws may be visible
+- 8.5 NM-MT+ (875-899) = Light wear visible
+- 8 NM-MT (850-874) = Noticeable minor wear
 
-## TASK 3: EXTRACT CARD INFO
+**IMPORTANT: PRISTINE is HIGHER than GEM MINT. Only award PRISTINE for truly flawless cards.**
+
+## TAG GRADE THRESHOLDS (from 509 real graded cards):
+- 10 PRISTINE: Front <2%, Back <4%, max 3 SURFACE defects only, 0 corner/edge wear
+- 10 GEM MINT: Front <4.5%, Back <6.5%, max 3 defects (1 corner, 1 edge, 2 surface)
+- 9 MINT: Front <10%, Back <9%, max 4 defects
+- 8.5 NM-MT+: Front <12%, Back <11%, max 6 defects
+- 8 NM-MT: Front <14%, Back <12%, max 8 defects
+
+## IMAGE LAYOUT
+- IMAGE 1: Card FRONT (artwork side)
+- IMAGE 2: Card BACK
+Both sides are shown. Analyze BOTH.
+
+${centeringSection}
+
+## TASK ${centeringData ? '1' : '2'}: CONDITION ASSESSMENT (DEEP SCAN - examine every pixel)
+
+**CORNERS** - Examine all 8 corners (4 front, 4 back):
+- Look for: whitening, dings, bends, peeling, rounding, soft corners
+- Note WHICH specific corners have issues (e.g., "top-left front")
+- Score: 10=perfect, 9=very minor, 8=light wear, 7=moderate wear
+
+**EDGES** - Examine all 8 edges:
+- Look for: whitening, nicks, chips, peeling, silvering, rough spots
+- Note WHICH specific edges have issues
+- Score: 10=perfect, 9=very minor, 8=light wear, 7=moderate wear
+
+**SURFACE** - Examine both surfaces thoroughly:
+- Look for: scratches, scuffs, print lines, ink errors, holo scratches
+- Look for: fingerprints, residue, staining, fading, indentations
+- Note location of any defects (e.g., "center front", "bottom-right back")
+- Score: 10=perfect, 9=very minor, 8=light issues, 7=moderate issues
+
+**LIST ALL DEFECTS** with:
+- Type of defect (e.g., "corner whitening", "surface scratch")
+- Location (e.g., "top-left corner front", "center back")
+- Severity (minor/moderate/severe)
+
+**IGNORE photographic artifacts, dust, reflections - only grade ACTUAL physical defects**
+
+## TASK ${centeringData ? '2' : '3'}: EXTRACT CARD INFO
 
 From the front: name, HP, card number, set, rarity, year, variant, language
 
-## TASK 4: APPLY GRADING STANDARDS
+## TASK ${centeringData ? '3' : '4'}: APPLY GRADING STANDARDS
 
-Using your centering measurements and condition assessment, determine grades for each company:
+Using ${centeringData ? 'the PROVIDED centering data' : 'your centering measurements'} and condition assessment, determine grades for each company:
 
 ### PSA Standards (no 9.5, lowest-factor wins):
 - PSA 10: Front 55/45, Back 75/25, virtually perfect
@@ -327,21 +401,34 @@ CRITICAL RULES:
 /**
  * Grading prompt for SINGLE card (front only)
  */
-function buildSingleGradingPrompt(cardType) {
+function buildSingleGradingPrompt(cardType, centeringData = null) {
+  // Build centering section for single image (front only)
+  let centeringSection;
+  if (centeringData?.front) {
+    const { front } = centeringData;
+    const fDevLR = Math.abs(50 - front.lrRatio).toFixed(1);
+    const fDevTB = Math.abs(50 - front.tbRatio).toFixed(1);
+    centeringSection = `## CENTERING DATA (PRE-MEASURED - USE THESE EXACT VALUES)
+FRONT: ${front.lrRatio.toFixed(1)}/${(100 - front.lrRatio).toFixed(1)} L/R (${fDevLR}% dev) | ${front.tbRatio.toFixed(1)}/${(100 - front.tbRatio).toFixed(1)} T/B (${fDevTB}% dev)
+⚠️ This is pixel-measured. Use directly - do NOT re-estimate.`;
+  } else {
+    centeringSection = `## TASK 1: MEASURE CENTERING (use decimal precision)
+- Left/Right ratio with one decimal (e.g., "54.2/45.8")
+- Top/Bottom ratio with one decimal (e.g., "49.5/50.5")`;
+  }
+
   return `You are an expert trading card grader. Analyze this ${cardType} card FRONT image.
 
-## TASK 1: MEASURE CENTERING (use decimal precision)
-- Left/Right ratio with one decimal (e.g., "54.2/45.8")
-- Top/Bottom ratio with one decimal (e.g., "49.5/50.5")
+${centeringSection}
 
-## TASK 2: ASSESS CONDITION (1-10 scale)
+## TASK ${centeringData ? '1' : '2'}: ASSESS CONDITION (1-10 scale)
 - Corners, Edges, Surface
 - List any defects found
 
-## TASK 3: EXTRACT CARD INFO
+## TASK ${centeringData ? '2' : '3'}: EXTRACT CARD INFO
 Name, HP, card number, set, rarity, year, variant, language
 
-## TASK 4: APPLY GRADING STANDARDS
+## TASK ${centeringData ? '3' : '4'}: APPLY GRADING STANDARDS
 
 ### PSA: No 9.5. 10 needs 55/45 front centering.
 ### BGS: Shows 4 subgrades. 10 needs 50/50. Final = lowest + 0.5 max.

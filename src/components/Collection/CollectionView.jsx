@@ -258,11 +258,21 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
     if (!frontImg || !backImg) return;
     setEnhancingStatus('enhancing');
     try {
+      // Use saved software centering from the scan if available (more accurate than AI estimation)
+      const frontCentering = selectedCard.front_centering?.lrRatio != null
+        ? { lrRatio: selectedCard.front_centering.lrRatio, tbRatio: selectedCard.front_centering.tbRatio }
+        : null;
+      const backCentering = selectedCard.back_centering?.lrRatio != null
+        ? { lrRatio: selectedCard.back_centering.lrRatio, tbRatio: selectedCard.back_centering.tbRatio }
+        : null;
+
       const result = await claudeGradingAnalysis(
         frontImg,
         backImg,
         'pokemon',
-        userId
+        userId,
+        frontCentering,
+        backCentering
       );
       if (result.success) {
         setRegradeResult(result);

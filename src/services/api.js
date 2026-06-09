@@ -484,10 +484,20 @@ async function uploadImageForStandardAnalysis(dataUrl, side, userId) {
  * @param {string} cardType - 'pokemon' | 'sports' | 'tcg'
  * @param {string} userId - User ID (required when USE_DIRECT_ANTHROPIC = true)
  */
-export async function claudeGradingAnalysis(frontImageDataUrl, backImageDataUrl = null, cardType = 'pokemon', userId = null) {
+export async function claudeGradingAnalysis(
+  frontImageDataUrl,
+  backImageDataUrl = null,
+  cardType = 'pokemon',
+  userId = null,
+  // Optional software-calculated centering (more accurate than AI estimation)
+  frontCentering = null,  // { lrRatio, tbRatio }
+  backCentering = null    // { lrRatio, tbRatio }
+) {
+  const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
   console.log('[Claude AI] Starting grading analysis...');
   console.log('[Claude AI] Provider:', USE_DIRECT_ANTHROPIC ? 'Direct Anthropic' : 'Replicate');
   console.log('[Claude AI] Has back image:', !!backImageDataUrl);
+  console.log('[Claude AI] Has software centering:', hasSoftwareCentering);
 
   try {
     // ═══════════════════════════════════════════════════════════════════════
@@ -511,15 +521,28 @@ export async function claudeGradingAnalysis(frontImageDataUrl, backImageDataUrl 
 
       console.log('[Claude AI] Images uploaded, calling Direct Anthropic API...');
 
+      // Build request body
+      const requestBody = {
+        frontUrl,
+        backUrl,
+        cardType,
+      };
+
+      // Include software centering if available (more accurate than AI estimation)
+      if (hasSoftwareCentering) {
+        requestBody.frontCentering = frontCentering;
+        requestBody.backCentering = backCentering;
+        console.log('[Claude AI] Using software centering:', {
+          front: `${frontCentering.lrRatio.toFixed(1)}/${frontCentering.tbRatio.toFixed(1)}`,
+          back: `${backCentering.lrRatio.toFixed(1)}/${backCentering.tbRatio.toFixed(1)}`
+        });
+      }
+
       // Call direct Anthropic endpoint
       const response = await fetch('/api/ai-analyze-direct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          frontUrl,
-          backUrl,
-          cardType,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
