@@ -146,8 +146,7 @@ ${refText}
 
 The grade should reflect:
 - The centering data ${softwareCentering ? '(provided above)' : '(your estimate)'}
-- Your defect count and severity vs the references`;
-}
+- Your defect count and severity vs the references
 
 Respond with this JSON (no other text):
 {
