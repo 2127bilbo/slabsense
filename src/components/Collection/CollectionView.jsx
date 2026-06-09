@@ -438,6 +438,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
         score: company === 'tag' ? score : null,
         subgrades: deepGrade.subgrades,
         notes: deepGrade.notes,
+        confidence: deepGrade.confidence,
         company: company,
       };
     }
@@ -455,6 +456,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
         score: company === 'tag' ? score : null,
         subgrades: aiGrade.subgrades,
         notes: aiGrade.notes,
+        confidence: aiGrade.confidence,
         company: company,
       };
     }
@@ -1207,6 +1209,17 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 marginTop: 4,
               }}>
                 TAG Score: {grade.score || grade.rawScore} / 1000
+              </div>
+            )}
+            {/* Confidence indicator for AI grades */}
+            {grade.isAi && grade.confidence !== undefined && (
+              <div style={{
+                fontFamily: mono,
+                fontSize: 12,
+                color: grade.confidence >= 0.8 ? '#00ff88' : grade.confidence >= 0.6 ? '#ffcc00' : '#ff6633',
+                marginTop: 6,
+              }}>
+                {Math.round(grade.confidence * 100)}% confident
               </div>
             )}
             {grade.isAi && (
