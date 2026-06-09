@@ -3910,6 +3910,12 @@ export default function SlabSense(){
               <div style={{textAlign:"center"}}>
                 <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:"#8b5cf6"}}>{aiGrades?.[gradingCompany]?.grade ?? '--'}</div>
                 <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:"#8b5cf6",marginTop:2}}>{aiGrades?.[gradingCompany]?.label || 'AI Grade'}</div>
+                {/* Confidence indicator */}
+                {aiGrades?.[gradingCompany]?.confidence !== undefined && (
+                  <div style={{fontFamily:mono,fontSize:10,color:aiGrades[gradingCompany].confidence >= 0.8 ? '#00ff88' : aiGrades[gradingCompany].confidence >= 0.6 ? '#ffcc00' : '#ff6633',marginTop:4}}>
+                    {Math.round(aiGrades[gradingCompany].confidence * 100)}% confident
+                  </div>
+                )}
               </div>
               {/* Company Badge with AI indicator */}
               <div style={{padding:"8px 12px",background:"rgba(139,92,246,0.15)",borderRadius:8,border:"1px solid rgba(139,92,246,0.3)"}}>
@@ -3931,6 +3937,12 @@ export default function SlabSense(){
               <div style={{textAlign:"center"}}>
                 <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:"#f97316"}}>{deepAiGrades?.[gradingCompany]?.grade ?? '--'}</div>
                 <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:"#f97316",marginTop:2}}>{deepAiGrades?.[gradingCompany]?.label || 'Deep AI'}</div>
+                {/* Confidence indicator */}
+                {deepAiGrades?.[gradingCompany]?.confidence !== undefined && (
+                  <div style={{fontFamily:mono,fontSize:10,color:deepAiGrades[gradingCompany].confidence >= 0.8 ? '#00ff88' : deepAiGrades[gradingCompany].confidence >= 0.6 ? '#ffcc00' : '#ff6633',marginTop:4}}>
+                    {Math.round(deepAiGrades[gradingCompany].confidence * 100)}% confident
+                  </div>
+                )}
               </div>
               {/* Company Badge with Deep AI indicator */}
               <div style={{padding:"8px 12px",background:"rgba(249,115,22,0.15)",borderRadius:8,border:"1px solid rgba(249,115,22,0.3)"}}>

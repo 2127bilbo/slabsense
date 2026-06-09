@@ -264,11 +264,13 @@ Using your centering measurements and condition assessment, determine grades for
     "psa": {
       "grade": 9,
       "label": "Mint",
+      "confidence": 0.85,
       "notes": "Centering within PSA 9 tolerance. Minor edge issue prevents 10."
     },
     "bgs": {
       "grade": 9.5,
       "label": "Gem Mint",
+      "confidence": 0.80,
       "subgrades": {
         "centering": 9.5,
         "corners": 9.5,
@@ -280,17 +282,20 @@ Using your centering measurements and condition assessment, determine grades for
     "sgc": {
       "grade": 9.5,
       "label": "Mint+",
+      "confidence": 0.85,
       "notes": "Back centering within SGC tolerance for 9.5"
     },
     "cgc": {
       "grade": 9.5,
       "label": "Mint+",
+      "confidence": 0.80,
       "notes": "Holistic assessment, minor edge issue noted"
     },
     "tag": {
       "score": 955,
       "grade": 10,
       "label": "Gem Mint",
+      "confidence": 0.85,
       "subgrades": {
         "frontCentering": 118,
         "backCentering": 120,
@@ -371,19 +376,21 @@ Name, HP, card number, set, rarity, year, variant, language
     "defects": []
   },
   "grades": {
-    "psa": { "grade": 9, "label": "Mint", "notes": "..." },
+    "psa": { "grade": 9, "label": "Mint", "confidence": 0.85, "notes": "..." },
     "bgs": {
       "grade": 9.5,
       "label": "Gem Mint",
+      "confidence": 0.80,
       "subgrades": { "centering": 9.5, "corners": 9.5, "edges": 9.0, "surface": 9.5 },
       "notes": "..."
     },
-    "sgc": { "grade": 9.5, "label": "Mint+", "notes": "..." },
-    "cgc": { "grade": 9.5, "label": "Mint+", "notes": "..." },
+    "sgc": { "grade": 9.5, "label": "Mint+", "confidence": 0.85, "notes": "..." },
+    "cgc": { "grade": 9.5, "label": "Mint+", "confidence": 0.80, "notes": "..." },
     "tag": {
       "score": 955,
       "grade": 10,
       "label": "Gem Mint",
+      "confidence": 0.85,
       "subgrades": {
         "frontCentering": 118,
         "backCentering": null,
