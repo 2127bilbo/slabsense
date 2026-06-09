@@ -214,11 +214,23 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       setRegradeResult(null);
       setDeepGradeStatus(null);
       setDeepGradeResult(null);
-      setDeepAiGrades(null);
-      setDeepAiCentering(null);
-      setGradeMode(selectedCard.ai_grades ? 'ai' : 'software'); // Default to AI if available
       setFM(null);
       setBM(null);
+
+      // Load saved deep grades if they exist
+      if (selectedCard.deep_ai_grades) {
+        setDeepAiGrades(selectedCard.deep_ai_grades);
+        setDeepAiCentering(selectedCard.deep_ai_centering || null);
+        setGradeMode('deep');
+      } else if (selectedCard.ai_grades) {
+        setDeepAiGrades(null);
+        setDeepAiCentering(null);
+        setGradeMode('ai');
+      } else {
+        setDeepAiGrades(null);
+        setDeepAiCentering(null);
+        setGradeMode('software');
+      }
 
       // Generate vision maps if images exist
       if (frontImg || backImg) {
@@ -284,7 +296,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   };
 
   // Handle Deep AI re-grading (full resolution)
-  // Stores in separate state - does NOT overwrite standard AI grades
+  // Saves to database AND updates local state
   const handleDeepRegrade = async () => {
     const frontImg = getFrontImage(selectedCard);
     const backImg = getBackImage(selectedCard);
@@ -292,20 +304,40 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
     setDeepGradeStatus('grading');
     try {
       const result = await deepGradingAnalysis(
-        frontImg,
-        backImg,
-        'pokemon',
-        userId
+        frontImg,           // originalFrontImage
+        backImg,            // originalBackImage
+        null,               // croppedFrontImage (use originals for both)
+        null,               // croppedBackImage
+        'pokemon',          // cardGame
+        userId              // userId
       );
       if (result.success) {
         setDeepGradeResult(result);
 
-        // Store in SEPARATE deep state (not overwriting standard AI)
+        // Store in local state for display
         if (result.grades) {
           setDeepAiGrades(result.grades);
         }
         if (result.centering) {
           setDeepAiCentering(result.centering);
+        }
+
+        // SAVE TO DATABASE - persist the deep grade results
+        const updateData = {};
+        if (result.grades) updateData.deep_ai_grades = result.grades;
+        if (result.condition) updateData.deep_ai_condition = result.condition;
+        if (result.centering) updateData.deep_ai_centering = result.centering;
+        if (result.defects) updateData.deep_ai_defects = result.defects;
+        if (result.summary) updateData.deep_ai_summary = result.summary;
+        if (result.cardInfo) updateData.deep_ai_card_info = result.cardInfo;
+
+        if (Object.keys(updateData).length > 0) {
+          await updateScan(selectedCard.id, updateData);
+          // Update local scan list to reflect saved data
+          setSelectedCard(prev => ({ ...prev, ...updateData }));
+          setScans(prev => prev.map(s =>
+            s.id === selectedCard.id ? { ...s, ...updateData } : s
+          ));
         }
 
         // Switch to deep grade display mode

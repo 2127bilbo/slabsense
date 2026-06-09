@@ -88,6 +88,14 @@ For BACK Left/Right and Top/Bottom:
 
 BE AGGRESSIVE - graders are critical, you should be too.
 
+**Centering Grade Impact (from TAG calibration data):**
+- 50/50 perfect = 10 Pristine potential
+- 48/52 or 52/48 (2% off) = 10 Gem Mint max
+- 45/55 or 55/45 (5% off) = 9 Mint max
+- 43/57 or 57/43 (7% off) = 8.5 NM-MT+ max
+- 40/60 or 60/40 (10% off) = 8 NM-MT max
+- Worse than 60/40 = 7.5 or lower
+
 ### 3. CONDITION ASSESSMENT (Score each 1-10)
 **CORNERS** - Examine all 8 corners (4 front, 4 back):
 - Look for: whitening, dings, bends, peeling, rounding
@@ -127,14 +135,27 @@ Based on your analysis, provide grades for each company using their specific sta
 - Labels: 10=Pristine or Gem Mint, 9.5=Mint+, 9=Mint, 8.5=NM/MT+, 8=NM/MT, 7=NM
 
 **TAG** (1000-point score system, NO 9.5):
-- Score 990-1000 = Grade 10 "Pristine"
-- Score 950-989 = Grade 10 "Gem Mint"
-- Score 900-949 = Grade 9 "Mint"
-- Score 850-899 = Grade 8.5 "NM-MT+"
-- Score 800-849 = Grade 8 "NM-MT"
-- Score 750-799 = Grade 7.5 "NM+"
-- Score 700-749 = Grade 7 "NM"
-- 8 subgrades (each ~100-125 max): frontCentering, backCentering, frontCorners, backCorners, frontEdges, backEdges, frontSurface, backSurface
+- Score 990-1000 = Grade 10 "Pristine" (strictest: centering <2% front/<4% back, 0 corner/edge defects)
+- Score 950-989 = Grade 10 "Gem Mint" (centering <5% front/<6.5% back, max 3 minor defects)
+- Score 900-949 = Grade 9 "Mint" (centering <6% front/<7% back, max 4 minor defects)
+- Score 850-899 = Grade 8.5 "NM-MT+" (centering <7% front/<8% back)
+- Score 800-849 = Grade 8 "NM-MT" (centering <8% front/<9% back)
+- Score 750-799 = Grade 7.5 "NM+" (centering <10% front/<11% back)
+- Score 700-749 = Grade 7 "NM" (centering <10% front/<11% back)
+- 8 subgrades (each max 125): frontCentering, backCentering, frontCorners, backCorners, frontEdges, backEdges, frontSurface, backSurface
+
+**TAG Centering Calibration (from 509 real TAG grades):**
+- 10 Pristine: Front max 1.98%, Back max 3.85%
+- 10 Gem Mint: Front max 4.5%, Back max 6.3%
+- 9 Mint: Front max 9.8%, Back max 9.2%
+- 8.5 NM-MT+: Front max 12.2%, Back max 11.2%
+- 8 NM-MT: Front max 13.9%, Back max 10.3%
+
+**TAG Defect Limits by Grade:**
+- 10 Pristine: Max 3 SURFACE defects only (no corner/edge wear), avg 0.3 defects
+- 10 Gem Mint: Max 3 total (1 corner, 1 edge, 2 surface), avg 0.5 defects
+- 9 Mint: Max 4 total (3 corner, 2 edge, 3 surface), avg 1.8 defects
+- Lower grades: Progressively more defects allowed
 
 ### 5. SUMMARY
 - Key positives (what's good about this card's condition)
