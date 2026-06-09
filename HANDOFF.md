@@ -503,6 +503,20 @@ CREATE TABLE missing_images (
 
 ---
 
+## Deployment
+
+**Vercel auto-deploys from GitHub.** Any push to `main` triggers a production deployment.
+
+```bash
+# Push to deploy
+git push origin main
+# Vercel automatically builds and deploys from GitHub
+```
+
+No need to run `vercel --prod` manually - just push to GitHub.
+
+---
+
 ## Test the App
 
 ```bash
