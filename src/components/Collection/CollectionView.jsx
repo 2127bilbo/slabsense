@@ -311,11 +311,19 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
         ? { lrRatio: selectedCard.back_centering.lrRatio, tbRatio: selectedCard.back_centering.tbRatio }
         : null;
 
-      console.log('[Collection Deep Grade] Centering:', {
+      console.log('[Collection Deep Grade] Params:', {
         hasSoftware: !!frontCentering && !!backCentering,
         front: frontCentering,
-        back: backCentering
+        back: backCentering,
+        userId: userId,
       });
+
+      // Double-check userId right before the call
+      if (!userId) {
+        console.error('[Collection Deep Grade] No user ID!');
+        setDeepGradeStatus(null);
+        return;
+      }
 
       const result = await deepGradingAnalysisV2(
         frontImg,           // originalFrontImage

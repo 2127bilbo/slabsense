@@ -3375,11 +3375,20 @@ export default function SlabSense(){
         ? { lrRatio: bR.centering.lrRatio, tbRatio: bR.centering.tbRatio }
         : null;
 
+      const currentUserId = auth.user?.id;
       console.log('[Deep AI] Using 4-image mode:', {
         hasOriginals: !!fI && !!bI,
         hasCropped: !!frontCroppedImage && !!backCroppedImage,
         hasSoftwareCentering: !!softwareFrontCentering && !!softwareBackCentering,
+        userId: currentUserId,
       });
+
+      if (!currentUserId) {
+        console.error('[Deep AI] No user ID at call time!');
+        setDeepGradeStatus(null);
+        setProg('');
+        return;
+      }
 
       const result = await deepGradingAnalysisV2(
         originalFront,
@@ -3388,7 +3397,7 @@ export default function SlabSense(){
         croppedBack,
         'pokemon',
         'modern_holo',  // TODO: detect vintage vs modern from card info
-        auth.user.id,
+        currentUserId,
         softwareFrontCentering,  // Pass software centering (optional)
         softwareBackCentering    // Pass software centering (optional)
       );

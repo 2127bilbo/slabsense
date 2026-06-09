@@ -1417,6 +1417,17 @@ export async function deepGradingAnalysisV2(
 ) {
   const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
   console.log('[Deep AI V2] Starting two-pass reference comparison analysis...', hasSoftwareCentering ? '(with software centering)' : '');
+  console.log('[Deep AI V2] Received params:', {
+    hasOriginalFront: !!originalFrontImage,
+    hasOriginalBack: !!originalBackImage,
+    hasCroppedFront: !!croppedFrontImage,
+    hasCroppedBack: !!croppedBackImage,
+    cardGame,
+    cardType,
+    userId: userId,
+    hasFrontCentering: !!frontCentering,
+    hasBackCentering: !!backCentering,
+  });
 
   // Support legacy 2-image calls
   const frontOriginal = originalFrontImage;
@@ -1429,6 +1440,7 @@ export async function deepGradingAnalysisV2(
   }
 
   if (!userId) {
+    console.error('[Deep AI V2] userId is falsy:', userId, typeof userId);
     throw new Error('User ID required for Deep AI Grade V2');
   }
 
