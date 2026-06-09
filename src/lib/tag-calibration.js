@@ -9,59 +9,56 @@
 
 // Centering thresholds - P90 values (90% of cards at grade meet this)
 // Values are MAX DEVIATION % from perfect 50/50 centering
+// TAG grades: 10 (Pristine/Gem Mint), 9, 8.5, 8, 7.5, 7, 6.5, 6, 5.5, 5, etc.
+// Note: Both Pristine and Gem Mint are grade 10, distinguished by score range
 export const TAG_CENTERING_THRESHOLDS = {
   front: {
-    10.0: 2.0,    // PRISTINE - max 2% deviation (48/52)
-    9.9: 9.3,     // GEM MINT - max 9.3% deviation (40.7/59.3)
-    9.0: 18.5,    // MINT
-    8.5: 21.7,    // NM-MT+
-    8.0: 27.8,    // NM-MT
-    7.5: 20.1,    // NEAR MINT+
-    7.0: 27.7,    // NEAR MINT
-    6.5: 23.4,    // EX-MT+
-    6.0: 18.6,    // EX-MT
-    5.0: 14.3,    // EXCELLENT
-    4.0: 19.2,    // VG-EX
-    3.0: 14.5,    // VG
-    2.0: 23.7,    // GOOD
-    1.0: 16.8,    // POOR
+    // 10 Pristine: 990-1000 score, max 2% deviation (48/52)
+    // 10 Gem Mint: 950-989 score, max 5% deviation (45/55) - per TAG guidelines
+    10.0: 5.0,    // GRADE 10 (Gem Mint) - max 5% deviation (45/55)
+    9.0: 10.0,    // MINT - max 10% deviation (40/60)
+    8.5: 12.5,    // NM-MT+
+    8.0: 15.0,    // NM-MT
+    7.5: 17.5,    // NEAR MINT+
+    7.0: 20.0,    // NEAR MINT
+    6.5: 22.5,    // EX-MT+
+    6.0: 25.0,    // EX-MT
+    5.5: 27.5,    // EX+
+    5.0: 30.0,    // EXCELLENT
+    4.0: 35.0,    // VG-EX
+    3.0: 40.0,    // VG
+    2.0: 45.0,    // GOOD
+    1.0: 50.0,    // POOR
   },
   back: {
-    10.0: 3.8,    // PRISTINE
-    9.9: 10.9,    // GEM MINT
-    9.0: 15.3,    // MINT
-    8.5: 16.5,    // NM-MT+
-    8.0: 18.4,    // NM-MT
-    7.5: 14.7,    // NEAR MINT+
-    7.0: 18.3,    // NEAR MINT
-    6.5: 15.0,    // EX-MT+
-    6.0: 16.7,    // EX-MT
-    5.0: 15.1,    // EXCELLENT
-    4.0: 16.3,    // VG-EX
-    3.0: 15.7,    // VG
-    2.0: 13.2,    // GOOD
-    1.0: 18.5,    // POOR
+    // Back centering is more lenient than front
+    10.0: 15.0,   // GRADE 10 - max 15% deviation (35/65)
+    9.0: 25.0,    // MINT
+    8.5: 27.5,    // NM-MT+
+    8.0: 30.0,    // NM-MT
+    7.5: 32.5,    // NEAR MINT+
+    7.0: 35.0,    // NEAR MINT
+    6.5: 37.5,    // EX-MT+
+    6.0: 40.0,    // EX-MT
+    5.0: 45.0,    // EXCELLENT
+    4.0: 50.0,    // VG-EX
+    3.0: 50.0,    // VG
+    2.0: 50.0,    // GOOD
+    1.0: 50.0,    // POOR
   }
 };
 
 // Grade ceiling rules - cards CANNOT exceed these limits
 // Based on MAX observed values in each grade category
+// Note: TAG uses 10 for both Pristine and Gem Mint (no 9.9 grade)
 export const GRADE_CEILINGS = {
-  10.0: { // PRISTINE
-    maxDefects: 3,
-    maxCorner: 0,
-    maxEdge: 0,
-    maxSurface: 3,
-    maxFrontDev: 2.0,
-    maxBackDev: 3.9,
-  },
-  9.9: { // GEM MINT
+  10.0: { // GRADE 10 (Pristine/Gem Mint)
     maxDefects: 3,
     maxCorner: 1,
     maxEdge: 1,
-    maxSurface: 2,
-    maxFrontDev: 10.0,
-    maxBackDev: 12.6,
+    maxSurface: 3,
+    maxFrontDev: 5.0,
+    maxBackDev: 15.0,
   },
   9.0: { // MINT
     maxDefects: 4,
@@ -163,11 +160,12 @@ export const GRADE_CEILINGS = {
 
 // Defect count to grade ceiling mapping
 // Cards with this many total defects CANNOT exceed this grade
+// Note: TAG uses 10 for both Pristine (990+) and Gem Mint (950-989)
 export const DEFECT_GRADE_CAPS = {
   0: 10.0,  // Perfect - can be PRISTINE
-  1: 9.9,   // GEM MINT max
-  2: 9.9,   // GEM MINT max
-  3: 10.0,  // Can still be PRISTINE (surface defects allowed)
+  1: 10.0,  // GEM MINT (still grade 10)
+  2: 10.0,  // GEM MINT (still grade 10)
+  3: 10.0,  // Can still be grade 10 (surface defects allowed)
   4: 9.0,   // MINT max
   5: 8.5,   // NM-MT+ max - THE 5-DEFECT CLIFF
   6: 8.5,   // NM-MT+ max
@@ -175,8 +173,7 @@ export const DEFECT_GRADE_CAPS = {
 
 // Average defect counts by grade (for reference/validation)
 export const AVG_DEFECTS_BY_GRADE = {
-  10.0: 0.3,  // PRISTINE
-  9.9: 0.5,   // GEM MINT
+  10.0: 0.4,  // GRADE 10 (Pristine/Gem Mint combined)
   9.0: 1.9,   // MINT
   8.5: 2.8,   // NM-MT+
   8.0: 2.7,   // NM-MT
@@ -201,7 +198,8 @@ export const AVG_DEFECTS_BY_GRADE = {
  */
 export function getMaxGradeByDefects(totalDefects, cornerDefects = 0, edgeDefects = 0, surfaceDefects = 0) {
   // Check each grade level from highest to lowest
-  const grades = [10.0, 9.9, 9.0, 8.5, 8.0, 7.5, 7.0, 6.5, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  // TAG actual grades (no 9.9 - both Pristine and Gem Mint are grade 10)
+  const grades = [10.0, 9.0, 8.5, 8.0, 7.5, 7.0, 6.5, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
 
   for (const grade of grades) {
     const ceiling = GRADE_CEILINGS[grade];
@@ -226,7 +224,8 @@ export function getMaxGradeByDefects(totalDefects, cornerDefects = 0, edgeDefect
  * @returns {number} Maximum grade allowed by centering
  */
 export function getCenteringGrade(frontDeviation, backDeviation) {
-  const grades = [10.0, 9.9, 9.0, 8.5, 8.0, 7.5, 7.0, 6.5, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
+  // TAG actual grades (no 9.9 - both Pristine and Gem Mint are grade 10)
+  const grades = [10.0, 9.0, 8.5, 8.0, 7.5, 7.0, 6.5, 6.0, 5.5, 5.0, 4.0, 3.0, 2.0, 1.0];
 
   for (const grade of grades) {
     const frontMax = TAG_CENTERING_THRESHOLDS.front[grade];
