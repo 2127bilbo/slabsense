@@ -34,10 +34,10 @@ export function PostCaptureCentering({
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Measurement mode toggle
+  // Measurement mode toggle - corner mode is default (handles tilted cards better)
   const [measureMode, setMeasureMode] = useState(() => {
-    try { return localStorage.getItem('slabsense_measureMode') || 'edge'; }
-    catch { return 'edge'; }
+    try { return localStorage.getItem('slabsense_measureMode') || 'corner'; }
+    catch { return 'corner'; }
   });
   useEffect(() => {
     try { localStorage.setItem('slabsense_measureMode', measureMode); }
@@ -352,7 +352,7 @@ export function PostCaptureCentering({
                 borderRight: '1px solid #2a2d35',
               }}
             >
-              Edge Drag (v1)
+              Edge Lines
             </button>
             <button
               onClick={() => setMeasureMode('corner')}
@@ -366,7 +366,7 @@ export function PostCaptureCentering({
                 cursor: 'pointer',
               }}
             >
-              Corner Anchored (β)
+              4-Corner (tilted)
             </button>
           </div>
         </div>
