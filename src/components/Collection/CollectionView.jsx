@@ -303,6 +303,20 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
     if (!frontImg || !backImg || !userId) return;
     setDeepGradeStatus('grading');
     try {
+      // Use saved software centering from the scan if available (more accurate than AI estimation)
+      const frontCentering = selectedCard.front_centering?.lrRatio != null
+        ? { lrRatio: selectedCard.front_centering.lrRatio, tbRatio: selectedCard.front_centering.tbRatio }
+        : null;
+      const backCentering = selectedCard.back_centering?.lrRatio != null
+        ? { lrRatio: selectedCard.back_centering.lrRatio, tbRatio: selectedCard.back_centering.tbRatio }
+        : null;
+
+      console.log('[Collection Deep Grade] Centering:', {
+        hasSoftware: !!frontCentering && !!backCentering,
+        front: frontCentering,
+        back: backCentering
+      });
+
       const result = await deepGradingAnalysisV2(
         frontImg,           // originalFrontImage
         backImg,            // originalBackImage
@@ -310,7 +324,9 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
         null,               // croppedBackImage
         'pokemon',          // cardGame
         'modern_holo',      // cardType (TODO: detect from card info)
-        userId              // userId
+        userId,             // userId
+        frontCentering,     // software centering (optional)
+        backCentering       // software centering (optional)
       );
       if (result.success) {
         setDeepGradeResult(result);

@@ -61,7 +61,7 @@ Your job: Compare the card to the references and determine where it fits.
 GRADING PHILOSOPHY: TAG is STRICT. When uncertain between two grades, choose the LOWER grade.
 The references show you exactly what each grade looks like in terms of centering and defects.`;
 
-const buildPass2Prompt = (quickAssessment, references) => {
+const buildPass2Prompt = (quickAssessment, references, softwareCentering = null) => {
   // Format reference cards
   const refText = references.map((ref, i) => {
     const defectList = ref.defect_details?.map(d => `${d.type} (${d.location})`).join(', ') || 'None noted';
@@ -73,12 +73,39 @@ Defects: ${ref.defect_count} total (${ref.corner_defects} corner, ${ref.edge_def
 Details: ${defectList}`;
   }).join('\n');
 
+  // Build centering section - use software values if provided, otherwise AI must estimate
+  let centeringSection;
+  if (softwareCentering) {
+    const { front, back } = softwareCentering;
+    const fLR = front.lrRatio.toFixed(1);
+    const fTB = front.tbRatio.toFixed(1);
+    const bLR = back.lrRatio.toFixed(1);
+    const bTB = back.tbRatio.toFixed(1);
+    const fDevLR = Math.abs(50 - front.lrRatio).toFixed(1);
+    const fDevTB = Math.abs(50 - front.tbRatio).toFixed(1);
+    const bDevLR = Math.abs(50 - back.lrRatio).toFixed(1);
+    const bDevTB = Math.abs(50 - back.tbRatio).toFixed(1);
+
+    centeringSection = `
+## CENTERING (Pre-measured via software - USE THESE VALUES)
+Front: ${fLR}/${(100 - front.lrRatio).toFixed(1)} LR (${fDevLR}% deviation), ${fTB}/${(100 - front.tbRatio).toFixed(1)} TB (${fDevTB}% deviation)
+Back: ${bLR}/${(100 - back.lrRatio).toFixed(1)} LR (${bDevLR}% deviation), ${bTB}/${(100 - back.tbRatio).toFixed(1)} TB (${bDevTB}% deviation)
+
+These centering values are EXACT measurements from pixel analysis. Use them directly - do NOT re-estimate centering.`;
+  } else {
+    centeringSection = `
+## CENTERING (Must be estimated)
+You must visually estimate the centering by comparing border widths.
+- Front Centering: ${quickAssessment.quickAssessment.centeringFront}
+- Back Centering: ${quickAssessment.quickAssessment.centeringBack}`;
+  }
+
   return `## CARD BEING GRADED
 Initial Assessment: Estimated ${quickAssessment.estimatedGrade} (range ${quickAssessment.gradeRange.low}-${quickAssessment.gradeRange.high})
 Card: ${quickAssessment.cardName}
-Quick Notes:
-- Front Centering: ${quickAssessment.quickAssessment.centeringFront}
-- Back Centering: ${quickAssessment.quickAssessment.centeringBack}
+${centeringSection}
+
+## DEFECT NOTES (from initial scan)
 - Corners: ${quickAssessment.quickAssessment.corners}
 - Edges: ${quickAssessment.quickAssessment.edges}
 - Surface: ${quickAssessment.quickAssessment.surface}
@@ -87,8 +114,8 @@ Quick Notes:
 ${refText}
 
 ## YOUR TASK
-1. Measure the card's centering precisely (estimate deviation %)
-2. Count and categorize all defects
+${softwareCentering ? '1. Use the pre-measured centering values above (already calculated)' : '1. Measure the card\'s centering precisely (estimate deviation %)'}
+2. Count and categorize all defects (corners, edges, surface)
 3. Compare to the reference cards above
 4. Determine the final TAG grade
 
@@ -219,8 +246,14 @@ export default async function handler(req, res) {
     frontUrl,
     backUrl,
     cardGame = 'pokemon',
-    cardType = 'modern_holo'
+    cardType = 'modern_holo',
+    // Software-calculated centering (optional - if provided, skips AI centering estimation)
+    frontCentering,  // { lrRatio, tbRatio } from calculateCenteringFromBounds
+    backCentering    // { lrRatio, tbRatio } from calculateCenteringFromBounds
   } = req.body;
+
+  // Check if we have pre-calculated centering
+  const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
 
   // Support both 4-image and 2-image modes
   const has4Images = frontOriginalUrl && backOriginalUrl && frontCroppedUrl && backCroppedUrl;
@@ -298,9 +331,15 @@ export default async function handler(req, res) {
     // ========================================================================
     // PASS 2: Comparison Grading
     // ========================================================================
-    console.log('[DeepAnalyzeV2] Pass 2: Comparison grading...');
+    console.log('[DeepAnalyzeV2] Pass 2: Comparison grading...', hasSoftwareCentering ? '(using software centering)' : '(AI estimating centering)');
 
-    const pass2Prompt = buildPass2Prompt(quickAssessment, references);
+    // Build software centering object if we have it
+    const softwareCentering = hasSoftwareCentering ? {
+      front: { lrRatio: frontCentering.lrRatio, tbRatio: frontCentering.tbRatio },
+      back: { lrRatio: backCentering.lrRatio, tbRatio: backCentering.tbRatio }
+    } : null;
+
+    const pass2Prompt = buildPass2Prompt(quickAssessment, references, softwareCentering);
 
     const pass2Response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -352,7 +391,9 @@ export default async function handler(req, res) {
       summary: finalResult.summary,
       meta: {
         elapsedMs: elapsed,
-        imageMode: has4Images ? '4-image' : '2-image'
+        imageMode: has4Images ? '4-image' : '2-image',
+        centeringSource: hasSoftwareCentering ? 'software' : 'ai-estimated',
+        softwareCentering: softwareCentering || null
       }
     });
 

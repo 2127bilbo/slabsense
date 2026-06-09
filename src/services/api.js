@@ -1410,9 +1410,13 @@ export async function deepGradingAnalysisV2(
   croppedBackImage = null,
   cardGame = 'pokemon',
   cardType = 'modern_holo',
-  userId = null
+  userId = null,
+  // Optional software-calculated centering (from calculateCenteringFromBounds)
+  frontCentering = null,  // { lrRatio, tbRatio }
+  backCentering = null    // { lrRatio, tbRatio }
 ) {
-  console.log('[Deep AI V2] Starting two-pass reference comparison analysis...');
+  const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
+  console.log('[Deep AI V2] Starting two-pass reference comparison analysis...', hasSoftwareCentering ? '(with software centering)' : '');
 
   // Support legacy 2-image calls
   const frontOriginal = originalFrontImage;
@@ -1441,19 +1445,31 @@ export async function deepGradingAnalysisV2(
     console.log('[Deep AI V2] Images uploaded, starting two-pass analysis...');
 
     // Step 2: Call our deep-analyze-v2 endpoint
+    const requestBody = {
+      frontOriginalUrl,
+      backOriginalUrl,
+      frontCroppedUrl,
+      backCroppedUrl,
+      frontUrl: frontCroppedUrl,
+      backUrl: backCroppedUrl,
+      cardGame,
+      cardType,
+    };
+
+    // Include software centering if available (more accurate than AI estimation)
+    if (hasSoftwareCentering) {
+      requestBody.frontCentering = frontCentering;
+      requestBody.backCentering = backCentering;
+      console.log('[Deep AI V2] Using software centering:', {
+        front: `${frontCentering.lrRatio.toFixed(1)}/${frontCentering.tbRatio.toFixed(1)}`,
+        back: `${backCentering.lrRatio.toFixed(1)}/${backCentering.tbRatio.toFixed(1)}`
+      });
+    }
+
     const response = await fetch('/api/deep-analyze-v2', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        frontOriginalUrl,
-        backOriginalUrl,
-        frontCroppedUrl,
-        backCroppedUrl,
-        frontUrl: frontCroppedUrl,
-        backUrl: backCroppedUrl,
-        cardGame,
-        cardType,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

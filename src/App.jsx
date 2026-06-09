@@ -3362,9 +3362,23 @@ export default function SlabSense(){
       const croppedFront = frontCroppedImage || fI; // Cropped or fallback to original
       const croppedBack = backCroppedImage || bI;   // Cropped or fallback to original
 
+      // Prepare software centering if available (more accurate than AI estimation)
+      const softwareFrontCentering = frontCenteringData?.didManualCenter
+        ? { lrRatio: frontCenteringData.lrRatio, tbRatio: frontCenteringData.tbRatio }
+        : fR?.centering
+        ? { lrRatio: fR.centering.lrRatio, tbRatio: fR.centering.tbRatio }
+        : null;
+
+      const softwareBackCentering = backCenteringData?.didManualCenter
+        ? { lrRatio: backCenteringData.lrRatio, tbRatio: backCenteringData.tbRatio }
+        : bR?.centering
+        ? { lrRatio: bR.centering.lrRatio, tbRatio: bR.centering.tbRatio }
+        : null;
+
       console.log('[Deep AI] Using 4-image mode:', {
         hasOriginals: !!fI && !!bI,
         hasCropped: !!frontCroppedImage && !!backCroppedImage,
+        hasSoftwareCentering: !!softwareFrontCentering && !!softwareBackCentering,
       });
 
       const result = await deepGradingAnalysisV2(
@@ -3374,7 +3388,9 @@ export default function SlabSense(){
         croppedBack,
         'pokemon',
         'modern_holo',  // TODO: detect vintage vs modern from card info
-        auth.user.id
+        auth.user.id,
+        softwareFrontCentering,  // Pass software centering (optional)
+        softwareBackCentering    // Pass software centering (optional)
       );
 
       if (result.success) {
