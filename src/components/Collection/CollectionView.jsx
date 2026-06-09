@@ -8,6 +8,7 @@ import { getUserScans, deleteScan, updateScan } from '../../services/scans.js';
 import { getGradeFromScore, GRADING_COMPANIES as GRADE_SCALES } from '../../utils/gradingScales.js';
 import { HoloCard } from '../HoloCard/HoloCard.jsx';
 import { getGyroInput } from '../../lib/gyro-input.js';
+import { loadImg, genMaps, LUM } from '../../lib/image-utils.js';
 import { CardViewer3D } from '../CardViewer/CardViewer3D.jsx';
 import { claudeGradingAnalysis, deepGradingAnalysisV2 } from '../../services/api.js';
 import { GradeResultDisplay } from '../Grading/GradeResultDisplay.jsx';
@@ -28,36 +29,8 @@ const GRADING_COMPANIES = {
 const EUR_TO_USD = 1.08;
 
 /* ═══════════════════════════════════════════
-   SURFACE VISION HELPERS
+   SURFACE VISION HELPERS (loadImg, genMaps, LUM imported from lib/image-utils.js)
    ═══════════════════════════════════════════ */
-function loadImg(src,mx=1400){return new Promise(r=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>{let w=img.width,h=img.height;if(Math.max(w,h)>mx){const s=mx/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d",{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);r({canvas:c,ctx,w,h,data:ctx.getImageData(0,0,w,h)});};img.onerror=()=>r(null);img.src=src;});}
-
-const LUM=(r,g,b)=>.299*r+.587*g+.114*b;
-
-function genMaps(src){return new Promise(async r=>{
-  const result=await loadImg(src,1400);
-  if(!result){r(null);return;}
-  const{canvas,w,h,data}=result;const d=data.data;
-  const mk=()=>{const c=document.createElement("canvas");c.width=w;c.height=h;return c;};
-  const L=(Y,X)=>LUM(d[(Y*w+X)*4],d[(Y*w+X)*4+1],d[(Y*w+X)*4+2]);
-
-  // Emboss
-  const eC=mk(),eX=eC.getContext("2d"),eD=eX.createImageData(w,h),e=eD.data;
-  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=(y*w+x)*4,v=Math.min(255,Math.max(0,128+(L(y+1,x+1)-L(y-1,x-1))*2));e[i]=e[i+1]=e[i+2]=v;e[i+3]=255;}
-  eX.putImageData(eD,0,0);
-
-  // High-pass
-  const hC=mk(),hX=hC.getContext("2d"),hD=hX.createImageData(w,h),hp=hD.data;
-  for(let y=8;y<h-8;y++)for(let x=8;x<w-8;x++){const i=(y*w+x)*4;let ls=0,ln=0;for(let dy=-8;dy<=8;dy+=2)for(let dx=-8;dx<=8;dx+=2){ls+=L(y+dy,x+dx);ln++;}const v=Math.min(255,Math.max(0,128+(L(y,x)-ls/ln)*3));hp[i]=hp[i+1]=hp[i+2]=v;hp[i+3]=255;}
-  hX.putImageData(hD,0,0);
-
-  // Sobel edges
-  const dC=mk(),dX=dC.getContext("2d"),dD=dX.createImageData(w,h),ed=dD.data;
-  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=(y*w+x)*4;const gx=-L(y-1,x-1)+L(y-1,x+1)-2*L(y,x-1)+2*L(y,x+1)-L(y+1,x-1)+L(y+1,x+1);const gy=-L(y-1,x-1)-2*L(y-1,x)-L(y-1,x+1)+L(y+1,x-1)+2*L(y+1,x)+L(y+1,x+1);const m=Math.min(255,Math.sqrt(gx*gx+gy*gy));ed[i]=~~(m*.2);ed[i+1]=~~(m*.9);ed[i+2]=~~m;ed[i+3]=255;}
-  dX.putImageData(dD,0,0);
-
-  r({original:canvas.toDataURL(),emboss:eC.toDataURL(),highpass:hC.toDataURL(),edges:dC.toDataURL(),width:w,height:h});
-});}
 
 /**
  * Get card price from scan data

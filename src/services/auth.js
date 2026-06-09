@@ -128,38 +128,6 @@ export function onAuthStateChange(callback) {
 }
 
 /**
- * Send password reset email
- */
-export async function resetPassword(email) {
-  if (!isSupabaseConfigured()) {
-    throw new Error('Authentication not configured');
-  }
-
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/reset-password`,
-  });
-
-  if (error) throw error;
-}
-
-/**
- * Check if user has pro/lifetime access
- */
-export async function checkProAccess(userId) {
-  if (!isSupabaseConfigured()) {
-    return false;
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('tier')
-    .eq('id', userId)
-    .single();
-
-  return profile?.tier === 'pro_monthly' || profile?.tier === 'beta_lifetime';
-}
-
-/**
  * Delete user account and all associated data
  * Note: This deletes the profile (which cascades to scans via FK),
  * but the auth.users entry requires admin/service role to delete.

@@ -8,12 +8,11 @@ import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan, logMissingImage } from "./services/scans.js";
 import { CardCropModal } from "./components/CardCropModal.jsx";
-import { checkBackendHealth, analyzeCardWithBackend, analyzeCardWithVision, claudeGradingAnalysis, deepGradingAnalysisV2 } from "./services/api.js";
+import { checkBackendHealth, analyzeCardWithBackend, claudeGradingAnalysis, deepGradingAnalysisV2 } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 import { CardIdentifier } from "./components/CardIdentifier/CardIdentifier.jsx";
 import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.jsx";
 import { PostCaptureCentering } from "./components/PostCaptureCentering/PostCaptureCentering.jsx";
-import { calculateCornerCentering } from "./lib/corner-measurement.js";
 import { HoloLogo } from "./components/HoloLogo/HoloLogo.jsx";
 import { GradeResultDisplay } from "./components/Grading/GradeResultDisplay.jsx";
 import {
@@ -26,6 +25,7 @@ import {
   calculateSoftwareConfidence,
 } from "./lib/tag-calibration.js";
 import { getGyroInput } from "./lib/gyro-input.js";
+import { loadImg, genMaps, LUM } from "./lib/image-utils.js";
 import holoConfig from "../config/holo-config.json";
 
 /* ═══════════════════════════════════════════
@@ -56,11 +56,9 @@ const mono="'JetBrains Mono','SF Mono',monospace", sans="'Inter',-apple-system,s
 const PERFECT_CENTER = { lrRatio: 50, tbRatio: 50 }; // For "ignore centering" mode
 
 /* ═══════════════════════════════════════════
-   IMAGE UTILITIES
+   IMAGE UTILITIES (loadImg, genMaps, LUM imported from lib/image-utils.js)
    ═══════════════════════════════════════════ */
-function loadImg(src,mx=1400){return new Promise(r=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>{let w=img.width,h=img.height;if(Math.max(w,h)>mx){const s=mx/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d",{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);r({canvas:c,ctx,w,h,data:ctx.getImageData(0,0,w,h)});};img.src=src;});}
 const PX=(d,w,x,y)=>{const i=(y*w+x)*4;return[d[i],d[i+1],d[i+2]];};
-const LUM=(r,g,b)=>.299*r+.587*g+.114*b;
 
 /* ═══════════════════════════════════════════
    PHOTO QUALITY DETECTION
@@ -1026,30 +1024,8 @@ function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId 
 }
 
 /* ═══════════════════════════════════════════
-   SURFACE VISION MAPS
+   SURFACE VISION MAPS (genMaps imported from lib/image-utils.js)
    ═══════════════════════════════════════════ */
-function genMaps(src){return new Promise(async r=>{
-  const{canvas,w,h,data}=await loadImg(src,1400);const d=data.data;
-  const mk=()=>{const c=document.createElement("canvas");c.width=w;c.height=h;return c;};
-  const L=(Y,X)=>LUM(d[(Y*w+X)*4],d[(Y*w+X)*4+1],d[(Y*w+X)*4+2]);
-  
-  // Emboss
-  const eC=mk(),eX=eC.getContext("2d"),eD=eX.createImageData(w,h),e=eD.data;
-  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=(y*w+x)*4,v=Math.min(255,Math.max(0,128+(L(y+1,x+1)-L(y-1,x-1))*2));e[i]=e[i+1]=e[i+2]=v;e[i+3]=255;}
-  eX.putImageData(eD,0,0);
-  
-  // High-pass
-  const hC=mk(),hX=hC.getContext("2d"),hD=hX.createImageData(w,h),hp=hD.data;
-  for(let y=8;y<h-8;y++)for(let x=8;x<w-8;x++){const i=(y*w+x)*4;let ls=0,ln=0;for(let dy=-8;dy<=8;dy+=2)for(let dx=-8;dx<=8;dx+=2){ls+=L(y+dy,x+dx);ln++;}const v=Math.min(255,Math.max(0,128+(L(y,x)-ls/ln)*3));hp[i]=hp[i+1]=hp[i+2]=v;hp[i+3]=255;}
-  hX.putImageData(hD,0,0);
-  
-  // Sobel edges
-  const dC=mk(),dX=dC.getContext("2d"),dD=dX.createImageData(w,h),ed=dD.data;
-  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=(y*w+x)*4;const gx=-L(y-1,x-1)+L(y-1,x+1)-2*L(y,x-1)+2*L(y,x+1)-L(y+1,x-1)+L(y+1,x+1);const gy=-L(y-1,x-1)-2*L(y-1,x)-L(y-1,x+1)+L(y+1,x-1)+2*L(y+1,x)+L(y+1,x+1);const m=Math.min(255,Math.sqrt(gx*gx+gy*gy));ed[i]=~~(m*.2);ed[i+1]=~~(m*.9);ed[i+2]=~~m;ed[i+3]=255;}
-  dX.putImageData(dD,0,0);
-  
-  r({original:canvas.toDataURL(),emboss:eC.toDataURL(),highpass:hC.toDataURL(),edges:dC.toDataURL(),width:w,height:h});
-});}
 
 function cropReg(src,rg,mx=300){return new Promise(r=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>{const cx=Math.max(0,rg.x),cy=Math.max(0,rg.y),cw=Math.min(rg.w,img.width-cx),ch=Math.min(rg.h,img.height-cy);if(cw<=0||ch<=0){r(null);return;}const sc=Math.min(mx/cw,mx/ch,4);const c=document.createElement("canvas");c.width=~~(cw*sc);c.height=~~(ch*sc);const ctx=c.getContext("2d");ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";ctx.drawImage(img,cx,cy,cw,ch,0,0,c.width,c.height);r(c.toDataURL("image/png"));};img.src=src;});}
 

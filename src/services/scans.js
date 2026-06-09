@@ -212,13 +212,6 @@ export async function deleteScan(scanId) {
 }
 
 /**
- * Toggle favorite status
- */
-export async function toggleFavorite(scanId, isFavorite) {
-  return updateScan(scanId, { is_favorite: isFavorite });
-}
-
-/**
  * Get scan count for a user
  */
 export async function getScanCount(userId) {
@@ -233,44 +226,6 @@ export async function getScanCount(userId) {
 
   if (error) throw error;
   return count || 0;
-}
-
-/**
- * Get favorite scans
- */
-export async function getFavoriteScans(userId) {
-  if (!isSupabaseConfigured()) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('scans')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('is_favorite', true)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
-}
-
-/**
- * Search scans by card name
- */
-export async function searchScans(userId, searchTerm) {
-  if (!isSupabaseConfigured()) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('scans')
-    .select('*')
-    .eq('user_id', userId)
-    .ilike('card_name', `%${searchTerm}%`)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
 }
 
 /**
@@ -318,40 +273,5 @@ export async function logMissingImage(tcgdexId, cardName, setName, cardNumber) {
   } catch (err) {
     // Don't throw - this is non-critical logging
     console.warn('[MissingImage] Failed to log:', err.message);
-  }
-}
-
-/**
- * Upload user-cropped card image when TCGDex has no image
- */
-export async function uploadUserCardImage(userId, scanId, croppedDataUrl) {
-  if (!isSupabaseConfigured() || !croppedDataUrl) return null;
-
-  try {
-    const response = await fetch(croppedDataUrl);
-    const blob = await response.blob();
-
-    const filename = `${userId}/${scanId}/user_card_${Date.now()}.jpg`;
-
-    const { error } = await supabase.storage
-      .from('card-images')
-      .upload(filename, blob, {
-        contentType: 'image/jpeg',
-        upsert: true,
-      });
-
-    if (error) {
-      console.error('[UserCardImage] Upload error:', error);
-      return null;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('card-images')
-      .getPublicUrl(filename);
-
-    return urlData?.publicUrl || null;
-  } catch (err) {
-    console.error('[UserCardImage] Error:', err);
-    return null;
   }
 }

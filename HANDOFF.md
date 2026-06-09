@@ -1,13 +1,40 @@
 # SlabSense Development Handoff
 
-**Date:** April 14, 2026
+**Date:** June 9, 2026
 **Status:** Active Development - Beta Phase
+**Codebase Audit:** See `CODEBASE_AUDIT.md` for detailed analysis
 
 ---
 
 ## Current State Summary
 
-SlabSense is a multi-company card pre-grading application with **Claude AI integration** for accurate grading, **TCGDex** for high-quality card images, and **automated card identification** via pHash + TCGDex API. The app supports PSA, BGS, SGC, CGC, and TAG grading standards.
+SlabSense is a multi-company card pre-grading application with **Claude AI integration** for accurate grading, **TCGDex** for high-quality card images, and **automated card identification** via CLIP visual matching + TCGDex API. The app supports PSA, BGS, SGC, CGC, and TAG grading standards.
+
+### Recent Completed Work (June 2026)
+
+| Feature | Description |
+|---------|-------------|
+| **TAG Calibration Integration** | Software grading now uses calibration data from 507 real TAG-graded reference cards |
+| **5-Defect Cliff Rule** | Cards with 5+ defects hard-capped at grade 8.5 (per real TAG data) |
+| **Grade Ceiling System** | Defect type-specific caps (e.g., PRISTINE requires 0 corner/0 edge defects) |
+| **Centering Thresholds** | P90 values for all grades 1.0-10.0 (front and back) |
+| **Software Confidence Score** | 0-100% confidence based on image quality (blur, glare, contrast, resolution) |
+| **Codebase Audit** | Comprehensive audit of 600+ files, 200+ functions documented |
+| **Masterweights System** | Single source of truth for all grading company data (`src/lib/masterweights.js`) |
+| **Code Cleanup (C1-C6)** | Removed unused imports, deleted ~5.4MB obsolete files, consolidated duplicates, added CORS headers |
+| **Shared Image Utilities** | Created `src/lib/image-utils.js` with shared `loadImg`, `genMaps`, `LUM` functions |
+| **3D Card View Fixed** | Slab positioning and rendering issues resolved |
+| **Surface Vision Modes** | Emboss, Hi-Pass, Edge Detection enabled on saved cards |
+| **Cropped Images Display** | User's cropped front/back images shown in card detail view |
+| **360 Card Viewer** | 3D slab viewer accessible from collection/card view |
+| **Re-run Grading** | Button to re-analyze cards with AI from collection view |
+| **High-res Crop Preservation** | Edge adjustment now keeps highest resolution cropped image |
+| **Resolution Scaling** | Standard scan rescales after crop; Deep scan keeps full resolution |
+| **Deep Scan Feature** | Higher quality independent front/back analysis (~$0.06 per scan) |
+| **Domain Setup** | slabsense.com configured with Vercel deployment |
+| **Anthropic Direct API** | Migrated from Replicate, enabled prompt caching (90% cost reduction) |
+| **Crop Rotation Fix** | Auto-detects and corrects card rotation from corner positions |
+| **Unified Grade Display** | Single `GradeResultDisplay` component renders identically across all 6 locations (Grade Tab × 3 + Collection View × 3) |
 
 ---
 
@@ -57,6 +84,14 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 - ✅ Saves AI data with card (grades, condition, summary, centering)
 - ✅ **Card values** shown on cards and in total
 
+### Software Grading Engine (NEW)
+- ✅ **TAG calibration data** - 507 reference cards analyzed
+- ✅ **Centering thresholds** - P90 values for all grades (front/back)
+- ✅ **Grade ceiling rules** - Defect type-specific caps
+- ✅ **5-defect cliff** - 5+ defects = max 8.5 grade
+- ✅ **Confidence scoring** - Based on image quality metrics
+- ✅ **Pro user display** - Shows confidence % and factors
+
 ### Centering Tab
 - ✅ Two-step alignment flow inside ManualBoundaryEditor:
   - Step 1: Straighten Card — rotation controls (1° and 0.05° increments) + 3-axis perspective
@@ -84,6 +119,58 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 - ✅ Tables: profiles, scans, memberships
 - ✅ Saves AI grading data + TCGDex card data
 - ✅ New fields: `tcgdex_image`, `tcgdex_id`
+
+---
+
+## Unified Grade Display Architecture
+
+All grade results (Software, AI, Deep AI) render identically across the app using a single shared component: `GradeResultDisplay.jsx`
+
+### 6 Locations Using Same Component
+
+| Location | Grade Type | File |
+|----------|------------|------|
+| Grade Tab | Software | `App.jsx` |
+| Grade Tab | AI | `App.jsx` |
+| Grade Tab | Deep AI | `App.jsx` |
+| Collection Card Details | Software | `CollectionView.jsx` |
+| Collection Card Details | AI | `CollectionView.jsx` |
+| Collection Card Details | Deep AI | `CollectionView.jsx` |
+
+### Unified Layout Structure
+```
+┌─────────────────────────────────────────┐
+│  [Cropped Front]  │  [Cropped Back]     │
+├─────────────────────────────────────────┤
+│  GRADE: 9.5     TAG SCORE: 875          │
+│  AI ESTIMATE • 92% confidence           │
+├─────────────────────────────────────────┤
+│  SUBGRADES (8 boxes for TAG)            │
+│  F-Cent│B-Cent│F-Corn│B-Corn│...        │
+├─────────────────────────────────────────┤
+│  CENTERING (Manual only - no AI)        │
+│  Front: 48/52 L/R • 50/50 T/B           │
+│  Back: 49/51 L/R • 50/50 T/B            │
+├─────────────────────────────────────────┤
+│  CONDITION                              │
+│  Corners: 9/10 │ Edges: 9/10 │ Surface  │
+├─────────────────────────────────────────┤
+│  ✓ PROS: Well-centered, sharp corners   │
+│  ⚠ CONS: Minor surface scratch          │
+├─────────────────────────────────────────┤
+│  RECOMMENDATION                         │
+├─────────────────────────────────────────┤
+│  CARD INFO                              │
+│  Charizard • Base Set • #4 • 1999       │
+└─────────────────────────────────────────┘
+```
+
+### Key Design Decisions
+- **Single source of truth**: Any layout change in `GradeResultDisplay.jsx` applies to all 6 locations
+- **No AI centering displayed**: Only manual/software centering shown (AI centering removed)
+- **Cropped images only**: Shows cropped card images, not full photos with background
+- **Grade type colors**: Software (#00ff88), AI (#8b5cf6), Deep AI (#f97316)
+- **Company-specific subgrades**: TAG shows 8 subgrades, BGS/CGC show 4
 
 ---
 
@@ -173,9 +260,13 @@ User clicks "3D Slab View"
 | `src/services/api.js` | `claudeGradingAnalysis()`, `samCardCropping()` |
 | `src/services/scans.js` | Saves AI data + TCGDex data with cards |
 | `src/components/Collection/CollectionView.jsx` | Card stack with images |
+| `src/components/Grading/GradeResultDisplay.jsx` | **Unified grade display** - single component for all 6 grade views |
 | `src/components/CornerHandles.jsx` | Corner-anchored centering UI + breakdown panel |
 | `src/lib/corner-measurement.js` | 5-sample median centering calculation |
-| `src/utils/gradingScales.js` | Multi-company grading scales |
+| `src/lib/masterweights.js` | **Single source of truth** for all grading company data (centering, scales, algorithms) |
+| `src/lib/image-utils.js` | Shared image utilities (`loadImg`, `genMaps`, `LUM`) |
+| `src/lib/tag-calibration.js` | Re-exports from masterweights for backward compatibility |
+| `src/utils/gradingScales.js` | Re-exports from masterweights for backward compatibility |
 
 ### API Routes (Vercel)
 | File | Purpose |
@@ -268,6 +359,42 @@ CREATE TABLE missing_images (
 
 ---
 
+## Codebase Audit Summary
+
+> Full details in `CODEBASE_AUDIT.md`
+
+### Statistics
+- **Total Files**: 600+
+- **Total Functions**: 200+
+- **App.jsx Size**: 252KB, 3000+ lines
+- **API Endpoints**: 6
+
+### Critical Issues Found
+
+| Priority | Issue | Location | Status |
+|----------|-------|----------|--------|
+| **HIGH** | Monolithic App.jsx | 252KB single file - needs refactoring | Pending |
+| **HIGH** | Duplicate `loadImg` | 5+ implementations across files | ✅ Fixed - consolidated to `src/lib/image-utils.js` |
+| **HIGH** | Duplicate `genMaps` | App.jsx + CollectionView.jsx | ✅ Fixed - consolidated to `src/lib/image-utils.js` |
+| **MEDIUM** | Obsolete files | `src/Old revs/`, `src/App1.jsx`, `src/test/` | ✅ Deleted (~5.4MB removed) |
+| **MEDIUM** | Empty directories | `src/components/Common/`, `src/components/Grading/` | ✅ Removed |
+| **MEDIUM** | Unused imports | `analyzeCardWithVision`, `calculateCornerCentering` | ✅ Removed |
+| **LOW** | Missing CORS | 3 of 6 API endpoints lack CORS headers | ✅ Fixed - headers added |
+
+### Unused Code Removed ✅
+- ~~`scans.js`: `toggleFavorite`, `getFavoriteScans`, `searchScans`, `uploadUserCardImage`~~ DELETED
+- ~~`auth.js`: `resetPassword`, `checkProAccess`~~ DELETED
+- ~~`tag-calibration.js`: `AVG_DEFECTS_BY_GRADE`~~ Already removed in consolidation
+- Note: `uploadCardImage` in scans.js is used by `saveScan` - kept
+
+### Recommended Extractions from App.jsx (Future Refactoring)
+1. Image processing → `src/lib/image-processing.js`
+2. Grade calculation → `src/lib/grading-engine.js`
+3. Defect detection → `src/lib/defect-detection.js`
+4. ~~Shared utilities → `src/lib/image-utils.js`~~ ✅ DONE
+
+---
+
 ## Next Steps
 
 ### Completed
@@ -294,34 +421,53 @@ CREATE TABLE missing_images (
    - Cosine similarity matching with confidence thresholds
 17. ✅ **File upload resizing** - Uploaded images now resize to 1920x1440 (matches camera constraints)
 18. ✅ **Technical documentation** - Complete system reference guide (docs/TECHNICAL_REFERENCE.md)
+19. ✅ **TAG calibration integration** - Software grading now uses real data from 507 TAG-graded cards
+   - Centering thresholds (P90 values) for all grades 1.0-10.0
+   - Grade ceiling rules based on defect counts and types
+   - 5-defect cliff rule (5+ defects = max 8.5 grade)
+   - PRISTINE requires 0 corner/0 edge defects
+20. ✅ **Software confidence scoring** - 0-100% confidence based on image quality
+   - Blur detection, glare/overexposure, contrast, resolution
+   - Displayed for Pro users with contributing factors
+21. ✅ **Codebase audit** - Full audit with 200+ functions documented in CODEBASE_AUDIT.md
 
 ---
 
 ## 🎯 PRIORITY CHECKLIST (Sorted: Easy → Hard)
 
-### Tier 1: Quick Wins (1-2 hours each)
+### Tier 0: Cleanup Tasks (From Audit) ✅ COMPLETE
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| P1 | **Fix 3D card view** | [ ] | Debug current issues with slab positioning/rendering |
-| P2 | **Card View Tab - Add surface vision modes** | [ ] | Enable Emboss, Hi-Pass, Edge Detection on saved cards (already built, just need to expose in card view) |
-| P3 | **Card View Tab - Show cropped images** | [ ] | Display the user's cropped front/back images in card detail view |
+| C1 | **Remove unused imports** | [x] | App.jsx: `analyzeCardWithVision`, `calculateCornerCentering` |
+| C2 | **Delete obsolete files** | [x] | `src/Old revs/`, `src/App1.jsx`, `src/test/` (~5.4MB removed) |
+| C3 | **Remove empty directories** | [x] | `src/components/Common/` |
+| C4 | **Create shared loadImg utility** | [x] | Consolidated to `src/lib/image-utils.js` |
+| C5 | **Extract genMaps to shared lib** | [x] | Removed duplicates from App.jsx and CollectionView.jsx |
+| C6 | **Add missing CORS headers** | [x] | ai-analyze.js, analyze-card.js, extract-card-info.js |
 
-### Tier 2: Medium Tasks (Half-day each)
+### Tier 1: Quick Wins ✅ COMPLETE
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| P4 | **Card View Tab - Add 360 card viewer** | [ ] | Enable 3D slab viewer from collection/card view (reuse existing component) |
-| P5 | **Card View Tab - Re-run grading option** | [ ] | Button to re-analyze card with AI (uses existing flow) |
-| P6 | **High-res crop preservation** | [ ] | Edge adjustment must keep highest resolution cropped image. Currently forcing lower quality on capture - fix this |
-| P7 | **Resolution scaling for standard scan** | [ ] | After high-res crop, rescale for standard scan (pair front+back for Claude). Deep scan skips rescaling |
+| P1 | **Fix 3D card view** | [x] | Slab positioning/rendering fixed |
+| P2 | **Card View Tab - Add surface vision modes** | [x] | Emboss, Hi-Pass, Edge Detection enabled on saved cards |
+| P3 | **Card View Tab - Show cropped images** | [x] | User's cropped front/back images displayed in card detail view |
 
-### Tier 3: Significant Development (1-2 days each)
+### Tier 2: Medium Tasks ✅ COMPLETE
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| P8 | **Deep Scan feature** | [ ] | Higher quality images sent independently (front, then back). Better prompting for thorough defect analysis. Calculate cost (~$0.06+ per scan?) |
-| P9 | **Domain setup - slabsense.com** | [ ] | Purchase domain, configure DNS, connect to Vercel deployment |
-| P10 | **Migrate to Anthropic direct API** | [ ] | Remove Replicate dependency, enable prompt caching (90% cost reduction), image preprocessing |
+| P4 | **Card View Tab - Add 360 card viewer** | [x] | 3D slab viewer accessible from collection/card view |
+| P5 | **Card View Tab - Re-run grading option** | [x] | Button to re-analyze card with AI |
+| P6 | **High-res crop preservation** | [x] | Edge adjustment keeps highest resolution cropped image |
+| P7 | **Resolution scaling for standard scan** | [x] | Standard scan rescales; Deep scan keeps full resolution |
 
-### Tier 4: Major Features (Multiple days)
+### Tier 3: Significant Development ✅ COMPLETE
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| P8 | **Deep Scan feature** | [x] | Higher quality independent front/back analysis (~$0.06 per scan) |
+| P9 | **Domain setup - slabsense.com** | [x] | Domain configured with Vercel deployment |
+| P10 | **Migrate to Anthropic direct API** | [x] | Removed Replicate dependency, prompt caching enabled (90% cost reduction) |
+
+### Tier 4: Major Features (Multiple days) - IN PROGRESS
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | P11 | **Token system & billing** | [ ] | Token-based billing (Standard vs Deep grades), Stripe + PayPal integration |
@@ -423,9 +569,13 @@ vercel --prod
 
 | File | Purpose |
 |------|---------|
+| `CODEBASE_AUDIT.md` | **Full codebase audit - folder structure, 200+ functions, unused code, duplicates** |
 | `docs/TECHNICAL_REFERENCE.md` | **Complete system architecture, troubleshooting guide, all features explained** |
+| `docs/Masterweights.md` | **Single source of truth documentation** - all grading weights, thresholds, algorithms |
 | `docs/grading-research/` | Grading standards and defect weights for all 5 companies |
+| `src/lib/masterweights.js` | **Code implementation** of Masterweights - centering thresholds, grade scales, algorithms |
+| `src/lib/tag-calibration.js` | Re-exports from masterweights (backward compatibility) |
 
 ---
 
-*Last Updated: April 16, 2026*
+*Last Updated: June 9, 2026 (C1-C6, P1-P10 complete)*
