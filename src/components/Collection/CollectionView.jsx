@@ -10,6 +10,7 @@ import { HoloCard } from '../HoloCard/HoloCard.jsx';
 import { getGyroInput } from '../../lib/gyro-input.js';
 import { CardViewer3D } from '../CardViewer/CardViewer3D.jsx';
 import { claudeGradingAnalysis, deepGradingAnalysisV2 } from '../../services/api.js';
+import { GradeResultDisplay } from '../Grading/GradeResultDisplay.jsx';
 import holoConfig from '../../../config/holo-config.json';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
@@ -445,9 +446,10 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   // Get grade for display (software, AI, or deep AI)
   // Recalculates grade from score for accuracy based on selected company
   const getDisplayGrade = (scan, company = selectedCompany) => {
-    // Deep AI grade (from session state)
-    if (gradeMode === 'deep' && deepAiGrades?.[company]) {
-      const deepGrade = deepAiGrades[company];
+    // Deep AI grade (from session state OR saved in scan record)
+    const savedDeepGrade = scan.ai_grades?.__deep__?.[company];
+    if (gradeMode === 'deep' && (deepAiGrades?.[company] || savedDeepGrade)) {
+      const deepGrade = deepAiGrades?.[company] || savedDeepGrade;
       const score = deepGrade.score || 0;
       const recalcGrade = score > 0 ? getGradeFromScore(score, company) : null;
       return {
@@ -492,6 +494,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       isDeep: false,
       score: company === 'tag' ? rawScore : null,
       rawScore: rawScore,
+      subgrades: scan.subgrades, // Include stored subgrades (8 for TAG)
       company: company,
     };
   };
@@ -1308,12 +1311,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
             </div>
           )}
 
-          {/* Centering - supports software, AI, and deep AI */}
-          {(selectedCard.ai_centering || selectedCard.front_centering || deepAiCentering) && (()=>{
-            // Get centering based on mode
-            const aiCent = gradeMode === 'deep' ? deepAiCentering : selectedCard.ai_centering;
-            const useAi = gradeMode !== 'software' && aiCent;
-            return (
+          {/* Centering - Manual/Software only (no AI centering) */}
+          {selectedCard.front_centering && (
             <div style={{
               padding: 14,
               background: '#0d0f13',
@@ -1327,30 +1326,25 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 marginBottom: 10,
               }}>
                 CENTERING
-                {gradeMode === 'deep' && <span style={{color:'#f97316'}}> (Deep AI)</span>}
-                {gradeMode === 'ai' && <span style={{color:'#8b5cf6'}}> (AI)</span>}
-                {gradeMode === 'software' && <span style={{color:'#00ff88'}}> (Software)</span>}
+                {selectedCard.front_centering?.didManualCenter && <span style={{color:'#ff9944'}}> (Manual)</span>}
+                {!selectedCard.front_centering?.didManualCenter && <span style={{color:'#00ff88'}}> (Software)</span>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <CenteringBox
                   label="FRONT"
-                  lr={useAi && aiCent?.front?.leftRight ? aiCent.front.leftRight :
-                      `${(selectedCard.front_centering?.lrRatio || 50).toFixed(1)}/${(100 - (selectedCard.front_centering?.lrRatio || 50)).toFixed(1)}`}
-                  tb={useAi && aiCent?.front?.topBottom ? aiCent.front.topBottom :
-                      `${(selectedCard.front_centering?.tbRatio || 50).toFixed(1)}/${(100 - (selectedCard.front_centering?.tbRatio || 50)).toFixed(1)}`}
+                  lr={`${(selectedCard.front_centering?.lrRatio || 50).toFixed(1)}/${(100 - (selectedCard.front_centering?.lrRatio || 50)).toFixed(1)}`}
+                  tb={`${(selectedCard.front_centering?.tbRatio || 50).toFixed(1)}/${(100 - (selectedCard.front_centering?.tbRatio || 50)).toFixed(1)}`}
                 />
-                {(aiCent?.back || selectedCard.back_centering) && (
+                {selectedCard.back_centering && (
                   <CenteringBox
                     label="BACK"
-                    lr={useAi && aiCent?.back?.leftRight ? aiCent.back.leftRight :
-                        `${(selectedCard.back_centering?.lrRatio || 50).toFixed(1)}/${(100 - (selectedCard.back_centering?.lrRatio || 50)).toFixed(1)}`}
-                    tb={useAi && aiCent?.back?.topBottom ? aiCent.back.topBottom :
-                        `${(selectedCard.back_centering?.tbRatio || 50).toFixed(1)}/${(100 - (selectedCard.back_centering?.tbRatio || 50)).toFixed(1)}`}
+                    lr={`${(selectedCard.back_centering?.lrRatio || 50).toFixed(1)}/${(100 - (selectedCard.back_centering?.lrRatio || 50)).toFixed(1)}`}
+                    tb={`${(selectedCard.back_centering?.tbRatio || 50).toFixed(1)}/${(100 - (selectedCard.back_centering?.tbRatio || 50)).toFixed(1)}`}
                   />
                 )}
               </div>
             </div>
-          );})()}
+          )}
 
           {/* Condition - Software, AI, or Deep AI */}
           {(()=>{

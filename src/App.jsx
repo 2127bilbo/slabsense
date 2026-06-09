@@ -15,6 +15,7 @@ import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.js
 import { PostCaptureCentering } from "./components/PostCaptureCentering/PostCaptureCentering.jsx";
 import { calculateCornerCentering } from "./lib/corner-measurement.js";
 import { HoloLogo } from "./components/HoloLogo/HoloLogo.jsx";
+import { GradeResultDisplay } from "./components/Grading/GradeResultDisplay.jsx";
 import {
   TAG_CENTERING_THRESHOLDS,
   GRADE_CEILINGS,
@@ -837,14 +838,24 @@ function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId 
   const company = GRADING_COMPANIES[companyId] || GRADING_COMPANIES[DEFAULT_GRADING_COMPANY];
 
   // ═══════════════════════════════════════════
-  // STEP 1: Count defects by type
+  // STEP 1: Count defects by type AND side (8 categories for TAG)
   // ═══════════════════════════════════════════
   let cornerDefects = 0, edgeDefects = 0, surfaceDefects = 0;
-  for (const ding of allDings) {
+  let frontCornerDefects = 0, backCornerDefects = 0;
+  let frontEdgeDefects = 0, backEdgeDefects = 0;
+  let frontSurfaceDefects = 0, backSurfaceDefects = 0;
+
+  for (const ding of frontDings) {
     if (ding.type === "CENTERING") continue;
-    if (ding.type.includes("CORNER")) cornerDefects++;
-    else if (ding.type.includes("EDGE")) edgeDefects++;
-    else if (ding.type.includes("SURFACE")) surfaceDefects++;
+    if (ding.type.includes("CORNER")) { frontCornerDefects++; cornerDefects++; }
+    else if (ding.type.includes("EDGE")) { frontEdgeDefects++; edgeDefects++; }
+    else if (ding.type.includes("SURFACE")) { frontSurfaceDefects++; surfaceDefects++; }
+  }
+  for (const ding of backDings) {
+    if (ding.type === "CENTERING") continue;
+    if (ding.type.includes("CORNER")) { backCornerDefects++; cornerDefects++; }
+    else if (ding.type.includes("EDGE")) { backEdgeDefects++; edgeDefects++; }
+    else if (ding.type.includes("SURFACE")) { backSurfaceDefects++; surfaceDefects++; }
   }
   const conditionDefects = cornerDefects + edgeDefects + surfaceDefects;
 
@@ -906,26 +917,28 @@ function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId 
   else if (backMaxDev <= 20.0) backCenterScore = 95;
   else backCenterScore = Math.max(50, 95 - (backMaxDev - 20));
 
-  // Condition score (corners + edges + surface combined)
-  let conditionScore = 375; // Max for condition categories combined
-  // Deduct based on defects with type-specific weights
-  for (const ding of allDings) {
-    if (ding.type === "CENTERING") continue;
-    const sideMultiplier = ding.side === "FRONT" ? 1.3 : 1.0;
+  // Calculate 8 individual subgrade scores (0-125 scale for TAG)
+  // Each category starts at 125 (perfect) and deducts based on defects
+  // Front defects are penalized ~30% more heavily than back defects
 
-    if (ding.type.includes("CORNER")) {
-      // Corner defects are severe - big deduction
-      conditionScore -= 35 * sideMultiplier;
-    } else if (ding.type.includes("EDGE")) {
-      conditionScore -= 25 * sideMultiplier;
-    } else if (ding.type.includes("SURFACE")) {
-      // Surface defects more tolerated
-      conditionScore -= 15 * sideMultiplier;
-    } else {
-      conditionScore -= 20 * sideMultiplier;
-    }
-  }
-  conditionScore = Math.max(100, conditionScore);
+  // Corners: 20 points per front defect, 15 per back defect
+  const frontCornersScore = Math.max(80, 125 - frontCornerDefects * 20);
+  const backCornersScore = Math.max(80, 125 - backCornerDefects * 15);
+
+  // Edges: 18 points per front defect, 14 per back defect
+  const frontEdgesScore = Math.max(80, 125 - frontEdgeDefects * 18);
+  const backEdgesScore = Math.max(80, 125 - backEdgeDefects * 14);
+
+  // Surface: 12 points per front defect, 10 per back defect (more tolerant)
+  const frontSurfaceScore = Math.max(80, 125 - frontSurfaceDefects * 12);
+  const backSurfaceScore = Math.max(80, 125 - backSurfaceDefects * 10);
+
+  // Combined condition score for overall raw score calculation
+  const conditionScore = Math.round(
+    (frontCornersScore + backCornersScore +
+     frontEdgesScore + backEdgesScore +
+     frontSurfaceScore + backSurfaceScore) / 6
+  ) * 3; // Scale to ~375 max for backwards compatibility
 
   // ═══════════════════════════════════════════
   // STEP 5: Calculate final score
@@ -974,9 +987,14 @@ function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId 
     weightedScore: Math.round(weightedScore * 10) / 10,
     allDings,
     subgrades: {
-      frontCenter: frontCenterScore,
-      backCenter: backCenterScore,
-      condition: conditionScore,
+      frontCentering: frontCenterScore,
+      backCentering: backCenterScore,
+      frontCorners: frontCornersScore,
+      backCorners: backCornersScore,
+      frontEdges: frontEdgesScore,
+      backEdges: backEdgesScore,
+      frontSurface: frontSurfaceScore,
+      backSurface: backSurfaceScore,
     },
     defectCounts: {
       total: conditionDefects,
@@ -2998,17 +3016,20 @@ export default function SlabSense(){
         setProg(`Processing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
 
         if (gradingCompany === 'tag') {
-          // Use backend TAG score directly
+          // Use backend TAG score directly with 8 subgrades
           const tagGrade = getGrade(combined.tag_score, 'tag');
           setGradeResult({
             rawScore: combined.tag_score,
             grade: tagGrade,
             subgrades: {
-              frontCenter: combined.subgrades.frontCenter,
-              backCenter: combined.subgrades.backCenter,
-              corners: 990, // Backend doesn't separate these yet
-              edges: 990,
-              surface: combined.subgrades.condition,
+              frontCentering: combined.subgrades.frontCenter || combined.subgrades.frontCentering || 125,
+              backCentering: combined.subgrades.backCenter || combined.subgrades.backCentering || 125,
+              frontCorners: combined.subgrades.frontCorners || 125,
+              backCorners: combined.subgrades.backCorners || 125,
+              frontEdges: combined.subgrades.frontEdges || 125,
+              backEdges: combined.subgrades.backEdges || 125,
+              frontSurface: combined.subgrades.frontSurface || combined.subgrades.condition || 125,
+              backSurface: combined.subgrades.backSurface || 125,
             },
             allDings: combined.dings || [],
             processingTimeMs: combined.processing_time_ms,
@@ -3288,6 +3309,16 @@ export default function SlabSense(){
       aiCondition: aiCondition || null,
       aiSummary: aiSummary || null,
       // Deep AI grades (from two-pass analysis)
+      // Mobile debug: Log deep AI state at save time
+      ...((() => {
+        console.log('[buildSaveData] Deep AI state:', {
+          hasDeepAiGrades: !!deepAiGrades,
+          deepAiGradesKeys: deepAiGrades ? Object.keys(deepAiGrades) : [],
+          hasDeepAiCondition: !!deepAiCondition,
+          hasDeepAiSummary: !!deepAiSummary,
+        });
+        return {};
+      })()),
       deepAiGrades: deepAiGrades || null,
       deepAiCondition: deepAiCondition || null,
       deepAiSummary: deepAiSummary || null,
@@ -4044,22 +4075,7 @@ export default function SlabSense(){
             </div>
           )}
 
-          {/* Use AI Centering Checkbox (only shows when AI has been run and in software mode) */}
-          {aiCentering && gradeMode === 'software' && (
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,marginBottom:12}}>
-              <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}}>
-                <input type="checkbox" checked={useAiCentering} onChange={e=>setUseAiCentering(e.target.checked)}
-                  style={{width:14,height:14,accentColor:"#8b5cf6",cursor:"pointer"}}/>
-                <span style={{fontFamily:mono,fontSize:10,color:useAiCentering?"#8b5cf6":"#666"}}>Use AI Centering</span>
-              </label>
-              {useAiCentering && aiCentering?.front && (
-                <div style={{display:"flex",gap:12,fontFamily:mono,fontSize:9,color:"#555"}}>
-                  <span>F: {aiCentering.front.lrDisplay} · {aiCentering.front.tbDisplay}</span>
-                  {aiCentering.back && <span>B: {aiCentering.back.lrDisplay} · {aiCentering.back.tbDisplay}</span>}
-                </div>
-              )}
-            </div>
-          )}
+          {/* AI Centering removed - centering always comes from manual/software measurement */}
 
           {/* Score + Grade Display - Company specific */}
           {gradeMode === 'software' ? (
@@ -4137,22 +4153,22 @@ export default function SlabSense(){
             </div>
           )}
 
-          {/* Front + Back Card Images with Intensity Blend */}
+          {/* Front + Back Card Images - Prefer cropped images */}
           <div style={{display:"flex",gap:8,marginBottom:12}}>
             <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
-              {/* Base normal image */}
-              <img src={fI} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
-              {/* Filtered overlay with intensity */}
-              {visionMode!=='normal'&&fM?.[visionMode]&&(
+              {/* Base image - cropped preferred over original */}
+              <img src={frontCroppedImage || fI} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
+              {/* Filtered overlay with intensity (only for uncropped) */}
+              {visionMode!=='normal'&&!frontCroppedImage&&fM?.[visionMode]&&(
                 <img src={fM[visionMode]} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
               )}
               <div style={{position:"absolute",bottom:4,left:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>FRONT</div>
             </div>
             <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
-              {/* Base normal image */}
-              <img src={bI} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
-              {/* Filtered overlay with intensity */}
-              {visionMode!=='normal'&&bM?.[visionMode]&&(
+              {/* Base image - cropped preferred over original */}
+              <img src={backCroppedImage || bI} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
+              {/* Filtered overlay with intensity (only for uncropped) */}
+              {visionMode!=='normal'&&!backCroppedImage&&bM?.[visionMode]&&(
                 <img src={bM[visionMode]} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
               )}
               <div style={{position:"absolute",bottom:4,right:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>BACK</div>
@@ -4304,6 +4320,33 @@ export default function SlabSense(){
             } catch(e) { return null; }
           })()}
 
+          {/* TAG 8 Subgrades (DIG Report Style) - Software mode */}
+          {gradingCompany === 'tag' && gradeMode === 'software' && gr?.subgrades && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #00ff8833",marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#00ff88",textTransform:"uppercase",marginBottom:10}}>Subgrades (Software)</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[
+                  {k:"frontCentering",l:"Front Centering"},
+                  {k:"backCentering",l:"Back Centering"},
+                  {k:"frontCorners",l:"Front Corners"},
+                  {k:"backCorners",l:"Back Corners"},
+                  {k:"frontEdges",l:"Front Edges"},
+                  {k:"backEdges",l:"Back Edges"},
+                  {k:"frontSurface",l:"Front Surface"},
+                  {k:"backSurface",l:"Back Surface"},
+                ].map(({k,l})=>{
+                  const val = gr?.subgrades?.[k];
+                  if(val==null)return null;
+                  const color = val>=120?"#00ff88":val>=100?"#66dd44":val>=80?"#ffcc00":"#ff6633";
+                  return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                    <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>{l}</span>
+                    <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color}}>{val}</span>
+                  </div>);
+                })}
+              </div>
+            </div>
+          )}
+
           {/* TAG 8 Subgrades (DIG Report Style) - AI or Deep AI */}
           {gradingCompany === 'tag' && (gradeMode === 'ai' ? aiGrades?.tag?.subgrades : gradeMode === 'deep' ? deepAiGrades?.tag?.subgrades : null) && (
             <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${gradeMode==='deep'?'#f97316':'#8b5cf6'}33`,marginBottom:12}}>
@@ -4380,30 +4423,14 @@ export default function SlabSense(){
             </div>
           )}
 
-          {/* Centering Measurements */}
-          {(fR?.centering || bR?.centering) && (()=>{
-            // Determine which centering data to use based on mode
-            const isDeep = gradeMode === 'deep' && deepAiCentering;
-            const isAi = gradeMode === 'ai' && useAiCentering && aiCentering;
-            const activeCentering = isDeep ? deepAiCentering : (isAi ? aiCentering : null);
-            const centerColor = isDeep ? '#f97316' : (isAi ? '#8b5cf6' : '#00ff88');
-            const borderColor = isDeep ? '#f9731633' : (isAi ? '#8b5cf633' : '#1a1c22');
-            return (
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${borderColor}`,marginBottom:12}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase"}}>Centering Measurements</div>
-                {isDeep && <span style={{fontFamily:mono,fontSize:8,color:"#f97316",background:"rgba(249,115,22,0.15)",padding:"2px 6px",borderRadius:4}}>DEEP AI</span>}
-                {isAi && !isDeep && <span style={{fontFamily:mono,fontSize:8,color:"#8b5cf6",background:"rgba(139,92,246,0.15)",padding:"2px 6px",borderRadius:4}}>AI</span>}
-              </div>
+          {/* Centering Measurements - Manual/Software only, no AI centering */}
+          {(fR?.centering || bR?.centering) && (
+            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
+              <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase",marginBottom:10}}>Centering Measurements</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT {isDeep ? '(Deep AI)' : isAi && aiCentering?.front ? '(AI)' : frontCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
-                  {activeCentering?.front ? (
-                    <>
-                      <div style={{fontFamily:mono,fontSize:11,color:centerColor}}>{activeCentering.front.lrDisplay} L/R</div>
-                      <div style={{fontFamily:mono,fontSize:11,color:centerColor}}>{activeCentering.front.tbDisplay} T/B</div>
-                    </>
-                  ) : frontCenteringData?.didManualCenter ? (
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT {frontCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
+                  {frontCenteringData?.didManualCenter ? (
                     <>
                       <div style={{fontFamily:mono,fontSize:11,color:"#ff9944"}}>{Math.round(frontCenteringData.lrRatio*10)/10}/{Math.round((100-frontCenteringData.lrRatio)*10)/10} L/R</div>
                       <div style={{fontFamily:mono,fontSize:11,color:"#ff9944"}}>{Math.round(frontCenteringData.tbRatio*10)/10}/{Math.round((100-frontCenteringData.tbRatio)*10)/10} T/B</div>
@@ -4416,13 +4443,8 @@ export default function SlabSense(){
                   )}
                 </div>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK {isDeep ? '(Deep AI)' : isAi && aiCentering?.back ? '(AI)' : backCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
-                  {activeCentering?.back ? (
-                    <>
-                      <div style={{fontFamily:mono,fontSize:11,color:centerColor}}>{activeCentering.back.lrDisplay} L/R</div>
-                      <div style={{fontFamily:mono,fontSize:11,color:centerColor}}>{activeCentering.back.tbDisplay} T/B</div>
-                    </>
-                  ) : backCenteringData?.didManualCenter ? (
+                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK {backCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
+                  {backCenteringData?.didManualCenter ? (
                     <>
                       <div style={{fontFamily:mono,fontSize:11,color:"#ff9944"}}>{Math.round(backCenteringData.lrRatio*10)/10}/{Math.round((100-backCenteringData.lrRatio)*10)/10} L/R</div>
                       <div style={{fontFamily:mono,fontSize:11,color:"#ff9944"}}>{Math.round(backCenteringData.tbRatio*10)/10}/{Math.round((100-backCenteringData.tbRatio)*10)/10} T/B</div>
@@ -4435,30 +4457,8 @@ export default function SlabSense(){
                   )}
                 </div>
               </div>
-              {/* Show AI centering comparison only when not using manual centering and not in AI mode */}
-              {/* Hidden when manual centering is used since we tell AI to use our measurements */}
-              {aiCentering?.front && !isAi && !isDeep && !frontCenteringData?.didManualCenter && !backCenteringData?.didManualCenter && (
-                <div style={{marginTop:8,padding:"6px 8px",background:"rgba(139,92,246,0.08)",borderRadius:4}}>
-                  <div style={{fontFamily:mono,fontSize:8,color:"#8b5cf6",marginBottom:4}}>AI ESTIMATED (not used)</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                    <div>
-                      <span style={{fontFamily:mono,fontSize:8,color:"#555"}}>FRONT</span>
-                      <div style={{fontFamily:mono,fontSize:9,color:"#666"}}>{aiCentering.front.lrDisplay} L/R</div>
-                      <div style={{fontFamily:mono,fontSize:9,color:"#666"}}>{aiCentering.front.tbDisplay} T/B</div>
-                    </div>
-                    {aiCentering.back && (
-                      <div>
-                        <span style={{fontFamily:mono,fontSize:8,color:"#555"}}>BACK</span>
-                        <div style={{fontFamily:mono,fontSize:9,color:"#666"}}>{aiCentering.back.lrDisplay} L/R</div>
-                        <div style={{fontFamily:mono,fontSize:9,color:"#666"}}>{aiCentering.back.tbDisplay} T/B</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
-            );
-          })()}
+          )}
 
           {/* AI/Deep AI Condition Assessment */}
           {(()=>{
