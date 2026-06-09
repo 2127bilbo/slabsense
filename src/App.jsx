@@ -15,6 +15,15 @@ import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.js
 import { PostCaptureCentering } from "./components/PostCaptureCentering/PostCaptureCentering.jsx";
 import { calculateCornerCentering } from "./lib/corner-measurement.js";
 import { HoloLogo } from "./components/HoloLogo/HoloLogo.jsx";
+import {
+  TAG_CENTERING_THRESHOLDS,
+  GRADE_CEILINGS,
+  DEFECT_GRADE_CAPS,
+  getMaxGradeByDefects,
+  getCenteringGrade,
+  ratioToDeviation,
+  calculateSoftwareConfidence,
+} from "./lib/tag-calibration.js";
 import { getGyroInput } from "./lib/gyro-input.js";
 import holoConfig from "../config/holo-config.json";
 
@@ -813,89 +822,134 @@ function loadTrainingBounds(isHolo, imgW, imgH) {
 
 
 /* ═══════════════════════════════════════════
-   DINGS-BASED SCORING ENGINE
-   Calibrated against real TAG DIG reports:
-   Grade 10: 0 DINGS
-   Grade 9:  1 DING (centering only)
-   Grade 8:  4 DINGS (all back, no surface)
-   Grade 7:  5 DINGS (front surface + ink + edge, back corners)
-   Grade 6:  4 DINGS (front surface, back corner/edge)
-   Grade 5:  6 DINGS (front+back surface, back corners+edge)
+   DINGS-BASED SCORING ENGINE v2
+   Calibrated against 507 real TAG-graded cards.
+
+   Key insights from TAG data:
+   - Centering stored as DEVIATION from 50% (not ratio)
+   - 5+ defects = max grade 8.5 (THE DEFECT CLIFF)
+   - Corner/edge defects are grade-killers for 10s
+   - Surface defects more tolerated (PRISTINE allows 3)
    ═══════════════════════════════════════════ */
-function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId = DEFAULT_GRADING_COMPANY) {
+function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId = DEFAULT_GRADING_COMPANY, imageQuality = null) {
   const allDings = [...frontDings, ...backDings];
   const totalDings = allDings.length;
   const company = GRADING_COMPANIES[companyId] || GRADING_COMPANIES[DEFAULT_GRADING_COMPANY];
-  const thresholds = company.centeringThresholds;
 
   // ═══════════════════════════════════════════
-  // MULTI-COMPANY SCORING
-  // Key insight: "A card will not grade significantly higher
-  // than its lowest subgrade score"
+  // STEP 1: Count defects by type
   // ═══════════════════════════════════════════
-
-  // Step 1: Calculate centering subgrade scores using company thresholds
-  const fMaxOff = Math.max(Math.max(frontCenter.lrRatio,100-frontCenter.lrRatio), Math.max(frontCenter.tbRatio,100-frontCenter.tbRatio));
-  const bMaxOff = Math.max(Math.max(backCenter.lrRatio,100-backCenter.lrRatio), Math.max(backCenter.tbRatio,100-backCenter.tbRatio));
-
-  // Front centering → subgrade score (using company thresholds)
-  const frontThresh = thresholds.front;
-  let frontCenterScore;
-  if (frontThresh[10]?.pristine && fMaxOff <= frontThresh[10].pristine) frontCenterScore = 995;
-  else if (frontThresh[10]?.gem && fMaxOff <= frontThresh[10].gem) frontCenterScore = 970;
-  else if (typeof frontThresh[10] === 'number' && fMaxOff <= frontThresh[10]) frontCenterScore = 970;
-  else if (frontThresh[9.5] && fMaxOff <= frontThresh[9.5]) frontCenterScore = 945;
-  else if (frontThresh[9] && fMaxOff <= frontThresh[9]) frontCenterScore = 920;
-  else if (frontThresh[8.5] && fMaxOff <= frontThresh[8.5]) frontCenterScore = 875;
-  else if (frontThresh[8] && fMaxOff <= frontThresh[8]) frontCenterScore = 825;
-  else if (frontThresh[7.5] && fMaxOff <= frontThresh[7.5]) frontCenterScore = 775;
-  else if (frontThresh[7] && fMaxOff <= frontThresh[7]) frontCenterScore = 725;
-  else if (frontThresh[6.5] && fMaxOff <= frontThresh[6.5]) frontCenterScore = 675;
-  else if (frontThresh[6] && fMaxOff <= frontThresh[6]) frontCenterScore = 625;
-  else if (frontThresh[5.5] && fMaxOff <= frontThresh[5.5]) frontCenterScore = 575;
-  else if (frontThresh[5] && fMaxOff <= frontThresh[5]) frontCenterScore = 525;
-  else if (frontThresh[4] && fMaxOff <= frontThresh[4]) frontCenterScore = 425;
-  else frontCenterScore = 350;
-
-  // Back centering → subgrade score (using company thresholds, more lenient)
-  const backThresh = thresholds.back;
-  let backCenterScore;
-  if (backThresh[10]?.pristine && bMaxOff <= backThresh[10].pristine) backCenterScore = 995;
-  else if (backThresh[10]?.gem && bMaxOff <= backThresh[10].gem) backCenterScore = 970;
-  else if (typeof backThresh[10] === 'number' && bMaxOff <= backThresh[10]) backCenterScore = 970;
-  else if (backThresh[9.5] && bMaxOff <= backThresh[9.5]) backCenterScore = 945;
-  else if (backThresh[9] && bMaxOff <= backThresh[9]) backCenterScore = 920;
-  else if (backThresh[8] && bMaxOff <= backThresh[8]) backCenterScore = 825;
-  else backCenterScore = 700;
-
-  // Step 2: Calculate condition subgrade (corners, edges, surface)
-  let conditionScore = 990;
-
+  let cornerDefects = 0, edgeDefects = 0, surfaceDefects = 0;
   for (const ding of allDings) {
     if (ding.type === "CENTERING") continue;
-
-    const sideMultiplier = ding.side === "FRONT" ? 1.5 : 1.0;
-    let deduction = 0;
-
-    if (ding.type.includes("SURFACE")) {
-      deduction = 40 + (ding.severity || 1) * 15;
-    } else if (ding.type.includes("CORNER")) {
-      deduction = 25 + (ding.severity || 1) * 10;
-    } else if (ding.type.includes("EDGE")) {
-      deduction = 20 + (ding.severity || 1) * 8;
-    } else {
-      deduction = 20;
-    }
-
-    conditionScore -= deduction * sideMultiplier;
+    if (ding.type.includes("CORNER")) cornerDefects++;
+    else if (ding.type.includes("EDGE")) edgeDefects++;
+    else if (ding.type.includes("SURFACE")) surfaceDefects++;
   }
-  conditionScore = Math.max(300, conditionScore);
+  const conditionDefects = cornerDefects + edgeDefects + surfaceDefects;
 
-  // Step 3: Final score = approximately the LOWEST subgrade
-  const minSubgrade = Math.min(frontCenterScore, backCenterScore, conditionScore);
-  const avgSubgrade = (frontCenterScore + backCenterScore + conditionScore) / 3;
-  const rawScore = Math.round(minSubgrade * 0.75 + avgSubgrade * 0.25);
-  const finalScore = Math.max(300, Math.min(1000, rawScore));
+  // ═══════════════════════════════════════════
+  // STEP 2: Calculate centering deviation from 50/50
+  // TAG stores centering as DEVIATION (e.g., 5 = 45/55 or 55/45)
+  // ═══════════════════════════════════════════
+  const frontLRDev = ratioToDeviation(Math.min(frontCenter.lrRatio, 100 - frontCenter.lrRatio));
+  const frontTBDev = ratioToDeviation(Math.min(frontCenter.tbRatio, 100 - frontCenter.tbRatio));
+  const backLRDev = ratioToDeviation(Math.min(backCenter.lrRatio, 100 - backCenter.lrRatio));
+  const backTBDev = ratioToDeviation(Math.min(backCenter.tbRatio, 100 - backCenter.tbRatio));
+
+  // Max deviation for each side (worst axis)
+  const frontMaxDev = Math.max(frontLRDev, frontTBDev);
+  const backMaxDev = Math.max(backLRDev, backTBDev);
+
+  // ═══════════════════════════════════════════
+  // STEP 3: Determine grade caps from TAG calibration
+  // ═══════════════════════════════════════════
+
+  // Cap by centering (using real TAG thresholds)
+  const centeringGradeCap = getCenteringGrade(frontMaxDev, backMaxDev);
+
+  // Cap by defect counts (using real TAG data)
+  const defectGradeCap = getMaxGradeByDefects(conditionDefects, cornerDefects, edgeDefects, surfaceDefects);
+
+  // Apply the 5-defect cliff
+  let defectCountCap = 10.0;
+  if (conditionDefects >= 6) defectCountCap = 8.5;
+  else if (conditionDefects >= 5) defectCountCap = 8.5;
+  else if (conditionDefects >= 4) defectCountCap = 9.0;
+  else if (conditionDefects >= 3) defectCountCap = 10.0; // Surface defects allowed
+  else if (conditionDefects >= 1) defectCountCap = 9.9;
+
+  // Final grade cap = minimum of all caps
+  const maxAllowedGrade = Math.min(centeringGradeCap, defectGradeCap, defectCountCap);
+
+  // ═══════════════════════════════════════════
+  // STEP 4: Calculate component scores (for subgrades display)
+  // ═══════════════════════════════════════════
+
+  // Front centering score (0-125 scale for TAG display)
+  let frontCenterScore;
+  if (frontMaxDev <= 2.0) frontCenterScore = 125;
+  else if (frontMaxDev <= 5.0) frontCenterScore = 120;
+  else if (frontMaxDev <= 10.0) frontCenterScore = 115;
+  else if (frontMaxDev <= 15.0) frontCenterScore = 105;
+  else if (frontMaxDev <= 20.0) frontCenterScore = 95;
+  else if (frontMaxDev <= 25.0) frontCenterScore = 85;
+  else if (frontMaxDev <= 30.0) frontCenterScore = 75;
+  else frontCenterScore = Math.max(50, 75 - (frontMaxDev - 30));
+
+  // Back centering score
+  let backCenterScore;
+  if (backMaxDev <= 4.0) backCenterScore = 125;
+  else if (backMaxDev <= 8.0) backCenterScore = 120;
+  else if (backMaxDev <= 12.0) backCenterScore = 115;
+  else if (backMaxDev <= 16.0) backCenterScore = 105;
+  else if (backMaxDev <= 20.0) backCenterScore = 95;
+  else backCenterScore = Math.max(50, 95 - (backMaxDev - 20));
+
+  // Condition score (corners + edges + surface combined)
+  let conditionScore = 375; // Max for condition categories combined
+  // Deduct based on defects with type-specific weights
+  for (const ding of allDings) {
+    if (ding.type === "CENTERING") continue;
+    const sideMultiplier = ding.side === "FRONT" ? 1.3 : 1.0;
+
+    if (ding.type.includes("CORNER")) {
+      // Corner defects are severe - big deduction
+      conditionScore -= 35 * sideMultiplier;
+    } else if (ding.type.includes("EDGE")) {
+      conditionScore -= 25 * sideMultiplier;
+    } else if (ding.type.includes("SURFACE")) {
+      // Surface defects more tolerated
+      conditionScore -= 15 * sideMultiplier;
+    } else {
+      conditionScore -= 20 * sideMultiplier;
+    }
+  }
+  conditionScore = Math.max(100, conditionScore);
+
+  // ═══════════════════════════════════════════
+  // STEP 5: Calculate final score
+  // ═══════════════════════════════════════════
+
+  // Total raw score (out of 1000)
+  // Centering = 250 (front 125 + back 125)
+  // Condition = 750 (corners, edges, surface front+back)
+  const centeringTotal = frontCenterScore + backCenterScore;
+  const rawScore = Math.round(centeringTotal + conditionScore * 2); // Scale condition to ~750 range
+  let finalScore = Math.max(100, Math.min(1000, rawScore));
+
+  // Apply grade caps - convert grade cap to score cap
+  const gradeToMinScore = {
+    10.0: 990, 9.9: 950, 9.0: 900, 8.5: 850, 8.0: 800,
+    7.5: 750, 7.0: 700, 6.5: 650, 6.0: 600, 5.5: 550,
+    5.0: 500, 4.5: 450, 4.0: 400, 3.5: 350, 3.0: 300,
+    2.5: 250, 2.0: 200, 1.5: 150, 1.0: 100,
+  };
+  const maxScoreForGrade = gradeToMinScore[maxAllowedGrade] || 1000;
+  // Cap the score just below the next grade threshold if limited
+  if (finalScore > maxScoreForGrade + 49) {
+    finalScore = maxScoreForGrade + 49;
+  }
 
   // Calculate weighted score for display
   let weightedScore = 0;
@@ -903,6 +957,13 @@ function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId 
     const sw = ding.side === "FRONT" ? 1.5 : 1.0;
     weightedScore += (ding.severity || 1) * sw;
   }
+
+  // ═══════════════════════════════════════════
+  // STEP 6: Calculate confidence
+  // ═══════════════════════════════════════════
+  const confidenceResult = calculateSoftwareConfidence(imageQuality, {
+    manualCentering: false, // Will be set by caller if applicable
+  });
 
   return {
     rawScore: finalScore,
@@ -912,7 +973,29 @@ function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId 
     totalDings,
     weightedScore: Math.round(weightedScore * 10) / 10,
     allDings,
-    subgrades: { frontCenter: frontCenterScore, backCenter: backCenterScore, condition: conditionScore },
+    subgrades: {
+      frontCenter: frontCenterScore,
+      backCenter: backCenterScore,
+      condition: conditionScore,
+    },
+    defectCounts: {
+      total: conditionDefects,
+      corner: cornerDefects,
+      edge: edgeDefects,
+      surface: surfaceDefects,
+    },
+    centeringDeviation: {
+      front: { lr: frontLRDev, tb: frontTBDev, max: frontMaxDev },
+      back: { lr: backLRDev, tb: backTBDev, max: backMaxDev },
+    },
+    gradeCaps: {
+      centering: centeringGradeCap,
+      defects: defectGradeCap,
+      defectCount: defectCountCap,
+      final: maxAllowedGrade,
+    },
+    confidence: confidenceResult.confidence,
+    confidenceFactors: confidenceResult.factors,
   };
 }
 
@@ -1016,6 +1099,32 @@ function GradeDisplay({ gradeResult, companyId, isPro = true }) {
           <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>TAG Score: </span>
           <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:grade.color}}>{score}</span>
           <span style={{fontFamily:mono,fontSize:10,color:"#555"}}> / 1000</span>
+        </div>
+      )}
+
+      {/* Software Confidence */}
+      {gradeResult.confidence !== undefined && isPro && (
+        <div style={{marginTop:10}}>
+          <span style={{
+            fontFamily:mono,
+            fontSize:11,
+            color: gradeResult.confidence >= 0.8 ? '#00ff88' :
+                   gradeResult.confidence >= 0.6 ? '#ffcc00' : '#ff6633',
+          }}>
+            {Math.round(gradeResult.confidence * 100)}% confidence
+          </span>
+          {gradeResult.confidenceFactors?.length > 0 && (
+            <div style={{fontFamily:mono,fontSize:9,color:'#555',marginTop:4}}>
+              {gradeResult.confidenceFactors.slice(0,2).join(' · ')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Grade Caps (for debugging/transparency) */}
+      {gradeResult.gradeCaps && isPro && gradeResult.gradeCaps.final < 10 && (
+        <div style={{marginTop:8,fontFamily:mono,fontSize:9,color:'#666'}}>
+          Limited by: {gradeResult.gradeCaps.centering < gradeResult.gradeCaps.defects ? 'centering' : 'defects'}
         </div>
       )}
 
@@ -2853,9 +2962,20 @@ export default function SlabSense(){
     if (side === 'front') setFR(result); else setBR(result);
     const effFront = ignoreCentering ? PERFECT_CENTER : newFR.centering;
     const effBack = ignoreCentering ? PERFECT_CENTER : newBR.centering;
-    const grade = computeGrade(newFR.allDings, newBR.allDings, effFront, effBack, gradingCompany);
+    // Combine quality metrics for confidence calculation
+    const fq = frontQuality?.metrics || {};
+    const bq = backQuality?.metrics || {};
+    const imageQuality = (frontQuality || backQuality) ? {
+      metrics: {
+        sharpness: Math.min(fq.sharpness || 999, bq.sharpness || 999),
+        brightRatio: Math.max(fq.brightRatio || 0, bq.brightRatio || 0),
+        darkRatio: Math.max(fq.darkRatio || 0, bq.darkRatio || 0),
+        contrast: Math.min(fq.contrast || 255, bq.contrast || 255),
+      },
+    } : null;
+    const grade = computeGrade(newFR.allDings, newBR.allDings, effFront, effBack, gradingCompany, imageQuality);
     setGradeResult(grade);
-  }, [fI, bI, fR, bR, ignoreCentering, gradingCompany]);
+  }, [fI, bI, fR, bR, ignoreCentering, gradingCompany, frontQuality, backQuality]);
 
   const run=useCallback(async()=>{
     if(!fI||!bI)return; setStep(1);
@@ -2898,7 +3018,18 @@ export default function SlabSense(){
           // Convert to other company scales
           const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
           const effBack = ignoreCentering ? PERFECT_CENTER : br.centering;
-          const grade = computeGrade(fr.allDings, br.allDings, effFront, effBack, gradingCompany);
+          // Combine quality metrics for confidence
+          const fq = frontQuality?.metrics || {};
+          const bq = backQuality?.metrics || {};
+          const imageQuality = (frontQuality || backQuality) ? {
+            metrics: {
+              sharpness: Math.min(fq.sharpness || 999, bq.sharpness || 999),
+              brightRatio: Math.max(fq.brightRatio || 0, bq.brightRatio || 0),
+              darkRatio: Math.max(fq.darkRatio || 0, bq.darkRatio || 0),
+              contrast: Math.min(fq.contrast || 255, bq.contrast || 255),
+            },
+          } : null;
+          const grade = computeGrade(fr.allDings, br.allDings, effFront, effBack, gradingCompany, imageQuality);
           setGradeResult({...grade, source: 'backend'});
         }
 
@@ -2957,14 +3088,43 @@ export default function SlabSense(){
         setProg(`Computing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
         const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
         const effBack = ignoreCentering ? PERFECT_CENTER : br.centering;
-        const grade=computeGrade(fr.allDings,br.allDings,effFront,effBack,gradingCompany);
+        // Combine quality metrics for confidence
+        const fq = frontQuality?.metrics || {};
+        const bq = backQuality?.metrics || {};
+        const imageQuality = (frontQuality || backQuality) ? {
+          metrics: {
+            sharpness: Math.min(fq.sharpness || 999, bq.sharpness || 999),
+            brightRatio: Math.max(fq.brightRatio || 0, bq.brightRatio || 0),
+            darkRatio: Math.max(fq.darkRatio || 0, bq.darkRatio || 0),
+            contrast: Math.min(fq.contrast || 255, bq.contrast || 255),
+          },
+          manualCentering: frontCenteringData?.didManualCenter || backCenteringData?.didManualCenter,
+        } : null;
+        const grade=computeGrade(fr.allDings,br.allDings,effFront,effBack,gradingCompany,imageQuality);
         setGradeResult({...grade, source: 'client'});
         setProg("Generating surface vision maps...");await new Promise(r=>setTimeout(r,30));
         setFM(await genMaps(fI)); setBM(await genMaps(bI));
         setStep(2);
       }
     }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);}
-  },[fI,bI,ignoreCentering,gradingCompany,useBackend,backendStatus.available,frontCenteringData,backCenteringData]);
+  },[fI,bI,ignoreCentering,gradingCompany,useBackend,backendStatus.available,frontCenteringData,backCenteringData,frontQuality,backQuality]);
+
+  // Combine image quality for grading confidence calculation
+  const combinedImageQuality = useCallback(() => {
+    // Take the worse metrics from front/back
+    if (!frontQuality && !backQuality) return null;
+    const fq = frontQuality?.metrics || {};
+    const bq = backQuality?.metrics || {};
+    return {
+      metrics: {
+        sharpness: Math.min(fq.sharpness || 999, bq.sharpness || 999),
+        brightRatio: Math.max(fq.brightRatio || 0, bq.brightRatio || 0),
+        darkRatio: Math.max(fq.darkRatio || 0, bq.darkRatio || 0),
+        contrast: Math.min(fq.contrast || 255, bq.contrast || 255),
+      },
+      manualCentering: frontCenteringData?.didManualCenter || backCenteringData?.didManualCenter,
+    };
+  }, [frontQuality, backQuality, frontCenteringData, backCenteringData]);
 
   // Recompute grade when settings change and results exist
   useEffect(()=>{
@@ -2990,10 +3150,11 @@ export default function SlabSense(){
         effFront = fR.centering;
         effBack = bR.centering;
       }
-      const grade = computeGrade(fR.allDings, bR.allDings, effFront, effBack, gradingCompany);
+      const imageQuality = combinedImageQuality();
+      const grade = computeGrade(fR.allDings, bR.allDings, effFront, effBack, gradingCompany, imageQuality);
       setGradeResult(grade);
     }
-  },[ignoreCentering, gradingCompany, fR, bR, useAiCentering, aiCentering, frontCenteringData, backCenteringData]);
+  },[ignoreCentering, gradingCompany, fR, bR, useAiCentering, aiCentering, frontCenteringData, backCenteringData, combinedImageQuality]);
 
   const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);setGradeMode('software');setUseAiCentering(false);setAiCentering(null);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
 
