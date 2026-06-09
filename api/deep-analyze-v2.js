@@ -33,6 +33,13 @@ DEFECT DETECTION ONLY:
 2. EDGES - Check all 4 edges on front AND back for: whitening, chips, nicks, peeling, damage
 3. SURFACE - Check entire surface front AND back for: scratches, print lines, silvering, indentations, holo scratches
 
+CRITICAL: GLARE vs ACTUAL DEFECTS
+- GLARE = bright white/silver spots from lighting, often oval or diffuse, NOT a defect
+- WHITENING = actual wear on corners/edges that follows the card edge precisely
+- If bright spots are in the middle of the card or don't follow edge shape = GLARE (ignore it)
+- If bright spots follow corner/edge contours precisely = possible WHITENING (report it)
+- When in doubt between glare and actual damage, DO NOT report it as a defect
+
 Respond with ONLY this JSON (no other text):
 {
   "cardName": "Pokemon name and set if visible",
@@ -188,12 +195,23 @@ Respond with this JSON (no other text):
       "grade": 9,
       "label": "MINT",
       "score": 915,
-      "confidence": 0.85
+      "confidence": 0.85,
+      "notes": "Brief explanation of grade",
+      "subgrades": {
+        "frontCentering": 120,
+        "backCentering": 115,
+        "frontCorners": 118,
+        "backCorners": 118,
+        "frontEdges": 115,
+        "backEdges": 115,
+        "frontSurface": 122,
+        "backSurface": 120
+      }
     },
-    "psa": { "grade": 9, "label": "MINT" },
-    "bgs": { "grade": 9, "label": "MINT", "subgrades": { "centering": 9, "corners": 9, "edges": 9, "surface": 9.5 } },
-    "cgc": { "grade": 9, "label": "MINT" },
-    "sgc": { "grade": 9, "label": "MINT" }
+    "psa": { "grade": 9, "label": "MINT", "confidence": 0.85, "notes": "Brief explanation" },
+    "bgs": { "grade": 9, "label": "MINT", "confidence": 0.80, "subgrades": { "centering": 9, "corners": 9, "edges": 9, "surface": 9.5 }, "notes": "Brief explanation" },
+    "cgc": { "grade": 9, "label": "MINT", "confidence": 0.85, "notes": "Brief explanation" },
+    "sgc": { "grade": 9, "label": "MINT", "confidence": 0.85, "notes": "Brief explanation" }
   },
   "summary": {
     "positives": ["Good surface condition", "Corners are clean"],

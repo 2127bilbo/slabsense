@@ -79,10 +79,17 @@ export async function saveScan(userId, scanData) {
       back_centering: scanData.backCentering || {},
       dings: scanData.dings || [],
       notes: scanData.notes || null,
-      // AI grading data (from Claude)
-      ai_grades: scanData.aiGrades || null,        // Multi-company grades { psa, bgs, sgc, cgc, tag }
-      ai_condition: scanData.aiCondition || null,  // { corners, edges, surface, defects }
-      ai_summary: scanData.aiSummary || null,      // { positives, concerns, recommendation }
+      // AI grading data (from Claude) - includes both standard and deep AI
+      // Structure: { psa, bgs, sgc, cgc, tag, __deep__: { psa, bgs, ... } }
+      ai_grades: scanData.deepAiGrades
+        ? { ...(scanData.aiGrades || {}), __deep__: scanData.deepAiGrades }
+        : (scanData.aiGrades || null),
+      ai_condition: scanData.deepAiCondition
+        ? { ...(scanData.aiCondition || {}), __deep__: scanData.deepAiCondition }
+        : (scanData.aiCondition || null),
+      ai_summary: scanData.deepAiSummary
+        ? { ...(scanData.aiSummary || {}), __deep__: scanData.deepAiSummary }
+        : (scanData.aiSummary || null),
       ai_centering: scanData.aiCentering || null,  // { front: {leftRight, topBottom}, back: {...} }
       card_info: scanData.cardInfo || null,        // { name, hp, cardNumber, setName, rarity, year, variant, language }
       tcgdex_image: scanData.tcgdexImage || null,  // High-quality card image URL from TCGDex

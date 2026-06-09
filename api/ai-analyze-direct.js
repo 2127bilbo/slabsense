@@ -268,7 +268,15 @@ ${centeringSection}
 - Location (e.g., "top-left corner front", "center back")
 - Severity (minor/moderate/severe)
 
-**IGNORE photographic artifacts, dust, reflections - only grade ACTUAL physical defects**
+**CRITICAL: GLARE vs ACTUAL DEFECTS**
+- GLARE appears as bright white/silver spots that follow light patterns, often oval or diffuse
+- GLARE is NOT a defect - it's a photo artifact from lighting
+- WHITENING is actual wear damage on corners/edges - it follows the card edge precisely
+- If bright spots are in the MIDDLE of the card or don't follow edge contours = GLARE (ignore)
+- If bright spots follow corner/edge shape precisely = possible WHITENING (count as defect)
+- When in doubt about whitening vs glare, DO NOT count it as a defect
+
+**IGNORE photographic artifacts, dust, reflections, GLARE - only grade ACTUAL physical defects**
 
 ## TASK ${centeringData ? '2' : '3'}: EXTRACT CARD INFO
 

@@ -217,12 +217,14 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       setFM(null);
       setBM(null);
 
-      // Load saved deep grades if they exist
-      if (selectedCard.deep_ai_grades) {
-        setDeepAiGrades(selectedCard.deep_ai_grades);
-        setDeepAiCentering(selectedCard.deep_ai_centering || null);
+      // Load saved deep grades if they exist (stored in ai_grades.__deep__)
+      const savedDeepGrades = selectedCard.ai_grades?.__deep__;
+      if (savedDeepGrades) {
+        setDeepAiGrades(savedDeepGrades);
+        setDeepAiCentering(null); // Deep centering not separately stored
         setGradeMode('deep');
       } else if (selectedCard.ai_grades) {
+        // Standard AI grades (excluding __deep__ key)
         setDeepAiGrades(null);
         setDeepAiCentering(null);
         setGradeMode('ai');
@@ -357,14 +359,23 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           setDeepAiCentering(result.centering);
         }
 
-        // SAVE TO DATABASE - persist the deep grade results
+        // SAVE TO DATABASE - persist the deep grade results using __deep__ nested structure
         const updateData = {};
-        if (result.grades) updateData.deep_ai_grades = result.grades;
-        if (result.condition) updateData.deep_ai_condition = result.condition;
-        if (result.centering) updateData.deep_ai_centering = result.centering;
-        if (result.defects) updateData.deep_ai_defects = result.defects;
-        if (result.summary) updateData.deep_ai_summary = result.summary;
-        if (result.cardInfo) updateData.deep_ai_card_info = result.cardInfo;
+        // Store deep grades in ai_grades.__deep__
+        if (result.grades) {
+          updateData.ai_grades = { ...(selectedCard.ai_grades || {}), __deep__: result.grades };
+        }
+        // Store deep condition in ai_condition.__deep__
+        if (result.condition || result.defects) {
+          updateData.ai_condition = {
+            ...(selectedCard.ai_condition || {}),
+            __deep__: { ...result.condition, defects: result.defects || [] }
+          };
+        }
+        // Store deep summary in ai_summary.__deep__
+        if (result.summary) {
+          updateData.ai_summary = { ...(selectedCard.ai_summary || {}), __deep__: result.summary };
+        }
 
         if (Object.keys(updateData).length > 0) {
           await updateScan(selectedCard.id, updateData);
@@ -1344,7 +1355,10 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           {/* Condition - Software, AI, or Deep AI */}
           {(()=>{
             const isAiMode = gradeMode === 'ai' || gradeMode === 'deep';
-            const conditionData = gradeMode === 'deep' ? (deepGradeResult?.condition || selectedCard.ai_condition) :
+            // Deep condition: from deepGradeResult OR saved in ai_condition.__deep__
+            // AI condition: from ai_condition (excluding __deep__)
+            const savedDeepCondition = selectedCard.ai_condition?.__deep__;
+            const conditionData = gradeMode === 'deep' ? (deepGradeResult?.condition || savedDeepCondition || selectedCard.ai_condition) :
                                   gradeMode === 'ai' ? selectedCard.ai_condition :
                                   selectedCard.subgrades;
             if (!conditionData) return null;
@@ -1416,8 +1430,9 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           })()}
 
           {/* AI Summary - from standard AI or deep AI */}
-          {((gradeMode === 'ai' && selectedCard.ai_summary) || (gradeMode === 'deep' && (deepGradeResult?.summary || selectedCard.ai_summary))) && (()=>{
-            const summary = gradeMode === 'deep' ? (deepGradeResult?.summary || selectedCard.ai_summary) : selectedCard.ai_summary;
+          {((gradeMode === 'ai' && selectedCard.ai_summary) || (gradeMode === 'deep' && (deepGradeResult?.summary || selectedCard.ai_summary?.__deep__ || selectedCard.ai_summary))) && (()=>{
+            const savedDeepSummary = selectedCard.ai_summary?.__deep__;
+            const summary = gradeMode === 'deep' ? (deepGradeResult?.summary || savedDeepSummary || selectedCard.ai_summary) : selectedCard.ai_summary;
             return (
             <div style={{
               padding: 14,

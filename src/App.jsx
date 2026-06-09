@@ -3126,6 +3126,10 @@ export default function SlabSense(){
       aiGrades: aiGrades || null,
       aiCondition: aiCondition || null,
       aiSummary: aiSummary || null,
+      // Deep AI grades (from two-pass analysis)
+      deepAiGrades: deepAiGrades || null,
+      deepAiCondition: deepAiCondition || null,
+      deepAiSummary: deepAiSummary || null,
       aiCentering: fR?.centering?.source === 'claude-ai' ? {
         front: { leftRight: fR?.centering?.lrRatio, topBottom: fR?.centering?.tbRatio },
         back: bR?.centering ? { leftRight: bR?.centering?.lrRatio, topBottom: bR?.centering?.tbRatio } : null,
@@ -4102,25 +4106,47 @@ export default function SlabSense(){
             </div>
           )}
 
-          {/* Confidence Notes */}
-          {gr && fR && bR && (()=>{
+          {/* Confidence Notes - Different for each mode */}
+          {(()=>{
             try {
-              const conf=calcConfidence(gr,fR,bR);
-              return conf?.reasons?.length>0?(
-                <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${conf.color||'#666'}22`,marginBottom:12}}>
-                  <div style={{fontFamily:mono,fontSize:10,color:conf.color||'#666',textTransform:"uppercase",marginBottom:8}}>Confidence Notes</div>
-                  {conf.reasons.map((r,i)=>(
-                    <div key={i} style={{fontFamily:sans,fontSize:11,color:"#777",marginBottom:4}}>• {r}</div>
-                  ))}
-                </div>
-              ):null;
+              // AI mode: show AI notes
+              if (gradeMode === 'ai' && aiGrades?.[gradingCompany]?.notes) {
+                return (
+                  <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #8b5cf633",marginBottom:12}}>
+                    <div style={{fontFamily:mono,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",marginBottom:8}}>AI Grade Notes</div>
+                    <div style={{fontFamily:sans,fontSize:11,color:"#888",lineHeight:1.5}}>{aiGrades[gradingCompany].notes}</div>
+                  </div>
+                );
+              }
+              // Deep AI mode: show deep AI notes
+              if (gradeMode === 'deep' && deepAiGrades?.[gradingCompany]?.notes) {
+                return (
+                  <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #f9731633",marginBottom:12}}>
+                    <div style={{fontFamily:mono,fontSize:10,color:"#f97316",textTransform:"uppercase",marginBottom:8}}>Deep AI Grade Notes</div>
+                    <div style={{fontFamily:sans,fontSize:11,color:"#888",lineHeight:1.5}}>{deepAiGrades[gradingCompany].notes}</div>
+                  </div>
+                );
+              }
+              // Software mode: show confidence analysis
+              if (gradeMode === 'software' && gr && fR && bR) {
+                const conf=calcConfidence(gr,fR,bR);
+                return conf?.reasons?.length>0?(
+                  <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${conf.color||'#666'}22`,marginBottom:12}}>
+                    <div style={{fontFamily:mono,fontSize:10,color:conf.color||'#666',textTransform:"uppercase",marginBottom:8}}>Confidence Notes</div>
+                    {conf.reasons.map((r,i)=>(
+                      <div key={i} style={{fontFamily:sans,fontSize:11,color:"#777",marginBottom:4}}>• {r}</div>
+                    ))}
+                  </div>
+                ):null;
+              }
+              return null;
             } catch(e) { return null; }
           })()}
 
           {/* TAG 8 Subgrades (DIG Report Style) - AI or Deep AI */}
           {gradingCompany === 'tag' && (gradeMode === 'ai' ? aiGrades?.tag?.subgrades : gradeMode === 'deep' ? deepAiGrades?.tag?.subgrades : null) && (
             <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${gradeMode==='deep'?'#f97316':'#8b5cf6'}33`,marginBottom:12}}>
-              <div style={{fontFamily:mono,fontSize:10,color:gradeMode==='deep'?'#f97316':'#8b5cf6',textTransform:"uppercase",marginBottom:10}}>TAG DIG Subgrades {gradeMode==='deep'?'(Deep AI)':'(AI)'}</div>
+              <div style={{fontFamily:mono,fontSize:10,color:gradeMode==='deep'?'#f97316':'#8b5cf6',textTransform:"uppercase",marginBottom:10}}>Subgrades {gradeMode==='deep'?'(Deep AI)':'(AI)'}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {[
                   {k:"frontCentering",l:"Front Centering"},
@@ -4248,10 +4274,11 @@ export default function SlabSense(){
                   )}
                 </div>
               </div>
-              {/* Show AI centering comparison if available but not in use */}
-              {aiCentering?.front && !isAi && !isDeep && (
+              {/* Show AI centering comparison only when not using manual centering and not in AI mode */}
+              {/* Hidden when manual centering is used since we tell AI to use our measurements */}
+              {aiCentering?.front && !isAi && !isDeep && !frontCenteringData?.didManualCenter && !backCenteringData?.didManualCenter && (
                 <div style={{marginTop:8,padding:"6px 8px",background:"rgba(139,92,246,0.08)",borderRadius:4}}>
-                  <div style={{fontFamily:mono,fontSize:8,color:"#8b5cf6",marginBottom:4}}>AI DETECTED</div>
+                  <div style={{fontFamily:mono,fontSize:8,color:"#8b5cf6",marginBottom:4}}>AI ESTIMATED (not used)</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     <div>
                       <span style={{fontFamily:mono,fontSize:8,color:"#555"}}>FRONT</span>
