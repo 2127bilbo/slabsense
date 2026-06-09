@@ -951,17 +951,23 @@ function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId 
   const rawScore = Math.round(centeringTotal + conditionScore * 2); // Scale condition to ~750 range
   let finalScore = Math.max(100, Math.min(1000, rawScore));
 
-  // Apply grade caps - convert grade cap to score cap
-  const gradeToMinScore = {
+  // Apply grade caps - cap score BELOW the next grade's threshold
+  // Grade thresholds: 10.0 starts at 990, 9.9 at 950, 9.0 at 900, etc.
+  const gradeThresholds = {
     10.0: 990, 9.9: 950, 9.0: 900, 8.5: 850, 8.0: 800,
     7.5: 750, 7.0: 700, 6.5: 650, 6.0: 600, 5.5: 550,
     5.0: 500, 4.5: 450, 4.0: 400, 3.5: 350, 3.0: 300,
     2.5: 250, 2.0: 200, 1.5: 150, 1.0: 100,
   };
-  const maxScoreForGrade = gradeToMinScore[maxAllowedGrade] || 1000;
-  // Cap the score just below the next grade threshold if limited
-  if (finalScore > maxScoreForGrade + 49) {
-    finalScore = maxScoreForGrade + 49;
+  // Find the threshold for the NEXT grade up (the one we can't reach)
+  const gradeOrder = [10.0, 9.9, 9.0, 8.5, 8.0, 7.5, 7.0, 6.5, 6.0, 5.5, 5.0, 4.5, 4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0];
+  const capIndex = gradeOrder.indexOf(maxAllowedGrade);
+  const nextGradeUp = capIndex > 0 ? gradeOrder[capIndex - 1] : null;
+  const maxAllowedScore = nextGradeUp ? gradeThresholds[nextGradeUp] - 1 : 1000;
+
+  // Cap the score at max allowed (e.g., if capped at 9.9, max score is 989)
+  if (finalScore > maxAllowedScore) {
+    finalScore = maxAllowedScore;
   }
 
   // Calculate weighted score for display
