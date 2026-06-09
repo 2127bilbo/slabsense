@@ -85,12 +85,6 @@ export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0, sca
   // If card tilts clockwise (tr.y > tl.y), angle is positive
   const topEdgeAngle = Math.atan2(tr.y - tl.y, tr.x - tl.x);
 
-  console.log('[cropToOuterBounds] Rotation detection:', {
-    topEdgeDeltaY: (tr.y - tl.y).toFixed(1),
-    topEdgeAngleDeg: (topEdgeAngle * 180 / Math.PI).toFixed(2) + '°',
-    corners: { tl, tr, bl, br }
-  });
-
   // Calculate the card dimensions (using average of top/bottom and left/right edges)
   const topWidth = Math.sqrt((tr.x - tl.x) ** 2 + (tr.y - tl.y) ** 2);
   const bottomWidth = Math.sqrt((br.x - bl.x) ** 2 + (br.y - bl.y) ** 2);
@@ -127,12 +121,6 @@ export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0, sca
   ctx.translate(cropW / 2, cropH / 2);           // Move origin to output center
   ctx.rotate(-topEdgeAngle + (rotation * Math.PI / 180));  // Counter-rotate to straighten
   ctx.translate(-centerX, -centerY);              // Shift so card center is at origin
-
-  console.log('[cropToOuterBounds] Transform applied:', {
-    outputSize: { w: Math.round(cropW), h: Math.round(cropH) },
-    cardCenter: { x: Math.round(centerX), y: Math.round(centerY) },
-    rotationDeg: (-topEdgeAngle * 180 / Math.PI).toFixed(2) + '°'
-  });
 
   // Draw the full source image - transforms handle the crop and rotation
   ctx.drawImage(img, 0, 0);
