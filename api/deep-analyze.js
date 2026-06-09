@@ -6,6 +6,8 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+// Calibration data from config/grading-calibration.json is embedded in prompt below
+// To update: edit the REAL GRADED EXAMPLES section in ANALYSIS_INSTRUCTIONS
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -157,6 +159,53 @@ Based on your analysis, provide grades for each company using their specific sta
 - 9 Mint: Max 4 total (3 corner, 2 edge, 3 surface), avg 1.8 defects
 - Lower grades: Progressively more defects allowed
 
+### VISUAL CENTERING GUIDE (Critical - memorize this):
+- **0-2% deviation**: Borders appear nearly IDENTICAL. Must look VERY closely. This is PRISTINE territory.
+- **2-4% deviation**: One border slightly wider on careful examination. GEM MINT eligible.
+- **4-6% deviation**: Noticeable difference comparing borders side-by-side. Upper GEM MINT to MINT.
+- **6-10% deviation**: Obviously off-center at a glance. One border significantly wider (~1.5x). MINT range.
+- **10-15% deviation**: Clearly shifted. One border may be 2x the other. 8.5 NM-MT+ range.
+- **15%+ deviation**: Severely off-center, looks miscut. 8 NM-MT or lower.
+
+### REAL GRADED EXAMPLES (from TAG database - use these to calibrate):
+
+**Example 1: 10 PRISTINE**
+Card: Machamp H15/H32 Skyridge | Score: 990
+Centering: Front 1.7%, Back 3.2% (both UNDER pristine thresholds)
+Defects: 3 surface only (ink defects), 0 corners, 0 edges
+Why PRISTINE: Near-perfect centering + only surface defects + zero structural wear
+
+**Example 2: 10 PRISTINE**
+Card: Vaporeon H31/H32 Skyridge | Score: 990
+Centering: Front 0.0% (PERFECT), Back 3.7%
+Defects: 2 surface, 1 minor edge
+Why PRISTINE: Perfect front centering overrides minor edge defect when back is also excellent
+
+**Example 3: 10 GEM MINT (NOT Pristine)**
+Card: Lillie's Determination 184/132 | Score: 961
+Centering: Front 2.0%, Back 7.0% (back EXCEEDS pristine 4% threshold)
+Defects: Only 1 surface defect
+Why GEM MINT not PRISTINE: Despite only 1 defect, back centering at 7% disqualifies from PRISTINE
+
+**Example 4: 8.5 NM-MT+**
+Card: Gengar H9/H32 Skyridge | Score: 853
+Centering: Front 12.9%, Back 0.0%
+Defects: 6 total (2 corners, 2 edges, 2 surface)
+Why 8.5: Front centering at 12.9% exceeds MINT threshold despite perfect back. Multiple defects.
+
+**Example 5: 8 NM-MT**
+Card: Suicune Promo 53 | Score: 807
+Centering: Front 6.2%, Back 13.6% (back severely off)
+Defects: 3 total
+Why 8: Back centering at 13.6% alone caps grade at 8, regardless of defect count.
+
+### COMMON GRADING MISTAKES TO AVOID:
+1. **Assuming good front = good overall**: ALWAYS check back centering separately - it can be much worse
+2. **Over-grading vintage holos**: They often have hidden centering/surface issues. Be strict.
+3. **Counting holofoil texture as defects**: Natural holo pattern is NOT a defect
+4. **Being generous with centering**: When uncertain, centering is probably WORSE than you think. TAG is strict.
+5. **Ignoring back centering impact**: Back centering can single-handedly drop a card 1-2 grades
+
 ### 5. SUMMARY
 - Key positives (what's good about this card's condition)
 - Key concerns (issues that affect grade)
@@ -226,6 +275,8 @@ Based on your analysis, provide grades for each company using their specific sta
     "recommendation": "Best suited for BGS submission - subgrades will highlight strong corners and edges despite surface issue."
   }
 }
+
+**GRADING PHILOSOPHY**: TAG uses a 1000-point system that is MORE STRICT than PSA or BGS. When uncertain between two grades, TAG almost always gives the LOWER grade. Your estimates should lean CONSERVATIVE, especially on centering. It is better to under-grade than over-grade.
 
 CRITICAL RULES:
 - PSA has NO 9.5 grade - use 9 or 10 only at top end

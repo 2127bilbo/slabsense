@@ -1,0 +1,166 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-01-01",
+  "source": "509 TAG-graded Pokemon cards",
+
+  "centering_visual_guide": {
+    "description": "What centering deviation percentages LOOK like visually",
+    "examples": {
+      "0-2%": "Borders appear nearly identical. You have to look VERY closely to see any difference. This is PRISTINE territory.",
+      "2-4%": "One border is slightly wider, but you need to examine carefully. Still excellent - GEM MINT eligible.",
+      "4-6%": "Noticeable difference when comparing borders side-by-side. One border is clearly wider. Upper GEM MINT to MINT.",
+      "6-10%": "Obviously off-center at a glance. One border is significantly wider (maybe 1.5x the other). MINT range.",
+      "10-15%": "Clearly shifted. One border might be 2x the width of the other. 8.5 NM-MT+ range.",
+      "15%+": "Severely off-center. The card looks miscut. 8 NM-MT or lower."
+    },
+    "measurement_tip": "Compare LEFT border to RIGHT border. If left is 10 units and right is 12 units, deviation = |10-12|/(10+12) = 9.1%"
+  },
+
+  "grade_thresholds": {
+    "10_PRISTINE": {
+      "centering_front_max": 2.0,
+      "centering_back_max": 4.0,
+      "defects_max": 3,
+      "defect_rules": "ONLY surface defects allowed (print lines, minor ink). ZERO corner wear. ZERO edge wear.",
+      "rarity": "Top 4% of submissions. Extremely strict.",
+      "visual_cue": "Card looks absolutely flawless at first glance. Centering is dead-on."
+    },
+    "10_GEM_MINT": {
+      "centering_front_max": 4.5,
+      "centering_back_max": 6.5,
+      "defects_max": 3,
+      "defect_rules": "Max 1 corner touch, 1 edge touch, 2 surface marks. Very minor only.",
+      "rarity": "Top 15% of submissions. Still very strict.",
+      "visual_cue": "Beautiful card. Maybe one border slightly wider if you look closely."
+    },
+    "9_MINT": {
+      "centering_front_max": 10.0,
+      "centering_back_max": 9.0,
+      "defects_max": 4,
+      "defect_rules": "Small corner dings, light edge wear, surface scratches acceptable.",
+      "rarity": "~25% of submissions. Solid collectible grade.",
+      "visual_cue": "Nice card with minor imperfections visible on close inspection."
+    },
+    "8.5_NM_MT_PLUS": {
+      "centering_front_max": 12.0,
+      "centering_back_max": 11.0,
+      "defects_max": 6,
+      "defect_rules": "Multiple corner issues, edge whitening, surface wear all acceptable.",
+      "rarity": "Common grade for played cards in good shape.",
+      "visual_cue": "Centering noticeably off. Some visible wear on corners/edges."
+    },
+    "8_NM_MT": {
+      "centering_front_max": 14.0,
+      "centering_back_max": 12.0,
+      "defects_max": 8,
+      "defect_rules": "Moderate wear throughout. Multiple defects expected.",
+      "rarity": "Average condition for vintage cards.",
+      "visual_cue": "Obviously off-center or multiple visible defects."
+    }
+  },
+
+  "few_shot_examples": [
+    {
+      "card": "Machamp H15/H32 Skyridge",
+      "cert": "E4187804",
+      "grade": "10 PRISTINE",
+      "score": 990,
+      "centering": {
+        "front_deviation": 1.7,
+        "back_deviation": 3.2
+      },
+      "defects": {
+        "total": 3,
+        "breakdown": "3 surface (ink defects), 0 corners, 0 edges"
+      },
+      "reasoning": "Near-perfect centering (1.7% front, 3.2% back) both under PRISTINE thresholds. Only surface defects - no structural wear. This is what PRISTINE looks like."
+    },
+    {
+      "card": "Vaporeon H31/H32 Skyridge",
+      "cert": "X8331919",
+      "grade": "10 PRISTINE",
+      "score": 990,
+      "centering": {
+        "front_deviation": 0.0,
+        "back_deviation": 3.7
+      },
+      "defects": {
+        "total": 3,
+        "breakdown": "2 surface, 1 edge (minor), 0 corners"
+      },
+      "reasoning": "PERFECT front centering (0.0%). Back at 3.7% still under 4% threshold. 1 minor edge defect but still qualifies for PRISTINE due to exceptional centering."
+    },
+    {
+      "card": "Lillie's Determination 184/132",
+      "cert": "D4014224",
+      "grade": "10 GEM MINT",
+      "score": 961,
+      "centering": {
+        "front_deviation": 2.0,
+        "back_deviation": 7.0
+      },
+      "defects": {
+        "total": 1,
+        "breakdown": "1 surface defect only"
+      },
+      "reasoning": "Front centering excellent (2.0%) but BACK centering at 7.0% exceeds PRISTINE threshold of 4%. Despite only 1 defect, back centering drops it to GEM MINT."
+    },
+    {
+      "card": "Gengar H9/H32 Skyridge",
+      "cert": "J8545406",
+      "grade": "8.5 NM-MT+",
+      "score": 853,
+      "centering": {
+        "front_deviation": 12.9,
+        "back_deviation": 0.0
+      },
+      "defects": {
+        "total": 6,
+        "breakdown": "2 corners, 2 edges, 2 surface"
+      },
+      "reasoning": "Front centering at 12.9% is significantly off (exceeds 10% MINT threshold). 6 defects across all categories. Despite perfect back centering, front issues drop this to 8.5."
+    },
+    {
+      "card": "Suicune Promo 53",
+      "cert": "Y3688558",
+      "grade": "8 NM-MT",
+      "score": 807,
+      "centering": {
+        "front_deviation": 6.2,
+        "back_deviation": 13.6
+      },
+      "defects": {
+        "total": 3,
+        "breakdown": "1 corner, 1 edge, 1 surface"
+      },
+      "reasoning": "Back centering at 13.6% is severely off - this alone caps the grade at 8. Even with only 3 defects, the back centering kills any chance of 9+."
+    }
+  ],
+
+  "common_mistakes": [
+    {
+      "mistake": "Assuming good front centering means good overall centering",
+      "correction": "ALWAYS check back centering separately. Back can be much worse than front."
+    },
+    {
+      "mistake": "Over-grading vintage holos because they 'look nice'",
+      "correction": "Vintage cards often have surface/centering issues. Be strict, not nostalgic."
+    },
+    {
+      "mistake": "Counting holofoil texture as surface defects",
+      "correction": "Natural holofoil pattern is NOT a defect. Look for scratches, print lines, ink spots."
+    },
+    {
+      "mistake": "Being too generous with centering estimates",
+      "correction": "When in doubt, the centering is probably WORSE than you think. TAG is strict."
+    }
+  ],
+
+  "defect_severity": {
+    "critical": ["corner bend", "crease", "tear", "major whitening"],
+    "moderate": ["corner ding", "edge whitening", "surface scratch"],
+    "minor": ["print line", "ink defect", "minor surface mark", "light edge touch"]
+  },
+
+  "grading_philosophy": "TAG uses a 1000-point system that is MORE STRICT than PSA or BGS. When uncertain between two grades, TAG almost always gives the LOWER grade. Your estimates should lean conservative, especially on centering."
+}
