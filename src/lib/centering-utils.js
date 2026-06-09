@@ -56,10 +56,11 @@ export function initializeInnerCorners(outerCorners, offsetPct = 0.08) {
 }
 
 /**
- * Crop image to outer corner bounds with rotation applied
+ * Crop image to outer corner bounds with automatic rotation correction
+ * Detects card rotation from corner positions and straightens the output
  * @param {string} imageDataUrl - Source image data URL
  * @param {object} corners - Corner positions { tl, tr, bl, br } in scaled coordinates
- * @param {number} rotation - Rotation in degrees (Z-axis)
+ * @param {number} rotation - Additional rotation in degrees (usually 0, auto-calculated)
  * @param {number} scaledWidth - Width of scaled coordinate space (default 1400 to match analysis)
  * @returns {Promise<string>} Cropped image as data URL
  */
@@ -73,27 +74,35 @@ export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0, sca
     scale = img.width / scaledWidth;
   }
 
-  // Calculate bounding box from corners, scaling to natural image coordinates
-  const minX = Math.min(corners.tl.x, corners.bl.x) * scale;
-  const maxX = Math.max(corners.tr.x, corners.br.x) * scale;
-  const minY = Math.min(corners.tl.y, corners.tr.y) * scale;
-  const maxY = Math.max(corners.bl.y, corners.br.y) * scale;
+  // Scale corners to natural image coordinates
+  const tl = { x: corners.tl.x * scale, y: corners.tl.y * scale };
+  const tr = { x: corners.tr.x * scale, y: corners.tr.y * scale };
+  const bl = { x: corners.bl.x * scale, y: corners.bl.y * scale };
+  const br = { x: corners.br.x * scale, y: corners.br.y * scale };
 
-  const cropW = maxX - minX;
-  const cropH = maxY - minY;
+  // Calculate rotation angle from the top edge (tl to tr)
+  // This detects how much the card is rotated in the image
+  const topEdgeAngle = Math.atan2(tr.y - tl.y, tr.x - tl.x);
+  const autoRotation = -topEdgeAngle; // Negative to counter-rotate
 
-  // Create canvas for cropped output
+  // Calculate the card dimensions (using average of top/bottom and left/right edges)
+  const topWidth = Math.sqrt((tr.x - tl.x) ** 2 + (tr.y - tl.y) ** 2);
+  const bottomWidth = Math.sqrt((br.x - bl.x) ** 2 + (br.y - bl.y) ** 2);
+  const leftHeight = Math.sqrt((bl.x - tl.x) ** 2 + (bl.y - tl.y) ** 2);
+  const rightHeight = Math.sqrt((br.x - tr.x) ** 2 + (br.y - tr.y) ** 2);
+
+  const cropW = (topWidth + bottomWidth) / 2;
+  const cropH = (leftHeight + rightHeight) / 2;
+
+  // Calculate center of the card
+  const centerX = (tl.x + tr.x + bl.x + br.x) / 4;
+  const centerY = (tl.y + tr.y + bl.y + br.y) / 4;
+
+  // Create canvas for cropped output at proper card dimensions
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(cropW);
   canvas.height = Math.round(cropH);
   const ctx = canvas.getContext('2d');
-
-  // Apply rotation around center if needed
-  if (rotation !== 0) {
-    ctx.translate(cropW / 2, cropH / 2);
-    ctx.rotate(rotation * Math.PI / 180);
-    ctx.translate(-cropW / 2, -cropH / 2);
-  }
 
   // Apply rounded corners - real cards have ~3mm radius on 63mm width (~4.8%)
   const cornerRadius = Math.round(cropW * 0.048);
@@ -101,12 +110,13 @@ export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0, sca
   ctx.roundRect(0, 0, Math.round(cropW), Math.round(cropH), cornerRadius);
   ctx.clip();
 
-  // Draw cropped region
-  ctx.drawImage(
-    img,
-    minX, minY, cropW, cropH,  // Source rectangle (in natural image coordinates)
-    0, 0, cropW, cropH          // Destination rectangle
-  );
+  // Transform: move to output center, rotate to straighten, then position source
+  ctx.translate(cropW / 2, cropH / 2);
+  ctx.rotate(autoRotation + (rotation * Math.PI / 180));
+  ctx.translate(-centerX, -centerY);
+
+  // Draw the full image (the transform handles cropping to the rotated region)
+  ctx.drawImage(img, 0, 0);
 
   return canvas.toDataURL('image/jpeg', 0.92);
 }
