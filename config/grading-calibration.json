@@ -86,9 +86,9 @@
       },
       "defects": {
         "total": 3,
-        "breakdown": "2 surface, 1 edge (minor), 0 corners"
+        "breakdown": "3 surface only (2 front scratches, 1 back print line), 0 corners, 0 edges"
       },
-      "reasoning": "PERFECT front centering (0.0%). Back at 3.7% still under 4% threshold. 1 minor edge defect but still qualifies for PRISTINE due to exceptional centering."
+      "reasoning": "PERFECT front centering (0.0%). Back at 3.7% still under 4% threshold. Only surface defects - zero structural wear qualifies for PRISTINE."
     },
     {
       "card": "Lillie's Determination 184/132",

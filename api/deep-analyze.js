@@ -6,12 +6,40 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-// Calibration data from config/grading-calibration.json is embedded in prompt below
-// To update: edit the REAL GRADED EXAMPLES section in ANALYSIS_INSTRUCTIONS
+// Calibration data from config/grading-calibration.json is embedded in prompts below
+// To update: edit GRADING_SYSTEM_PROMPT or ANALYSIS_INSTRUCTIONS
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+// System prompt with grading philosophy and calibration (persistent context)
+const GRADING_SYSTEM_PROMPT = `You are an expert Pokemon trading card grader with years of experience at professional grading companies (PSA, BGS, CGC, TAG).
+
+## GRADING PHILOSOPHY
+TAG uses a 1000-point system that is MORE STRICT than PSA or BGS. When uncertain between two grades, TAG almost always gives the LOWER grade. Your estimates should lean CONSERVATIVE, especially on centering. It is better to under-grade than over-grade.
+
+## VISUAL CENTERING GUIDE (Critical - memorize this):
+- **0-2% deviation**: Borders appear nearly IDENTICAL. Must look VERY closely. PRISTINE territory.
+- **2-4% deviation**: One border slightly wider on careful examination. GEM MINT eligible.
+- **4-6% deviation**: Noticeable difference comparing borders side-by-side. Upper GEM MINT to MINT.
+- **6-10% deviation**: Obviously off-center at a glance. One border ~1.5x wider. MINT range.
+- **10-15% deviation**: Clearly shifted. One border may be 2x the other. 8.5 NM-MT+ range.
+- **15%+ deviation**: Severely off-center, looks miscut. 8 NM-MT or lower.
+
+## TAG GRADE THRESHOLDS (from 509 real graded cards):
+- 10 PRISTINE: Front <2%, Back <4%, max 3 SURFACE defects only, 0 corner/edge wear
+- 10 GEM MINT: Front <4.5%, Back <6.5%, max 3 defects (1 corner, 1 edge, 2 surface)
+- 9 MINT: Front <10%, Back <9%, max 4 defects
+- 8.5 NM-MT+: Front <12%, Back <11%, max 6 defects
+- 8 NM-MT: Front <14%, Back <12%, max 8 defects
+
+## COMMON GRADING MISTAKES TO AVOID:
+1. Assuming good front centering means good overall - ALWAYS check back separately
+2. Over-grading vintage holos because they "look nice" - be strict, not nostalgic
+3. Counting natural holofoil texture as defects - it's NOT a defect
+4. Being generous with centering - when uncertain, it's probably WORSE than you think
+5. Ignoring back centering impact - back alone can drop a card 1-2 grades`;
 
 // Detailed grading prompt for deep analysis (4-image version)
 const DEEP_GRADING_PROMPT_4IMG = `You are an expert trading card grader with years of experience at professional grading companies. Analyze these card images in EXTREME detail.
@@ -159,14 +187,6 @@ Based on your analysis, provide grades for each company using their specific sta
 - 9 Mint: Max 4 total (3 corner, 2 edge, 3 surface), avg 1.8 defects
 - Lower grades: Progressively more defects allowed
 
-### VISUAL CENTERING GUIDE (Critical - memorize this):
-- **0-2% deviation**: Borders appear nearly IDENTICAL. Must look VERY closely. This is PRISTINE territory.
-- **2-4% deviation**: One border slightly wider on careful examination. GEM MINT eligible.
-- **4-6% deviation**: Noticeable difference comparing borders side-by-side. Upper GEM MINT to MINT.
-- **6-10% deviation**: Obviously off-center at a glance. One border significantly wider (~1.5x). MINT range.
-- **10-15% deviation**: Clearly shifted. One border may be 2x the other. 8.5 NM-MT+ range.
-- **15%+ deviation**: Severely off-center, looks miscut. 8 NM-MT or lower.
-
 ### REAL GRADED EXAMPLES (from TAG database - use these to calibrate):
 
 **Example 1: 10 PRISTINE**
@@ -178,8 +198,8 @@ Why PRISTINE: Near-perfect centering + only surface defects + zero structural we
 **Example 2: 10 PRISTINE**
 Card: Vaporeon H31/H32 Skyridge | Score: 990
 Centering: Front 0.0% (PERFECT), Back 3.7%
-Defects: 2 surface, 1 minor edge
-Why PRISTINE: Perfect front centering overrides minor edge defect when back is also excellent
+Defects: 3 surface only (2 front scratches, 1 back print line), 0 corners, 0 edges
+Why PRISTINE: Perfect front centering + back under 4% threshold + ONLY surface defects (no structural wear)
 
 **Example 3: 10 GEM MINT (NOT Pristine)**
 Card: Lillie's Determination 184/132 | Score: 961
@@ -198,13 +218,6 @@ Card: Suicune Promo 53 | Score: 807
 Centering: Front 6.2%, Back 13.6% (back severely off)
 Defects: 3 total
 Why 8: Back centering at 13.6% alone caps grade at 8, regardless of defect count.
-
-### COMMON GRADING MISTAKES TO AVOID:
-1. **Assuming good front = good overall**: ALWAYS check back centering separately - it can be much worse
-2. **Over-grading vintage holos**: They often have hidden centering/surface issues. Be strict.
-3. **Counting holofoil texture as defects**: Natural holo pattern is NOT a defect
-4. **Being generous with centering**: When uncertain, centering is probably WORSE than you think. TAG is strict.
-5. **Ignoring back centering impact**: Back centering can single-handedly drop a card 1-2 grades
 
 ### 5. SUMMARY
 - Key positives (what's good about this card's condition)
@@ -273,10 +286,13 @@ Why 8: Back centering at 13.6% alone caps grade at 8, regardless of defect count
     "positives": ["Strong corners overall", "Excellent back centering"],
     "concerns": ["Light surface scratch on front", "Slight left-heavy centering on front"],
     "recommendation": "Best suited for BGS submission - subgrades will highlight strong corners and edges despite surface issue."
+  },
+  "confidence": {
+    "overall": 0.85,
+    "notes": "High confidence on centering measurement, moderate uncertainty on surface defect severity",
+    "grade_range": { "low": 8, "likely": 8.5, "high": 9 }
   }
 }
-
-**GRADING PHILOSOPHY**: TAG uses a 1000-point system that is MORE STRICT than PSA or BGS. When uncertain between two grades, TAG almost always gives the LOWER grade. Your estimates should lean CONSERVATIVE, especially on centering. It is better to under-grade than over-grade.
 
 CRITICAL RULES:
 - PSA has NO 9.5 grade - use 9 or 10 only at top end
@@ -372,6 +388,7 @@ export default async function handler(req, res) {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
+      system: GRADING_SYSTEM_PROMPT,
       messages: [{
         role: 'user',
         content: messageContent,
