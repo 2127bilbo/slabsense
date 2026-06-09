@@ -9,7 +9,7 @@ import { getGradeFromScore, GRADING_COMPANIES as GRADE_SCALES } from '../../util
 import { HoloCard } from '../HoloCard/HoloCard.jsx';
 import { getGyroInput } from '../../lib/gyro-input.js';
 import { CardViewer3D } from '../CardViewer/CardViewer3D.jsx';
-import { claudeGradingAnalysis, deepGradingAnalysis } from '../../services/api.js';
+import { claudeGradingAnalysis, deepGradingAnalysisV2 } from '../../services/api.js';
 import holoConfig from '../../../config/holo-config.json';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
@@ -303,12 +303,13 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
     if (!frontImg || !backImg || !userId) return;
     setDeepGradeStatus('grading');
     try {
-      const result = await deepGradingAnalysis(
+      const result = await deepGradingAnalysisV2(
         frontImg,           // originalFrontImage
         backImg,            // originalBackImage
         null,               // croppedFrontImage (use originals for both)
         null,               // croppedBackImage
         'pokemon',          // cardGame
+        'modern_holo',      // cardType (TODO: detect from card info)
         userId              // userId
       );
       if (result.success) {

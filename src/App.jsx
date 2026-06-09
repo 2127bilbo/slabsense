@@ -8,7 +8,7 @@ import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan, logMissingImage } from "./services/scans.js";
 import { CardCropModal } from "./components/CardCropModal.jsx";
-import { checkBackendHealth, analyzeCardWithBackend, analyzeCardWithVision, claudeGradingAnalysis, deepGradingAnalysis } from "./services/api.js";
+import { checkBackendHealth, analyzeCardWithBackend, analyzeCardWithVision, claudeGradingAnalysis, deepGradingAnalysisV2 } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 import { CardIdentifier } from "./components/CardIdentifier/CardIdentifier.jsx";
 import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.jsx";
@@ -3367,12 +3367,13 @@ export default function SlabSense(){
         hasCropped: !!frontCroppedImage && !!backCroppedImage,
       });
 
-      const result = await deepGradingAnalysis(
+      const result = await deepGradingAnalysisV2(
         originalFront,
         originalBack,
         croppedFront,
         croppedBack,
         'pokemon',
+        'modern_holo',  // TODO: detect vintage vs modern from card info
         auth.user.id
       );
 
