@@ -66,13 +66,18 @@ Most cards submitted for grading are near-mint. When uncertain, report "clean" f
 Respond with ONLY this JSON (no other text):
 {
   "cardName": "Pokemon name and set if visible",
+  "imageQuality": {
+    "glareLevel": "none/minor/moderate/severe",
+    "glareLocations": ["list corners/edges/areas affected by camera flash"],
+    "canAccuratelyAssess": true
+  },
   "defectAssessment": {
     "corners": "clean/minor wear/moderate wear/heavy wear",
-    "cornerDetails": "describe any corner issues found",
+    "cornerDetails": "describe any corner issues found (NOT glare)",
     "edges": "clean/minor wear/moderate wear/heavy wear",
-    "edgeDetails": "describe any edge issues found",
+    "edgeDetails": "describe any edge issues found (NOT glare)",
     "surface": "clean/minor issues/moderate issues/heavy issues",
-    "surfaceDetails": "describe any surface issues found"
+    "surfaceDetails": "describe any surface issues found (NOT glare)"
   },
   "estimatedDefectImpact": "minimal/minor/moderate/significant",
   "gradeRange": { "low": 8, "high": 9.5 }
@@ -184,10 +189,16 @@ ${refText}
 2. Count and describe every defect you find
 3. Compare your defect findings to the reference cards
 4. Calculate final grade using: ${softwareCentering ? 'PROVIDED CENTERING' : 'ESTIMATED CENTERING'} + YOUR DEFECT FINDINGS
+5. **ASSESS IMAGE QUALITY** - Rate glare/flash level and adjust confidence accordingly
 
-The grade should reflect:
-- The centering data ${softwareCentering ? '(provided above)' : '(your estimate)'}
-- Your defect count and severity vs the references
+**CONFIDENCE SCORING (CRITICAL):**
+- 0.90+: Clean photos, no glare issues, high certainty
+- 0.75-0.89: Minor glare but can still assess accurately
+- 0.60-0.74: Moderate glare obscuring some areas
+- 0.40-0.59: Significant glare, low certainty
+- <0.40: Severe glare, cannot reliably grade
+
+If you see flash/glare, LOWER your confidence and note it in imageQuality.warning!
 
 Respond with this JSON (no other text):
 {
@@ -195,6 +206,12 @@ Respond with this JSON (no other text):
     "name": "string",
     "setName": "string",
     "cardNumber": "string"
+  },
+  "imageQuality": {
+    "glareLevel": "none/minor/moderate/severe",
+    "glareLocations": ["list areas affected by glare"],
+    "overallQuality": "excellent/good/fair/poor",
+    "warning": "null or message like 'Heavy flash on corners - retake photo for accurate grade'"
   },
   "centering": {
     "front": { "leftRight": "52.0/48.0", "topBottom": "50.0/50.0", "deviationLR": 4.0, "deviationTB": 0.0 },

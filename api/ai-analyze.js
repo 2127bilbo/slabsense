@@ -288,6 +288,21 @@ Using your centering measurements and condition assessment, determine grades for
 - TAG 9 Mint (900-949): Front 57/43, Back 70/30 for TCG
 - Front defects weighted ~1.5x more than back
 
+## TASK 5: ASSESS IMAGE QUALITY
+
+Rate the photo quality and detect glare/flash issues:
+- **glareLevel**: "none" | "minor" | "moderate" | "severe"
+  - none: Clean photo, no visible reflections
+  - minor: Small reflections but corners/edges clearly visible
+  - moderate: Significant glare obscuring some areas
+  - severe: Heavy flash/glare making accurate assessment difficult
+- **confidence**: 0.0 to 1.0 based on how well you can see the card
+  - 0.95+: Perfect photo, high certainty
+  - 0.85-0.94: Good photo, minor issues
+  - 0.70-0.84: Moderate glare/blur affecting assessment
+  - 0.50-0.69: Significant issues, low certainty
+  - <0.50: Cannot reliably grade this image
+
 ## RESPONSE FORMAT - Return ONLY this JSON:
 
 {
@@ -300,6 +315,12 @@ Using your centering measurements and condition assessment, determine grades for
     "year": "2023",
     "variant": null,
     "language": "English"
+  },
+  "imageQuality": {
+    "glareLevel": "minor",
+    "glareLocations": ["top-left corner", "center holo area"],
+    "overallQuality": "good",
+    "warning": null
   },
   "centering": {
     "front": {
@@ -321,11 +342,13 @@ Using your centering measurements and condition assessment, determine grades for
     "psa": {
       "grade": 9,
       "label": "Mint",
+      "confidence": 0.88,
       "notes": "Centering within PSA 9 tolerance. Minor edge issue prevents 10."
     },
     "bgs": {
       "grade": 9.5,
       "label": "Gem Mint",
+      "confidence": 0.88,
       "subgrades": {
         "centering": 9.5,
         "corners": 9.5,
@@ -337,17 +360,20 @@ Using your centering measurements and condition assessment, determine grades for
     "sgc": {
       "grade": 9.5,
       "label": "Mint+",
+      "confidence": 0.88,
       "notes": "Back centering within SGC tolerance for 9.5"
     },
     "cgc": {
       "grade": 9.5,
       "label": "Mint+",
+      "confidence": 0.88,
       "notes": "Holistic assessment, minor edge issue noted"
     },
     "tag": {
       "score": 955,
       "grade": 10,
       "label": "Gem Mint",
+      "confidence": 0.88,
       "subgrades": {
         "frontCentering": 118,
         "backCentering": 120,
@@ -373,6 +399,8 @@ CRITICAL RULES:
 - All grades must follow that company's specific standards
 - TAG score must be 100-1000 and match the grade range
 - BGS subgrades must mathematically support the final grade
+- **CONFIDENCE MUST REFLECT IMAGE QUALITY**: Lower confidence if glare/blur present
+- If glareLevel is "severe", set confidence below 0.60 and add warning
 - Return ONLY valid JSON`;
 }
 
