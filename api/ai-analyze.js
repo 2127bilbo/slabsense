@@ -225,7 +225,24 @@ Examine and score (1-10 scale):
 - Edges: whitening, chips, rough spots, fraying
 - Surface: scratches, print lines, holo damage, scuffs, dents
 
-**IGNORE photographic artifacts - only grade ACTUAL physical defects**
+**CRITICAL: DISTINGUISHING GLARE FROM ACTUAL DEFECTS**
+
+GLARE (NOT a defect - IGNORE these):
+- Bright white/silver spots from camera flash or lighting
+- Oval, circular, or diffuse bright areas
+- Shiny reflections on holo/foil surfaces
+- Spots that appear in the MIDDLE of the card surface
+- Bright areas that do NOT follow edge/corner contours
+- Lighting artifacts that look "soft" or "fuzzy"
+
+ACTUAL DEFECTS (DO report these):
+- Corner whitening: follows the precise edge of the corner, looks "worn"
+- Edge whitening: runs along the card edge precisely, not in the middle
+- Surface scratches: linear marks, often visible at certain angles
+- Print defects: consistent ink issues, not lighting-dependent
+
+RULE: When in doubt between glare and a defect, DO NOT report it as a defect.
+Only report defects you are CERTAIN are physical damage, not lighting artifacts.
 
 ## TASK 3: EXTRACT CARD INFO
 
@@ -363,6 +380,12 @@ function buildSingleGradingPrompt(cardType) {
 ## TASK 2: ASSESS CONDITION (1-10 scale)
 - Corners, Edges, Surface
 - List any defects found
+
+**CRITICAL: GLARE vs DEFECTS**
+- GLARE = bright white/silver spots from lighting, often oval/diffuse, NOT a defect
+- WHITENING = actual wear that follows corner/edge contours precisely
+- If bright spots are in the middle of the card or don't follow edges = GLARE (ignore)
+- When in doubt, DO NOT report it as a defect
 
 ## TASK 3: EXTRACT CARD INFO
 Name, HP, card number, set, rarity, year, variant, language

@@ -33,12 +33,25 @@ DEFECT DETECTION ONLY:
 2. EDGES - Check all 4 edges on front AND back for: whitening, chips, nicks, peeling, damage
 3. SURFACE - Check entire surface front AND back for: scratches, print lines, silvering, indentations, holo scratches
 
-CRITICAL: GLARE vs ACTUAL DEFECTS
-- GLARE = bright white/silver spots from lighting, often oval or diffuse, NOT a defect
-- WHITENING = actual wear on corners/edges that follows the card edge precisely
-- If bright spots are in the middle of the card or don't follow edge shape = GLARE (ignore it)
-- If bright spots follow corner/edge contours precisely = possible WHITENING (report it)
-- When in doubt between glare and actual damage, DO NOT report it as a defect
+CRITICAL: GLARE vs ACTUAL DEFECTS - READ CAREFULLY
+
+GLARE (NOT a defect - IGNORE completely):
+- Bright white/silver spots from camera flash or room lighting
+- Oval, circular, diffuse, or "fuzzy" bright areas
+- Shiny reflections on holographic or foil card surfaces
+- Bright spots in the MIDDLE of the card (not on edges)
+- Reflections that appear "soft" or have gradual edges
+- Any bright area that does NOT precisely follow corner/edge contours
+- Camera flash hotspots (usually near center or at an angle)
+
+ACTUAL DEFECTS (DO report):
+- WHITENING: visible wear that follows the EXACT edge of corners/edges
+- Corner wear: looks "soft" or "fuzzy" at the corner tip itself
+- Edge wear: runs precisely along the card's cut edge
+- Surface scratches: thin linear marks visible at certain angles
+- Print defects: ink issues that are NOT lighting-dependent
+
+DECISION RULE: If you cannot definitively confirm the bright spot follows the card edge contour, assume it is GLARE and DO NOT report it. Only report defects you are 100% certain are physical damage.
 
 Respond with ONLY this JSON (no other text):
 {

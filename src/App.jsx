@@ -28,6 +28,7 @@ import {
 } from "./lib/tag-calibration.js";
 import { getGyroInput } from "./lib/gyro-input.js";
 import { loadImg, genMaps, LUM } from "./lib/image-utils.js";
+import { cropToOuterBounds, getBoundsFromCorners } from "./lib/centering-utils.js";
 import holoConfig from "../config/holo-config.json";
 
 /* ═══════════════════════════════════════════
@@ -1848,7 +1849,9 @@ function ManualBoundaryEditor({ image, result, side, onApply, manualCenteringDat
         left: outerCorners.tl.x,
         right: outerCorners.tr.x,
         top: outerCorners.tl.y,
-        bottom: outerCorners.bl.y
+        bottom: outerCorners.bl.y,
+        // Include corners for better cropping
+        corners: outerCorners,
       };
       overrideCentering = {
         borderL: edges.left.median,
@@ -1857,6 +1860,11 @@ function ManualBoundaryEditor({ image, result, side, onApply, manualCenteringDat
         borderB: edges.bottom.median,
         lrRatio: centering.horizontal,
         tbRatio: centering.vertical,
+        // Include transform data for cropping
+        rotation,
+        tiltX,
+        tiltY,
+        measureMode: 'corner',
       };
     } else {
       // Edge-drag mode: use existing calculation
@@ -1866,6 +1874,11 @@ function ManualBoundaryEditor({ image, result, side, onApply, manualCenteringDat
         borderL:bL, borderR:bR, borderT:bT, borderB:bB,
         lrRatio:Math.round((tLR>0?bL/tLR*100:50)*10)/10,
         tbRatio:Math.round((tTB>0?bT/tTB*100:50)*10)/10,
+        // Include transform data for cropping
+        rotation,
+        tiltX,
+        tiltY,
+        measureMode: 'edge',
       };
     }
 
@@ -2958,14 +2971,62 @@ export default function SlabSense(){
     });
   }, []);
 
-  // Re-runs analysis with manual boundary overrides, updates grade
+  // Re-runs analysis with manual boundary overrides, updates grade, cropped image, and centering data
   const applyManualCorrection = useCallback(async (side, overrideBounds, overrideCentering) => {
     const src = side === 'front' ? fI : bI;
     if (!src) return;
+
+    // Run analysis with new bounds
     const result = await analyzeCardFull(src, side, overrideBounds, overrideCentering);
     const newFR = side === 'front' ? result : fR;
     const newBR = side === 'back' ? result : bR;
     if (side === 'front') setFR(result); else setBR(result);
+
+    // Update centering data with new manual values
+    const newCenteringData = {
+      didManualCenter: true,
+      measureMode: overrideCentering.measureMode || 'edge',
+      outer: overrideBounds,
+      outerCorners: overrideBounds.corners || null,
+      croppedBounds: { x: overrideBounds.left, y: overrideBounds.top, width: overrideBounds.right - overrideBounds.left, height: overrideBounds.bottom - overrideBounds.top },
+      borderL: overrideCentering.borderL,
+      borderR: overrideCentering.borderR,
+      borderT: overrideCentering.borderT,
+      borderB: overrideCentering.borderB,
+      lrRatio: overrideCentering.lrRatio,
+      tbRatio: overrideCentering.tbRatio,
+      rotation: overrideCentering.rotation || 0,
+      tiltX: overrideCentering.tiltX || 0,
+      tiltY: overrideCentering.tiltY || 0,
+    };
+
+    if (side === 'front') {
+      setFrontCenteringData(newCenteringData);
+    } else {
+      setBackCenteringData(newCenteringData);
+    }
+
+    // Generate new cropped image from the bounds
+    try {
+      // Use corners if available (corner mode), otherwise build from bounds
+      const corners = overrideBounds.corners || {
+        tl: { x: overrideBounds.left, y: overrideBounds.top },
+        tr: { x: overrideBounds.right, y: overrideBounds.top },
+        bl: { x: overrideBounds.left, y: overrideBounds.bottom },
+        br: { x: overrideBounds.right, y: overrideBounds.bottom },
+      };
+      const rotation = overrideCentering.rotation || 0;
+      const croppedImage = await cropToOuterBounds(src, corners, rotation, result.imgW || 1400);
+
+      if (side === 'front') {
+        setFrontCroppedImage(croppedImage);
+      } else {
+        setBackCroppedImage(croppedImage);
+      }
+    } catch (cropErr) {
+      console.error('[applyManualCorrection] Crop failed:', cropErr);
+    }
+
     const effFront = ignoreCentering ? PERFECT_CENTER : newFR.centering;
     const effBack = ignoreCentering ? PERFECT_CENTER : newBR.centering;
     // Combine quality metrics for confidence calculation

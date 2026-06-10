@@ -35,6 +35,12 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 | **Anthropic Direct API** | Migrated from Replicate, enabled prompt caching (90% cost reduction) |
 | **Crop Rotation Fix** | Auto-detects and corrects card rotation from corner positions |
 | **Unified Grade Display** | Single `GradeResultDisplay` component renders identically across all 6 locations (Grade Tab × 3 + Collection View × 3) |
+| **Payment System (P11)** | Stripe integration with credits, subscriptions, and bundles |
+| **Credit Balance UI** | Header displays credits with expiration warning, pricing modal |
+| **AI Grade Credit Check** | Deducts 1 credit before AI grade, auto-refunds on failure |
+| **Deep Grade Credit Check** | Deducts 2 credits before Deep grade, auto-refunds on failure |
+| **AI Glare Detection Fix** | Enhanced prompts to distinguish camera glare from actual defects (both ai-analyze.js and deep-analyze-v2.js) |
+| **Centering Tab Update Fix** | "Apply Correction" button now properly updates cropped image AND centering data |
 
 ---
 
@@ -99,6 +105,11 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 - ✅ Crosshair overlay for visual alignment guidance
 - ✅ "Confirm Alignment" button required before showing score
 - ✅ Centering results only shown after confirmation
+- ✅ **Apply Correction updates everything**:
+  - Updates `frontCenteringData` / `backCenteringData` with new manual values
+  - Regenerates `frontCroppedImage` / `backCroppedImage` from new bounds
+  - Passes rotation/tilt transforms to crop function
+  - Uses corner positions when in corner mode for accurate crop
 - ✅ **Corner-anchored mode (beta toggle)**:
   - 8 corner drag handles (4 outer + 4 inner)
   - 5-sample median per edge for accuracy on tilted/warped cards
@@ -470,8 +481,8 @@ CREATE TABLE missing_images (
 ### Tier 4: Major Features (Multiple days) - IN PROGRESS
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| P11 | **Token system & billing** | [ ] | Token-based billing (Standard vs Deep grades), Stripe + PayPal integration |
-| P12 | **Subscription tiers** | [ ] | Free / Pro / Lifetime tiers with token allocations |
+| P11 | **Token system & billing** | [x] | Stripe credits (1=AI, 2=Deep), subscriptions, bundles, Stripe webhooks |
+| P12 | **Subscription tiers** | [x] | Trial $4.99, Hobby $9.99, Pro $19.99, Dealer $49.99, Lifetime (admin only) |
 | P13 | **Production deployment** | [ ] | Full production setup, monitoring, error tracking |
 
 ### Tier 5: Post-Launch
