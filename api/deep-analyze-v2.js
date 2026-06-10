@@ -1,64 +1,39 @@
 /**
- * Deep Analyze V2 - Coordinate-Based Defect Detection (TAG 1000-Point System)
+ * Deep AI Grade V2 - Two-Pass Grading with Reference Comparison
  *
- * Production version with TAG-calibrated scoring.
+ * Pass 1: Quick estimate from images → Returns grade range
+ * Pass 2: Compare against real TAG-graded references for final grade
  *
- * Features:
- * - Exact defect coordinates (x, y as percentages)
- * - Per-area scores on TAG's 0-1000 scale
- * - Visual DingsMap rendering support
- * - Full DIG report format matching TAG's output
- * - Two-pass analysis (defect detection + final grading)
- *
- * TAG Grade Scale (by lowest area score):
- * - 10 PRISTINE: 990-1000
- * - 10 GEM MINT: 950-989
- * - 9 MINT: 900-949
- * - 8.5 NM-MT+: 850-899
- * - 8 NM-MT: 800-849
- * - 7.5 NM+: 750-799
- * - 7 NM: 700-749
- * - 6.5 EX-MT+: 650-699
- * - 6 EX-MT: 600-649
- * - 5 EX: 500-599
- * - 4 VG-EX: 400-499
- * - 3 VG: 300-399
- * - 2 GOOD: 200-299
- * - 1 POOR: 0-199
- *
- * Backup of previous version: api/backup/deep-analyze-v2-pre-1000pt.js
+ * This mimics how human graders work - comparing against known examples.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@supabase/supabase-js';
 
-const anthropic = new Anthropic();
-const MODEL = "claude-sonnet-4-20250514";
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+);
 
 // ============================================================================
-// PASS 1: Quick defect detection with image quality assessment
+// PASS 1: Defect Detection (centering is measured by software, not AI)
 // ============================================================================
-const PASS1_SYSTEM = `You are an expert Pokemon card defect detector. Your ONLY job is to find physical defects and assess image quality.
+const PASS1_SYSTEM = `You are an expert Pokemon card defect detector. Your ONLY job is to find physical defects.
 DO NOT assess centering - centering is measured separately by software with pixel-level precision.
 Be thorough - look carefully at all four corners, all edges, and the entire surface.`;
 
 const PASS1_PROMPT = `Identify the card and detect all physical defects. DO NOT assess centering.
 
-**FIRST: ASSESS IMAGE QUALITY**
-Before looking for defects, evaluate the photo quality:
-- Is there camera flash/glare obscuring any areas?
-- Can you clearly see all 4 corners on both sides?
-- Can you clearly see all 4 edges on both sides?
-- Is the image sharp enough to detect minor wear?
+DEFECT DETECTION ONLY:
+1. CORNERS - Check all 4 corners on front AND back for: whitening, dings, bends, wear, rounding
+2. EDGES - Check all 4 edges on front AND back for: whitening, chips, nicks, peeling, damage
+3. SURFACE - Check entire surface front AND back for: scratches, print lines, silvering, indentations, holo scratches
 
-**THEN: DEFECT DETECTION**
-For each defect found, provide:
-- Side: FRONT or BACK
-- Type: CORNER WEAR, EDGE WEAR, SURFACE (scratch/print line/play wear/etc)
-- Position: For corners (TL/TR/BL/BR), for edges (TOP/BOTTOM/LEFT/RIGHT)
-- Coordinates: Approximate X,Y as percentage from top-left (0-100)
-- Severity: minor/moderate/severe
-
-**⚠️ CRITICAL: CAMERA GLARE WARNING ⚠️**
+**⚠️ CRITICAL WARNING: CAMERA GLARE ON POKEMON CARDS ⚠️**
 
 Pokemon cards are photographed by users with phone cameras. MOST images have significant glare/flash reflection. You MUST NOT mistake glare for defects.
 
@@ -68,11 +43,25 @@ Pokemon cards are photographed by users with phone cameras. MOST images have sig
 - Shiny reflections anywhere on holo/foil card surfaces
 - Bright spots that have soft/fuzzy edges (real wear has sharp edges)
 - Light areas that appear in multiple corners simultaneously (flash pattern)
+- Any brightness on the card face that isn't at the precise paper edge
+- Rainbow or colorful reflections on holographic cards
 
 **THIS IS ACTUAL WEAR - ONLY REPORT THESE:**
 - Corner whitening: WHITE FIBERS of the card stock are EXPOSED at the corner TIP
 - Edge whitening: WHITE PAPER FIBERS visible along the CUT EDGE of the card
 - Real wear looks like exposed cardboard/paper, NOT like bright reflection
+- The damaged area must show actual paper texture, not smooth reflection
+
+**HOLO/FOIL CARDS ESPECIALLY:**
+Full art cards, EX cards, GX cards, V cards, VMAX, and any holographic cards will have INTENSE reflections. These reflections are NOT defects. A holo card showing rainbow reflections or bright spots is NORMAL.
+
+**DECISION RULE:**
+Ask yourself: "Can I see actual exposed paper fibers, or is this just light reflecting off the card surface?"
+- If you cannot clearly see damaged paper fibers → IT IS GLARE → DO NOT REPORT
+- If you see actual white cardboard exposed → REPORT as wear
+
+**DEFAULT ASSUMPTION: The card is in excellent condition unless you see OBVIOUS physical damage.**
+Most cards submitted for grading are near-mint. When uncertain, report "clean" for that category.
 
 Respond with ONLY this JSON (no other text):
 {
@@ -80,143 +69,136 @@ Respond with ONLY this JSON (no other text):
   "imageQuality": {
     "glareLevel": "none/minor/moderate/severe",
     "glareLocations": ["list corners/edges/areas affected by camera flash"],
-    "canAccuratelyAssess": true,
-    "frontVisible": { "allCorners": true, "allEdges": true, "surface": true },
-    "backVisible": { "allCorners": true, "allEdges": true, "surface": true }
+    "canAccuratelyAssess": true
   },
-  "defects": [
-    {
-      "side": "FRONT",
-      "type": "CORNER WEAR",
-      "position": "TL",
-      "coordinates": { "x": 5, "y": 5 },
-      "severity": "minor",
-      "description": "Light whitening at corner tip"
-    }
-  ],
-  "defectSummary": {
+  "defectAssessment": {
     "corners": "clean/minor wear/moderate wear/heavy wear",
+    "cornerDetails": "describe any corner issues found (NOT glare)",
     "edges": "clean/minor wear/moderate wear/heavy wear",
-    "surface": "clean/minor issues/moderate issues/heavy issues"
+    "edgeDetails": "describe any edge issues found (NOT glare)",
+    "surface": "clean/minor issues/moderate issues/heavy issues",
+    "surfaceDetails": "describe any surface issues found (NOT glare)"
   },
   "estimatedDefectImpact": "minimal/minor/moderate/significant",
   "gradeRange": { "low": 8, "high": 9.5 }
 }`;
 
 // ============================================================================
-// PASS 2: Final Grading with per-area scores (TAG 1000-point format)
+// PASS 2: Final Grading (uses our centering + AI defect detection)
 // ============================================================================
-const PASS2_SYSTEM = `You are an expert Pokemon card grader using TAG's 1000-point grading system. You will receive:
+const PASS2_SYSTEM = `You are an expert Pokemon card grader. You will receive:
 1. CENTERING DATA - Pre-measured with pixel-level precision. USE THESE EXACT VALUES. Do not re-estimate.
 2. Card images - For detailed defect detection only
-3. Initial defect scan - From pass 1
+3. Reference cards - TAG-graded examples to compare defect levels
 
 YOUR JOB:
 - Accept the provided centering measurements as ground truth
-- Verify and refine the defect detection from pass 1
-- Provide per-area scores on TAG's 0-1000 scale (each area starts at 1000)
+- Detect and count all defects (corners, edges, surface)
+- Compare defect severity to the reference cards
 - Calculate final grade based on: OUR CENTERING + YOUR DEFECT FINDINGS
-- The LOWEST area score determines the card's grade
 
-TAG 1000-POINT SCALE (per area):
-- 1000: Perfect (no visible defects even under magnification)
-- 950-999: Near-perfect (trivial imperfection under magnification)
-- 900-949: Excellent (minor flaw barely visible)
-- 800-899: Very good (visible minor flaw)
-- 700-799: Good (noticeable flaw)
-- 600-699: Fair (significant visible flaw)
-- 500-599: Below average (multiple or major flaws)
-- <500: Poor (heavy damage)
+TAG GRADE HIERARCHY (highest to lowest):
+- 10 PRISTINE (985-1000 pts) = PERFECT. Zero defects, perfect centering (<2% deviation)
+- 10 GEM MINT (950-984 pts) = Near perfect. May have 1-2 trivial flaws invisible to naked eye
+- 9.5 GEM MINT (925-949 pts) = Excellent. Minor flaws only visible under magnification
+- 9 MINT (900-924 pts) = Great condition. Small flaws may be visible
+- 8.5 NM-MT+ (875-899 pts) = Light wear visible
+- 8 NM-MT (850-874 pts) = Noticeable minor wear
 
-TAG GRADE THRESHOLDS (by total/lowest score):
-- 10 PRISTINE: 990-1000
-- 10 GEM MINT: 950-989
-- 9 MINT: 900-949
-- 8.5 NM-MT+: 850-899
-- 8 NM-MT: 800-849
-- 7.5 NM+: 750-799
-- 7 NM: 700-749
-- 6.5 EX-MT+: 650-699
-- 6 EX-MT: 600-649
-- 5 EX: 500-599`;
+IMPORTANT: PRISTINE is HIGHER than GEM MINT. Only award PRISTINE for truly flawless cards.
+If ANY defects exist (even minor surface issues), the card is NOT PRISTINE.
 
-function buildPass2Prompt(softwareCentering, defectInfo, referenceCards = []) {
-  // Build reference card examples text
-  let refText = '';
-  if (referenceCards.length > 0) {
-    refText = 'REFERENCE EXAMPLES (TAG-graded cards for comparison):\n';
-    for (const ref of referenceCards.slice(0, 5)) {
-      refText += `- Grade ${ref.grade}: ${ref.defect_count} defects, centering ${ref.front_lr}/${ref.back_lr}\n`;
-    }
+GRADING PHILOSOPHY: TAG is STRICT. When uncertain, choose the LOWER grade.`;
+
+const buildPass2Prompt = (quickAssessment, references, softwareCentering = null) => {
+  // Format reference cards for comparison
+  const refText = references.map((ref, i) => {
+    const defectList = ref.defect_details?.map(d => `${d.type} (${d.location})`).join(', ') || 'None noted';
+    return `
+REFERENCE ${i + 1}: ${ref.grade} (Score: ${ref.score || 'N/A'})
+Card: ${ref.card_name} | Type: ${ref.card_type}
+Centering: Front ${ref.centering_front_lr?.toFixed(1) || '?'}% LR / ${ref.centering_front_tb?.toFixed(1) || '?'}% TB, Back ${ref.centering_back_lr?.toFixed(1) || '?'}% LR / ${ref.centering_back_tb?.toFixed(1) || '?'}% TB
+Defects: ${ref.defect_count} total (${ref.corner_defects} corner, ${ref.edge_defects} edge, ${ref.surface_defects} surface)
+Details: ${defectList}`;
+  }).join('\n');
+
+  // Build the centering section based on whether we have software measurements
+  let centeringBlock;
+  if (softwareCentering) {
+    const { front, back } = softwareCentering;
+    const fDevLR = Math.abs(50 - front.lrRatio);
+    const fDevTB = Math.abs(50 - front.tbRatio);
+    const bDevLR = Math.abs(50 - back.lrRatio);
+    const bDevTB = Math.abs(50 - back.tbRatio);
+    const maxDev = Math.max(fDevLR, fDevTB, bDevLR, bDevTB);
+
+    centeringBlock = `
+═══════════════════════════════════════════════════════════════════════════════
+                    CENTERING DATA (MEASURED - USE THESE EXACT VALUES)
+═══════════════════════════════════════════════════════════════════════════════
+FRONT: ${front.lrRatio.toFixed(1)}/${(100 - front.lrRatio).toFixed(1)} Left/Right | ${front.tbRatio.toFixed(1)}/${(100 - front.tbRatio).toFixed(1)} Top/Bottom
+       Deviation: ${fDevLR.toFixed(1)}% LR, ${fDevTB.toFixed(1)}% TB
+
+BACK:  ${back.lrRatio.toFixed(1)}/${(100 - back.lrRatio).toFixed(1)} Left/Right | ${back.tbRatio.toFixed(1)}/${(100 - back.tbRatio).toFixed(1)} Top/Bottom
+       Deviation: ${bDevLR.toFixed(1)}% LR, ${bDevTB.toFixed(1)}% TB
+
+MAX DEVIATION: ${maxDev.toFixed(1)}%
+═══════════════════════════════════════════════════════════════════════════════
+⚠️  THESE ARE PIXEL-MEASURED VALUES. DO NOT RE-ESTIMATE CENTERING.
+    Use these numbers directly when calculating the grade.
+═══════════════════════════════════════════════════════════════════════════════`;
+  } else {
+    centeringBlock = `
+═══════════════════════════════════════════════════════════════════════════════
+                    CENTERING (NO SOFTWARE DATA - MUST ESTIMATE)
+═══════════════════════════════════════════════════════════════════════════════
+Software centering not available. You must visually estimate by comparing borders.
+═══════════════════════════════════════════════════════════════════════════════`;
   }
 
-  return `You have software-measured centering data. Use it exactly as provided.
+  // Get defect info from Pass 1
+  const defectInfo = quickAssessment.defectAssessment || quickAssessment.quickAssessment || {};
 
-## SOFTWARE-MEASURED CENTERING (USE THESE VALUES)
-${softwareCentering ? `
-FRONT: ${softwareCentering.front?.lrRatio?.toFixed(1) || '50.0'}/${(100 - (softwareCentering.front?.lrRatio || 50)).toFixed(1)} L/R, ${softwareCentering.front?.tbRatio?.toFixed(1) || '50.0'}/${(100 - (softwareCentering.front?.tbRatio || 50)).toFixed(1)} T/B
-BACK: ${softwareCentering.back?.lrRatio?.toFixed(1) || '50.0'}/${(100 - (softwareCentering.back?.lrRatio || 50)).toFixed(1)} L/R, ${softwareCentering.back?.tbRatio?.toFixed(1) || '50.0'}/${(100 - (softwareCentering.back?.tbRatio || 50)).toFixed(1)} T/B
-` : 'No software centering provided - estimate from images'}
+  return `## CARD: ${quickAssessment.cardName}
+${centeringBlock}
 
-## INITIAL DEFECT SCAN (from pass 1)
-${JSON.stringify(defectInfo, null, 2)}
+## YOUR TASK - DEFECT DETECTION ONLY
 
+Look at the card images and find ALL defects:
+
+1. CORNERS (all 4, front and back):
+   - Whitening, dings, bends, rounding, wear
+
+2. EDGES (all 4, front and back):
+   - Whitening, chips, nicks, peeling
+
+3. SURFACE (entire card, front and back):
+   - Scratches, print lines, silvering, indentations, holo damage
+
+## INITIAL DEFECT SCAN NOTES
+- Corners: ${defectInfo.corners || 'unknown'} ${defectInfo.cornerDetails ? `(${defectInfo.cornerDetails})` : ''}
+- Edges: ${defectInfo.edges || 'unknown'} ${defectInfo.edgeDetails ? `(${defectInfo.edgeDetails})` : ''}
+- Surface: ${defectInfo.surface || 'unknown'} ${defectInfo.surfaceDetails ? `(${defectInfo.surfaceDetails})` : ''}
+
+## REFERENCE CARDS (Compare your defect findings to these)
 ${refText}
 
-## SCORING INSTRUCTIONS (TAG 1000-POINT SYSTEM)
+## FINAL GRADING INSTRUCTIONS
 
-Score each area on the TAG 0-1000 scale:
-- Start at 1000 (perfect)
-- Deduct points based on defect severity:
-  - Trivial wear (only visible under magnification): -10 to -40
-  - Minor wear (barely visible to naked eye): -40 to -100
-  - Moderate wear (clearly visible): -100 to -200
-  - Severe wear (significant damage): -200 to -400
-  - Heavy damage: -400+
+1. ${softwareCentering ? 'CENTERING IS ALREADY MEASURED (see above). Use those exact values.' : 'Estimate centering from the images.'}
+2. Count and describe every defect you find
+3. Compare your defect findings to the reference cards
+4. Calculate final grade using: ${softwareCentering ? 'PROVIDED CENTERING' : 'ESTIMATED CENTERING'} + YOUR DEFECT FINDINGS
+5. **ASSESS IMAGE QUALITY** - Rate glare/flash level and adjust confidence accordingly
 
-For CENTERING scores, use the software measurements:
-- Perfect (50/50): 1000
-- <2% deviation: 980-999
-- 2-5% deviation: 950-979 (still Gem Mint eligible)
-- 5-10% deviation: 900-949
-- 10-15% deviation: 800-899
-- 15-20% deviation: 700-799
-- >20% deviation: <700
+**CONFIDENCE SCORING (CRITICAL):**
+- 0.90+: Clean photos, no glare issues, high certainty
+- 0.75-0.89: Minor glare but can still assess accurately
+- 0.60-0.74: Moderate glare obscuring some areas
+- 0.40-0.59: Significant glare, low certainty
+- <0.40: Severe glare, cannot reliably grade
 
-For CORNERS, score each corner individually (TL, TR, BL, BR):
-- Perfect sharp corner: 1000
-- Trivial softness: 950-999
-- Minor whitening: 900-949
-- Moderate wear: 800-899
-- Significant wear: <800
-
-For EDGES, score each edge (TOP, BOTTOM, LEFT, RIGHT):
-- Perfect clean edge: 1000
-- Trivial wear: 950-999
-- Minor whitening/chipping: 900-949
-- Moderate wear: 800-899
-- Significant wear: <800
-
-For SURFACE, score each side:
-- Perfect (no scratches/print lines): 1000
-- Trivial imperfections: 950-999
-- Minor scratches/lines: 900-949
-- Moderate issues: 800-899
-- Significant damage: <800
-
-## FINAL GRADE CALCULATION
-The card's grade is determined by the LOWEST area score:
-- Lowest score 990-1000 = 10 PRISTINE
-- Lowest score 950-989 = 10 GEM MINT
-- Lowest score 900-949 = 9 MINT
-- Lowest score 850-899 = 8.5 NM-MT+
-- Lowest score 800-849 = 8 NM-MT
-- Lowest score 750-799 = 7.5 NM+
-- Lowest score 700-749 = 7 NM
-- Lowest score 650-699 = 6.5 EX-MT+
-- Lowest score 600-649 = 6 EX-MT
-
-## RESPONSE FORMAT
+If you see flash/glare, LOWER your confidence and note it in imageQuality.warning!
 
 Respond with this JSON (no other text):
 {
@@ -227,64 +209,43 @@ Respond with this JSON (no other text):
   },
   "imageQuality": {
     "glareLevel": "none/minor/moderate/severe",
-    "glareLocations": ["areas affected"],
+    "glareLocations": ["list areas affected by glare"],
     "overallQuality": "excellent/good/fair/poor",
-    "warning": "null or message for user"
+    "warning": "null or message like 'Heavy flash on corners - retake photo for accurate grade'"
   },
   "centering": {
-    "front": { "leftRight": "50.0/50.0", "topBottom": "50.0/50.0" },
-    "back": { "leftRight": "50.0/50.0", "topBottom": "50.0/50.0" }
+    "front": { "leftRight": "52.0/48.0", "topBottom": "50.0/50.0", "deviationLR": 4.0, "deviationTB": 0.0 },
+    "back": { "leftRight": "54.0/46.0", "topBottom": "51.0/49.0", "deviationLR": 8.0, "deviationTB": 2.0 }
   },
-  "defects": [
-    {
-      "side": "FRONT",
-      "type": "CORNER WEAR",
-      "position": "TL",
-      "coordinates": { "x": 5, "y": 5 },
-      "severity": "minor",
-      "pointDeduction": 50,
-      "description": "Light whitening at corner tip"
-    }
-  ],
-  "areaScores": {
-    "front": {
-      "centering": 980,
-      "corners": {
-        "TL": 1000, "TR": 960, "BL": 1000, "BR": 950
-      },
-      "edges": {
-        "TOP": 975, "BOTTOM": 1000, "LEFT": 960, "RIGHT": 1000
-      },
-      "surface": 965
-    },
-    "back": {
-      "centering": 940,
-      "corners": {
-        "TL": 975, "TR": 1000, "BL": 960, "BR": 1000
-      },
-      "edges": {
-        "TOP": 1000, "BOTTOM": 975, "LEFT": 1000, "RIGHT": 960
-      },
-      "surface": 950
-    }
+  "defects": {
+    "count": 3,
+    "corners": 1,
+    "edges": 1,
+    "surface": 1,
+    "details": [
+      { "type": "corner wear", "location": "top-left front", "severity": "minor" }
+    ]
+  },
+  "comparison": {
+    "closestMatch": "Reference 2 (9 MINT)",
+    "reasoning": "Centering matches Reference 2, defect count is similar..."
   },
   "grades": {
     "tag": {
       "grade": 9,
       "label": "MINT",
-      "score": 940,
-      "lowestArea": "back centering",
+      "score": 915,
       "confidence": 0.85,
-      "notes": "Explanation of grade-limiting factor",
+      "notes": "Brief explanation of grade",
       "subgrades": {
-        "centeringFront": 980,
-        "centeringBack": 940,
-        "cornersFront": 950,
-        "cornersBack": 960,
-        "edgesFront": 960,
-        "edgesBack": 960,
-        "surfaceFront": 965,
-        "surfaceBack": 950
+        "frontCentering": 120,
+        "backCentering": 115,
+        "frontCorners": 118,
+        "backCorners": 118,
+        "frontEdges": 115,
+        "backEdges": 115,
+        "frontSurface": 122,
+        "backSurface": 120
       }
     },
     "psa": { "grade": 9, "label": "MINT", "confidence": 0.85, "notes": "Brief explanation" },
@@ -298,284 +259,316 @@ Respond with this JSON (no other text):
     "recommendation": "Submit to TAG or PSA for best result"
   }
 }`;
-}
+};
 
 // ============================================================================
-// Helper: Fetch image URL and convert to base64
+// Helper: Query Reference Cards from Supabase
 // ============================================================================
-async function fetchImageAsBase64(url) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.status}`);
-    }
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString('base64');
-    return base64;
-  } catch (error) {
-    console.error('[Deep V2] Error fetching image:', error.message);
-    throw error;
+async function getReferences(estimatedGrade, cardType = 'modern_holo') {
+  // Grade bands for querying
+  const gradeBands = {
+    10: [10],
+    9.5: [10, 9],
+    9: [10, 9, 8.5],
+    8.5: [9, 8.5, 8],
+    8: [9, 8.5, 8, 7.5],
+    7.5: [8.5, 8, 7.5, 7],
+    7: [8, 7.5, 7, 6.5],
+    6.5: [7.5, 7, 6.5, 6],
+    6: [7, 6.5, 6, 5],
+    5: [6, 5, 4],
+    4: [5, 4, 3],
+    3: [4, 3, 2],
+    2: [3, 2, 1],
+    1: [2, 1]
+  };
+
+  const targetGrades = gradeBands[Math.round(estimatedGrade)] || gradeBands[8];
+
+  // Always include a 10 as ceiling anchor
+  if (!targetGrades.includes(10)) {
+    targetGrades.unshift(10);
   }
+
+  const references = [];
+
+  // Query 2 cards from each target grade, preferring same card type
+  for (const grade of targetGrades) {
+    const { data } = await supabase
+      .from('graded_references')
+      .select('*')
+      .eq('grade_numeric', grade)
+      .order('defect_count', { ascending: true })
+      .limit(3);
+
+    if (data && data.length > 0) {
+      // Prefer same card type, but take any if not available
+      const sameType = data.filter(d => d.card_type === cardType);
+      const toAdd = sameType.length > 0 ? sameType.slice(0, 2) : data.slice(0, 2);
+      references.push(...toAdd);
+    }
+
+    // Stop at 7 references
+    if (references.length >= 7) break;
+  }
+
+  return references.slice(0, 7);
 }
 
 // ============================================================================
-// Main Analysis Function
+// Main Handler
 // ============================================================================
 export default async function handler(req, res) {
   // CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Support both URL-based (frontend) and base64-based (direct) requests
   const {
-    // URL-based (from frontend)
-    frontUrl, backUrl, frontCroppedUrl, backCroppedUrl,
-    // Base64-based (direct)
-    frontImage: frontImageDirect, backImage: backImageDirect,
-    // Centering data (either format)
-    softwareCentering, frontCentering, backCentering,
-    // Card type
-    cardType = "pokemon"
+    frontOriginalUrl,
+    backOriginalUrl,
+    frontCroppedUrl,
+    backCroppedUrl,
+    frontUrl,
+    backUrl,
+    cardGame = 'pokemon',
+    cardType = 'modern_holo',
+    // Software-calculated centering (optional - if provided, skips AI centering estimation)
+    frontCentering,  // { lrRatio, tbRatio } from calculateCenteringFromBounds
+    backCentering    // { lrRatio, tbRatio } from calculateCenteringFromBounds
   } = req.body;
 
-  let frontImage, backImage;
+  // Check if we have pre-calculated centering
+  const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
+
+  // Support both 4-image and 2-image modes
+  const has4Images = frontOriginalUrl && backOriginalUrl && frontCroppedUrl && backCroppedUrl;
+  const hasLegacy = frontUrl && backUrl;
+
+  if (!has4Images && !hasLegacy) {
+    return res.status(400).json({
+      error: 'Missing image URLs'
+    });
+  }
+
+  const imageUrls = has4Images
+    ? [frontOriginalUrl, backOriginalUrl, frontCroppedUrl, backCroppedUrl]
+    : [frontUrl, backUrl];
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
+  }
 
   try {
-    // Get images - prefer cropped URLs, then regular URLs, then direct base64
-    if (frontCroppedUrl || frontUrl) {
-      console.log("[Deep V2] Fetching images from URLs...");
-      const frontFetchUrl = frontCroppedUrl || frontUrl;
-      const backFetchUrl = backCroppedUrl || backUrl;
-
-      if (!frontFetchUrl || !backFetchUrl) {
-        return res.status(400).json({ error: "Both front and back image URLs required" });
-      }
-
-      [frontImage, backImage] = await Promise.all([
-        fetchImageAsBase64(frontFetchUrl),
-        fetchImageAsBase64(backFetchUrl),
-      ]);
-      console.log("[Deep V2] Images fetched successfully");
-    } else if (frontImageDirect && backImageDirect) {
-      frontImage = frontImageDirect;
-      backImage = backImageDirect;
-    } else {
-      return res.status(400).json({ error: "Both frontImage and backImage required (as URLs or base64)" });
-    }
-
-    // Build software centering object from either format
-    const centeringData = softwareCentering || (frontCentering && backCentering ? {
-      front: frontCentering,
-      back: backCentering,
-    } : null);
-
+    console.log('[DeepAnalyzeV2] Starting two-pass analysis...');
     const startTime = Date.now();
-    console.log("[Deep V2] Starting coordinate-based analysis...");
 
-    // ========== PASS 1: Quick defect detection ==========
-    console.log("[Deep V2] Pass 1: Initial defect scan...");
+    // ========================================================================
+    // PASS 1: Defect Detection (centering handled by software)
+    // ========================================================================
+    console.log('[DeepAnalyzeV2] Pass 1: Defect detection...', hasSoftwareCentering ? '(centering pre-measured)' : '(no centering data)');
+
+    const imageContent = imageUrls.map(url => ({
+      type: 'image',
+      source: { type: 'url', url },
+    }));
 
     const pass1Response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 2000,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
       system: PASS1_SYSTEM,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type: "image/jpeg", data: frontImage.replace(/^data:image\/\w+;base64,/, "") },
-            },
-            {
-              type: "image",
-              source: { type: "base64", media_type: "image/jpeg", data: backImage.replace(/^data:image\/\w+;base64,/, "") },
-            },
-            { type: "text", text: PASS1_PROMPT },
-          ],
-        },
-      ],
+      messages: [{
+        role: 'user',
+        content: [...imageContent, { type: 'text', text: PASS1_PROMPT }],
+      }],
     });
 
-    let pass1Result;
+    const pass1Text = pass1Response.content.find(c => c.type === 'text')?.text || '';
+    let quickAssessment;
+
     try {
-      const pass1Text = pass1Response.content[0].text;
-      const jsonMatch = pass1Text.match(/\{[\s\S]*\}/);
-      pass1Result = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+      // Clean JSON from response
+      let jsonText = pass1Text.trim();
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```$/g, '');
+      }
+      quickAssessment = JSON.parse(jsonText.trim());
     } catch (e) {
-      console.error("[Deep V2] Pass 1 parse error:", e);
-      pass1Result = { defects: [], defectSummary: { corners: "unknown", edges: "unknown", surface: "unknown" } };
+      console.error('[DeepAnalyzeV2] Pass 1 parse error:', pass1Text);
+      return res.status(500).json({ error: 'Failed to parse quick assessment', raw: pass1Text });
     }
 
-    console.log("[Deep V2] Pass 1 complete:", pass1Result.defects?.length || 0, "defects found");
+    // Calculate estimated grade from range midpoint for reference query
+    const gradeRangeMid = quickAssessment.gradeRange
+      ? (quickAssessment.gradeRange.low + quickAssessment.gradeRange.high) / 2
+      : 8.5;
 
-    // ========== PASS 2: Final grading with area scores ==========
-    console.log("[Deep V2] Pass 2: Final grading with area scores...");
+    console.log('[DeepAnalyzeV2] Pass 1 result:', {
+      card: quickAssessment.cardName,
+      defectImpact: quickAssessment.estimatedDefectImpact,
+      range: quickAssessment.gradeRange,
+      estimatedMidpoint: gradeRangeMid
+    });
 
-    const pass2Prompt = buildPass2Prompt(centeringData, pass1Result);
+    // ========================================================================
+    // QUERY REFERENCES from Supabase
+    // ========================================================================
+    console.log('[DeepAnalyzeV2] Querying references for grade ~', gradeRangeMid);
+
+    const references = await getReferences(gradeRangeMid, cardType);
+
+    console.log('[DeepAnalyzeV2] Found', references.length, 'reference cards:',
+      references.map(r => r.grade).join(', '));
+
+    // ========================================================================
+    // PASS 2: Final Grade (our centering + AI defect detection)
+    // ========================================================================
+    console.log('[DeepAnalyzeV2] Pass 2: Final grading...', hasSoftwareCentering ? '(SOFTWARE CENTERING + AI defects)' : '(AI centering + AI defects)');
+
+    // Build software centering object if we have it
+    const softwareCentering = hasSoftwareCentering ? {
+      front: { lrRatio: frontCentering.lrRatio, tbRatio: frontCentering.tbRatio },
+      back: { lrRatio: backCentering.lrRatio, tbRatio: backCentering.tbRatio }
+    } : null;
+
+    const pass2Prompt = buildPass2Prompt(quickAssessment, references, softwareCentering);
 
     const pass2Response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 3000,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
       system: PASS2_SYSTEM,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type: "image/jpeg", data: frontImage.replace(/^data:image\/\w+;base64,/, "") },
-            },
-            {
-              type: "image",
-              source: { type: "base64", media_type: "image/jpeg", data: backImage.replace(/^data:image\/\w+;base64,/, "") },
-            },
-            { type: "text", text: pass2Prompt },
-          ],
-        },
-      ],
+      messages: [{
+        role: 'user',
+        content: [...imageContent, { type: 'text', text: pass2Prompt }],
+      }],
     });
 
+    const pass2Text = pass2Response.content.find(c => c.type === 'text')?.text || '';
     let finalResult;
+
     try {
-      const pass2Text = pass2Response.content[0].text;
-      const jsonMatch = pass2Text.match(/\{[\s\S]*\}/);
-      finalResult = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+      let jsonText = pass2Text.trim();
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```$/g, '');
+      }
+      finalResult = JSON.parse(jsonText.trim());
     } catch (e) {
-      console.error("[Deep V2] Pass 2 parse error:", e);
-      return res.status(500).json({ error: "Failed to parse AI response" });
+      console.error('[DeepAnalyzeV2] Pass 2 parse error:', pass2Text);
+      return res.status(500).json({ error: 'Failed to parse final assessment', raw: pass2Text });
     }
 
-    console.log("[Deep V2] Pass 2 complete. Grade:", finalResult.grades?.tag?.grade);
+    const elapsed = Date.now() - startTime;
+    console.log('[DeepAnalyzeV2] Complete in', elapsed, 'ms:', {
+      card: finalResult.cardInfo?.name,
+      tagGrade: finalResult.grades?.tag?.grade,
+      confidence: finalResult.grades?.tag?.confidence
+    });
 
-    // ========== Calculate derived values for compatibility ==========
-    const frontCorners = finalResult.areaScores?.front?.corners || {};
-    const backCorners = finalResult.areaScores?.back?.corners || {};
-    const frontEdges = finalResult.areaScores?.front?.edges || {};
-    const backEdges = finalResult.areaScores?.back?.edges || {};
+    // ========================================================================
+    // Convert 125-scale subgrades to 1000-point scale for TAG DIG format
+    // ========================================================================
+    const subgrades = finalResult.grades?.tag?.subgrades || {};
+    const to1000 = (val) => Math.round((val || 120) * 8); // 125 scale -> 1000 scale
 
-    // Find lowest scores for grade calculation
+    const areaScores = {
+      front: {
+        centering: to1000(subgrades.frontCentering),
+        corners: { score: to1000(subgrades.frontCorners) },
+        edges: { score: to1000(subgrades.frontEdges) },
+        surface: to1000(subgrades.frontSurface),
+      },
+      back: {
+        centering: to1000(subgrades.backCentering),
+        corners: { score: to1000(subgrades.backCorners) },
+        edges: { score: to1000(subgrades.backEdges) },
+        surface: to1000(subgrades.backSurface),
+      },
+    };
+
+    // Find lowest score (determines grade in TAG system)
     const allScores = [
-      finalResult.areaScores?.front?.centering || 1000,
-      finalResult.areaScores?.back?.centering || 1000,
-      ...Object.values(frontCorners),
-      ...Object.values(backCorners),
-      ...Object.values(frontEdges),
-      ...Object.values(backEdges),
-      finalResult.areaScores?.front?.surface || 1000,
-      finalResult.areaScores?.back?.surface || 1000,
-    ].filter(s => typeof s === 'number');
+      areaScores.front.centering, areaScores.back.centering,
+      areaScores.front.corners.score, areaScores.back.corners.score,
+      areaScores.front.edges.score, areaScores.back.edges.score,
+      areaScores.front.surface, areaScores.back.surface,
+    ];
+    const lowestScore = Math.min(...allScores);
 
-    const lowestScore = allScores.length > 0 ? Math.min(...allScores) : 950;
+    // Build DIG report format
+    const digReport = {
+      score_total: lowestScore,
+      scores: {
+        centering_front: areaScores.front.centering,
+        centering_back: areaScores.back.centering,
+        corners_front: areaScores.front.corners.score,
+        corners_back: areaScores.back.corners.score,
+        edges_front: areaScores.front.edges.score,
+        edges_back: areaScores.back.edges.score,
+        surface_front: areaScores.front.surface,
+        surface_back: areaScores.back.surface,
+      },
+      defects: finalResult.defects,
+    };
 
-    // Convert 1000-point score to 10-point grade for condition display
-    const scoreToGrade = (score) => Math.min(10, Math.max(1, score / 100));
-
-    // ========== Format response (backwards compatible with old V2) ==========
-    const endTime = Date.now();
-    const elapsed = endTime - (startTime || endTime);
-
+    // ========================================================================
+    // Return Response
+    // ========================================================================
     return res.status(200).json({
       success: true,
       version: 'v2',
-      // Backwards compatibility fields
       passes: {
-        quickEstimate: pass1Result,
-        referencesUsed: 0,
-        referenceGrades: [],
+        quickEstimate: quickAssessment,
+        referencesUsed: references.length,
+        referenceGrades: references.map(r => r.grade)
       },
-      comparison: null,
+      cardInfo: finalResult.cardInfo,
+      centering: finalResult.centering,
+      defects: finalResult.defects,
+      comparison: finalResult.comparison,
+      grades: finalResult.grades,
+      summary: finalResult.summary,
+      // NEW: 1000-point scale data for DingsTabV2 / DeepAiDingsMap
+      areaScores,
+      digReport,
+      condition: {
+        corners: (areaScores.front.corners.score + areaScores.back.corners.score) / 200,
+        edges: (areaScores.front.edges.score + areaScores.back.edges.score) / 200,
+        surface: (areaScores.front.surface + areaScores.back.surface) / 200,
+        defects: finalResult.defects?.details || [],
+      },
       meta: {
         elapsedMs: elapsed,
-        centeringSource: centeringData ? 'software' : 'ai-estimated',
-        softwareCentering: centeringData || null,
+        imageMode: has4Images ? '4-image' : '2-image',
+        centeringSource: hasSoftwareCentering ? 'software' : 'ai-estimated',
+        softwareCentering: softwareCentering || null,
         scale: 1000,
-      },
-      // Card data
-      cardInfo: finalResult.cardInfo,
-      imageQuality: finalResult.imageQuality,
-      centering: finalResult.centering,
-      defects: finalResult.defects || [],
-      areaScores: finalResult.areaScores,
-      grades: finalResult.grades,
-      condition: {
-        corners: scoreToGrade(Math.min(
-          ...Object.values(frontCorners).concat(Object.values(backCorners)).filter(s => typeof s === 'number')
-        ) || 950),
-        edges: scoreToGrade(Math.min(
-          ...Object.values(frontEdges).concat(Object.values(backEdges)).filter(s => typeof s === 'number')
-        ) || 950),
-        surface: scoreToGrade(Math.min(
-          finalResult.areaScores?.front?.surface || 1000,
-          finalResult.areaScores?.back?.surface || 1000
-        )),
-        defects: finalResult.defects || [],
-      },
-      summary: finalResult.summary,
-      confidence: finalResult.grades?.tag?.confidence,
-      // TAG DIG Report format data
-      digReport: {
-        score_total: lowestScore,
-        scores: {
-          centering_front: finalResult.areaScores?.front?.centering || 1000,
-          centering_back: finalResult.areaScores?.back?.centering || 1000,
-          corners_front: Math.min(...Object.values(frontCorners).filter(s => typeof s === 'number') || [1000]),
-          corners_back: Math.min(...Object.values(backCorners).filter(s => typeof s === 'number') || [1000]),
-          edges_front: Math.min(...Object.values(frontEdges).filter(s => typeof s === 'number') || [1000]),
-          edges_back: Math.min(...Object.values(backEdges).filter(s => typeof s === 'number') || [1000]),
-          surface_front: finalResult.areaScores?.front?.surface || 1000,
-          surface_back: finalResult.areaScores?.back?.surface || 1000,
-        },
-        lowestArea: finalResult.grades?.tag?.lowestArea || 'unknown',
-        defects: {
-          total_dings: (finalResult.defects || []).length,
-          corners: {
-            front: (finalResult.defects || []).filter(d => d.side === 'FRONT' && d.type?.includes('CORNER')).length,
-            back: (finalResult.defects || []).filter(d => d.side === 'BACK' && d.type?.includes('CORNER')).length,
-          },
-          edges: {
-            front: (finalResult.defects || []).filter(d => d.side === 'FRONT' && d.type?.includes('EDGE')).length,
-            back: (finalResult.defects || []).filter(d => d.side === 'BACK' && d.type?.includes('EDGE')).length,
-          },
-          surface: {
-            front: (finalResult.defects || []).filter(d => d.side === 'FRONT' && d.type?.includes('SURFACE')).length,
-            back: (finalResult.defects || []).filter(d => d.side === 'BACK' && d.type?.includes('SURFACE')).length,
-          },
-          dings: (finalResult.defects || []).map((d, i) => ({
-            ordering: i + 1,
-            side: d.side,
-            type: d.type,
-            location: d.position,
-            x: d.coordinates?.x || 50,
-            y: d.coordinates?.y || 50,
-            severity: d.severity,
-            pointDeduction: d.pointDeduction || 50,
-          })),
-        },
-      },
-      // V3-specific data for enhanced DingsMap (now on 1000-point scale)
-      v3Data: {
-        pass1: pass1Result,
-        areaScores: finalResult.areaScores,
-        defectsWithCoordinates: finalResult.defects,
-        scale: 1000, // Indicates this uses 1000-point scale
-      },
+      }
     });
 
   } catch (error) {
-    console.error("[Deep V2] Error:", error);
+    console.error('[DeepAnalyzeV2] Error:', error);
+
+    if (error.status === 401) {
+      return res.status(500).json({ error: 'Invalid Anthropic API key' });
+    }
+    if (error.status === 429) {
+      return res.status(429).json({ error: 'Rate limited - please try again' });
+    }
+    if (error.message?.includes('Could not download image')) {
+      return res.status(400).json({ error: 'Could not access image URLs' });
+    }
+
     return res.status(500).json({
-      error: "Analysis failed",
-      message: error.message,
+      error: 'Analysis failed',
+      details: error.message,
     });
   }
 }
