@@ -384,6 +384,7 @@ export default async function handler(req, res) {
     const pass1Response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 500,
+      temperature: 0.1,
       system: PASS1_SYSTEM,
       messages: [{
         role: 'user',
@@ -444,6 +445,7 @@ export default async function handler(req, res) {
     const pass2Response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
+      temperature: 0.1,
       system: PASS2_SYSTEM,
       messages: [{
         role: 'user',
