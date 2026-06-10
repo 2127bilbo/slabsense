@@ -80,10 +80,13 @@ export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0, sca
   const bl = { x: corners.bl.x * scale, y: corners.bl.y * scale };
   const br = { x: corners.br.x * scale, y: corners.br.y * scale };
 
-  // Calculate rotation angle from the top edge (tl to tr)
-  // atan2 returns angle of the top edge relative to horizontal
+  // Calculate rotation angle by averaging top and bottom edges
+  // This handles perspective distortion better than using just one edge
+  // atan2 returns angle relative to horizontal
   // If card tilts clockwise (tr.y > tl.y), angle is positive
   const topEdgeAngle = Math.atan2(tr.y - tl.y, tr.x - tl.x);
+  const bottomEdgeAngle = Math.atan2(br.y - bl.y, br.x - bl.x);
+  const cardAngle = (topEdgeAngle + bottomEdgeAngle) / 2;
 
   // Calculate the card dimensions (using average of top/bottom and left/right edges)
   const topWidth = Math.sqrt((tr.x - tl.x) ** 2 + (tr.y - tl.y) ** 2);
@@ -111,15 +114,14 @@ export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0, sca
   ctx.clip();
 
   // Transform: position the rotated card in the output
-  // The card's top edge is at angle topEdgeAngle relative to horizontal
+  // cardAngle is the average of top and bottom edge angles (handles perspective)
   // To straighten, we counter-rotate by that angle
   // ctx.rotate() with negative angle = clockwise rotation of coordinate system
   // = counter-clockwise apparent rotation of content
-  // If card tilts clockwise (topEdgeAngle > 0), we want counter-clockwise apparent rotation
-  // So we use ctx.rotate(-topEdgeAngle) which gives counter-clockwise appearance
+  // If card tilts clockwise (cardAngle > 0), we want counter-clockwise apparent rotation
 
   ctx.translate(cropW / 2, cropH / 2);           // Move origin to output center
-  ctx.rotate(-topEdgeAngle + (rotation * Math.PI / 180));  // Counter-rotate to straighten
+  ctx.rotate(-cardAngle + (rotation * Math.PI / 180));  // Counter-rotate to straighten
   ctx.translate(-centerX, -centerY);              // Shift so card center is at origin
 
   // Draw the full source image - transforms handle the crop and rotation
