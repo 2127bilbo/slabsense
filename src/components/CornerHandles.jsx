@@ -62,6 +62,7 @@ function getRoundedQuadPath(corners, radius) {
 
 /**
  * Main CornerHandles SVG overlay component
+ * @param {string} activeHandles - 'all' | 'outer' | 'inner' - which handles to show/enable
  */
 export function CornerHandles({
   imgW,
@@ -71,7 +72,8 @@ export function CornerHandles({
   setOuterCorners,
   setInnerCorners,
   svgRef,
-  onCenteringUpdate
+  onCenteringUpdate,
+  activeHandles = 'all'  // 'all', 'outer', or 'inner'
 }) {
   const dragging = useRef(null);
   const dragOffset = useRef({ x: 0, y: 0 }); // Offset from touch point to actual corner
@@ -81,9 +83,9 @@ export function CornerHandles({
   useEffect(() => { outerRef.current = outerCorners; }, [outerCorners]);
   useEffect(() => { innerRef.current = innerCorners; }, [innerCorners]);
 
-  // Recalculate centering whenever corners change
+  // Recalculate centering whenever corners change (only if both are available)
   useEffect(() => {
-    if (onCenteringUpdate) {
+    if (onCenteringUpdate && outerCorners && innerCorners) {
       const result = calculateCornerCentering(outerCorners, innerCorners);
       onCenteringUpdate(result);
     }
@@ -134,36 +136,37 @@ export function CornerHandles({
     const inn = innerRef.current;
     const minGap = 20; // Minimum gap between outer and inner corners
 
+    // Outer corners - if no inner corners, just use image bounds
     if (which === 'O_TL') {
       setOuterCorners(p => ({
         ...p,
         tl: {
-          x: Math.max(0, Math.min(adjustedX, inn.tl.x - minGap)),
-          y: Math.max(0, Math.min(adjustedY, inn.tl.y - minGap))
+          x: Math.max(0, Math.min(adjustedX, inn ? inn.tl.x - minGap : imgW - 50)),
+          y: Math.max(0, Math.min(adjustedY, inn ? inn.tl.y - minGap : imgH - 50))
         }
       }));
     } else if (which === 'O_TR') {
       setOuterCorners(p => ({
         ...p,
         tr: {
-          x: Math.min(imgW, Math.max(adjustedX, inn.tr.x + minGap)),
-          y: Math.max(0, Math.min(adjustedY, inn.tr.y - minGap))
+          x: Math.min(imgW, Math.max(adjustedX, inn ? inn.tr.x + minGap : 50)),
+          y: Math.max(0, Math.min(adjustedY, inn ? inn.tr.y - minGap : imgH - 50))
         }
       }));
     } else if (which === 'O_BL') {
       setOuterCorners(p => ({
         ...p,
         bl: {
-          x: Math.max(0, Math.min(adjustedX, inn.bl.x - minGap)),
-          y: Math.min(imgH, Math.max(adjustedY, inn.bl.y + minGap))
+          x: Math.max(0, Math.min(adjustedX, inn ? inn.bl.x - minGap : imgW - 50)),
+          y: Math.min(imgH, Math.max(adjustedY, inn ? inn.bl.y + minGap : 50))
         }
       }));
     } else if (which === 'O_BR') {
       setOuterCorners(p => ({
         ...p,
         br: {
-          x: Math.min(imgW, Math.max(adjustedX, inn.br.x + minGap)),
-          y: Math.min(imgH, Math.max(adjustedY, inn.br.y + minGap))
+          x: Math.min(imgW, Math.max(adjustedX, inn ? inn.br.x + minGap : 50)),
+          y: Math.min(imgH, Math.max(adjustedY, inn ? inn.br.y + minGap : 50))
         }
       }));
     } else if (which === 'I_TL') {
@@ -209,48 +212,70 @@ export function CornerHandles({
   const pad = 50; // Touch target padding
   const handleOffset = handleSize * 1.2; // Offset handles away from corners so lines are visible
 
-  // Get sample points for visualization
-  const samplePoints = getSamplePoints(outerCorners, innerCorners);
+  // Get sample points for visualization (only if both corners exist)
+  const samplePoints = innerCorners ? getSamplePoints(outerCorners, innerCorners) : {};
 
-  // Define all 8 corner handles
+  // Define corner handles based on activeHandles prop
   // Outer handles: positioned OUTSIDE boundary, arrows point IN toward center
   // Inner handles: positioned INSIDE boundary, arrows point OUT away from center
-  const handles = [
-    // Outer corners (cyan) - offset outward, arrows point inward
+  const outerHandlesList = [
     { x: outerCorners.tl.x - handleOffset, y: outerCorners.tl.y - handleOffset, which: 'O_TL', isOuter: true, label: '↘' },
     { x: outerCorners.tr.x + handleOffset, y: outerCorners.tr.y - handleOffset, which: 'O_TR', isOuter: true, label: '↙' },
     { x: outerCorners.bl.x - handleOffset, y: outerCorners.bl.y + handleOffset, which: 'O_BL', isOuter: true, label: '↗' },
     { x: outerCorners.br.x + handleOffset, y: outerCorners.br.y + handleOffset, which: 'O_BR', isOuter: true, label: '↖' },
-    // Inner corners (magenta) - offset inward, arrows point outward
+  ];
+
+  const innerHandlesList = innerCorners ? [
     { x: innerCorners.tl.x + handleOffset, y: innerCorners.tl.y + handleOffset, which: 'I_TL', isOuter: false, label: '↖' },
     { x: innerCorners.tr.x - handleOffset, y: innerCorners.tr.y + handleOffset, which: 'I_TR', isOuter: false, label: '↗' },
     { x: innerCorners.bl.x + handleOffset, y: innerCorners.bl.y - handleOffset, which: 'I_BL', isOuter: false, label: '↙' },
     { x: innerCorners.br.x - handleOffset, y: innerCorners.br.y - handleOffset, which: 'I_BR', isOuter: false, label: '↘' },
-  ];
+  ] : [];
+
+  // Filter handles based on activeHandles prop
+  let handles = [];
+  if (activeHandles === 'all') {
+    handles = [...outerHandlesList, ...innerHandlesList];
+  } else if (activeHandles === 'outer') {
+    handles = outerHandlesList;
+  } else if (activeHandles === 'inner') {
+    handles = innerHandlesList;
+  }
+
+  // Show outer boundary if activeHandles is 'all' or 'outer'
+  const showOuter = activeHandles === 'all' || activeHandles === 'outer';
+  // Show inner boundary if innerCorners exists and activeHandles is 'all' or 'inner'
+  const showInner = innerCorners && (activeHandles === 'all' || activeHandles === 'inner');
+  // Show sample points only when both boundaries are available
+  const showSamples = innerCorners && activeHandles === 'all';
 
   return (
     <>
       {/* Outer boundary - rounded corners (~4.8% of width) */}
-      <path
-        d={getRoundedQuadPath(outerCorners, cW * 0.048)}
-        fill="none"
-        stroke="#00bcd4"
-        strokeWidth={lw}
-        opacity={0.85}
-      />
+      {showOuter && (
+        <path
+          d={getRoundedQuadPath(outerCorners, cW * 0.048)}
+          fill="none"
+          stroke="#00bcd4"
+          strokeWidth={lw}
+          opacity={activeHandles === 'inner' ? 0.3 : 0.85}
+        />
+      )}
 
       {/* Inner boundary - no rounded corners (artwork edge is sharp) */}
-      <polygon
-        points={`${innerCorners.tl.x},${innerCorners.tl.y} ${innerCorners.tr.x},${innerCorners.tr.y} ${innerCorners.br.x},${innerCorners.br.y} ${innerCorners.bl.x},${innerCorners.bl.y}`}
-        fill="none"
-        stroke="#e91e63"
-        strokeWidth={Math.max(2, lw * 0.8)}
-        strokeDasharray={`${cW * 0.02},${cW * 0.01}`}
-        opacity={0.85}
-      />
+      {showInner && (
+        <polygon
+          points={`${innerCorners.tl.x},${innerCorners.tl.y} ${innerCorners.tr.x},${innerCorners.tr.y} ${innerCorners.br.x},${innerCorners.br.y} ${innerCorners.bl.x},${innerCorners.bl.y}`}
+          fill="none"
+          stroke="#e91e63"
+          strokeWidth={Math.max(2, lw * 0.8)}
+          strokeDasharray={`${cW * 0.02},${cW * 0.01}`}
+          opacity={0.85}
+        />
+      )}
 
       {/* Sample point indicators along each edge */}
-      {Object.entries(samplePoints).map(([edge, points]) =>
+      {showSamples && Object.entries(samplePoints).map(([edge, points]) =>
         points.map((pt, idx) => (
           <g key={`${edge}-${idx}`}>
             {/* Line connecting outer to inner sample point */}

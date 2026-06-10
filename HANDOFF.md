@@ -33,7 +33,8 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 | **Deep Scan Feature** | Higher quality independent front/back analysis (~$0.06 per scan) |
 | **Domain Setup** | slabsense.com configured with Vercel deployment |
 | **Anthropic Direct API** | Migrated from Replicate, enabled prompt caching (90% cost reduction) |
-| **Crop Rotation Fix** | Auto-detects and corrects card rotation from corner positions |
+| **Crop Rotation Fix** | Auto-detects and corrects card rotation from corner positions (averages top/bottom edge angles for perspective) |
+| **2-Step Centering Process** | Step 1: Define card edge (outer boundary) with rotation controls → crops card. Step 2: Define artwork boundary (inner) on cropped image → calculates centering ratios |
 | **Unified Grade Display** | Single `GradeResultDisplay` component renders identically across all 6 locations (Grade Tab × 3 + Collection View × 3) |
 | **Payment System (P11)** | Stripe integration with credits, subscriptions, and bundles |
 | **Credit Balance UI** | Header displays credits with expiration warning, pricing modal |
@@ -103,17 +104,23 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 - ✅ **Pro user display** - Shows confidence % and factors
 
 ### Centering Tab
-- ✅ Two-step alignment flow inside ManualBoundaryEditor:
-  - Step 1: Straighten Card — rotation controls (1° and 0.05° increments) + 3-axis perspective
-  - Step 2: Adjust Borders — drag handles for edge/artwork boundaries
+- ✅ **2-Step Centering Process** (PostCaptureCentering component):
+  - **Step 1: Card Edge** — Position outer boundary to define card edges
+    - Rotation controls (1° and 0.05° increments)
+    - Only outer boundary handles shown (`activeHandles='outer'`)
+    - "Next →" button crops card and advances to Step 2
+    - Progress indicator: "1. Card Edge → 2. Artwork"
+  - **Step 2: Artwork Boundary** — Position inner boundary on cropped card image
+    - Cropped card preview shown (no background)
+    - Only inner boundary handles shown (`activeHandles='inner'`)
+    - "← Back" button returns to Step 1
+    - "✓ Confirm" button calculates centering and saves
+- ✅ **Rotation correction** uses averaged top/bottom edge angles (handles perspective distortion)
 - ✅ Crosshair overlay for visual alignment guidance
-- ✅ "Confirm Alignment" button required before showing score
-- ✅ Centering results only shown after confirmation
-- ✅ **Apply Correction updates everything**:
-  - Updates `frontCenteringData` / `backCenteringData` with new manual values
-  - Regenerates `frontCroppedImage` / `backCroppedImage` from new bounds
-  - Passes rotation/tilt transforms to crop function
-  - Uses corner positions when in corner mode for accurate crop
+- ✅ **Image storage flow**:
+  - Original images: `fI` / `bI` (never modified)
+  - Cropped images: `frontCroppedImage` / `backCroppedImage` (generated from outer bounds)
+- ✅ **CornerHandles component** accepts `activeHandles` prop ('all' | 'outer' | 'inner')
 - ✅ **Corner-anchored mode (beta toggle)**:
   - 8 corner drag handles (4 outer + 4 inner)
   - 5-sample median per edge for accuracy on tilted/warped cards
@@ -669,4 +676,4 @@ vercel --prod
 
 ---
 
-*Last Updated: June 10, 2026 (TAG 1000-Point System deployed to Deep AI)*
+*Last Updated: June 10, 2026 (2-Step Centering Process with rotation fix)*

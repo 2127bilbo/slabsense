@@ -1,16 +1,15 @@
 /**
- * PostCaptureCentering - Full centering UI after photo capture
+ * PostCaptureCentering - 2-Step Centering UI after photo capture
  *
- * Matches the ManualBoundaryEditor layout exactly:
- * - Mode toggle (Edge Drag v1 / Corner Anchored β)
- * - Step 1: Straighten & Correct Perspective
- * - Live centering readout
- * - Step 2: Adjust Borders with handles
+ * Step 1: Card Edge Detection
+ *   - User aligns outer boundary to card edges
+ *   - Rotation/perspective controls available
+ *   - "Next" crops and straightens the card
  *
- * Difference from centering tab:
- * - Appears after "Use Photo" (not as a tab)
- * - Confirm/Skip buttons instead of Apply/Save
- * - On confirm, crops image and returns centering data
+ * Step 2: Artwork Detection
+ *   - User aligns inner boundary to artwork edges
+ *   - Working on clean cropped card image
+ *   - "Back" returns to Step 1, "Confirm" finalizes
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -31,6 +30,13 @@ export function PostCaptureCentering({
   onConfirm,
   onSkip,
 }) {
+  // ═══════════════════════════════════════════
+  // STEP STATE
+  // ═══════════════════════════════════════════
+  const [step, setStep] = useState(1); // 1 = card edge, 2 = artwork
+  const [croppedPreview, setCroppedPreview] = useState(null);
+  const [croppedImgSize, setCroppedImgSize] = useState({ w: 0, h: 0 });
+
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -53,7 +59,7 @@ export function PostCaptureCentering({
   const [innerCorners, setInnerCorners] = useState(null);
   const [cornerCenteringResult, setCornerCenteringResult] = useState(null);
 
-  // Transform state
+  // Transform state (Step 1 only)
   const [rotation, setRotation] = useState(0);
   const [tiltX, setTiltX] = useState(0);
   const [tiltY, setTiltY] = useState(0);
@@ -67,17 +73,17 @@ export function PostCaptureCentering({
   useEffect(() => { outerRef.current = outer; }, [outer]);
   useEffect(() => { innerRef.current = inner; }, [inner]);
 
-  // Load image and initialize bounds
-  // IMPORTANT: Use same max dimension (1400px) as analyzeCardFull to ensure coordinate consistency
+  // ═══════════════════════════════════════════
+  // STEP 1: Initialize from original image
+  // ═══════════════════════════════════════════
   useEffect(() => {
     if (!image) return;
 
-    const MAX_DIM = 1400; // Must match loadImg() in App.jsx
+    const MAX_DIM = 1400;
     const img = new Image();
     img.onload = () => {
       let w = img.width;
       let h = img.height;
-      // Apply same scaling as analyzeCardFull to match ManualBoundaryEditor coordinates
       if (Math.max(w, h) > MAX_DIM) {
         const scale = MAX_DIM / Math.max(w, h);
         w = Math.round(w * scale);
@@ -86,7 +92,6 @@ export function PostCaptureCentering({
       setImgSize({ w, h });
 
       // Initialize outer bounds (card edge) with small margin (2%)
-      // This puts the handles near the edges so user can drag them to the card
       const margin = 0.02;
       const initOuter = {
         left: Math.round(w * margin),
@@ -96,111 +101,68 @@ export function PostCaptureCentering({
       };
       setOuter(initOuter);
 
-      // Initialize inner bounds (artwork) with offset from outer (8% inward)
-      const offsetPct = 0.08;
-      const cardW = initOuter.right - initOuter.left;
-      const cardH = initOuter.bottom - initOuter.top;
-      const initInner = {
-        left: initOuter.left + Math.round(cardW * offsetPct),
-        right: initOuter.right - Math.round(cardW * offsetPct),
-        top: initOuter.top + Math.round(cardH * offsetPct),
-        bottom: initOuter.bottom - Math.round(cardH * offsetPct),
-      };
-      setInner(initInner);
-
-      // Initialize corner mode
+      // Initialize corner mode for outer only (Step 1)
       setOuterCorners({
         tl: { x: initOuter.left, y: initOuter.top },
         tr: { x: initOuter.right, y: initOuter.top },
         bl: { x: initOuter.left, y: initOuter.bottom },
         br: { x: initOuter.right, y: initOuter.bottom },
       });
-      setInnerCorners({
-        tl: { x: initInner.left, y: initInner.top },
-        tr: { x: initInner.right, y: initInner.top },
-        bl: { x: initInner.left, y: initInner.bottom },
-        br: { x: initInner.right, y: initInner.bottom },
-      });
+
+      // Inner will be initialized in Step 2 after crop
+      setInner(null);
+      setInnerCorners(null);
     };
     img.src = image;
   }, [image]);
 
-  // Calculate live centering from edge mode
-  const cW = outer ? outer.right - outer.left : 0;
-  const cH = outer ? outer.bottom - outer.top : 0;
-  const bL = outer && inner ? inner.left - outer.left : 0;
-  const bR = outer && inner ? outer.right - inner.right : 0;
-  const bT = outer && inner ? inner.top - outer.top : 0;
-  const bB = outer && inner ? outer.bottom - inner.bottom : 0;
-  const lrR = Math.round(((bL + bR) > 0 ? bL / (bL + bR) * 100 : 50) * 10) / 10;
-  const tbR = Math.round(((bT + bB) > 0 ? bT / (bT + bB) * 100 : 50) * 10) / 10;
+  // ═══════════════════════════════════════════
+  // COORDINATE HELPERS
+  // ═══════════════════════════════════════════
+  const currentImgSize = step === 1 ? imgSize : croppedImgSize;
 
   const getCoords = (e) => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const rect = svg.getBoundingClientRect();
     return {
-      x: Math.round((e.clientX - rect.left) / rect.width * imgSize.w),
-      y: Math.round((e.clientY - rect.top) / rect.height * imgSize.h),
+      x: Math.round((e.clientX - rect.left) / rect.width * currentImgSize.w),
+      y: Math.round((e.clientY - rect.top) / rect.height * currentImgSize.h),
     };
   };
 
-  const moveHandle = (which, x, y) => {
-    const o = outerRef.current, inn = innerRef.current;
-    if (!o || !inn) return;
+  // ═══════════════════════════════════════════
+  // STEP 1: Edge drag handlers (outer only)
+  // ═══════════════════════════════════════════
+  const moveOuterHandle = (which, x, y) => {
+    const o = outerRef.current;
+    if (!o) return;
 
-    if (which === 'OL') setOuter(p => ({ ...p, left: Math.max(0, Math.min(inn.left - 20, x)) }));
-    else if (which === 'OR') setOuter(p => ({ ...p, right: Math.min(imgSize.w, Math.max(inn.right + 20, x)) }));
-    else if (which === 'OT') setOuter(p => ({ ...p, top: Math.max(0, Math.min(inn.top - 20, y)) }));
-    else if (which === 'OB') setOuter(p => ({ ...p, bottom: Math.min(imgSize.h, Math.max(inn.bottom + 20, y)) }));
-    else if (which === 'IL') setInner(p => ({ ...p, left: Math.max(o.left + 8, Math.min(p.right - 30, x)) }));
-    else if (which === 'IR') setInner(p => ({ ...p, right: Math.min(o.right - 8, Math.max(p.left + 30, x)) }));
-    else if (which === 'IT') setInner(p => ({ ...p, top: Math.max(o.top + 8, Math.min(p.bottom - 30, y)) }));
-    else if (which === 'IB') setInner(p => ({ ...p, bottom: Math.min(o.bottom - 8, Math.max(p.top + 30, y)) }));
+    // No inner constraint in Step 1
+    if (which === 'OL') setOuter(p => ({ ...p, left: Math.max(0, Math.min(p.right - 50, x)) }));
+    else if (which === 'OR') setOuter(p => ({ ...p, right: Math.min(imgSize.w, Math.max(p.left + 50, x)) }));
+    else if (which === 'OT') setOuter(p => ({ ...p, top: Math.max(0, Math.min(p.bottom - 50, y)) }));
+    else if (which === 'OB') setOuter(p => ({ ...p, bottom: Math.min(imgSize.h, Math.max(p.top + 50, y)) }));
   };
 
-  const handleReset = () => {
-    if (!imgSize.w) return;
-    const w = imgSize.w, h = imgSize.h;
-    const margin = 0.02;
-    const initOuter = {
-      left: Math.round(w * margin),
-      right: Math.round(w * (1 - margin)),
-      top: Math.round(h * margin),
-      bottom: Math.round(h * (1 - margin)),
-    };
-    setOuter(initOuter);
+  // ═══════════════════════════════════════════
+  // STEP 2: Inner drag handlers (artwork only)
+  // ═══════════════════════════════════════════
+  const moveInnerHandle = (which, x, y) => {
+    const inn = innerRef.current;
+    if (!inn) return;
 
-    const offsetPct = 0.08;
-    const cardW = initOuter.right - initOuter.left;
-    const cardH = initOuter.bottom - initOuter.top;
-    const initInner = {
-      left: initOuter.left + Math.round(cardW * offsetPct),
-      right: initOuter.right - Math.round(cardW * offsetPct),
-      top: initOuter.top + Math.round(cardH * offsetPct),
-      bottom: initOuter.bottom - Math.round(cardH * offsetPct),
-    };
-    setInner(initInner);
-
-    setOuterCorners({
-      tl: { x: initOuter.left, y: initOuter.top },
-      tr: { x: initOuter.right, y: initOuter.top },
-      bl: { x: initOuter.left, y: initOuter.bottom },
-      br: { x: initOuter.right, y: initOuter.bottom },
-    });
-    setInnerCorners({
-      tl: { x: initInner.left, y: initInner.top },
-      tr: { x: initInner.right, y: initInner.top },
-      bl: { x: initInner.left, y: initInner.bottom },
-      br: { x: initInner.right, y: initInner.bottom },
-    });
-    setCornerCenteringResult(null);
-    setRotation(0);
-    setTiltX(0);
-    setTiltY(0);
+    // Constrain to cropped image bounds with min size
+    if (which === 'IL') setInner(p => ({ ...p, left: Math.max(8, Math.min(p.right - 30, x)) }));
+    else if (which === 'IR') setInner(p => ({ ...p, right: Math.min(croppedImgSize.w - 8, Math.max(p.left + 30, x)) }));
+    else if (which === 'IT') setInner(p => ({ ...p, top: Math.max(8, Math.min(p.bottom - 30, y)) }));
+    else if (which === 'IB') setInner(p => ({ ...p, bottom: Math.min(croppedImgSize.h - 8, Math.max(p.top + 30, y)) }));
   };
 
-  const handleConfirm = async () => {
+  // ═══════════════════════════════════════════
+  // STEP 1 → STEP 2: Next button
+  // ═══════════════════════════════════════════
+  const handleNext = async () => {
     if (!outer || !image) return;
 
     setIsProcessing(true);
@@ -215,11 +177,119 @@ export function PostCaptureCentering({
             br: { x: outer.right, y: outer.bottom },
           };
 
-      // Crop image to outer bounds
-      // Pass the scaled width so crop function can scale coordinates to natural image dimensions
-      const croppedImage = await cropToOuterBounds(image, cropCorners, rotation, imgSize.w);
+      // Crop and straighten the card
+      const cropped = await cropToOuterBounds(image, cropCorners, rotation, imgSize.w);
+      setCroppedPreview(cropped);
 
-      // Build centering data
+      // Load cropped image to get its dimensions and initialize inner bounds
+      const croppedImg = new Image();
+      croppedImg.onload = () => {
+        const MAX_DIM = 1400;
+        let w = croppedImg.width;
+        let h = croppedImg.height;
+        if (Math.max(w, h) > MAX_DIM) {
+          const scale = MAX_DIM / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        setCroppedImgSize({ w, h });
+
+        // Initialize inner bounds for the cropped card (8% inset)
+        const offsetPct = 0.08;
+        const initInner = {
+          left: Math.round(w * offsetPct),
+          right: Math.round(w * (1 - offsetPct)),
+          top: Math.round(h * offsetPct),
+          bottom: Math.round(h * (1 - offsetPct)),
+        };
+        setInner(initInner);
+
+        // For corner mode, set up inner corners
+        setInnerCorners({
+          tl: { x: initInner.left, y: initInner.top },
+          tr: { x: initInner.right, y: initInner.top },
+          bl: { x: initInner.left, y: initInner.bottom },
+          br: { x: initInner.right, y: initInner.bottom },
+        });
+
+        // Outer corners now represent the full cropped image bounds
+        setOuterCorners({
+          tl: { x: 0, y: 0 },
+          tr: { x: w, y: 0 },
+          bl: { x: 0, y: h },
+          br: { x: w, y: h },
+        });
+        setOuter({
+          left: 0,
+          right: w,
+          top: 0,
+          bottom: h,
+        });
+
+        setStep(2);
+        setIsProcessing(false);
+      };
+      croppedImg.onerror = () => {
+        console.error('[PostCaptureCentering] Failed to load cropped image');
+        setIsProcessing(false);
+      };
+      croppedImg.src = cropped;
+    } catch (err) {
+      console.error('[PostCaptureCentering] Next failed:', err);
+      setIsProcessing(false);
+    }
+  };
+
+  // ═══════════════════════════════════════════
+  // STEP 2 → STEP 1: Back button
+  // ═══════════════════════════════════════════
+  const handleBack = () => {
+    setCroppedPreview(null);
+    setCroppedImgSize({ w: 0, h: 0 });
+    setInner(null);
+    setInnerCorners(null);
+    setCornerCenteringResult(null);
+    setStep(1);
+
+    // Re-initialize outer from original image (preserves user's adjustments via existing state)
+  };
+
+  // ═══════════════════════════════════════════
+  // STEP 1: Reset to initial state
+  // ═══════════════════════════════════════════
+  const handleReset = () => {
+    if (!imgSize.w) return;
+    const w = imgSize.w, h = imgSize.h;
+    const margin = 0.02;
+    const initOuter = {
+      left: Math.round(w * margin),
+      right: Math.round(w * (1 - margin)),
+      top: Math.round(h * margin),
+      bottom: Math.round(h * (1 - margin)),
+    };
+    setOuter(initOuter);
+
+    setOuterCorners({
+      tl: { x: initOuter.left, y: initOuter.top },
+      tr: { x: initOuter.right, y: initOuter.top },
+      bl: { x: initOuter.left, y: initOuter.bottom },
+      br: { x: initOuter.right, y: initOuter.bottom },
+    });
+
+    setRotation(0);
+    setTiltX(0);
+    setTiltY(0);
+  };
+
+  // ═══════════════════════════════════════════
+  // STEP 2: Confirm and finalize
+  // ═══════════════════════════════════════════
+  const handleConfirm = async () => {
+    if (!croppedPreview || !inner) return;
+
+    setIsProcessing(true);
+    try {
+      // Build centering data from inner corners on cropped image
       let centeringData;
       if (measureMode === 'corner' && cornerCenteringResult) {
         const { edges, centering } = cornerCenteringResult;
@@ -240,15 +310,23 @@ export function PostCaptureCentering({
           tbRatio: centering.vertical,
         };
       } else {
+        // Edge mode centering from inner bounds
+        const bL = inner.left;
+        const bR = croppedImgSize.w - inner.right;
+        const bT = inner.top;
+        const bB = croppedImgSize.h - inner.bottom;
+        const lrR = Math.round(((bL + bR) > 0 ? bL / (bL + bR) * 100 : 50) * 10) / 10;
+        const tbR = Math.round(((bT + bB) > 0 ? bT / (bT + bB) * 100 : 50) * 10) / 10;
+
         centeringData = {
           didManualCenter: true,
           measureMode: 'edge',
-          outer,
+          outer: { left: 0, right: croppedImgSize.w, top: 0, bottom: croppedImgSize.h },
           inner,
           rotation,
           tiltX,
           tiltY,
-          croppedBounds: { x: outer.left, y: outer.top, width: cW, height: cH },
+          croppedBounds: { x: 0, y: 0, width: croppedImgSize.w, height: croppedImgSize.h },
           borderL: bL,
           borderR: bR,
           borderT: bT,
@@ -258,7 +336,7 @@ export function PostCaptureCentering({
         };
       }
 
-      onConfirm({ croppedImage, centeringData });
+      onConfirm({ croppedImage: croppedPreview, centeringData });
     } catch (err) {
       console.error('[PostCaptureCentering] Confirm failed:', err);
       onSkip();
@@ -267,7 +345,10 @@ export function PostCaptureCentering({
     }
   };
 
-  if (!image || !outer || !inner || imgSize.w === 0) {
+  // ═══════════════════════════════════════════
+  // LOADING STATE
+  // ═══════════════════════════════════════════
+  if (!image || !outer || imgSize.w === 0) {
     return (
       <div style={{
         position: 'fixed',
@@ -283,34 +364,78 @@ export function PostCaptureCentering({
     );
   }
 
+  // Step 2 loading state
+  if (step === 2 && (!croppedPreview || !inner || croppedImgSize.w === 0)) {
+    return (
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        background: '#000',
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div style={{ color: '#888', fontFamily: mono, fontSize: 12 }}>Processing crop...</div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════
+  // COMPUTED VALUES
+  // ═══════════════════════════════════════════
+  const displayImage = step === 1 ? image : croppedPreview;
+  const displayImgSize = step === 1 ? imgSize : croppedImgSize;
+
+  const cW = outer ? outer.right - outer.left : 0;
+  const cH = outer ? outer.bottom - outer.top : 0;
+
   // Handle dimensions
   const handleSize = Math.max(28, Math.min(cW, cH) * 0.035);
   const lw = Math.max(3, cW * 0.005);
   const pad = 40;
-  const handleOffset = handleSize * 0.8;
 
-  // Edge-drag handles: [x, y, which, isOuter, isHoriz, arrowDir]
-  const handles = [
-    [(outer.left + outer.right) / 2, outer.top - handleOffset, 'OT', true, true, '↓'],
-    [(outer.left + outer.right) / 2, outer.bottom + handleOffset, 'OB', true, true, '↑'],
-    [outer.left - handleOffset, (outer.top + outer.bottom) / 2, 'OL', true, false, '→'],
-    [outer.right + handleOffset, (outer.top + outer.bottom) / 2, 'OR', true, false, '←'],
-    [(inner.left + inner.right) / 2, inner.top + handleOffset, 'IT', false, true, '↑'],
-    [(inner.left + inner.right) / 2, inner.bottom - handleOffset, 'IB', false, true, '↓'],
-    [inner.left + handleOffset, (inner.top + inner.bottom) / 2, 'IL', false, false, '←'],
-    [inner.right - handleOffset, (inner.top + inner.bottom) / 2, 'IR', false, false, '→'],
-  ];
-
-  // Live centering display values
-  const displayLR = measureMode === 'corner' && cornerCenteringResult
-    ? cornerCenteringResult.centering.horizontal
-    : lrR;
-  const displayTB = measureMode === 'corner' && cornerCenteringResult
-    ? cornerCenteringResult.centering.vertical
-    : tbR;
+  // Step 2: Calculate live centering for display
+  let displayLR = 50, displayTB = 50;
+  if (step === 2 && inner) {
+    if (measureMode === 'corner' && cornerCenteringResult) {
+      displayLR = cornerCenteringResult.centering.horizontal;
+      displayTB = cornerCenteringResult.centering.vertical;
+    } else {
+      const bL = inner.left;
+      const bR = croppedImgSize.w - inner.right;
+      const bT = inner.top;
+      const bB = croppedImgSize.h - inner.bottom;
+      displayLR = Math.round(((bL + bR) > 0 ? bL / (bL + bR) * 100 : 50) * 10) / 10;
+      displayTB = Math.round(((bT + bB) > 0 ? bT / (bT + bB) * 100 : 50) * 10) / 10;
+    }
+  }
   const displayLROff = Math.max(displayLR, 100 - displayLR);
   const displayTBOff = Math.max(displayTB, 100 - displayTB);
 
+  // ═══════════════════════════════════════════
+  // STEP 1: Outer handles (on INNER side of line for easier reach)
+  // ═══════════════════════════════════════════
+  const outerHandles = [
+    [(outer.left + outer.right) / 2, outer.top + handleSize, 'OT', '↑'],     // Inside top edge
+    [(outer.left + outer.right) / 2, outer.bottom - handleSize, 'OB', '↓'], // Inside bottom edge
+    [outer.left + handleSize, (outer.top + outer.bottom) / 2, 'OL', '←'],   // Inside left edge
+    [outer.right - handleSize, (outer.top + outer.bottom) / 2, 'OR', '→'],  // Inside right edge
+  ];
+
+  // ═══════════════════════════════════════════
+  // STEP 2: Inner handles (on OUTER side of line - toward card edge)
+  // ═══════════════════════════════════════════
+  const innerHandles = inner ? [
+    [(inner.left + inner.right) / 2, inner.top - handleSize, 'IT', '↓'],     // Above inner top
+    [(inner.left + inner.right) / 2, inner.bottom + handleSize, 'IB', '↑'], // Below inner bottom
+    [inner.left - handleSize, (inner.top + inner.bottom) / 2, 'IL', '→'],   // Left of inner left
+    [inner.right + handleSize, (inner.top + inner.bottom) / 2, 'IR', '←'],  // Right of inner right
+  ] : [];
+
+  // ═══════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════
   return (
     <div style={{
       position: 'fixed',
@@ -320,23 +445,37 @@ export function PostCaptureCentering({
       overflow: 'auto',
       WebkitOverflowScrolling: 'touch',
     }}>
-      {/* Main container matching ManualBoundaryEditor */}
       <div style={{ background: '#0d0f13', minHeight: '100%' }}>
-        {/* Header */}
+        {/* Header with Step Indicator */}
         <div style={{ padding: '10px 12px', borderBottom: '1px solid #1a1c22', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: mono, fontSize: 11, color: '#ff9944', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-            Manual Adjust — {side}
-          </span>
-          <button
-            onClick={handleReset}
-            style={{ fontFamily: mono, fontSize: 9, color: '#555', background: 'transparent', border: '1px solid #333', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
-          >
-            Reset All
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontFamily: mono, fontSize: 10, color: step === 1 ? '#ff9944' : '#444', fontWeight: step === 1 ? 700 : 400 }}>
+              1. Card Edge
+            </span>
+            <span style={{ color: '#333', fontSize: 10 }}>→</span>
+            <span style={{ fontFamily: mono, fontSize: 10, color: step === 2 ? '#00ff88' : '#444', fontWeight: step === 2 ? 700 : 400 }}>
+              2. Artwork
+            </span>
+          </div>
+          {step === 1 && (
+            <button
+              onClick={handleReset}
+              style={{ fontFamily: mono, fontSize: 9, color: '#555', background: 'transparent', border: '1px solid #333', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
+            >
+              Reset
+            </button>
+          )}
         </div>
 
-        {/* Measurement Mode Toggle */}
-        <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,.4)', borderBottom: '1px solid #1a1c22', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        {/* Side label */}
+        <div style={{ padding: '6px 12px', background: 'rgba(0,0,0,.4)', borderBottom: '1px solid #1a1c22' }}>
+          <span style={{ fontFamily: mono, fontSize: 11, color: '#ff9944', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+            {side} — {step === 1 ? 'Align Card Edges' : 'Align Artwork Borders'}
+          </span>
+        </div>
+
+        {/* Measurement Mode Toggle (both steps) */}
+        <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,.3)', borderBottom: '1px solid #1a1c22', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <span style={{ fontFamily: mono, fontSize: 9, color: '#666', textTransform: 'uppercase' }}>Mode:</span>
           <div style={{ display: 'flex', borderRadius: 6, overflow: 'hidden', border: '1px solid #2a2d35' }}>
             <button
@@ -366,173 +505,157 @@ export function PostCaptureCentering({
                 cursor: 'pointer',
               }}
             >
-              4-Corner (tilted)
+              4-Corner
             </button>
           </div>
         </div>
 
-        {/* Rotation & Tilt Controls */}
-        <div style={{ padding: '10px 12px', background: 'rgba(0,0,0,.3)', borderBottom: '1px solid #1a1c22' }}>
-          <div style={{ fontFamily: mono, fontSize: 9, color: '#666', marginBottom: 8, textTransform: 'uppercase' }}>
-            Step 1: Straighten & Correct Perspective
-          </div>
+        {/* STEP 1: Rotation & Tilt Controls */}
+        {step === 1 && (
+          <div style={{ padding: '10px 12px', background: 'rgba(0,0,0,.3)', borderBottom: '1px solid #1a1c22' }}>
+            <div style={{ fontFamily: mono, fontSize: 9, color: '#666', marginBottom: 8, textTransform: 'uppercase' }}>
+              Straighten & Correct Perspective
+            </div>
 
-          {/* Axis Selector */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 10 }}>
-            {[
-              { id: 'X', label: 'Pitch', desc: '↕ tilt', color: '#ff6b6b' },
-              { id: 'Y', label: 'Roll', desc: '↔ tilt', color: '#4ecdc4' },
-              { id: 'Z', label: 'Rotate', desc: '↻ spin', color: '#ff9944' },
-            ].map(axis => (
+            {/* Axis Selector */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 10 }}>
+              {[
+                { id: 'X', label: 'Pitch', desc: '↕ tilt', color: '#ff6b6b' },
+                { id: 'Y', label: 'Roll', desc: '↔ tilt', color: '#4ecdc4' },
+                { id: 'Z', label: 'Rotate', desc: '↻ spin', color: '#ff9944' },
+              ].map(axis => (
+                <button
+                  key={axis.id}
+                  onClick={() => setActiveAxis(axis.id)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    border: `1px solid ${activeAxis === axis.id ? axis.color : '#2a2d35'}`,
+                    background: activeAxis === axis.id ? `${axis.color}22` : '#1a1c22',
+                    color: activeAxis === axis.id ? axis.color : '#555',
+                    fontFamily: mono,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 2,
+                    minWidth: 60,
+                  }}
+                >
+                  <span>{axis.label}</span>
+                  <span style={{ fontSize: 8, opacity: 0.7 }}>{axis.desc}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Adjustment Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <button
-                key={axis.id}
-                onClick={() => setActiveAxis(axis.id)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 6,
-                  border: `1px solid ${activeAxis === axis.id ? axis.color : '#2a2d35'}`,
-                  background: activeAxis === axis.id ? `${axis.color}22` : '#1a1c22',
-                  color: activeAxis === axis.id ? axis.color : '#555',
-                  fontFamily: mono,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 2,
-                  minWidth: 60,
+                onClick={() => {
+                  if (activeAxis === 'X') setTiltX(v => Math.round((v - 1) * 100) / 100);
+                  else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 1) * 100) / 100);
+                  else setRotation(r => Math.round((r - 1) * 100) / 100);
                 }}
+                style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#888', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
-                <span>{axis.label}</span>
-                <span style={{ fontSize: 8, opacity: 0.7 }}>{axis.desc}</span>
+                ‹‹
               </button>
-            ))}
-          </div>
+              <button
+                onClick={() => {
+                  if (activeAxis === 'X') setTiltX(v => Math.round((v - 0.05) * 100) / 100);
+                  else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 0.05) * 100) / 100);
+                  else setRotation(r => Math.round((r - 0.05) * 100) / 100);
+                }}
+                style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#555', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ‹
+              </button>
+              <div style={{ minWidth: 70, textAlign: 'center', padding: '6px 10px', background: '#0a0b0e', borderRadius: 6 }}>
+                <div style={{
+                  fontFamily: mono,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: activeAxis === 'X' ? (tiltX === 0 ? '#00ff88' : '#ff6b6b') :
+                    activeAxis === 'Y' ? (tiltY === 0 ? '#00ff88' : '#4ecdc4') :
+                      (rotation === 0 ? '#00ff88' : '#ff9944')
+                }}>
+                  {activeAxis === 'X' ? tiltX.toFixed(2) : activeAxis === 'Y' ? tiltY.toFixed(2) : rotation.toFixed(2)}°
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (activeAxis === 'X') setTiltX(v => Math.round((v + 0.05) * 100) / 100);
+                  else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 0.05) * 100) / 100);
+                  else setRotation(r => Math.round((r + 0.05) * 100) / 100);
+                }}
+                style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#555', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ›
+              </button>
+              <button
+                onClick={() => {
+                  if (activeAxis === 'X') setTiltX(v => Math.round((v + 1) * 100) / 100);
+                  else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 1) * 100) / 100);
+                  else setRotation(r => Math.round((r + 1) * 100) / 100);
+                }}
+                style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#888', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ››
+              </button>
+            </div>
 
-          {/* Adjustment Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <button
-              onClick={() => {
-                if (activeAxis === 'X') setTiltX(v => Math.round((v - 1) * 100) / 100);
-                else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 1) * 100) / 100);
-                else setRotation(r => Math.round((r - 1) * 100) / 100);
-              }}
-              style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#888', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              ‹‹
-            </button>
-            <button
-              onClick={() => {
-                if (activeAxis === 'X') setTiltX(v => Math.round((v - 0.05) * 100) / 100);
-                else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 0.05) * 100) / 100);
-                else setRotation(r => Math.round((r - 0.05) * 100) / 100);
-              }}
-              style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#555', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              ‹
-            </button>
-            <div style={{ minWidth: 70, textAlign: 'center', padding: '6px 10px', background: '#0a0b0e', borderRadius: 6 }}>
-              <div style={{
-                fontFamily: mono,
-                fontSize: 14,
-                fontWeight: 700,
-                color: activeAxis === 'X' ? (tiltX === 0 ? '#00ff88' : '#ff6b6b') :
-                  activeAxis === 'Y' ? (tiltY === 0 ? '#00ff88' : '#4ecdc4') :
-                    (rotation === 0 ? '#00ff88' : '#ff9944')
-              }}>
-                {activeAxis === 'X' ? tiltX.toFixed(2) : activeAxis === 'Y' ? tiltY.toFixed(2) : rotation.toFixed(2)}°
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 8 }}>
+              <span style={{ fontFamily: mono, fontSize: 9, color: tiltX === 0 ? '#444' : '#ff6b6b' }}>X:{tiltX}°</span>
+              <span style={{ fontFamily: mono, fontSize: 9, color: tiltY === 0 ? '#444' : '#4ecdc4' }}>Y:{tiltY}°</span>
+              <span style={{ fontFamily: mono, fontSize: 9, color: rotation === 0 ? '#444' : '#ff9944' }}>Z:{rotation}°</span>
+            </div>
+            <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 8, color: '#444', marginTop: 4 }}>‹‹/›› = 1° · ‹/› = 0.05°</div>
+          </div>
+        )}
+
+        {/* STEP 2: Live centering readout */}
+        {step === 2 && (
+          <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,.4)', display: 'flex', justifyContent: 'space-around', borderBottom: '1px solid #1a1c22' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: mono, fontSize: 8, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>L / R</div>
+              <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700, color: displayLROff > 55 ? '#ff6633' : displayLROff > 53 ? '#ffcc00' : '#00ff88' }}>
+                {displayLR}<span style={{ color: '#444' }}>/</span>{Math.round((100 - displayLR) * 10) / 10}
               </div>
             </div>
-            <button
-              onClick={() => {
-                if (activeAxis === 'X') setTiltX(v => Math.round((v + 0.05) * 100) / 100);
-                else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 0.05) * 100) / 100);
-                else setRotation(r => Math.round((r + 0.05) * 100) / 100);
-              }}
-              style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#555', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              ›
-            </button>
-            <button
-              onClick={() => {
-                if (activeAxis === 'X') setTiltX(v => Math.round((v + 1) * 100) / 100);
-                else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 1) * 100) / 100);
-                else setRotation(r => Math.round((r + 1) * 100) / 100);
-              }}
-              style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#888', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              ››
-            </button>
-          </div>
-
-          {/* All axes summary */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 8 }}>
-            <span style={{ fontFamily: mono, fontSize: 9, color: tiltX === 0 ? '#444' : '#ff6b6b' }}>X:{tiltX}°</span>
-            <span style={{ fontFamily: mono, fontSize: 9, color: tiltY === 0 ? '#444' : '#4ecdc4' }}>Y:{tiltY}°</span>
-            <span style={{ fontFamily: mono, fontSize: 9, color: rotation === 0 ? '#444' : '#ff9944' }}>Z:{rotation}°</span>
-          </div>
-          <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 8, color: '#444', marginTop: 4 }}>‹‹/›› = 1° · ‹/› = 0.05°</div>
-        </div>
-
-        {/* Live centering readout */}
-        <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,.4)', display: 'flex', justifyContent: 'space-around', borderBottom: '1px solid #1a1c22' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: mono, fontSize: 8, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>L / R</div>
-            <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700, color: displayLROff > 55 ? '#ff6633' : displayLROff > 53 ? '#ffcc00' : '#00ff88' }}>
-              {displayLR}<span style={{ color: '#444' }}>/</span>{Math.round((100 - displayLR) * 10) / 10}
+            <div style={{ width: 1, background: '#1a1c22' }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: mono, fontSize: 8, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>T / B</div>
+              <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700, color: displayTBOff > 55 ? '#ff6633' : displayTBOff > 53 ? '#ffcc00' : '#00ff88' }}>
+                {displayTB}<span style={{ color: '#444' }}>/</span>{Math.round((100 - displayTB) * 10) / 10}
+              </div>
+            </div>
+            <div style={{ width: 1, background: '#1a1c22' }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: mono, fontSize: 8, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>Status</div>
+              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 600, color: Math.max(displayLROff, displayTBOff) > 55 ? '#ff6633' : '#00ff88' }}>
+                {Math.max(displayLROff, displayTBOff) > 55 ? '⚠ DING' : '✓ Clean'}
+              </div>
             </div>
           </div>
-          <div style={{ width: 1, background: '#1a1c22' }} />
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: mono, fontSize: 8, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>T / B</div>
-            <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700, color: displayTBOff > 55 ? '#ff6633' : displayTBOff > 53 ? '#ffcc00' : '#00ff88' }}>
-              {displayTB}<span style={{ color: '#444' }}>/</span>{Math.round((100 - displayTB) * 10) / 10}
-            </div>
-          </div>
-          <div style={{ width: 1, background: '#1a1c22' }} />
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: mono, fontSize: 8, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>Status</div>
-            <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 600, color: Math.max(displayLROff, displayTBOff) > 55 ? '#ff6633' : '#00ff88' }}>
-              {Math.max(displayLROff, displayTBOff) > 55 ? '⚠ DING' : '✓ Clean'}
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Legend */}
         <div style={{ padding: '6px 12px', display: 'flex', gap: 12, borderBottom: '1px solid #0d0f13', flexWrap: 'wrap' }}>
-          {measureMode === 'edge' ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#ff9944" strokeWidth={2} /></svg>
-                <span style={{ fontFamily: mono, fontSize: 9, color: '#ff9944' }}>Card edge</span>
-                <span style={{ fontFamily: mono, fontSize: 8, color: '#555' }}>(outside→in)</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#00ff88" strokeWidth={2} /></svg>
-                <span style={{ fontFamily: mono, fontSize: 9, color: '#00ff88' }}>Artwork</span>
-                <span style={{ fontFamily: mono, fontSize: 8, color: '#555' }}>(inside→out)</span>
-              </div>
-            </>
+          {step === 1 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#ff9944" strokeWidth={2} /></svg>
+              <span style={{ fontFamily: mono, fontSize: 9, color: '#ff9944' }}>Card edge</span>
+              <span style={{ fontFamily: mono, fontSize: 8, color: '#555' }}>(drag to align)</span>
+            </div>
           ) : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg width={16} height={16}><circle cx={8} cy={8} r={6} fill="#111" stroke="#00bcd4" strokeWidth={2} /></svg>
-                <span style={{ fontFamily: mono, fontSize: 9, color: '#00bcd4' }}>Outer corners</span>
-                <span style={{ fontFamily: mono, fontSize: 8, color: '#555' }}>(card edge)</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg width={16} height={16}><circle cx={8} cy={8} r={6} fill="#111" stroke="#e91e63" strokeWidth={2} /></svg>
-                <span style={{ fontFamily: mono, fontSize: 9, color: '#e91e63' }}>Inner corners</span>
-                <span style={{ fontFamily: mono, fontSize: 8, color: '#555' }}>(artwork)</span>
-              </div>
-            </>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#00ff88" strokeWidth={2} strokeDasharray="3,2" /></svg>
+              <span style={{ fontFamily: mono, fontSize: 9, color: '#00ff88' }}>Artwork border</span>
+              <span style={{ fontFamily: mono, fontSize: 8, color: '#555' }}>(drag to align)</span>
+            </div>
           )}
-        </div>
-
-        {/* Step 2 label */}
-        <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,.2)', borderBottom: '1px solid #0d0f13' }}>
-          <div style={{ fontFamily: mono, fontSize: 9, color: '#666', textTransform: 'uppercase' }}>Step 2: Adjust Borders</div>
         </div>
 
         {/* Image + drag canvas */}
@@ -542,12 +665,12 @@ export function PostCaptureCentering({
           onTouchStart={e => { if (dragging.current) e.preventDefault(); }}
         >
           <img
-            src={image}
+            src={displayImage}
             alt="Card"
             style={{
               width: '100%',
               display: 'block',
-              transform: `perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${rotation}deg)`,
+              transform: step === 1 ? `perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${rotation}deg)` : 'none',
               transformOrigin: 'center center',
               transition: 'transform 0.15s ease',
             }}
@@ -560,12 +683,12 @@ export function PostCaptureCentering({
           </div>
           <svg
             ref={svgRef}
-            viewBox={`0 0 ${imgSize.w} ${imgSize.h}`}
+            viewBox={`0 0 ${displayImgSize.w} ${displayImgSize.h}`}
             style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', overflow: 'visible', touchAction: 'none' }}
           >
-            {measureMode === 'edge' ? (
+            {/* STEP 1: Edge mode - outer boundary only */}
+            {step === 1 && measureMode === 'edge' && (
               <>
-                {/* Outer boundary (orange) - rounded corners match real card (~4.8% radius) */}
                 <rect
                   x={outer.left}
                   y={outer.top}
@@ -578,7 +701,60 @@ export function PostCaptureCentering({
                   strokeWidth={lw}
                   opacity={0.85}
                 />
-                {/* Inner boundary (green dashed) */}
+                {outerHandles.map(([hx, hy, which, arrow]) => {
+                  const sz = handleSize;
+                  const isHoriz = which === 'OT' || which === 'OB';
+                  return (
+                    <g
+                      key={which}
+                      style={{ cursor: isHoriz ? 'ns-resize' : 'ew-resize', touchAction: 'none' }}
+                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; }}
+                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const { x, y } = getCoords(e); moveOuterHandle(which, x, y); } }}
+                      onPointerUp={() => { dragging.current = null; }}
+                    >
+                      <rect x={hx - sz / 2 - pad} y={hy - sz / 2 - pad} width={sz + pad * 2} height={sz + pad * 2} fill="transparent" />
+                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke="#ff9944" strokeWidth={Math.max(2, lw * 0.6)} />
+                      <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central" fill="#ff9944" fontSize={sz * 0.6} fontWeight="bold" style={{ pointerEvents: 'none' }}>
+                        {arrow}
+                      </text>
+                    </g>
+                  );
+                })}
+              </>
+            )}
+
+            {/* STEP 1: Corner mode - outer corners only */}
+            {step === 1 && measureMode === 'corner' && outerCorners && (
+              <CornerHandles
+                imgW={imgSize.w}
+                imgH={imgSize.h}
+                outerCorners={outerCorners}
+                innerCorners={null}
+                setOuterCorners={setOuterCorners}
+                setInnerCorners={() => {}}
+                svgRef={svgRef}
+                onCenteringUpdate={() => {}}
+                activeHandles="outer"
+              />
+            )}
+
+            {/* STEP 2: Edge mode - inner boundary only */}
+            {step === 2 && measureMode === 'edge' && inner && (
+              <>
+                {/* Fixed outer boundary (reference) */}
+                <rect
+                  x={0}
+                  y={0}
+                  width={croppedImgSize.w}
+                  height={croppedImgSize.h}
+                  rx={croppedImgSize.w * 0.048}
+                  ry={croppedImgSize.w * 0.048}
+                  fill="none"
+                  stroke="#ff9944"
+                  strokeWidth={lw * 0.5}
+                  opacity={0.3}
+                />
+                {/* Draggable inner boundary */}
                 <rect
                   x={inner.left}
                   y={inner.top}
@@ -587,71 +763,56 @@ export function PostCaptureCentering({
                   fill="none"
                   stroke="#00ff88"
                   strokeWidth={Math.max(2, lw * 0.8)}
-                  strokeDasharray={`${cW * 0.025},${cW * 0.012}`}
-                  opacity={0.8}
+                  strokeDasharray={`${croppedImgSize.w * 0.025},${croppedImgSize.w * 0.012}`}
+                  opacity={0.9}
                 />
-                {/* Drag handles */}
-                {handles.map(([hx, hy, which, isOuter, isHoriz, arrow]) => {
-                  const color = isOuter ? '#ff9944' : '#00ff88';
+                {innerHandles.map(([hx, hy, which, arrow]) => {
                   const sz = handleSize;
-                  const fontSize = sz * 0.6;
+                  const isHoriz = which === 'IT' || which === 'IB';
                   return (
                     <g
                       key={which}
                       style={{ cursor: isHoriz ? 'ns-resize' : 'ew-resize', touchAction: 'none' }}
                       onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; }}
-                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const { x, y } = getCoords(e); moveHandle(which, x, y); } }}
+                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const { x, y } = getCoords(e); moveInnerHandle(which, x, y); } }}
                       onPointerUp={() => { dragging.current = null; }}
                     >
                       <rect x={hx - sz / 2 - pad} y={hy - sz / 2 - pad} width={sz + pad * 2} height={sz + pad * 2} fill="transparent" />
-                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke={color} strokeWidth={Math.max(2, lw * 0.6)} />
-                      <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central" fill={color} fontSize={fontSize} fontWeight="bold" style={{ pointerEvents: 'none' }}>
+                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke="#00ff88" strokeWidth={Math.max(2, lw * 0.6)} />
+                      <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central" fill="#00ff88" fontSize={sz * 0.6} fontWeight="bold" style={{ pointerEvents: 'none' }}>
                         {arrow}
                       </text>
                     </g>
                   );
                 })}
               </>
-            ) : (
+            )}
+
+            {/* STEP 2: Corner mode - inner corners only */}
+            {step === 2 && measureMode === 'corner' && outerCorners && innerCorners && (
               <CornerHandles
-                imgW={imgSize.w}
-                imgH={imgSize.h}
+                imgW={croppedImgSize.w}
+                imgH={croppedImgSize.h}
                 outerCorners={outerCorners}
                 innerCorners={innerCorners}
-                setOuterCorners={setOuterCorners}
+                setOuterCorners={() => {}}
                 setInnerCorners={setInnerCorners}
                 svgRef={svgRef}
                 onCenteringUpdate={setCornerCenteringResult}
+                activeHandles="inner"
               />
             )}
           </svg>
         </div>
 
-        {/* Edge breakdown panel for corner mode */}
-        {measureMode === 'corner' && cornerCenteringResult && (
+        {/* Edge breakdown panel for corner mode Step 2 */}
+        {step === 2 && measureMode === 'corner' && cornerCenteringResult && (
           <div style={{ padding: '0 12px' }}>
             <EdgeBreakdownPanel centeringResult={cornerCenteringResult} />
           </div>
         )}
 
-        {/* Mode comparison */}
-        {measureMode === 'corner' && cornerCenteringResult && (
-          <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,.3)', borderTop: '1px solid #1a1c22' }}>
-            <div style={{ fontFamily: mono, fontSize: 8, color: '#666', textTransform: 'uppercase', marginBottom: 6 }}>Mode Comparison</div>
-            <div style={{ display: 'flex', justifyContent: 'space-around', gap: 8 }}>
-              <div style={{ flex: 1, padding: '6px 8px', background: '#1a1c22', borderRadius: 4, textAlign: 'center' }}>
-                <div style={{ fontFamily: mono, fontSize: 8, color: '#ff9944', marginBottom: 2 }}>Edge Drag (v1)</div>
-                <div style={{ fontFamily: mono, fontSize: 12, color: '#888' }}>{lrR}/{Math.round((100 - lrR) * 10) / 10} · {tbR}/{Math.round((100 - tbR) * 10) / 10}</div>
-              </div>
-              <div style={{ flex: 1, padding: '6px 8px', background: '#00bcd411', border: '1px solid #00bcd433', borderRadius: 4, textAlign: 'center' }}>
-                <div style={{ fontFamily: mono, fontSize: 8, color: '#00bcd4', marginBottom: 2 }}>Corner (β)</div>
-                <div style={{ fontFamily: mono, fontSize: 12, color: '#fff' }}>{cornerCenteringResult.centering.lrDisplay} · {cornerCenteringResult.centering.tbDisplay}</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Action buttons - sticky at bottom */}
+        {/* Action buttons */}
         <div style={{
           position: 'sticky',
           bottom: 0,
@@ -662,44 +823,75 @@ export function PostCaptureCentering({
           background: '#0d0f13',
           zIndex: 10,
         }}>
-          <button
-            onClick={onSkip}
-            style={{
-              flex: 1,
-              padding: '11px 0',
-              borderRadius: 7,
-              border: '1px solid #333',
-              background: '#1a1c22',
-              color: '#888',
-              fontFamily: mono,
-              fontSize: 11,
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-              letterSpacing: '.06em',
-            }}
-          >
-            Skip
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={isProcessing}
-            style={{
-              flex: 2,
-              padding: '11px 0',
-              borderRadius: 7,
-              border: 'none',
-              background: isProcessing ? '#1a1c22' : 'linear-gradient(135deg,#ff9944,#ff6633)',
-              color: isProcessing ? '#444' : '#000',
-              fontFamily: mono,
-              fontSize: 11,
-              fontWeight: 700,
-              cursor: isProcessing ? 'default' : 'pointer',
-              textTransform: 'uppercase',
-              letterSpacing: '.06em',
-            }}
-          >
-            {isProcessing ? 'Processing...' : '✓ Confirm'}
-          </button>
+          {step === 1 ? (
+            <>
+              {/* Step 1: No back, just Next */}
+              <div style={{ flex: 1 }} /> {/* Spacer */}
+              <button
+                onClick={handleNext}
+                disabled={isProcessing}
+                style={{
+                  flex: 2,
+                  padding: '11px 0',
+                  borderRadius: 7,
+                  border: 'none',
+                  background: isProcessing ? '#1a1c22' : 'linear-gradient(135deg,#ff9944,#ff6633)',
+                  color: isProcessing ? '#444' : '#000',
+                  fontFamily: mono,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: isProcessing ? 'default' : 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '.06em',
+                }}
+              >
+                {isProcessing ? 'Processing...' : 'Next →'}
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Step 2: Back and Confirm */}
+              <button
+                onClick={handleBack}
+                disabled={isProcessing}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: 7,
+                  border: '1px solid #333',
+                  background: '#1a1c22',
+                  color: '#888',
+                  fontFamily: mono,
+                  fontSize: 11,
+                  cursor: isProcessing ? 'default' : 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '.06em',
+                }}
+              >
+                ← Back
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={isProcessing}
+                style={{
+                  flex: 2,
+                  padding: '11px 0',
+                  borderRadius: 7,
+                  border: 'none',
+                  background: isProcessing ? '#1a1c22' : 'linear-gradient(135deg,#00ff88,#00cc6a)',
+                  color: isProcessing ? '#444' : '#000',
+                  fontFamily: mono,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: isProcessing ? 'default' : 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '.06em',
+                }}
+              >
+                {isProcessing ? 'Processing...' : '✓ Confirm'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
