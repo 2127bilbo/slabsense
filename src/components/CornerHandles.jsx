@@ -216,13 +216,14 @@ export function CornerHandles({
   const samplePoints = innerCorners ? getSamplePoints(outerCorners, innerCorners) : {};
 
   // Define corner handles based on activeHandles prop
-  // Outer handles: positioned OUTSIDE boundary, arrows point IN toward center
-  // Inner handles: positioned INSIDE boundary, arrows point OUT away from center
+  // ALL handles positioned INSIDE their respective boundaries for easy reach
+  // Outer handles: inside outer boundary, arrows point toward outer corner
+  // Inner handles: inside inner boundary, arrows point toward inner corner
   const outerHandlesList = [
-    { x: outerCorners.tl.x - handleOffset, y: outerCorners.tl.y - handleOffset, which: 'O_TL', isOuter: true, label: '↘' },
-    { x: outerCorners.tr.x + handleOffset, y: outerCorners.tr.y - handleOffset, which: 'O_TR', isOuter: true, label: '↙' },
-    { x: outerCorners.bl.x - handleOffset, y: outerCorners.bl.y + handleOffset, which: 'O_BL', isOuter: true, label: '↗' },
-    { x: outerCorners.br.x + handleOffset, y: outerCorners.br.y + handleOffset, which: 'O_BR', isOuter: true, label: '↖' },
+    { x: outerCorners.tl.x + handleOffset, y: outerCorners.tl.y + handleOffset, which: 'O_TL', isOuter: true, label: '↖' },
+    { x: outerCorners.tr.x - handleOffset, y: outerCorners.tr.y + handleOffset, which: 'O_TR', isOuter: true, label: '↗' },
+    { x: outerCorners.bl.x + handleOffset, y: outerCorners.bl.y - handleOffset, which: 'O_BL', isOuter: true, label: '↙' },
+    { x: outerCorners.br.x - handleOffset, y: outerCorners.br.y - handleOffset, which: 'O_BR', isOuter: true, label: '↘' },
   ];
 
   const innerHandlesList = innerCorners ? [

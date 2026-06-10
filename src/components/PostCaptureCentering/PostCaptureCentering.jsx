@@ -424,13 +424,13 @@ export function PostCaptureCentering({
   ];
 
   // ═══════════════════════════════════════════
-  // STEP 2: Inner handles (on OUTER side of line - toward card edge)
+  // STEP 2: Inner handles (on INSIDE of line - toward artwork center)
   // ═══════════════════════════════════════════
   const innerHandles = inner ? [
-    [(inner.left + inner.right) / 2, inner.top - handleSize, 'IT', '↓'],     // Above inner top
-    [(inner.left + inner.right) / 2, inner.bottom + handleSize, 'IB', '↑'], // Below inner bottom
-    [inner.left - handleSize, (inner.top + inner.bottom) / 2, 'IL', '→'],   // Left of inner left
-    [inner.right + handleSize, (inner.top + inner.bottom) / 2, 'IR', '←'],  // Right of inner right
+    [(inner.left + inner.right) / 2, inner.top + handleSize, 'IT', '↑'],     // Inside top edge
+    [(inner.left + inner.right) / 2, inner.bottom - handleSize, 'IB', '↓'], // Inside bottom edge
+    [inner.left + handleSize, (inner.top + inner.bottom) / 2, 'IL', '←'],   // Inside left edge
+    [inner.right - handleSize, (inner.top + inner.bottom) / 2, 'IR', '→'],  // Inside right edge
   ] : [];
 
   // ═══════════════════════════════════════════
