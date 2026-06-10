@@ -254,10 +254,29 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
         setRegradeResult(result);
 
         // Update the scan in database with new grades
+        // IMPORTANT: Preserve __deep__ keys when updating AI grades
         const updateData = {};
-        if (result.grades) updateData.ai_grades = result.grades;
-        if (result.condition) updateData.ai_condition = result.condition;
-        if (result.summary) updateData.ai_summary = result.summary;
+        if (result.grades) {
+          // Merge with existing ai_grades to preserve __deep__ key
+          updateData.ai_grades = {
+            ...(selectedCard.ai_grades || {}),
+            ...result.grades
+          };
+        }
+        if (result.condition) {
+          // Merge with existing ai_condition to preserve __deep__ key
+          updateData.ai_condition = {
+            ...(selectedCard.ai_condition || {}),
+            ...result.condition
+          };
+        }
+        if (result.summary) {
+          // Merge with existing ai_summary to preserve __deep__ key
+          updateData.ai_summary = {
+            ...(selectedCard.ai_summary || {}),
+            ...result.summary
+          };
+        }
         if (result.centering) updateData.ai_centering = result.centering;
 
         if (Object.keys(updateData).length > 0) {

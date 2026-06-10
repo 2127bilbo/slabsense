@@ -225,24 +225,33 @@ Examine and score (1-10 scale):
 - Edges: whitening, chips, rough spots, fraying
 - Surface: scratches, print lines, holo damage, scuffs, dents
 
-**CRITICAL: DISTINGUISHING GLARE FROM ACTUAL DEFECTS**
+**⚠️ CRITICAL WARNING: CAMERA GLARE ON POKEMON CARDS ⚠️**
 
-GLARE (NOT a defect - IGNORE these):
-- Bright white/silver spots from camera flash or lighting
-- Oval, circular, or diffuse bright areas
-- Shiny reflections on holo/foil surfaces
-- Spots that appear in the MIDDLE of the card surface
-- Bright areas that do NOT follow edge/corner contours
-- Lighting artifacts that look "soft" or "fuzzy"
+Pokemon cards are photographed by users with phone cameras. MOST images have significant glare/flash reflection. You MUST NOT mistake glare for defects.
 
-ACTUAL DEFECTS (DO report these):
-- Corner whitening: follows the precise edge of the corner, looks "worn"
-- Edge whitening: runs along the card edge precisely, not in the middle
-- Surface scratches: linear marks, often visible at certain angles
-- Print defects: consistent ink issues, not lighting-dependent
+**THIS IS GLARE - DO NOT REPORT AS DEFECTS:**
+- ANY bright white/silver spots or streaks (this is camera flash)
+- Bright areas near corners that look "blown out" or overexposed
+- Shiny reflections anywhere on holo/foil card surfaces
+- Bright spots that have soft/fuzzy edges (real wear has sharp edges)
+- Light areas that appear in multiple corners simultaneously (flash pattern)
+- Any brightness on the card face that isn't at the precise paper edge
 
-RULE: When in doubt between glare and a defect, DO NOT report it as a defect.
-Only report defects you are CERTAIN are physical damage, not lighting artifacts.
+**THIS IS ACTUAL WEAR - ONLY REPORT THESE:**
+- Corner whitening: WHITE FIBERS of the card stock are exposed at the corner TIP
+- Edge whitening: WHITE PAPER FIBERS visible along the cut edge of the card
+- Real wear looks like exposed cardboard/paper, NOT like bright reflection
+
+**HOLO/FOIL CARDS ESPECIALLY:**
+Full art cards, EX cards, GX cards, V cards, and any holographic cards will have INTENSE reflections. These reflections are NOT defects. A holo card showing rainbow reflections or bright spots is NORMAL.
+
+**DECISION RULE:**
+If you see bright areas on corners/edges, ask yourself: "Can I see actual exposed paper fibers, or is this just light reflecting off the card surface?"
+- If you cannot clearly see damaged paper fibers → IT IS GLARE → DO NOT REPORT
+- If you see actual white cardboard exposed → REPORT as wear
+
+**DEFAULT ASSUMPTION: The card is in excellent condition unless you see OBVIOUS physical damage.**
+Most cards submitted for grading are near-mint. Err heavily on the side of NOT reporting defects.
 
 ## TASK 3: EXTRACT CARD INFO
 
@@ -381,10 +390,12 @@ function buildSingleGradingPrompt(cardType) {
 - Corners, Edges, Surface
 - List any defects found
 
-**CRITICAL: GLARE vs DEFECTS**
-- GLARE = bright white/silver spots from lighting, often oval/diffuse, NOT a defect
-- WHITENING = actual wear that follows corner/edge contours precisely
-- If bright spots are in the middle of the card or don't follow edges = GLARE (ignore)
+**⚠️ CRITICAL: CAMERA GLARE WARNING ⚠️**
+Phone cameras create significant flash/glare on Pokemon cards. DO NOT mistake reflections for defects.
+- GLARE: Bright white/silver spots, shiny reflections on holo surfaces, soft/fuzzy bright areas
+- REAL WEAR: Exposed white paper fibers at corner tips or along cut edges
+- Holo/foil cards will have INTENSE reflections - this is NORMAL, not damage
+- DEFAULT: Assume the card is near-mint unless you see OBVIOUS physical damage
 - When in doubt, DO NOT report it as a defect
 
 ## TASK 3: EXTRACT CARD INFO
