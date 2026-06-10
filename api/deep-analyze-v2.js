@@ -473,52 +473,6 @@ export default async function handler(req, res) {
     });
 
     // ========================================================================
-    // Convert 125-scale subgrades to 1000-point scale for TAG DIG format
-    // ========================================================================
-    const subgrades = finalResult.grades?.tag?.subgrades || {};
-    const to1000 = (val) => Math.round((val || 120) * 8); // 125 scale -> 1000 scale
-
-    const areaScores = {
-      front: {
-        centering: to1000(subgrades.frontCentering),
-        corners: { score: to1000(subgrades.frontCorners) },
-        edges: { score: to1000(subgrades.frontEdges) },
-        surface: to1000(subgrades.frontSurface),
-      },
-      back: {
-        centering: to1000(subgrades.backCentering),
-        corners: { score: to1000(subgrades.backCorners) },
-        edges: { score: to1000(subgrades.backEdges) },
-        surface: to1000(subgrades.backSurface),
-      },
-    };
-
-    // Find lowest score (determines grade in TAG system)
-    const allScores = [
-      areaScores.front.centering, areaScores.back.centering,
-      areaScores.front.corners.score, areaScores.back.corners.score,
-      areaScores.front.edges.score, areaScores.back.edges.score,
-      areaScores.front.surface, areaScores.back.surface,
-    ];
-    const lowestScore = Math.min(...allScores);
-
-    // Build DIG report format
-    const digReport = {
-      score_total: lowestScore,
-      scores: {
-        centering_front: areaScores.front.centering,
-        centering_back: areaScores.back.centering,
-        corners_front: areaScores.front.corners.score,
-        corners_back: areaScores.back.corners.score,
-        edges_front: areaScores.front.edges.score,
-        edges_back: areaScores.back.edges.score,
-        surface_front: areaScores.front.surface,
-        surface_back: areaScores.back.surface,
-      },
-      defects: finalResult.defects,
-    };
-
-    // ========================================================================
     // Return Response
     // ========================================================================
     return res.status(200).json({
@@ -535,21 +489,11 @@ export default async function handler(req, res) {
       comparison: finalResult.comparison,
       grades: finalResult.grades,
       summary: finalResult.summary,
-      // NEW: 1000-point scale data for DingsTabV2 / DeepAiDingsMap
-      areaScores,
-      digReport,
-      condition: {
-        corners: (areaScores.front.corners.score + areaScores.back.corners.score) / 200,
-        edges: (areaScores.front.edges.score + areaScores.back.edges.score) / 200,
-        surface: (areaScores.front.surface + areaScores.back.surface) / 200,
-        defects: finalResult.defects?.details || [],
-      },
       meta: {
         elapsedMs: elapsed,
         imageMode: has4Images ? '4-image' : '2-image',
         centeringSource: hasSoftwareCentering ? 'software' : 'ai-estimated',
-        softwareCentering: softwareCentering || null,
-        scale: 1000,
+        softwareCentering: softwareCentering || null
       }
     });
 
