@@ -301,6 +301,24 @@ Respond with this JSON (no other text):
 }
 
 // ============================================================================
+// Helper: Fetch image URL and convert to base64
+// ============================================================================
+async function fetchImageAsBase64(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    return base64;
+  } catch (error) {
+    console.error('[Deep V2] Error fetching image:', error.message);
+    throw error;
+  }
+}
+
+// ============================================================================
 // Main Analysis Function
 // ============================================================================
 export default async function handler(req, res) {
@@ -317,17 +335,53 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { frontImage, backImage, softwareCentering, cardType = "pokemon" } = req.body;
+  // Support both URL-based (frontend) and base64-based (direct) requests
+  const {
+    // URL-based (from frontend)
+    frontUrl, backUrl, frontCroppedUrl, backCroppedUrl,
+    // Base64-based (direct)
+    frontImage: frontImageDirect, backImage: backImageDirect,
+    // Centering data (either format)
+    softwareCentering, frontCentering, backCentering,
+    // Card type
+    cardType = "pokemon"
+  } = req.body;
 
-  if (!frontImage || !backImage) {
-    return res.status(400).json({ error: "Both frontImage and backImage required" });
-  }
+  let frontImage, backImage;
 
   try {
-    console.log("[Deep V3] Starting coordinate-based analysis...");
+    // Get images - prefer cropped URLs, then regular URLs, then direct base64
+    if (frontCroppedUrl || frontUrl) {
+      console.log("[Deep V2] Fetching images from URLs...");
+      const frontFetchUrl = frontCroppedUrl || frontUrl;
+      const backFetchUrl = backCroppedUrl || backUrl;
+
+      if (!frontFetchUrl || !backFetchUrl) {
+        return res.status(400).json({ error: "Both front and back image URLs required" });
+      }
+
+      [frontImage, backImage] = await Promise.all([
+        fetchImageAsBase64(frontFetchUrl),
+        fetchImageAsBase64(backFetchUrl),
+      ]);
+      console.log("[Deep V2] Images fetched successfully");
+    } else if (frontImageDirect && backImageDirect) {
+      frontImage = frontImageDirect;
+      backImage = backImageDirect;
+    } else {
+      return res.status(400).json({ error: "Both frontImage and backImage required (as URLs or base64)" });
+    }
+
+    // Build software centering object from either format
+    const centeringData = softwareCentering || (frontCentering && backCentering ? {
+      front: frontCentering,
+      back: backCentering,
+    } : null);
+
+    console.log("[Deep V2] Starting coordinate-based analysis...");
 
     // ========== PASS 1: Quick defect detection ==========
-    console.log("[Deep V3] Pass 1: Initial defect scan...");
+    console.log("[Deep V2] Pass 1: Initial defect scan...");
 
     const pass1Response = await anthropic.messages.create({
       model: MODEL,
@@ -357,16 +411,16 @@ export default async function handler(req, res) {
       const jsonMatch = pass1Text.match(/\{[\s\S]*\}/);
       pass1Result = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
     } catch (e) {
-      console.error("[Deep V3] Pass 1 parse error:", e);
+      console.error("[Deep V2] Pass 1 parse error:", e);
       pass1Result = { defects: [], defectSummary: { corners: "unknown", edges: "unknown", surface: "unknown" } };
     }
 
-    console.log("[Deep V3] Pass 1 complete:", pass1Result.defects?.length || 0, "defects found");
+    console.log("[Deep V2] Pass 1 complete:", pass1Result.defects?.length || 0, "defects found");
 
     // ========== PASS 2: Final grading with area scores ==========
-    console.log("[Deep V3] Pass 2: Final grading with area scores...");
+    console.log("[Deep V2] Pass 2: Final grading with area scores...");
 
-    const pass2Prompt = buildPass2Prompt(softwareCentering, pass1Result);
+    const pass2Prompt = buildPass2Prompt(centeringData, pass1Result);
 
     const pass2Response = await anthropic.messages.create({
       model: MODEL,
@@ -396,11 +450,11 @@ export default async function handler(req, res) {
       const jsonMatch = pass2Text.match(/\{[\s\S]*\}/);
       finalResult = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
     } catch (e) {
-      console.error("[Deep V3] Pass 2 parse error:", e);
+      console.error("[Deep V2] Pass 2 parse error:", e);
       return res.status(500).json({ error: "Failed to parse AI response" });
     }
 
-    console.log("[Deep V3] Pass 2 complete. Grade:", finalResult.grades?.tag?.grade);
+    console.log("[Deep V2] Pass 2 complete. Grade:", finalResult.grades?.tag?.grade);
 
     // ========== Calculate derived values for compatibility ==========
     const frontCorners = finalResult.areaScores?.front?.corners || {};
@@ -499,7 +553,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error("[Deep V3] Error:", error);
+    console.error("[Deep V2] Error:", error);
     return res.status(500).json({
       error: "Analysis failed",
       message: error.message,
