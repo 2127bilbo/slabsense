@@ -1,16 +1,13 @@
 /**
- * Deep Analyze V2 - Coordinate-Based Defect Detection (TAG 1000-Point System)
+ * Deep Analyze V3 - Coordinate-Based Defect Detection (TAG 1000-Point System)
  *
- * Production version with TAG-calibrated scoring.
- *
- * Features:
- * - Exact defect coordinates (x, y as percentages)
+ * This version returns defect data with:
+ * - Exact coordinates (x, y as percentages)
  * - Per-area scores on TAG's 0-1000 scale
- * - Visual DingsMap rendering support
+ * - Compatible with visual DingsMap rendering
  * - Full DIG report format matching TAG's output
- * - Two-pass analysis (defect detection + final grading)
  *
- * TAG Grade Scale (by lowest area score):
+ * TAG Grade Scale (by total score):
  * - 10 PRISTINE: 990-1000
  * - 10 GEM MINT: 950-989
  * - 9 MINT: 900-949
@@ -26,7 +23,8 @@
  * - 2 GOOD: 200-299
  * - 1 POOR: 0-199
  *
- * Backup of previous version: api/backup/deep-analyze-v2-pre-1000pt.js
+ * DO NOT USE IN PRODUCTION - Testing only
+ * When ready, rename this to deep-analyze-v2.js
  */
 
 import Anthropic from "@anthropic-ai/sdk";

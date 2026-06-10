@@ -1,6 +1,6 @@
 # SlabSense Development Handoff
 
-**Date:** June 9, 2026
+**Date:** June 10, 2026
 **Status:** Active Development - Beta Phase
 **Codebase Audit:** See `CODEBASE_AUDIT.md` for detailed analysis
 
@@ -41,6 +41,10 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 | **Deep Grade Credit Check** | Deducts 2 credits before Deep grade, auto-refunds on failure |
 | **AI Glare Detection Fix** | Enhanced prompts to distinguish camera glare from actual defects (both ai-analyze.js and deep-analyze-v2.js) |
 | **Centering Tab Update Fix** | "Apply Correction" button now properly updates cropped image AND centering data |
+| **TAG 1000-Point System** | Deep AI now uses TAG's exact 1000-point scale for all area scores (centering, corners, edges, surface) |
+| **DIG Report Format** | Deep AI output matches TAG's DIG report structure with per-area scores and defect coordinates |
+| **DingsTabV2 Component** | New dings tab with mode switching (software/ai/deep), 1000-point centering scoring |
+| **DeepAiDingsMap Component** | Visual defect map with coordinate markers and per-area score indicators |
 
 ---
 
@@ -182,6 +186,68 @@ All grade results (Software, AI, Deep AI) render identically across the app usin
 - **Cropped images only**: Shows cropped card images, not full photos with background
 - **Grade type colors**: Software (#00ff88), AI (#8b5cf6), Deep AI (#f97316)
 - **Company-specific subgrades**: TAG shows 8 subgrades, BGS/CGC show 4
+
+---
+
+## TAG 1000-Point Scoring System (Deep AI)
+
+Deep AI now uses TAG's exact 1000-point scale for grading. Each area starts at 1000 and the **lowest score determines the grade**.
+
+### Grade Scale (by lowest area score)
+| Score Range | Grade | Label |
+|-------------|-------|-------|
+| 990-1000 | 10 | PRISTINE |
+| 950-989 | 10 | GEM MINT |
+| 900-949 | 9 | MINT |
+| 850-899 | 8.5 | NM-MT+ |
+| 800-849 | 8 | NM-MT |
+| 750-799 | 7.5 | NM+ |
+| 700-749 | 7 | NM |
+| 650-699 | 6.5 | EX-MT+ |
+| 600-649 | 6 | EX-MT |
+| 500-599 | 5 | EX |
+
+### Area Scores (each 0-1000)
+- **Centering Front/Back**: Based on L/R and T/B deviation from 50/50
+- **Corners (TL/TR/BL/BR)**: Per-corner scores for front and back
+- **Edges (TOP/BOTTOM/LEFT/RIGHT)**: Per-edge scores for front and back
+- **Surface Front/Back**: Based on scratches, print lines, play wear
+
+### DIG Report Format
+The Deep AI response includes a `digReport` object matching TAG's format:
+```javascript
+digReport: {
+  score_total: 940,           // Lowest area score = final grade
+  scores: {
+    centering_front: 980,
+    centering_back: 940,      // Grade-limiting factor
+    corners_front: 950,
+    corners_back: 960,
+    edges_front: 960,
+    edges_back: 960,
+    surface_front: 965,
+    surface_back: 950,
+  },
+  lowestArea: "back centering",
+  defects: { total_dings, corners, edges, surface, dings[] }
+}
+```
+
+### Validation
+Tested against 5 TAG reference cards (grades 6-10). Results:
+- **4/5 exact matches** (same grade and score within ±20)
+- **1/5 close match** (within ±0.5 grade, ±50 points)
+- **0/5 mismatches**
+
+### Files
+| File | Purpose |
+|------|---------|
+| `api/deep-analyze-v2.js` | Production Deep AI with 1000-point scoring |
+| `api/backup/deep-analyze-v2-pre-1000pt.js` | Backup of previous 125-scale version |
+| `src/components/Grading/DingsTabV2.jsx` | Mode-switching dings tab (software/ai/deep) |
+| `src/components/Grading/DeepAiDingsMap.jsx` | Visual defect map with coordinates |
+| `scripts/test-deep-analyze-v3.js` | Test script for validation |
+| `scripts/deep-analyze-v3-validation-report.md` | Validation analysis report |
 
 ---
 
@@ -603,4 +669,4 @@ vercel --prod
 
 ---
 
-*Last Updated: June 9, 2026 (C1-C6, P1-P10 complete)*
+*Last Updated: June 10, 2026 (TAG 1000-Point System deployed to Deep AI)*
