@@ -378,6 +378,7 @@ export default async function handler(req, res) {
       back: backCentering,
     } : null);
 
+    const startTime = Date.now();
     console.log("[Deep V2] Starting coordinate-based analysis...");
 
     // ========== PASS 1: Quick defect detection ==========
@@ -479,9 +480,27 @@ export default async function handler(req, res) {
     // Convert 1000-point score to 10-point grade for condition display
     const scoreToGrade = (score) => Math.min(10, Math.max(1, score / 100));
 
-    // ========== Format response ==========
+    // ========== Format response (backwards compatible with old V2) ==========
+    const endTime = Date.now();
+    const elapsed = endTime - (startTime || endTime);
+
     return res.status(200).json({
       success: true,
+      version: 'v2',
+      // Backwards compatibility fields
+      passes: {
+        quickEstimate: pass1Result,
+        referencesUsed: 0,
+        referenceGrades: [],
+      },
+      comparison: null,
+      meta: {
+        elapsedMs: elapsed,
+        centeringSource: centeringData ? 'software' : 'ai-estimated',
+        softwareCentering: centeringData || null,
+        scale: 1000,
+      },
+      // Card data
       cardInfo: finalResult.cardInfo,
       imageQuality: finalResult.imageQuality,
       centering: finalResult.centering,
