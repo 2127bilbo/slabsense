@@ -60,8 +60,12 @@ Ask yourself: "Can I see actual exposed paper fibers, or is this just light refl
 - If you cannot clearly see damaged paper fibers → IT IS GLARE → DO NOT REPORT
 - If you see actual white cardboard exposed → REPORT as wear
 
-**DEFAULT ASSUMPTION: The card is in excellent condition unless you see OBVIOUS physical damage.**
-Most cards submitted for grading are near-mint. When uncertain, report "clean" for that category.
+**GRADING PHILOSOPHY: BE STRICT AND ACCURATE.**
+Cards range from PRISTINE (10) to POOR (1). Many cards have significant wear.
+- If you see whitening on corners → REPORT IT as corner wear
+- If whitening is on ALL corners → this is "heavy wear" territory (grade 7 or below)
+- Vintage cards (1999-2003) often have natural wear - still report it accurately
+- When uncertain between two severity levels, choose the MORE SEVERE option
 
 Respond with ONLY this JSON (no other text):
 {
@@ -79,9 +83,18 @@ Respond with ONLY this JSON (no other text):
     "surface": "clean/minor issues/moderate issues/heavy issues",
     "surfaceDetails": "describe any surface issues found (NOT glare)"
   },
-  "estimatedDefectImpact": "minimal/minor/moderate/significant",
-  "gradeRange": { "low": 8, "high": 9.5 }
-}`;
+  "estimatedDefectImpact": "minimal/minor/moderate/significant/severe",
+  "gradeRange": { "low": 5, "high": 10, "mostLikely": 8 },
+  "gradeRangeReasoning": "Brief explanation of grade range based on defects found"
+}
+
+GRADE RANGE GUIDELINES:
+- Clean card, no visible defects → low: 9, high: 10
+- 1-2 minor corner/edge issues → low: 8, high: 9
+- Whitening on multiple corners → low: 7, high: 8
+- Whitening on ALL corners + edge wear → low: 6, high: 7.5
+- Heavy wear throughout → low: 5, high: 6.5
+- Creases, bends, or major damage → low: 3, high: 5`;
 
 // ============================================================================
 // PASS 2: Final Grading (uses our centering + AI defect detection)
@@ -102,8 +115,22 @@ TAG GRADE HIERARCHY (highest to lowest):
 - 10 GEM MINT (950-984 pts) = Near perfect. May have 1-2 trivial flaws invisible to naked eye
 - 9.5 GEM MINT (925-949 pts) = Excellent. Minor flaws only visible under magnification
 - 9 MINT (900-924 pts) = Great condition. Small flaws may be visible
-- 8.5 NM-MT+ (875-899 pts) = Light wear visible
-- 8 NM-MT (850-874 pts) = Noticeable minor wear
+- 8.5 NM-MT+ (875-899 pts) = Light wear visible on 1-2 corners or edges
+- 8 NM-MT (850-874 pts) = Noticeable minor wear on multiple areas
+- 7.5 NM+ (800-849 pts) = Clear wear on corners AND edges, still presents well
+- 7 NM (750-799 pts) = Obvious wear - whitening visible on most corners/edges
+- 6.5 EX-MT+ (700-749 pts) = Significant wear - corner whitening, edge wear throughout
+- 6 EX-MT (650-699 pts) = Heavy wear - all corners show whitening, multiple edge dings
+- 5 EX (500-649 pts) = Major wear - heavy whitening, possible creases, surface issues
+- 4 VG-EX (400-499 pts) = Severe wear throughout, still intact
+- 3 VG (300-399 pts) = Heavy play wear, creases likely
+- 2 GOOD (200-299 pts) = Major damage
+- 1 POOR (100-199 pts) = Severe damage
+
+**CRITICAL MATH RULE: The LOWEST subgrade determines the maximum overall grade.**
+- If corners = 7 and edges = 8 and surface = 9 → OVERALL CANNOT EXCEED 7
+- If ANY area scores below 8, the card CANNOT be a 9 overall
+- Always ensure: overall_grade <= min(corners, edges, surface, centering)
 
 IMPORTANT: PRISTINE is HIGHER than GEM MINT. Only award PRISTINE for truly flawless cards.
 If ANY defects exist (even minor surface issues), the card is NOT PRISTINE.
