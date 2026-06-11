@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SlabSense - Damage Report Mockup</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .modal-overlay {
+      background: rgba(0, 0, 0, 0.85);
+      border-radius: 16px;
+      max-width: 1200px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid #333;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-bottom: 1px solid #333;
+    }
+
+    .modal-header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .close-btn {
+      background: #333;
+      border: none;
+      color: #999;
+      font-size: 24px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .close-btn:hover {
+      background: #f44;
+      color: #fff;
+    }
+
+    .card-info-bar {
+      padding: 12px 24px;
+      background: #1a1a2e;
+      border-bottom: 1px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-name {
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .card-name span {
+      color: #888;
+      font-weight: 400;
+    }
+
+    .grade-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .grade-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #4ade80;
+    }
+
+    .grade-label {
+      font-size: 14px;
+      color: #888;
+    }
+
+    .score-pill {
+      background: #2a2a4a;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      color: #8b5cf6;
+      font-weight: 600;
+    }
+
+    .cards-container {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      padding: 24px;
+      background: #0d0d15;
+    }
+
+    .card-panel {
+      flex: 1;
+      max-width: 400px;
+    }
+
+    .card-label {
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    .card-wrapper {
+      position: relative;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      aspect-ratio: 2.5/3.5;
+    }
+
+    .card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: grayscale(100%);
+    }
+
+    /* Zone overlays */
+    .zone-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .zone {
+      position: absolute;
+      border: 2px solid;
+      background: transparent;
+      opacity: 0.8;
+    }
+
+    .zone-5 { border-color: #00d4ff; } /* Cyan - Edge */
+    .zone-4 { border-color: #22c55e; } /* Green - Near edge */
+    .zone-3 { border-color: #eab308; } /* Yellow - Outer mid */
+    .zone-2 { border-color: #f97316; } /* Orange - Mid */
+    .zone-1 { border-color: #ef4444; } /* Red - Center */
+    .zone-0 { border-color: #991b1b; } /* Dark red - Inner center */
+
+    /* Defect markers */
+    .defect-marker {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      background: #3b82f6;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      transition: all 0.2s;
+    }
+
+    .defect-marker:hover {
+      transform: translate(-50%, -50%) scale(1.2);
+      background: #60a5fa;
+    }
+
+    .defect-marker.severity-high {
+      background: #ef4444;
+    }
+
+    .defect-marker.severity-medium {
+      background: #f97316;
+    }
+
+    .defect-marker.severity-low {
+      background: #22c55e;
+    }
+
+    .defect-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a2e;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 8px 12px;
+      white-space: nowrap;
+      font-size: 12px;
+      display: none;
+      z-index: 20;
+      margin-bottom: 8px;
+    }
+
+    .defect-marker:hover .defect-tooltip {
+      display: block;
+    }
+
+    /* Vision mode controls */
+    .vision-controls {
+      padding: 16px 24px;
+      background: #1a1a2e;
+      border-top: 1px solid #333;
+      border-bottom: 1px solid #333;
+    }
+
+    .vision-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .vision-buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .vision-btn {
+      flex: 1;
+      padding: 10px 16px;
+      background: #2a2a4a;
+      border: 1px solid #444;
+      border-radius: 8px;
+      color: #888;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .vision-btn:hover {
+      background: #3a3a5a;
+      color: #fff;
+    }
+
+    .vision-btn.active {
+      background: #4f46e5;
+      border-color: #6366f1;
+      color: #fff;
+    }
+
+    .vision-slider-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .vision-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      background: #333;
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .vision-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      background: #6366f1;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid #fff;
+    }
+
+    .slider-label {
+      font-size: 12px;
+      color: #666;
+      min-width: 60px;
+    }
+
+    /* Defect list */
+    .defects-section {
+      padding: 20px 24px;
+      background: #0d0d15;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .defect-count {
+      background: #ef4444;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 12px;
+    }
+
+    .defect-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .defect-item {
+      display: grid;
+      grid-template-columns: 32px 1fr 80px 60px 80px;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px;
+      background: #1a1a2e;
+      border-radius: 8px;
+      border: 1px solid #333;
+    }
+
+    .defect-number {
+      width: 28px;
+      height: 28px;
+      background: #3b82f6;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .defect-number.severity-high { background: #ef4444; }
+    .defect-number.severity-medium { background: #f97316; }
+    .defect-number.severity-low { background: #22c55e; }
+
+    .defect-type {
+      font-weight: 500;
+    }
+
+    .defect-zone {
+      color: #888;
+      font-size: 13px;
+    }
+
+    .defect-side {
+      color: #666;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .defect-impact {
+      text-align: right;
+      color: #ef4444;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    /* Area scores */
+    .scores-section {
+      padding: 20px 24px;
+      background: #1a1a2e;
+      border-top: 1px solid #333;
+    }
+
+    .scores-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .score-card {
+      background: #2a2a4a;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .score-card-label {
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .score-card-values {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .score-value {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .score-value.front { color: #4ade80; }
+    .score-value.back { color: #60a5fa; }
+
+    .score-side-label {
+      font-size: 10px;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    .lowest-indicator {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: #2a1a1a;
+      border: 1px solid #ef4444;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .lowest-icon {
+      color: #ef4444;
+      font-size: 20px;
+    }
+
+    .lowest-text {
+      font-size: 14px;
+    }
+
+    .lowest-text strong {
+      color: #ef4444;
+    }
+
+    /* Zone legend */
+    .zone-legend {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      padding: 12px;
+      background: #0d0d15;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #888;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border: 2px solid;
+      border-radius: 3px;
+    }
+
+    .legend-color.zone-5 { border-color: #00d4ff; }
+    .legend-color.zone-4 { border-color: #22c55e; }
+    .legend-color.zone-3 { border-color: #eab308; }
+    .legend-color.zone-2 { border-color: #f97316; }
+    .legend-color.zone-1 { border-color: #ef4444; }
+    .legend-color.zone-0 { border-color: #991b1b; }
+
+    /* Toggle for zones */
+    .toggle-container {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      padding: 12px;
+      background: #0d0d15;
+    }
+
+    .toggle-btn {
+      padding: 6px 12px;
+      background: #2a2a4a;
+      border: 1px solid #444;
+      border-radius: 6px;
+      color: #888;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .toggle-btn:hover {
+      background: #3a3a5a;
+    }
+
+    .toggle-btn.active {
+      background: #4f46e5;
+      border-color: #6366f1;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="modal-overlay">
+    <!-- Header -->
+    <div class="modal-header">
+      <h1>Damage Report</h1>
+      <button class="close-btn">&times;</button>
+    </div>
+
+    <!-- Card Info Bar -->
+    <div class="card-info-bar">
+      <div class="card-name">
+        Charizard <span>• Base Set • #4 • 1999</span>
+      </div>
+      <div class="grade-badge">
+        <div>
+          <div class="grade-value">9</div>
+          <div class="grade-label">MINT</div>
+        </div>
+        <div class="score-pill">920 / 1000</div>
+      </div>
+    </div>
+
+    <!-- Toggle Controls -->
+    <div class="toggle-container">
+      <button class="toggle-btn active" onclick="toggleZones(true)">Show Zones</button>
+      <button class="toggle-btn" onclick="toggleZones(false)">Hide Zones</button>
+      <button class="toggle-btn active" onclick="toggleMarkers(true)">Show Markers</button>
+      <button class="toggle-btn" onclick="toggleMarkers(false)">Hide Markers</button>
+    </div>
+
+    <!-- Card Images -->
+    <div class="cards-container">
+      <!-- Front Card -->
+      <div class="card-panel">
+        <div class="card-label">Front</div>
+        <div class="card-wrapper" id="front-card">
+          <!-- Placeholder gray card -->
+          <div class="card-image" style="background: linear-gradient(145deg, #3a3a3a 0%, #2a2a2a 100%);"></div>
+
+          <!-- Zone Overlays -->
+          <div class="zone-overlay" id="front-zones">
+            <!-- Zone 5 - Edge (outermost) -->
+            <div class="zone zone-5" style="left: 0%; top: 0%; width: 100%; height: 100%;"></div>
+            <!-- Zone 4 - Near edge -->
+            <div class="zone zone-4" style="left: 8.21%; top: 5.85%; width: 83.58%; height: 88.30%;"></div>
+            <!-- Zone 3 - Outer mid -->
+            <div class="zone zone-3" style="left: 15.65%; top: 12.18%; width: 68.70%; height: 75.64%;"></div>
+            <!-- Zone 2 - Mid -->
+            <div class="zone zone-2" style="left: 23.08%; top: 18.37%; width: 53.84%; height: 63.26%;"></div>
+            <!-- Zone 1 - Center -->
+            <div class="zone zone-1" style="left: 30.52%; top: 24.55%; width: 38.96%; height: 50.90%;"></div>
+            <!-- Zone 0 - Inner center -->
+            <div class="zone zone-0" style="left: 37.95%; top: 30.73%; width: 24.10%; height: 38.54%;"></div>
+          </div>
+
+          <!-- Defect Markers -->
+          <div class="defect-markers" id="front-markers">
+            <div class="defect-marker severity-medium" style="left: 18%; top: 32%;">
+              1
+              <div class="defect-tooltip">Surface Scratch • Zone 3</div>
+            </div>
+            <div class="defect-marker severity-high" style="left: 92%; top: 88%;">
+              2
+              <div class="defect-tooltip">Corner Whitening • Zone 5</div>
+            </div>
+            <div class="defect-marker severity-high" style="left: 50%; top: 98%;">
+              3
+              <div class="defect-tooltip">Edge Wear • Zone 5</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Back Card -->
+      <div class="card-panel">
+        <div class="card-label">Back</div>
+        <div class="card-wrapper" id="back-card">
+          <!-- Placeholder gray card -->
+          <div class="card-image" style="background: linear-gradient(145deg, #2a2a4a 0%, #1a1a3a 100%);"></div>
+
+          <!-- Zone Overlays -->
+          <div class="zone-overlay" id="back-zones">
+            <!-- Zone 5 - Edge (outermost) -->
+            <div class="zone zone-5" style="left: 0%; top: 0%; width: 100%; height: 100%;"></div>
+            <!-- Zone 4 - Near edge -->
+            <div class="zone zone-4" style="left: 8.24%; top: 5.85%; width: 83.52%; height: 88.30%;"></div>
+            <!-- Zone 3 - Outer mid -->
+            <div class="zone zone-3" style="left: 15.67%; top: 12.18%; width: 68.66%; height: 75.64%;"></div>
+            <!-- Zone 2 - Mid -->
+            <div class="zone zone-2" style="left: 23.10%; top: 18.37%; width: 53.80%; height: 63.26%;"></div>
+            <!-- Zone 1 - Center -->
+            <div class="zone zone-1" style="left: 30.53%; top: 24.55%; width: 38.94%; height: 50.90%;"></div>
+            <!-- Zone 0 - Inner center -->
+            <div class="zone zone-0" style="left: 37.97%; top: 30.73%; width: 24.06%; height: 38.54%;"></div>
+          </div>
+
+          <!-- Defect Markers -->
+          <div class="defect-markers" id="back-markers">
+            <div class="defect-marker severity-low" style="left: 45%; top: 40%;">
+              4
+              <div class="defect-tooltip">Print Line • Zone 1</div>
+            </div>
+            <div class="defect-marker severity-medium" style="left: 75%; top: 60%;">
+              5
+              <div class="defect-tooltip">Minor Pit • Zone 3</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zone Legend -->
+    <div class="zone-legend">
+      <div class="legend-item">
+        <div class="legend-color zone-0"></div>
+        <span>Zone 0 (Center)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color zone-1"></div>
+        <span>Zone 1</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color zone-2"></div>
+        <span>Zone 2</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color zone-3"></div>
+        <span>Zone 3</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color zone-4"></div>
+        <span>Zone 4</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color zone-5"></div>
+        <span>Zone 5 (Edge)</span>
+      </div>
+    </div>
+
+    <!-- Vision Mode Controls -->
+    <div class="vision-controls">
+      <div class="vision-label">Vision Mode</div>
+      <div class="vision-buttons">
+        <button class="vision-btn active" onclick="setVisionMode('normal')">Normal</button>
+        <button class="vision-btn" onclick="setVisionMode('emboss')">Emboss</button>
+        <button class="vision-btn" onclick="setVisionMode('highpass')">Hi-Pass</button>
+        <button class="vision-btn" onclick="setVisionMode('edges')">Edges</button>
+      </div>
+      <div class="vision-slider-container">
+        <span class="slider-label">Intensity</span>
+        <input type="range" class="vision-slider" min="0" max="100" value="100">
+        <span class="slider-label" id="intensity-value">100%</span>
+      </div>
+    </div>
+
+    <!-- Defect List -->
+    <div class="defects-section">
+      <div class="section-header">
+        <div class="section-title">Defects Found</div>
+        <div class="defect-count">5</div>
+      </div>
+      <div class="defect-list">
+        <div class="defect-item">
+          <div class="defect-number severity-medium">1</div>
+          <div class="defect-type">Surface Scratch</div>
+          <div class="defect-zone">Zone 3</div>
+          <div class="defect-side">Front</div>
+          <div class="defect-impact">-15 pts</div>
+        </div>
+        <div class="defect-item">
+          <div class="defect-number severity-high">2</div>
+          <div class="defect-type">Corner Whitening</div>
+          <div class="defect-zone">Zone 5</div>
+          <div class="defect-side">Front</div>
+          <div class="defect-impact">-25 pts</div>
+        </div>
+        <div class="defect-item">
+          <div class="defect-number severity-high">3</div>
+          <div class="defect-type">Edge Wear</div>
+          <div class="defect-zone">Zone 5</div>
+          <div class="defect-side">Front</div>
+          <div class="defect-impact">-20 pts</div>
+        </div>
+        <div class="defect-item">
+          <div class="defect-number severity-low">4</div>
+          <div class="defect-type">Print Line</div>
+          <div class="defect-zone">Zone 1</div>
+          <div class="defect-side">Back</div>
+          <div class="defect-impact">-10 pts</div>
+        </div>
+        <div class="defect-item">
+          <div class="defect-number severity-medium">5</div>
+          <div class="defect-type">Minor Pit</div>
+          <div class="defect-zone">Zone 3</div>
+          <div class="defect-side">Back</div>
+          <div class="defect-impact">-10 pts</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Area Scores -->
+    <div class="scores-section">
+      <div class="section-header">
+        <div class="section-title">Area Scores</div>
+      </div>
+      <div class="scores-grid">
+        <div class="score-card">
+          <div class="score-card-label">Centering</div>
+          <div class="score-card-values">
+            <div>
+              <div class="score-value front">980</div>
+              <div class="score-side-label">Front</div>
+            </div>
+            <div>
+              <div class="score-value back">960</div>
+              <div class="score-side-label">Back</div>
+            </div>
+          </div>
+        </div>
+        <div class="score-card">
+          <div class="score-card-label">Corners</div>
+          <div class="score-card-values">
+            <div>
+              <div class="score-value front">935</div>
+              <div class="score-side-label">Front</div>
+            </div>
+            <div>
+              <div class="score-value back">960</div>
+              <div class="score-side-label">Back</div>
+            </div>
+          </div>
+        </div>
+        <div class="score-card">
+          <div class="score-card-label">Edges</div>
+          <div class="score-card-values">
+            <div>
+              <div class="score-value front" style="color: #ef4444;">920</div>
+              <div class="score-side-label">Front</div>
+            </div>
+            <div>
+              <div class="score-value back">955</div>
+              <div class="score-side-label">Back</div>
+            </div>
+          </div>
+        </div>
+        <div class="score-card">
+          <div class="score-card-label">Surface</div>
+          <div class="score-card-values">
+            <div>
+              <div class="score-value front">945</div>
+              <div class="score-side-label">Front</div>
+            </div>
+            <div>
+              <div class="score-value back">950</div>
+              <div class="score-side-label">Back</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="lowest-indicator">
+        <span class="lowest-icon">⚠</span>
+        <div class="lowest-text">
+          <strong>Front Edges (920)</strong> is the grade-limiting factor
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Vision mode switching
+    function setVisionMode(mode) {
+      document.querySelectorAll('.vision-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.toLowerCase().replace('-', '') === mode.replace('-', '')) {
+          btn.classList.add('active');
+        }
+      });
+
+      // In real implementation, this would switch the card image filter
+      console.log('Vision mode:', mode);
+    }
+
+    // Toggle zones visibility
+    function toggleZones(show) {
+      document.querySelectorAll('.toggle-btn').forEach((btn, i) => {
+        if (i < 2) {
+          btn.classList.toggle('active', (i === 0) === show);
+        }
+      });
+      document.querySelectorAll('.zone-overlay').forEach(overlay => {
+        overlay.style.display = show ? 'block' : 'none';
+      });
+    }
+
+    // Toggle markers visibility
+    function toggleMarkers(show) {
+      document.querySelectorAll('.toggle-btn').forEach((btn, i) => {
+        if (i >= 2) {
+          btn.classList.toggle('active', (i === 2) === show);
+        }
+      });
+      document.querySelectorAll('.defect-markers').forEach(markers => {
+        markers.style.display = show ? 'block' : 'none';
+      });
+    }
+
+    // Intensity slider
+    document.querySelector('.vision-slider').addEventListener('input', function() {
+      document.getElementById('intensity-value').textContent = this.value + '%';
+    });
+
+    // Highlight defect on list hover
+    document.querySelectorAll('.defect-item').forEach((item, index) => {
+      item.addEventListener('mouseenter', () => {
+        const num = index + 1;
+        document.querySelectorAll('.defect-marker').forEach(marker => {
+          if (marker.textContent.trim() === String(num)) {
+            marker.style.transform = 'translate(-50%, -50%) scale(1.4)';
+            marker.style.boxShadow = '0 0 20px rgba(59, 130, 246, 0.8)';
+          }
+        });
+      });
+      item.addEventListener('mouseleave', () => {
+        document.querySelectorAll('.defect-marker').forEach(marker => {
+          marker.style.transform = 'translate(-50%, -50%)';
+          marker.style.boxShadow = '0 2px 8px rgba(0,0,0,0.5)';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
