@@ -36,3 +36,8 @@ docs/my slab/
 __pycache__/
 *.pyc
 *.pyo
+
+# API Keys - NEVER commit these
+api/Slabsense Gemini API-.txt
+*.api-keys.txt
+*-API-.txt
