@@ -219,9 +219,28 @@ Software centering not available. You must visually estimate by comparing border
   return `## CARD: ${quickAssessment.cardName}
 ${centeringBlock}
 
-## YOUR TASK - DEFECT DETECTION ONLY
+## YOUR TASK - DEFECT DETECTION WITH COORDINATES
 
-Look at the card images and find ALL defects:
+Look at the card images and find ALL defects. For each defect, provide:
+- **side**: "FRONT" or "BACK"
+- **type**: Category like "CORNER / DING", "EDGE / WHITENING", "SURFACE / SCRATCH"
+- **location**: Position like "TOP LEFT", "BOTTOM EDGE", "CENTER"
+- **severity**: "minor", "moderate", or "severe"
+- **x, y**: Position as PERCENTAGE (0-100) where 0,0 is top-left corner
+- **width, height**: Approximate size as percentage of card dimensions
+
+COORDINATE GUIDE (as percentages 0-100):
+- TOP LEFT corner: x=5-15, y=5-15
+- TOP RIGHT corner: x=85-95, y=5-15
+- BOTTOM LEFT corner: x=5-15, y=85-95
+- BOTTOM RIGHT corner: x=85-95, y=85-95
+- TOP edge: x=20-80, y=2-8
+- BOTTOM edge: x=20-80, y=92-98
+- LEFT edge: x=2-8, y=20-80
+- RIGHT edge: x=92-98, y=20-80
+- CENTER area: x=30-70, y=30-70
+
+DEFECT TYPES TO CHECK:
 
 1. CORNERS (all 4, front and back):
    - Whitening, dings, bends, rounding, wear
@@ -280,7 +299,16 @@ Respond with this JSON (no other text):
     "edges": 1,
     "surface": 1,
     "details": [
-      { "type": "corner wear", "location": "top-left front", "severity": "minor" }
+      {
+        "type": "CORNER / DING",
+        "side": "FRONT",
+        "location": "TOP LEFT",
+        "severity": "minor",
+        "x": 8,
+        "y": 7,
+        "width": 6,
+        "height": 5
+      }
     ]
   },
   "comparison": {

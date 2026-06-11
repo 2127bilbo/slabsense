@@ -15,6 +15,7 @@ import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.js
 import { PostCaptureCentering } from "./components/PostCaptureCentering/PostCaptureCentering.jsx";
 import { HoloLogo } from "./components/HoloLogo/HoloLogo.jsx";
 import { GradeResultDisplay } from "./components/Grading/GradeResultDisplay.jsx";
+import { DamageReportModal } from "./components/DamageReport";
 import { CreditBalance, PricingPage } from "./components/Billing";
 import { spendCredits, refundCredits } from "./services/credits.js";
 import {
@@ -2856,6 +2857,7 @@ export default function SlabSense(){
   const[savingStatus,setSavingStatus]=useState(null); // 'saving' | 'saved' | 'error' | null
   const[showCollection,setShowCollection]=useState(false); // Collection view visibility
   const[showExport,setShowExport]=useState(false); // Export modal visibility
+  const[showDamageReport,setShowDamageReport]=useState(false); // Damage Report modal visibility
   const[showSettings,setShowSettings]=useState(false); // Settings modal visibility
   const[visionMode,setVisionMode]=useState('normal'); // 'normal'|'emboss'|'highpass'|'edges'
   const[visionIntensity,setVisionIntensity]=useState(50); // 0-100% intensity slider
@@ -3837,7 +3839,6 @@ export default function SlabSense(){
     {id:"scan",l:"Scan",i:"◎",free:true,nav:true},
     {id:"cards",l:"Cards",i:"▤",free:true,nav:true},
     {id:"grade",l:"Grade",i:"★",free:true,analysis:true},
-    {id:"dings",l:"Dings",i:"⚠",free:true,analysis:true},
     {id:"centering",l:"Center",i:"⊞",free:true,analysis:true},
   ];
   const tabs = allTabs; // All tabs available to all users
@@ -3869,6 +3870,21 @@ export default function SlabSense(){
         backImage={bI}
         gradingCompany={gradingCompany}
         onClose={() => setShowExport(false)}
+      />
+    )}
+    {/* Damage Report Modal */}
+    {showDamageReport && gradeResult && (
+      <DamageReportModal
+        isOpen={showDamageReport}
+        onClose={() => setShowDamageReport(false)}
+        frontImage={frontCroppedImage || fI}
+        backImage={backCroppedImage || bI}
+        frontMaps={fM}
+        backMaps={bM}
+        frontResult={fR}
+        backResult={bR}
+        gradeResult={gradeResult}
+        tagDefects={gradeMode === 'deep' && deepGradeResult?.defects?.details ? deepGradeResult.defects.details : null}
       />
     )}
     {/* Card Crop Modal (for missing TCGDex images) */}
@@ -4362,6 +4378,14 @@ export default function SlabSense(){
                 <line x1="3" y1="8" x2="21" y2="8" strokeWidth="1"/>
               </svg>
             </button>
+            <button onClick={()=>setShowDamageReport(true)} title="Damage Report" style={{
+              background:"transparent",border:"none",cursor:"pointer",padding:4,color:gr?.totalDings>0?"#ff6633":"#666",transition:"color .2s"
+            }}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1.1}}>
+                <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:gr?.totalDings>0?"#ff6633":"#666"}}>⚠</span>
+                <span style={{fontFamily:mono,fontSize:9,fontWeight:600,color:gr?.totalDings>0?"#ff9944":"#555"}}>Dings</span>
+              </div>
+            </button>
           </div>
 
           {/* 4 Score Boxes */}
@@ -4668,80 +4692,6 @@ export default function SlabSense(){
             );
           })()}
 
-    </div>)}
-
-    {/* DINGS TAB */}
-    {tab==="dings"&&step===2&&gr&&fR&&bR&&(<div style={{flex:1,padding:16,overflowY:"auto"}}>
-          {/* DINGS Count */}
-          <div style={{textAlign:"center",padding:16,marginBottom:12,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
-            <div style={{fontFamily:mono,fontSize:9,color:"#555",textTransform:"uppercase",letterSpacing:".12em",marginBottom:4}}>Defects Identified of Notable Grade Significance</div>
-            <div style={{fontFamily:mono,fontSize:36,fontWeight:800,color:gr.totalDings===0?"#00ff88":gr.totalDings<=2?"#66dd44":gr.totalDings<=4?"#ffcc00":"#ff6633"}}>{gr.totalDings}</div>
-            <div style={{fontFamily:mono,fontSize:10,color:"#444"}}>DINGS</div>
-          </div>
-
-          {/* DEFECT MAP */}
-          <div style={{marginBottom:16}}>
-            <div style={{fontFamily:mono,fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:8}}>Defect Map</div>
-            <DingsMap frontResult={fR} backResult={bR}/>
-          </div>
-
-          {/* CORNERS DETAIL */}
-          <div style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
-            <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:10}}>Corners</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              {[["Front",fR],["Back",bR]].map(([side,r])=>(
-                <div key={side}>
-                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:6}}>{side}</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
-                    {r.corners?.details?.map(c=>(
-                      <div key={c.name} style={{padding:6,background:"rgba(0,0,0,.3)",borderRadius:4,borderLeft:`2px solid ${c.hasDing?"#ff6633":"#333"}`}}>
-                        <div style={{fontFamily:mono,fontSize:9,color:c.hasDing?"#ff9944":"#777"}}>{c.name}</div>
-                        <div style={{fontFamily:mono,fontSize:8,color:"#555"}}>F:{c.fray} W:{c.whiteRatio}%</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* EDGES DETAIL */}
-          <div style={{marginBottom:16,padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
-            <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:10}}>Edges</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              {[["Front",fR],["Back",bR]].map(([side,r])=>(
-                <div key={side}>
-                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:6}}>{side}</div>
-                  {r.edges?.details?.map(e=>(
-                    <div key={e.name} style={{padding:6,marginBottom:4,background:"rgba(0,0,0,.3)",borderRadius:4,borderLeft:`2px solid ${e.hasDing?"#ff6633":"#333"}`}}>
-                      <div style={{fontFamily:mono,fontSize:9,color:e.hasDing?"#ff9944":"#777"}}>{e.name}</div>
-                      <div style={{fontFamily:mono,fontSize:8,color:"#555"}}>F:{e.fray} W:{e.whiteRatio}%</div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* DEFECT LIST */}
-          {gr.allDings.length>0?(
-            <div style={{marginBottom:14}}>
-              <div style={{fontFamily:mono,fontSize:10,color:"#555",textTransform:"uppercase",marginBottom:8}}>Defect Details</div>
-              {gr.allDings.map((d,i)=>(
-                <div key={i} style={{padding:"10px 12px",marginBottom:6,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22",borderLeft:"3px solid #ff6633"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                    <span style={{fontFamily:mono,fontSize:11,color:"#ff9944",fontWeight:600}}>{d.location}</span>
-                    <span style={{fontFamily:mono,fontSize:9,color:"#555",textTransform:"uppercase"}}>{d.type}</span>
-                  </div>
-                  {d.desc&&<div style={{fontFamily:sans,fontSize:12,color:"#888"}}>{d.desc}</div>}
-                </div>
-              ))}
-            </div>
-          ):(
-            <div style={{padding:16,background:"rgba(0,255,136,.05)",borderRadius:8,border:"1px solid rgba(0,255,136,.15)",marginBottom:14}}>
-              <div style={{fontFamily:mono,fontSize:12,color:"#00ff88"}}>No DINGS detected — potential Gem Mint candidate</div>
-            </div>
-          )}
     </div>)}
 
     {/* CENTERING TAB */}
