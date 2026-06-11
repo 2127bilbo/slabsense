@@ -1,6 +1,6 @@
 # SlabSense Development Handoff
 
-**Date:** June 10, 2026
+**Date:** June 11, 2026
 **Status:** Active Development - Beta Phase
 **Codebase Audit:** See `CODEBASE_AUDIT.md` for detailed analysis
 
@@ -46,6 +46,9 @@ SlabSense is a multi-company card pre-grading application with **Claude AI integ
 | **DIG Report Format** | Deep AI output matches TAG's DIG report structure with per-area scores and defect coordinates |
 | **DingsTabV2 Component** | New dings tab with mode switching (software/ai/deep), 1000-point centering scoring |
 | **DeepAiDingsMap Component** | Visual defect map with coordinate markers and per-area score indicators |
+| **Multi-AI Provider System** | Abstraction layer supporting Claude, Gemini, GPT, Grok with 4 modes (single/parallel/sequential/synthesize) |
+| **Unified API Endpoints** | Merged ai-analyze + ai-analyze-direct → ai-analyze-unified.js; merged analyze-card + extract-card-info → card-info-unified.js |
+| **Vercel Function Optimization** | Reduced from 11 to 9 functions (freed 2 slots); providers in _providers/ folder (ignored by Vercel) |
 
 ---
 
@@ -258,6 +261,77 @@ Tested against 5 TAG reference cards (grades 6-10). Results:
 
 ---
 
+## Multi-AI Provider System
+
+The app now supports multiple AI providers with an abstraction layer. Currently running in **single mode with Claude only** (identical to previous behavior), but infrastructure is in place for multi-provider grading.
+
+### Supported Providers
+| Provider | Model | Status | Env Variable |
+|----------|-------|--------|--------------|
+| Claude (Anthropic) | claude-sonnet-4-20250514 | **Active** (Primary) | `ANTHROPIC_API_KEY` |
+| Gemini (Google) | gemini-1.5-pro | Ready | `GOOGLE_AI_API_KEY` |
+| GPT (OpenAI) | gpt-4o | Ready | `OPENAI_API_KEY` |
+| Grok (xAI) | grok-vision-beta | Ready | `XAI_API_KEY` |
+
+### Provider Modes
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `single` | One provider only (current) | Default, fastest, cheapest |
+| `parallel` | Two providers simultaneously | Compare results, higher confidence |
+| `sequential` | Primary grades → Secondary validates | Validation/adjustment |
+| `synthesize` | Primary + Secondary → Third combines | Highest accuracy |
+
+### Configuration (Admin Only)
+Provider selection is controlled via `api/ai-config.json` (requires code push to change):
+
+```json
+{
+  "gradeMode": "single",
+  "primaryProvider": "claude",
+  "secondaryProvider": null,
+  "synthesizerProvider": null,
+  "fallback": {
+    "enabled": true,
+    "provider": "claude"
+  }
+}
+```
+
+### File Structure
+```
+api/
+├── _providers/              # Helper modules (ignored by Vercel)
+│   ├── index.js             # Main interface + orchestration
+│   ├── anthropic.js         # Claude implementation
+│   ├── google.js            # Gemini implementation
+│   ├── openai.js            # GPT implementation
+│   └── xai.js               # Grok implementation
+├── ai-analyze-unified.js    # Merged endpoint (mode=direct|replicate)
+├── card-info-unified.js     # Merged endpoint (mode=claude|llava)
+├── deep-analyze-v2.js       # Multi-provider enabled
+└── ai-config.json           # Provider configuration
+
+staging/                     # Backup & documentation (not deployed)
+├── backup/                  # Original files for rollback
+└── multi-ai/                # Staging documentation
+```
+
+### Vercel Function Count
+- **Before:** 11/12 (at limit)
+- **After:** 9/12 (2 slots freed)
+- `_providers/` folder uses underscore prefix so Vercel ignores it
+
+### To Enable Other Providers
+1. Edit `api/ai-config.json` to change `primaryProvider` or add `secondaryProvider`
+2. Set provider's `enabled: true` in the providers object
+3. Ensure environment variable is set in Vercel (already configured)
+4. Push to deploy
+
+### Fallback Behavior
+If a non-Claude provider fails, the system automatically falls back to Claude (configured in `fallback.provider`).
+
+---
+
 ## Card Identification Flow (CLIP)
 
 ```
@@ -352,10 +426,18 @@ User clicks "3D Slab View"
 | `src/lib/tag-calibration.js` | Re-exports from masterweights for backward compatibility |
 | `src/utils/gradingScales.js` | Re-exports from masterweights for backward compatibility |
 
-### API Routes (Vercel)
+### API Routes (Vercel) - 9 Functions
 | File | Purpose |
 |------|---------|
-| `api/ai-analyze.js` | Claude grading via Replicate |
+| `api/ai-analyze-unified.js` | AI grading (mode=direct or replicate) |
+| `api/card-info-unified.js` | Card info extraction (mode=claude or llava) |
+| `api/deep-analyze-v2.js` | Deep AI grading with multi-provider support |
+| `api/credits/balance.js` | Get user credit balance |
+| `api/credits/spend.js` | Deduct credits for AI operations |
+| `api/credits/refund.js` | Refund credits on failure |
+| `api/stripe/webhook.js` | Stripe payment webhooks |
+| `api/stripe/create-checkout.js` | Create Stripe checkout session |
+| `api/stripe/create-portal.js` | Create Stripe customer portal |
 
 ### Backend (Optional - Python/FastAPI)
 | File | Purpose |
@@ -370,13 +452,17 @@ User clicks "3D Slab View"
 
 ### Required for AI Features
 ```
-REPLICATE_API_TOKEN=your_replicate_token
+ANTHROPIC_API_KEY=sk-ant-...      # Claude (primary - required)
+GOOGLE_AI_API_KEY=AIza...          # Gemini (optional - configured)
+OPENAI_API_KEY=sk-...              # GPT (optional - configured)
+XAI_API_KEY=xai-...                # Grok (optional - not yet configured)
 ```
 
 ### Supabase
 ```
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
 ---
@@ -676,4 +762,4 @@ vercel --prod
 
 ---
 
-*Last Updated: June 10, 2026 (2-Step Centering Process with rotation fix)*
+*Last Updated: June 11, 2026 (Multi-AI Provider System deployed)*
