@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TAG Coordinate Calibration Tool</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 50px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00d4ff;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 100%;
+            margin: 0 auto;
+            height: calc(100vh - 120px);
+        }
+
+        .images-panel {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+            min-width: 0;
+        }
+
+        .image-container {
+            flex: 1;
+            background: #16213e;
+            border-radius: 10px;
+            padding: 15px;
+            border: 2px solid #0f3460;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .image-container h3 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #00d4ff;
+        }
+
+        .upload-area {
+            border: 2px dashed #0f3460;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .upload-area input {
+            display: none;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            background: #0a0a15;
+            flex: 1;
+            min-height: 200px;
+            cursor: grab;
+        }
+
+        .canvas-wrapper:active {
+            cursor: grabbing;
+        }
+
+        .canvas-wrapper canvas {
+            display: block;
+        }
+
+        .controls-panel {
+            width: 380px;
+            min-width: 320px;
+            background: #16213e;
+            border-radius: 10px;
+            padding: 20px;
+            border: 2px solid #0f3460;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .controls-panel h3 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #0f3460;
+            padding-bottom: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #aaa;
+            font-size: 12px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-row input {
+            flex: 1;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #0f3460;
+            border-radius: 5px;
+            background: #0a0a15;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #00d4ff;
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #00a8cc;
+        }
+
+        .btn-danger {
+            background: #e94560;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #c73e54;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: #000;
+        }
+
+        .btn-warning:hover {
+            background: #d68910;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #1e8449;
+        }
+
+        .btn-secondary {
+            background: #0f3460;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: #1a4a7a;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .button-group button {
+            flex: 1;
+            min-width: 100px;
+        }
+
+        .dings-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .ding-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: #0a0a15;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+
+        .ding-item.front {
+            border-left: 3px solid #00d4ff;
+        }
+
+        .ding-item.back {
+            border-left: 3px solid #f39c12;
+        }
+
+        .ding-item .ding-info {
+            flex: 1;
+        }
+
+        .ding-item .tag-coords {
+            color: #888;
+        }
+
+        .ding-item .mapped-coords {
+            color: #27ae60;
+        }
+
+        .ding-item button {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        .calibration-section {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #0f3460;
+        }
+
+        .calibration-info {
+            background: #0a0a15;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .calibration-info p {
+            margin-bottom: 5px;
+        }
+
+        .zoom-info {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .instructions {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .instructions h4 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+        }
+
+        .zone-controls {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #0f3460;
+        }
+
+        .zone-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .zone-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+
+        .zone-item input {
+            width: 60px;
+            padding: 5px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .export-section {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #0f3460;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid #0f3460;
+            border-radius: 5px;
+            background: #0a0a15;
+            color: #fff;
+            font-family: monospace;
+            font-size: 11px;
+            resize: vertical;
+        }
+
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #0f3460;
+            padding: 8px 20px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .selected-ding {
+            background: #1a4a7a !important;
+            outline: 2px solid #00d4ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>TAG Coordinate Calibration Tool</h1>
+
+    <div class="main-container">
+        <div class="images-panel">
+            <!-- Front Image -->
+            <div class="image-container">
+                <h3>Front Card</h3>
+                <div class="upload-area" onclick="document.getElementById('frontInput').click()">
+                    <input type="file" id="frontInput" accept="image/*">
+                    <p>Click or drag to upload front image</p>
+                </div>
+                <div class="canvas-wrapper" id="frontWrapper">
+                    <canvas id="frontCanvas"></canvas>
+                </div>
+                <div class="zoom-info">
+                    Zoom: <span id="frontZoom">100</span>%
+                    <button class="btn-secondary" style="padding: 2px 8px; font-size: 11px; margin-left: 10px;" onclick="fitImageToCanvas('front'); redrawCanvas('front');">Fit</button>
+                </div>
+            </div>
+
+            <!-- Back Image -->
+            <div class="image-container">
+                <h3>Back Card</h3>
+                <div class="upload-area" onclick="document.getElementById('backInput').click()">
+                    <input type="file" id="backInput" accept="image/*">
+                    <p>Click or drag to upload back image</p>
+                </div>
+                <div class="canvas-wrapper" id="backWrapper">
+                    <canvas id="backCanvas"></canvas>
+                </div>
+                <div class="zoom-info">
+                    Zoom: <span id="backZoom">100</span>%
+                    <button class="btn-secondary" style="padding: 2px 8px; font-size: 11px; margin-left: 10px;" onclick="fitImageToCanvas('back'); redrawCanvas('back');">Fit</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-panel">
+            <div class="instructions">
+                <h4>Instructions</h4>
+                <ul>
+                    <li>Upload front/back annotated images</li>
+                    <li>Enter TAG coordinates and add dings</li>
+                    <li>Drag markers to correct positions</li>
+                    <li>Scroll wheel to zoom, drag to pan</li>
+                    <li>Double-click to fit image to view</li>
+                    <li>Click "Update Calibration" when done</li>
+                </ul>
+            </div>
+
+            <h3>Add Ding</h3>
+            <div class="input-group">
+                <label>Side</label>
+                <select id="dingSide">
+                    <option value="front">Front</option>
+                    <option value="back">Back</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>TAG Coordinates</label>
+                <div class="input-row">
+                    <input type="number" id="tagX" placeholder="X (e.g., 2902)">
+                    <input type="number" id="tagY" placeholder="Y (e.g., 2811)">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Label (optional)</label>
+                <input type="text" id="dingLabel" placeholder="e.g., Surface scratch">
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="addDing()">Add Ding</button>
+            </div>
+
+            <h3>Dings List</h3>
+            <div class="button-group">
+                <button class="btn-danger" onclick="clearAllDings()">Clear All</button>
+                <button class="btn-warning" onclick="removeLastDing()">Remove Last</button>
+            </div>
+
+            <div class="dings-list" id="dingsList"></div>
+
+            <div class="calibration-section">
+                <h3>Calibration</h3>
+                <p style="font-size: 12px; color: #888; margin-bottom: 10px;">
+                    Drag dings to their correct positions, then update calibration to calculate the mapping formula.
+                </p>
+                <div class="button-group">
+                    <button class="btn-success" onclick="updateCalibration()">Update Calibration</button>
+                    <button class="btn-secondary" onclick="resetCalibration()">Reset</button>
+                </div>
+
+                <div class="calibration-info" id="calibrationInfo">
+                    <p><strong>Status:</strong> <span id="calibStatus">No calibration data</span></p>
+                    <p><strong>Front Points:</strong> <span id="frontPoints">0</span></p>
+                    <p><strong>Back Points:</strong> <span id="backPoints">0</span></p>
+                </div>
+            </div>
+
+            <div class="zone-controls">
+                <h3>Zone Rectangles</h3>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="showZones" onchange="toggleZones()">
+                    <label for="showZones">Show Zone Rectangles</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="editZones" onchange="toggleZoneEdit()">
+                    <label for="editZones">Edit Zone Positions</label>
+                </div>
+                <p style="font-size: 11px; color: #888; margin-bottom: 10px;">
+                    6 zones from center outward. Drag corners to resize when edit mode is on.
+                </p>
+                <div id="zoneInputs"></div>
+            </div>
+
+            <div class="export-section">
+                <h3>Export/Import Data</h3>
+                <div class="button-group">
+                    <button class="btn-secondary" onclick="exportData()">Export JSON</button>
+                    <button class="btn-secondary" onclick="importData()">Import JSON</button>
+                    <button class="btn-secondary" onclick="saveToFile()">Save to File</button>
+                </div>
+                <textarea id="exportArea" placeholder="Export/Import data will appear here..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <span id="mouseCoords">Mouse: X: 0, Y: 0</span>
+        <span id="tagCoordEstimate">TAG Est: X: 0, Y: 0</span>
+        <span>Dings: <span id="totalDings">0</span></span>
+    </div>
+
+    <script>
+        // State
+        let state = {
+            dings: [],
+            calibration: {
+                front: null,
+                back: null
+            },
+            zones: {
+                front: generateDefaultZones(),
+                back: generateDefaultZones()
+            },
+            showZones: false,
+            editZones: false,
+            selectedDing: null
+        };
+
+        // Canvas states
+        let canvasState = {
+            front: {
+                image: null,
+                zoom: 1,
+                panX: 0,
+                panY: 0,
+                isDragging: false,
+                dragStartX: 0,
+                dragStartY: 0,
+                draggingDing: null,
+                draggingZoneHandle: null
+            },
+            back: {
+                image: null,
+                zoom: 1,
+                panX: 0,
+                panY: 0,
+                isDragging: false,
+                dragStartX: 0,
+                dragStartY: 0,
+                draggingDing: null,
+                draggingZoneHandle: null
+            }
+        };
+
+        // Zone colors
+        const zoneColors = [
+            'rgba(255, 0, 0, 0.7)',      // Zone 0 (innermost) - Red
+            'rgba(255, 165, 0, 0.7)',    // Zone 1 - Orange
+            'rgba(255, 255, 0, 0.7)',    // Zone 2 - Yellow
+            'rgba(0, 255, 0, 0.7)',      // Zone 3 - Green
+            'rgba(0, 191, 255, 0.7)',    // Zone 4 - Deep Sky Blue
+            'rgba(138, 43, 226, 0.7)'    // Zone 5 (outermost) - Blue Violet
+        ];
+
+        function generateDefaultZones() {
+            // Default zones with individual side percentages from center
+            const zones = [];
+            const percentages = [8, 17, 25, 33, 42, 50]; // Approximate percentages from center
+            for (let i = 0; i < 6; i++) {
+                zones.push({
+                    left: percentages[i],    // % of half-width from center to left
+                    right: percentages[i],   // % of half-width from center to right
+                    top: percentages[i],     // % of half-height from center to top
+                    bottom: percentages[i],  // % of half-height from center to bottom
+                    locked: false
+                });
+            }
+            return zones;
+        }
+
+        // Migration: convert old zone format to new format
+        function migrateZones(zones) {
+            for (const side of ['front', 'back']) {
+                if (zones[side]) {
+                    for (let i = 0; i < zones[side].length; i++) {
+                        const zone = zones[side][i];
+                        if (zone.percentFromCenter !== undefined && zone.left === undefined) {
+                            // Old format - migrate to new
+                            const pct = zone.percentFromCenter;
+                            zones[side][i] = {
+                                left: pct,
+                                right: pct,
+                                top: pct,
+                                bottom: pct,
+                                locked: zone.locked || false
+                            };
+                        }
+                    }
+                }
+            }
+            return zones;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupCanvas('front');
+            setupCanvas('back');
+            loadFromLocalStorage();
+            renderDingsList();
+            updateCalibrationInfo();
+        });
+
+        function setupCanvas(side) {
+            const canvas = document.getElementById(`${side}Canvas`);
+            const wrapper = document.getElementById(`${side}Wrapper`);
+            const ctx = canvas.getContext('2d');
+
+            // Set canvas size to match wrapper
+            function resizeCanvas() {
+                if (wrapper.clientWidth > 0 && wrapper.clientHeight > 0) {
+                    canvas.width = wrapper.clientWidth;
+                    canvas.height = wrapper.clientHeight;
+                    redrawCanvas(side);
+                }
+            }
+
+            resizeCanvas();
+
+            // Handle resize using ResizeObserver for better responsiveness
+            const resizeObserver = new ResizeObserver(() => {
+                resizeCanvas();
+            });
+            resizeObserver.observe(wrapper);
+
+            // Mouse wheel zoom
+            wrapper.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const cs = canvasState[side];
+                const oldZoom = cs.zoom;
+
+                if (e.deltaY < 0) {
+                    cs.zoom = Math.min(cs.zoom * 1.1, 20);
+                } else {
+                    cs.zoom = Math.max(cs.zoom / 1.1, 0.01);
+                }
+
+                // Zoom towards mouse position
+                const zoomRatio = cs.zoom / oldZoom;
+                cs.panX = mouseX - (mouseX - cs.panX) * zoomRatio;
+                cs.panY = mouseY - (mouseY - cs.panY) * zoomRatio;
+
+                document.getElementById(`${side}Zoom`).textContent = Math.round(cs.zoom * 100);
+                redrawCanvas(side);
+            });
+
+            // Pan and drag
+            canvas.addEventListener('mousedown', (e) => {
+                const cs = canvasState[side];
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                // Check if clicking on a ding marker
+                const imageCoords = screenToImage(mouseX, mouseY, side);
+                const clickedDing = findDingAtPosition(imageCoords.x, imageCoords.y, side);
+
+                if (clickedDing) {
+                    cs.draggingDing = clickedDing;
+                    selectDing(clickedDing.id);
+                    canvas.style.cursor = 'move';
+                } else if (state.editZones && state.showZones) {
+                    // Check for zone handle drag (corners or edges)
+                    const zoneHandle = findZoneHandleAtPosition(imageCoords.x, imageCoords.y, side);
+                    if (zoneHandle) {
+                        cs.draggingZoneHandle = zoneHandle;
+                        // Set appropriate cursor based on handle type
+                        const h = zoneHandle.handle;
+                        if (h === 'top' || h === 'bottom') canvas.style.cursor = 'ns-resize';
+                        else if (h === 'left' || h === 'right') canvas.style.cursor = 'ew-resize';
+                        else if (h === 'tl' || h === 'br') canvas.style.cursor = 'nwse-resize';
+                        else canvas.style.cursor = 'nesw-resize';
+                    } else {
+                        cs.isDragging = true;
+                        cs.dragStartX = mouseX - cs.panX;
+                        cs.dragStartY = mouseY - cs.panY;
+                    }
+                } else {
+                    cs.isDragging = true;
+                    cs.dragStartX = mouseX - cs.panX;
+                    cs.dragStartY = mouseY - cs.panY;
+                }
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                const cs = canvasState[side];
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                // Update status bar
+                const imageCoords = screenToImage(mouseX, mouseY, side);
+                document.getElementById('mouseCoords').textContent =
+                    `Mouse: X: ${Math.round(imageCoords.x)}, Y: ${Math.round(imageCoords.y)}`;
+
+                // Estimate TAG coordinates if calibrated
+                const tagEst = imageToTag(imageCoords.x, imageCoords.y, side);
+                document.getElementById('tagCoordEstimate').textContent =
+                    `TAG Est: X: ${Math.round(tagEst.x)}, Y: ${Math.round(tagEst.y)}`;
+
+                if (cs.draggingDing) {
+                    // Update ding position
+                    cs.draggingDing.mappedX = imageCoords.x;
+                    cs.draggingDing.mappedY = imageCoords.y;
+                    redrawCanvas(side);
+                    renderDingsList();
+                } else if (cs.draggingZoneHandle) {
+                    // Update zone size
+                    updateZoneFromDrag(imageCoords, side, cs.draggingZoneHandle);
+                    redrawCanvas(side);
+                } else if (cs.isDragging) {
+                    cs.panX = mouseX - cs.dragStartX;
+                    cs.panY = mouseY - cs.dragStartY;
+                    redrawCanvas(side);
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                const cs = canvasState[side];
+                cs.isDragging = false;
+                cs.draggingDing = null;
+                cs.draggingZoneHandle = null;
+                canvas.style.cursor = 'grab';
+                saveToLocalStorage();
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                const cs = canvasState[side];
+                cs.isDragging = false;
+                cs.draggingDing = null;
+                cs.draggingZoneHandle = null;
+            });
+
+            // Double click to fit image to view
+            canvas.addEventListener('dblclick', () => {
+                fitImageToCanvas(side);
+                redrawCanvas(side);
+            });
+        }
+
+        function screenToImage(screenX, screenY, side) {
+            const cs = canvasState[side];
+            return {
+                x: (screenX - cs.panX) / cs.zoom,
+                y: (screenY - cs.panY) / cs.zoom
+            };
+        }
+
+        function imageToScreen(imageX, imageY, side) {
+            const cs = canvasState[side];
+            return {
+                x: imageX * cs.zoom + cs.panX,
+                y: imageY * cs.zoom + cs.panY
+            };
+        }
+
+        function findDingAtPosition(x, y, side) {
+            const cs = canvasState[side];
+            const threshold = 15 / cs.zoom; // 15 pixels at current zoom
+
+            for (const ding of state.dings) {
+                if (ding.side !== side) continue;
+
+                const dx = (ding.mappedX || ding.initialX) - x;
+                const dy = (ding.mappedY || ding.initialY) - y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < threshold) {
+                    return ding;
+                }
+            }
+            return null;
+        }
+
+        function findZoneHandleAtPosition(x, y, side) {
+            if (!canvasState[side].image) return null;
+
+            const img = canvasState[side].image;
+            const centerX = img.width / 2;
+            const centerY = img.height / 2;
+            const threshold = 10 / canvasState[side].zoom;
+
+            for (let i = 0; i < 6; i++) {
+                const zone = state.zones[side][i];
+                const leftX = centerX - (img.width * zone.left / 100);
+                const rightX = centerX + (img.width * zone.right / 100);
+                const topY = centerY - (img.height * zone.top / 100);
+                const bottomY = centerY + (img.height * zone.bottom / 100);
+
+                // Check corners first (they take priority)
+                const corners = [
+                    { x: leftX, y: topY, handle: 'tl' },
+                    { x: rightX, y: topY, handle: 'tr' },
+                    { x: leftX, y: bottomY, handle: 'bl' },
+                    { x: rightX, y: bottomY, handle: 'br' }
+                ];
+
+                for (const c of corners) {
+                    const dx = c.x - x;
+                    const dy = c.y - y;
+                    if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+                        return { zoneIndex: i, handle: c.handle };
+                    }
+                }
+
+                // Check edge midpoints
+                const edges = [
+                    { x: centerX, y: topY, handle: 'top' },
+                    { x: centerX, y: bottomY, handle: 'bottom' },
+                    { x: leftX, y: centerY, handle: 'left' },
+                    { x: rightX, y: centerY, handle: 'right' }
+                ];
+
+                for (const e of edges) {
+                    const dx = e.x - x;
+                    const dy = e.y - y;
+                    if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+                        return { zoneIndex: i, handle: e.handle };
+                    }
+                }
+            }
+            return null;
+        }
+
+        function updateZoneFromDrag(imageCoords, side, zoneHandle) {
+            const img = canvasState[side].image;
+            if (!img) return;
+
+            const centerX = img.width / 2;
+            const centerY = img.height / 2;
+            const zone = state.zones[side][zoneHandle.zoneIndex];
+            const handle = zoneHandle.handle;
+
+            // Calculate new percentages based on drag position
+            const distLeft = Math.abs(centerX - imageCoords.x);
+            const distRight = Math.abs(imageCoords.x - centerX);
+            const distTop = Math.abs(centerY - imageCoords.y);
+            const distBottom = Math.abs(imageCoords.y - centerY);
+
+            const pctLeft = (distLeft / img.width) * 100;
+            const pctRight = (distRight / img.width) * 100;
+            const pctTop = (distTop / img.height) * 100;
+            const pctBottom = (distBottom / img.height) * 100;
+
+            // Update based on which handle is being dragged
+            switch (handle) {
+                case 'tl': // Top-left corner - adjust left and top
+                    zone.left = Math.max(2, Math.min(50, pctLeft));
+                    zone.top = Math.max(2, Math.min(50, pctTop));
+                    break;
+                case 'tr': // Top-right corner - adjust right and top
+                    zone.right = Math.max(2, Math.min(50, pctRight));
+                    zone.top = Math.max(2, Math.min(50, pctTop));
+                    break;
+                case 'bl': // Bottom-left corner - adjust left and bottom
+                    zone.left = Math.max(2, Math.min(50, pctLeft));
+                    zone.bottom = Math.max(2, Math.min(50, pctBottom));
+                    break;
+                case 'br': // Bottom-right corner - adjust right and bottom
+                    zone.right = Math.max(2, Math.min(50, pctRight));
+                    zone.bottom = Math.max(2, Math.min(50, pctBottom));
+                    break;
+                case 'top': // Top edge only
+                    zone.top = Math.max(2, Math.min(50, pctTop));
+                    break;
+                case 'bottom': // Bottom edge only
+                    zone.bottom = Math.max(2, Math.min(50, pctBottom));
+                    break;
+                case 'left': // Left edge only
+                    zone.left = Math.max(2, Math.min(50, pctLeft));
+                    break;
+                case 'right': // Right edge only
+                    zone.right = Math.max(2, Math.min(50, pctRight));
+                    break;
+            }
+
+            // Ensure zones stay ordered (inner zones smaller than outer zones)
+            // Check each side independently
+            for (const prop of ['left', 'right', 'top', 'bottom']) {
+                for (let i = 1; i < 6; i++) {
+                    if (state.zones[side][i][prop] < state.zones[side][i-1][prop]) {
+                        state.zones[side][i][prop] = state.zones[side][i-1][prop] + 0.5;
+                    }
+                }
+                for (let i = 4; i >= 0; i--) {
+                    if (state.zones[side][i][prop] > state.zones[side][i+1][prop]) {
+                        state.zones[side][i][prop] = state.zones[side][i+1][prop] - 0.5;
+                    }
+                }
+            }
+        }
+
+        // Image upload handlers
+        document.getElementById('frontInput').addEventListener('change', (e) => handleImageUpload(e, 'front'));
+        document.getElementById('backInput').addEventListener('change', (e) => handleImageUpload(e, 'back'));
+
+        function handleImageUpload(e, side) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    canvasState[side].image = img;
+
+                    // Fit image to canvas
+                    fitImageToCanvas(side);
+
+                    // Initialize ding positions if not set
+                    initializeDingPositions(side, img);
+
+                    redrawCanvas(side);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function fitImageToCanvas(side) {
+            const wrapper = document.getElementById(`${side}Wrapper`);
+            const cs = canvasState[side];
+            const img = cs.image;
+
+            if (!img || wrapper.clientWidth === 0 || wrapper.clientHeight === 0) return;
+
+            // Calculate scale to fit image in canvas with some padding
+            const padding = 10;
+            const availableWidth = wrapper.clientWidth - padding * 2;
+            const availableHeight = wrapper.clientHeight - padding * 2;
+
+            const scaleX = availableWidth / img.width;
+            const scaleY = availableHeight / img.height;
+            const scale = Math.min(scaleX, scaleY);
+
+            cs.zoom = scale;
+            cs.panX = (wrapper.clientWidth - img.width * scale) / 2;
+            cs.panY = (wrapper.clientHeight - img.height * scale) / 2;
+
+            document.getElementById(`${side}Zoom`).textContent = Math.round(scale * 100);
+        }
+
+        function initializeDingPositions(side, img) {
+            // For new images, place dings at their TAG coordinate positions
+            // Using a default mapping (assuming TAG uses ~5000 range)
+            const scaleX = img.width / 5000;
+            const scaleY = img.height / 7000;
+
+            for (const ding of state.dings) {
+                if (ding.side === side && !ding.mappedX) {
+                    ding.initialX = ding.tagX * scaleX;
+                    ding.initialY = ding.tagY * scaleY;
+                }
+            }
+        }
+
+        function redrawCanvas(side) {
+            const canvas = document.getElementById(`${side}Canvas`);
+            const ctx = canvas.getContext('2d');
+            const cs = canvasState[side];
+
+            // Clear
+            ctx.fillStyle = '#0a0a15';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!cs.image) {
+                ctx.fillStyle = '#333';
+                ctx.font = '16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No image loaded', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            // Save and transform
+            ctx.save();
+            ctx.translate(cs.panX, cs.panY);
+            ctx.scale(cs.zoom, cs.zoom);
+
+            // Draw image
+            ctx.drawImage(cs.image, 0, 0);
+
+            // Draw zone rectangles
+            if (state.showZones) {
+                drawZones(ctx, side);
+            }
+
+            // Draw dings
+            for (const ding of state.dings) {
+                if (ding.side !== side) continue;
+
+                const x = ding.mappedX || ding.initialX || 0;
+                const y = ding.mappedY || ding.initialY || 0;
+
+                const isSelected = state.selectedDing === ding.id;
+
+                // Draw marker
+                ctx.beginPath();
+                ctx.arc(x, y, 8 / cs.zoom, 0, Math.PI * 2);
+                ctx.fillStyle = isSelected ? '#ff0000' : '#00d4ff';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2 / cs.zoom;
+                ctx.stroke();
+
+                // Draw crosshair
+                ctx.beginPath();
+                ctx.moveTo(x - 12 / cs.zoom, y);
+                ctx.lineTo(x + 12 / cs.zoom, y);
+                ctx.moveTo(x, y - 12 / cs.zoom);
+                ctx.lineTo(x, y + 12 / cs.zoom);
+                ctx.strokeStyle = isSelected ? '#ff0000' : '#00d4ff';
+                ctx.lineWidth = 1 / cs.zoom;
+                ctx.stroke();
+
+                // Draw label
+                if (ding.label) {
+                    ctx.fillStyle = '#fff';
+                    ctx.font = `${12 / cs.zoom}px sans-serif`;
+                    ctx.fillText(ding.label, x + 15 / cs.zoom, y + 5 / cs.zoom);
+                }
+
+                // Draw ID
+                ctx.fillStyle = '#fff';
+                ctx.font = `bold ${10 / cs.zoom}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText(ding.id.toString(), x, y + 4 / cs.zoom);
+                ctx.textAlign = 'left';
+            }
+
+            ctx.restore();
+        }
+
+        function drawZones(ctx, side) {
+            const img = canvasState[side].image;
+            if (!img) return;
+
+            const centerX = img.width / 2;
+            const centerY = img.height / 2;
+            const cs = canvasState[side];
+
+            for (let i = 5; i >= 0; i--) {
+                const zone = state.zones[side][i];
+                const leftX = centerX - (img.width * zone.left / 100);
+                const rightX = centerX + (img.width * zone.right / 100);
+                const topY = centerY - (img.height * zone.top / 100);
+                const bottomY = centerY + (img.height * zone.bottom / 100);
+
+                ctx.strokeStyle = zoneColors[i];
+                ctx.lineWidth = 1 / cs.zoom;
+                ctx.strokeRect(leftX, topY, rightX - leftX, bottomY - topY);
+
+                // Draw handles if editing
+                if (state.editZones) {
+                    const handleSize = 6 / cs.zoom;
+                    ctx.fillStyle = zoneColors[i];
+
+                    // Four corners (squares)
+                    ctx.fillRect(leftX - handleSize/2, topY - handleSize/2, handleSize, handleSize);
+                    ctx.fillRect(rightX - handleSize/2, topY - handleSize/2, handleSize, handleSize);
+                    ctx.fillRect(leftX - handleSize/2, bottomY - handleSize/2, handleSize, handleSize);
+                    ctx.fillRect(rightX - handleSize/2, bottomY - handleSize/2, handleSize, handleSize);
+
+                    // Four edge midpoints (circles)
+                    const midX = (leftX + rightX) / 2;
+                    const midY = (topY + bottomY) / 2;
+
+                    ctx.beginPath();
+                    ctx.arc(midX, topY, handleSize/2, 0, Math.PI * 2); // Top edge
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(midX, bottomY, handleSize/2, 0, Math.PI * 2); // Bottom edge
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(leftX, midY, handleSize/2, 0, Math.PI * 2); // Left edge
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(rightX, midY, handleSize/2, 0, Math.PI * 2); // Right edge
+                    ctx.fill();
+                }
+            }
+        }
+
+        function addDing() {
+            const tagX = parseInt(document.getElementById('tagX').value);
+            const tagY = parseInt(document.getElementById('tagY').value);
+            const side = document.getElementById('dingSide').value;
+            const label = document.getElementById('dingLabel').value;
+
+            if (isNaN(tagX) || isNaN(tagY)) {
+                alert('Please enter valid X and Y coordinates');
+                return;
+            }
+
+            const id = state.dings.length > 0 ? Math.max(...state.dings.map(d => d.id)) + 1 : 1;
+
+            // Calculate initial position based on image or default
+            let initialX = tagX * 0.1; // Default rough estimate
+            let initialY = tagY * 0.1;
+
+            const img = canvasState[side].image;
+            if (img) {
+                // Use calibration if available, otherwise rough estimate
+                if (state.calibration[side]) {
+                    const mapped = tagToImage(tagX, tagY, side);
+                    initialX = mapped.x;
+                    initialY = mapped.y;
+                } else {
+                    // Rough estimate: TAG seems to use ~5000 width, ~7000 height range
+                    initialX = tagX * (img.width / 5000);
+                    initialY = tagY * (img.height / 7000);
+                }
+            }
+
+            const ding = {
+                id,
+                side,
+                tagX,
+                tagY,
+                label,
+                initialX,
+                initialY,
+                mappedX: null,
+                mappedY: null
+            };
+
+            state.dings.push(ding);
+
+            // Clear inputs
+            document.getElementById('tagX').value = '';
+            document.getElementById('tagY').value = '';
+            document.getElementById('dingLabel').value = '';
+
+            renderDingsList();
+            redrawCanvas(side);
+            saveToLocalStorage();
+            updateCalibrationInfo();
+        }
+
+        function renderDingsList() {
+            const container = document.getElementById('dingsList');
+            container.innerHTML = '';
+
+            document.getElementById('totalDings').textContent = state.dings.length;
+
+            for (const ding of state.dings) {
+                const div = document.createElement('div');
+                div.className = `ding-item ${ding.side}${state.selectedDing === ding.id ? ' selected-ding' : ''}`;
+                div.onclick = () => selectDing(ding.id);
+
+                const mappedX = ding.mappedX || ding.initialX || 0;
+                const mappedY = ding.mappedY || ding.initialY || 0;
+
+                div.innerHTML = `
+                    <div class="ding-info">
+                        <strong>#${ding.id}</strong> ${ding.label || ''}<br>
+                        <span class="tag-coords">TAG: (${ding.tagX}, ${ding.tagY})</span><br>
+                        <span class="mapped-coords">Img: (${Math.round(mappedX)}, ${Math.round(mappedY)})</span>
+                    </div>
+                    <button class="btn-danger" onclick="event.stopPropagation(); removeDing(${ding.id})">X</button>
+                `;
+
+                container.appendChild(div);
+            }
+        }
+
+        function selectDing(id) {
+            state.selectedDing = state.selectedDing === id ? null : id;
+            renderDingsList();
+            redrawCanvas('front');
+            redrawCanvas('back');
+        }
+
+        function removeDing(id) {
+            state.dings = state.dings.filter(d => d.id !== id);
+            if (state.selectedDing === id) state.selectedDing = null;
+            renderDingsList();
+            redrawCanvas('front');
+            redrawCanvas('back');
+            saveToLocalStorage();
+            updateCalibrationInfo();
+        }
+
+        function removeLastDing() {
+            if (state.dings.length > 0) {
+                const last = state.dings[state.dings.length - 1];
+                removeDing(last.id);
+            }
+        }
+
+        function clearAllDings() {
+            if (confirm('Are you sure you want to clear all dings?')) {
+                state.dings = [];
+                state.selectedDing = null;
+                renderDingsList();
+                redrawCanvas('front');
+                redrawCanvas('back');
+                saveToLocalStorage();
+                updateCalibrationInfo();
+            }
+        }
+
+        // Calibration functions
+        function updateCalibration() {
+            // Calculate linear regression for front and back separately
+            state.calibration.front = calculateCalibration('front');
+            state.calibration.back = calculateCalibration('back');
+
+            updateCalibrationInfo();
+            saveToLocalStorage();
+
+            // Update initial positions for all dings based on new calibration
+            for (const ding of state.dings) {
+                if (state.calibration[ding.side] && !ding.mappedX) {
+                    const mapped = tagToImage(ding.tagX, ding.tagY, ding.side);
+                    ding.initialX = mapped.x;
+                    ding.initialY = mapped.y;
+                }
+            }
+
+            redrawCanvas('front');
+            redrawCanvas('back');
+        }
+
+        function calculateCalibration(side) {
+            // Get dings that have been manually positioned (have mappedX)
+            const positioned = state.dings.filter(d => d.side === side && d.mappedX !== null);
+
+            if (positioned.length < 2) {
+                return null; // Need at least 2 points
+            }
+
+            // Calculate linear regression for X and Y separately
+            // mappedX = aX * tagX + bX
+            // mappedY = aY * tagY + bY
+
+            const n = positioned.length;
+            let sumTagX = 0, sumTagY = 0;
+            let sumMappedX = 0, sumMappedY = 0;
+            let sumTagX2 = 0, sumTagY2 = 0;
+            let sumTagXMappedX = 0, sumTagYMappedY = 0;
+
+            for (const d of positioned) {
+                sumTagX += d.tagX;
+                sumTagY += d.tagY;
+                sumMappedX += d.mappedX;
+                sumMappedY += d.mappedY;
+                sumTagX2 += d.tagX * d.tagX;
+                sumTagY2 += d.tagY * d.tagY;
+                sumTagXMappedX += d.tagX * d.mappedX;
+                sumTagYMappedY += d.tagY * d.mappedY;
+            }
+
+            // Calculate slope and intercept for X
+            const aX = (n * sumTagXMappedX - sumTagX * sumMappedX) / (n * sumTagX2 - sumTagX * sumTagX);
+            const bX = (sumMappedX - aX * sumTagX) / n;
+
+            // Calculate slope and intercept for Y
+            const aY = (n * sumTagYMappedY - sumTagY * sumMappedY) / (n * sumTagY2 - sumTagY * sumTagY);
+            const bY = (sumMappedY - aY * sumTagY) / n;
+
+            return {
+                scaleX: aX,
+                offsetX: bX,
+                scaleY: aY,
+                offsetY: bY,
+                pointsUsed: n
+            };
+        }
+
+        function tagToImage(tagX, tagY, side) {
+            const calib = state.calibration[side];
+            if (calib) {
+                return {
+                    x: calib.scaleX * tagX + calib.offsetX,
+                    y: calib.scaleY * tagY + calib.offsetY
+                };
+            }
+            // Default rough estimate
+            const img = canvasState[side].image;
+            if (img) {
+                return {
+                    x: tagX * (img.width / 5000),
+                    y: tagY * (img.height / 7000)
+                };
+            }
+            return { x: tagX * 0.1, y: tagY * 0.1 };
+        }
+
+        function imageToTag(imageX, imageY, side) {
+            const calib = state.calibration[side];
+            if (calib && calib.scaleX !== 0 && calib.scaleY !== 0) {
+                return {
+                    x: (imageX - calib.offsetX) / calib.scaleX,
+                    y: (imageY - calib.offsetY) / calib.scaleY
+                };
+            }
+            // Default reverse estimate
+            const img = canvasState[side].image;
+            if (img) {
+                return {
+                    x: imageX / (img.width / 5000),
+                    y: imageY / (img.height / 7000)
+                };
+            }
+            return { x: imageX * 10, y: imageY * 10 };
+        }
+
+        function resetCalibration() {
+            state.calibration.front = null;
+            state.calibration.back = null;
+            updateCalibrationInfo();
+            saveToLocalStorage();
+        }
+
+        function updateCalibrationInfo() {
+            const frontCalib = state.calibration.front;
+            const backCalib = state.calibration.back;
+
+            document.getElementById('frontPoints').textContent =
+                frontCalib ? `${frontCalib.pointsUsed} (scale: ${frontCalib.scaleX.toFixed(4)}, ${frontCalib.scaleY.toFixed(4)})` : '0';
+            document.getElementById('backPoints').textContent =
+                backCalib ? `${backCalib.pointsUsed} (scale: ${backCalib.scaleX.toFixed(4)}, ${backCalib.scaleY.toFixed(4)})` : '0';
+
+            if (frontCalib || backCalib) {
+                document.getElementById('calibStatus').textContent = 'Calibrated';
+                document.getElementById('calibStatus').style.color = '#27ae60';
+            } else {
+                document.getElementById('calibStatus').textContent = 'No calibration data';
+                document.getElementById('calibStatus').style.color = '#888';
+            }
+        }
+
+        // Zone controls
+        function toggleZones() {
+            state.showZones = document.getElementById('showZones').checked;
+            redrawCanvas('front');
+            redrawCanvas('back');
+            saveToLocalStorage();
+        }
+
+        function toggleZoneEdit() {
+            state.editZones = document.getElementById('editZones').checked;
+            redrawCanvas('front');
+            redrawCanvas('back');
+        }
+
+        // Export/Import
+        function exportData() {
+            const exportObj = {
+                dings: state.dings,
+                calibration: state.calibration,
+                zones: state.zones
+            };
+            document.getElementById('exportArea').value = JSON.stringify(exportObj, null, 2);
+        }
+
+        function importData() {
+            try {
+                const data = JSON.parse(document.getElementById('exportArea').value);
+                if (data.dings) state.dings = data.dings;
+                if (data.calibration) state.calibration = data.calibration;
+                if (data.zones) state.zones = migrateZones(data.zones);
+
+                renderDingsList();
+                updateCalibrationInfo();
+                redrawCanvas('front');
+                redrawCanvas('back');
+                saveToLocalStorage();
+                alert('Data imported successfully!');
+            } catch (e) {
+                alert('Error importing data: ' + e.message);
+            }
+        }
+
+        function saveToFile() {
+            const exportObj = {
+                dings: state.dings,
+                calibration: state.calibration,
+                zones: state.zones,
+                exportDate: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tag-calibration-data.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Local storage
+        function saveToLocalStorage() {
+            const data = {
+                dings: state.dings,
+                calibration: state.calibration,
+                zones: state.zones,
+                showZones: state.showZones
+            };
+            localStorage.setItem('tagCalibrationData', JSON.stringify(data));
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('tagCalibrationData');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    if (data.dings) state.dings = data.dings;
+                    if (data.calibration) state.calibration = data.calibration;
+                    if (data.zones) {
+                        state.zones = migrateZones(data.zones);
+                    }
+                    if (data.showZones !== undefined) {
+                        state.showZones = data.showZones;
+                        document.getElementById('showZones').checked = state.showZones;
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading from localStorage:', e);
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' && state.selectedDing) {
+                removeDing(state.selectedDing);
+            }
+            if (e.key === 'Escape') {
+                state.selectedDing = null;
+                renderDingsList();
+                redrawCanvas('front');
+                redrawCanvas('back');
+            }
+        });
+    </script>
+</body>
+</html>
