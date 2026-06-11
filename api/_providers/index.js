@@ -124,20 +124,26 @@ export async function callProvider(provider, options) {
     };
   }
 
+  // Build options object, only including model if explicitly provided
+  const providerOpts = { systemPrompt, userPrompt, images, maxTokens, temperature };
+  if (model) {
+    providerOpts.model = model;
+  }
+
   // Call the appropriate provider
   try {
     switch (provider) {
       case PROVIDERS.CLAUDE:
-        return await callClaude({ systemPrompt, userPrompt, images, maxTokens, temperature, model });
+        return await callClaude(providerOpts);
 
       case PROVIDERS.GEMINI:
-        return await callGemini({ systemPrompt, userPrompt, images, maxTokens, temperature, model });
+        return await callGemini(providerOpts);
 
       case PROVIDERS.GPT:
-        return await callGPT({ systemPrompt, userPrompt, images, maxTokens, temperature, model });
+        return await callGPT(providerOpts);
 
       case PROVIDERS.GROK:
-        return await callGrok({ systemPrompt, userPrompt, images, maxTokens, temperature, model });
+        return await callGrok(providerOpts);
 
       default:
         return {
