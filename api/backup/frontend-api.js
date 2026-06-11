@@ -1,16 +1,6 @@
 /**
- * SlabSense - Backend API Service (Multi-AI Edition)
- *
- * EDITED VERSION for multi-provider support.
- * Changes from original:
- * - /api/ai-analyze → /api/ai-analyze-unified?mode=replicate
- * - /api/ai-analyze-direct → /api/ai-analyze-unified?mode=direct
- * - /api/analyze-card → /api/card-info-unified?mode=claude
- * - /api/extract-card-info → /api/card-info-unified?mode=llava
- * - /api/deep-analyze-v2 unchanged (provider selection via ai-config.json)
- *
- * Original file: src/services/api.js
- * Last updated: 2026-06-10
+ * SlabSense - Backend API Service
+ * Connects to the Python/OpenCV grading backend
  */
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
@@ -55,20 +45,6 @@ function dataURLtoBlob(dataURL) {
 // Toggle between Replicate (current) and Direct Anthropic API
 // ═══════════════════════════════════════════════════════════════════════════
 const USE_DIRECT_ANTHROPIC = true;  // true = Direct Anthropic, false = Replicate
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════════════════════
-// UNIFIED ENDPOINT MAPPING
-// These constants map to the new merged endpoints
-// ═══════════════════════════════════════════════════════════════════════════
-const ENDPOINTS = {
-  // Combined ai-analyze.js + ai-analyze-direct.js
-  AI_ANALYZE_UNIFIED: '/api/ai-analyze-unified',
-  // Combined analyze-card.js + extract-card-info.js
-  CARD_INFO_UNIFIED: '/api/card-info-unified',
-  // Multi-provider deep analysis (reads from ai-config.json)
-  DEEP_ANALYZE_V2: '/api/deep-analyze-v2',
-};
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -337,11 +313,8 @@ export async function analyzeCardWithBackend(frontImageDataUrl, backImageDataUrl
 }
 
 /**
- * Analyze card using Claude Vision AI (UNIFIED ENDPOINT)
+ * Analyze card using Claude Vision AI
  * Extracts card info, condition assessment, and grading notes
- *
- * CHANGED: Now uses /api/card-info-unified?mode=claude
- *
  * @param {string} imageDataUrl - Card image (cropped preferred)
  * @param {string} cardType - 'pokemon' | 'sports' | 'tcg'
  * @param {boolean} includeGrading - Include condition/grading analysis
@@ -357,8 +330,7 @@ export async function analyzeCardWithVision(imageDataUrl, cardType = 'pokemon', 
     // Compress image to avoid Vercel's 4.5MB payload limit
     const compressedImage = await compressImageForAPI(imageDataUrl);
 
-    // CHANGED: Use unified endpoint with mode=claude
-    const response = await fetch(`${ENDPOINTS.CARD_INFO_UNIFIED}?mode=claude`, {
+    const response = await fetch('/api/analyze-card', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -499,11 +471,11 @@ async function uploadImageForStandardAnalysis(dataUrl, side, userId) {
 }
 
 /**
- * CLAUDE GRADING ANALYSIS - Returns grades immediately (UNIFIED ENDPOINT)
+ * CLAUDE GRADING ANALYSIS - Returns grades immediately
  *
- * CHANGED: Now uses /api/ai-analyze-unified with mode parameter
- * - mode=direct: Uses direct Anthropic API (default when USE_DIRECT_ANTHROPIC=true)
- * - mode=replicate: Uses Replicate API (legacy)
+ * Supports two modes based on USE_DIRECT_ANTHROPIC config:
+ * - Direct Anthropic: Uploads images to Supabase, calls /api/ai-analyze-direct
+ * - Replicate: Stitches images, calls /api/ai-analyze (legacy)
  *
  * Cost: ~$0.02-0.03 per analysis
  *
@@ -529,7 +501,7 @@ export async function claudeGradingAnalysis(
 
   try {
     // ═══════════════════════════════════════════════════════════════════════
-    // DIRECT ANTHROPIC PATH - Upload images, call unified endpoint with mode=direct
+    // DIRECT ANTHROPIC PATH - Upload images, call direct endpoint
     // ═══════════════════════════════════════════════════════════════════════
     if (USE_DIRECT_ANTHROPIC) {
       if (!userId) {
@@ -547,7 +519,7 @@ export async function claudeGradingAnalysis(
       const frontUrl = urls[0];
       const backUrl = urls[1] || null;
 
-      console.log('[Claude AI] Images uploaded, calling unified AI endpoint (mode=direct)...');
+      console.log('[Claude AI] Images uploaded, calling Direct Anthropic API...');
 
       // Build request body
       const requestBody = {
@@ -566,8 +538,8 @@ export async function claudeGradingAnalysis(
         });
       }
 
-      // CHANGED: Use unified endpoint with mode=direct
-      const response = await fetch(`${ENDPOINTS.AI_ANALYZE_UNIFIED}?mode=direct`, {
+      // Call direct Anthropic endpoint
+      const response = await fetch('/api/ai-analyze-direct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -605,7 +577,7 @@ export async function claudeGradingAnalysis(
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // REPLICATE PATH - Stitch images, call unified endpoint with mode=replicate
+    // REPLICATE PATH - Stitch images, call Replicate endpoint (legacy)
     // ═══════════════════════════════════════════════════════════════════════
     let imageForClaude;
     let isStitched = false;
@@ -626,8 +598,7 @@ export async function claudeGradingAnalysis(
     for (let attempt = 1; attempt <= 3; attempt++) {
       console.log(`[Claude AI] API attempt ${attempt}/3...`);
 
-      // CHANGED: Use unified endpoint with mode=replicate
-      const response = await fetch(`${ENDPOINTS.AI_ANALYZE_UNIFIED}?mode=replicate`, {
+      const response = await fetch('/api/ai-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1259,6 +1230,9 @@ function perspectiveTransform(sourceImg, corners, targetWidth = 500, targetHeigh
   // For a proper perspective transform, we need to use canvas transforms
   // This is a simplified version using quadrilateral mapping
 
+  // Calculate the transformation matrix coefficients
+  // Using a simple approach: divide into triangles
+
   // Draw upper triangle (tl, tr, br)
   // Draw lower triangle (tl, bl, br)
 
@@ -1434,17 +1408,12 @@ async function processCardFromMask(originalImg, maskData, targetWidth, targetHei
 }
 
 /**
- * Deep Grading Analysis V2 - Two-Pass with Reference Comparison (MULTI-PROVIDER)
+ * Deep Grading Analysis V2 - Two-Pass with Reference Comparison
  *
  * This version uses a two-pass system:
  * 1. Quick estimate to determine grade range
  * 2. Query similar reference cards from database
  * 3. Compare against real TAG-graded examples for final grade
- *
- * MULTI-PROVIDER SUPPORT:
- * - Provider selection is controlled by ai-config.json (admin only)
- * - Supports modes: single, parallel, sequential, synthesize
- * - Fallback to Claude if other providers fail
  *
  * More accurate than V1, similar cost (~$0.04-0.05 per grade)
  *
@@ -1510,7 +1479,7 @@ export async function deepGradingAnalysisV2(
 
     console.log('[Deep AI V2] Images uploaded, starting two-pass analysis...');
 
-    // Step 2: Call our deep-analyze-v2 endpoint (multi-provider aware)
+    // Step 2: Call our deep-analyze-v2 endpoint
     const requestBody = {
       frontOriginalUrl,
       backOriginalUrl,
@@ -1520,8 +1489,6 @@ export async function deepGradingAnalysisV2(
       backUrl: backCroppedUrl,
       cardGame,
       cardType,
-      // Provider selection is handled server-side via ai-config.json
-      // Frontend does NOT specify providers
     };
 
     // Include software centering if available (more accurate than AI estimation)
@@ -1534,7 +1501,7 @@ export async function deepGradingAnalysisV2(
       });
     }
 
-    const response = await fetch(ENDPOINTS.DEEP_ANALYZE_V2, {
+    const response = await fetch('/api/deep-analyze-v2', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
@@ -1558,9 +1525,6 @@ export async function deepGradingAnalysisV2(
       confidence: result.grades?.tag?.confidence,
       referencesUsed: result.passes?.referencesUsed,
       elapsedMs: result.meta?.elapsedMs,
-      // Multi-provider info (if available)
-      providers: result.multiProviderResults ? Object.keys(result.multiProviderResults) : ['primary'],
-      mode: result.meta?.gradeMode || 'single',
     });
 
     return {
@@ -1584,8 +1548,6 @@ export async function deepGradingAnalysisV2(
       analysisType: 'deep-v2',
       meta: result.meta,
       cost: 0.05,
-      // Multi-provider results (if parallel/sequential/synthesize mode)
-      multiProviderResults: result.multiProviderResults || null,
     };
 
   } catch (error) {

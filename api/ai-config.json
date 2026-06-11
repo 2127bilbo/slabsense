@@ -1,0 +1,44 @@
+{
+  "_comment": "Multi-AI Provider Configuration - ADMIN ONLY",
+  "_lastUpdated": "2026-06-10",
+
+  "gradeMode": "single",
+  "primaryProvider": "claude",
+  "secondaryProvider": null,
+  "synthesizerProvider": null,
+
+  "fallback": {
+    "enabled": true,
+    "provider": "claude"
+  },
+
+  "providers": {
+    "claude": {
+      "enabled": true,
+      "model": "claude-sonnet-4-20250514",
+      "envKey": "ANTHROPIC_API_KEY"
+    },
+    "gemini": {
+      "enabled": false,
+      "model": "gemini-1.5-pro",
+      "envKey": "GOOGLE_AI_API_KEY"
+    },
+    "gpt": {
+      "enabled": false,
+      "model": "gpt-4o",
+      "envKey": "OPENAI_API_KEY"
+    },
+    "grok": {
+      "enabled": false,
+      "model": "grok-vision-beta",
+      "envKey": "XAI_API_KEY"
+    }
+  },
+
+  "modeDescriptions": {
+    "single": "Use primaryProvider only (fastest, cheapest)",
+    "parallel": "Run primary + secondary simultaneously, return both results for comparison",
+    "sequential": "Primary grades first, secondary validates and adjusts",
+    "synthesize": "Primary + secondary grade, synthesizer combines both assessments"
+  }
+}

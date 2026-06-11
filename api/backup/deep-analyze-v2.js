@@ -1,48 +1,18 @@
 /**
- * Deep AI Grade V2 - Multi-Provider Two-Pass Grading
- *
- * MODIFIED FOR MULTI-AI SUPPORT
+ * Deep AI Grade V2 - Two-Pass Grading with Reference Comparison
  *
  * Pass 1: Quick estimate from images → Returns grade range
  * Pass 2: Compare against real TAG-graded references for final grade
  *
- * Supports multiple providers:
- * - claude (Anthropic) - Default
- * - gemini (Google)
- * - gpt (OpenAI)
- * - grok (xAI)
- *
- * Supports multiple modes:
- * - single: One provider only (default)
- * - parallel: Two providers, combined results
- * - sequential: Provider A → Provider B validates
- * - synthesize: A + B → C synthesizes
+ * This mimics how human graders work - comparing against known examples.
  */
 
-import { createClient } from '@supabase/supabase-js';
-import {
-  callProvider,
-  runMultiProvider,
-  parseJsonFromResponse,
-  PROVIDERS,
-  MODES,
-} from './providers/index.js';
-
-// Legacy Anthropic import for backward compatibility
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@supabase/supabase-js';
+
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
-
-// ═══════════════════════════════════════════════════════════════════════════
-// MULTI-PROVIDER CONFIGURATION
-// ═══════════════════════════════════════════════════════════════════════════
-const DEFAULT_CONFIG = {
-  mode: MODES.SINGLE,
-  primary: PROVIDERS.CLAUDE,
-  secondary: null,
-  synthesizer: null,
-};
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -373,26 +343,6 @@ async function getReferences(estimatedGrade, cardType = 'modern_holo') {
 }
 
 // ============================================================================
-// Helper: Parse JSON from text response
-// ============================================================================
-function parseJsonFromText(text) {
-  if (!text) return null;
-  try {
-    let jsonText = text.trim();
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```$/g, '');
-    }
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-  } catch (e) {
-    console.error('[DeepAnalyzeV2] JSON parse error:', e.message);
-  }
-  return null;
-}
-
-// ============================================================================
 // Main Handler
 // ============================================================================
 export default async function handler(req, res) {
@@ -410,7 +360,6 @@ export default async function handler(req, res) {
   }
 
   const {
-    // Image URLs
     frontOriginalUrl,
     backOriginalUrl,
     frontCroppedUrl,
@@ -421,24 +370,8 @@ export default async function handler(req, res) {
     cardType = 'modern_holo',
     // Software-calculated centering (optional - if provided, skips AI centering estimation)
     frontCentering,  // { lrRatio, tbRatio } from calculateCenteringFromBounds
-    backCentering,   // { lrRatio, tbRatio } from calculateCenteringFromBounds
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // MULTI-PROVIDER OPTIONS (new)
-    // ═══════════════════════════════════════════════════════════════════════
-    gradeMode = DEFAULT_CONFIG.mode,           // 'single' | 'parallel' | 'sequential' | 'synthesize'
-    primaryProvider = DEFAULT_CONFIG.primary,   // 'claude' | 'gemini' | 'gpt' | 'grok'
-    secondaryProvider = DEFAULT_CONFIG.secondary,
-    synthesizerProvider = DEFAULT_CONFIG.synthesizer,
+    backCentering    // { lrRatio, tbRatio } from calculateCenteringFromBounds
   } = req.body;
-
-  // Validate provider selection
-  const validProviders = Object.values(PROVIDERS);
-  if (!validProviders.includes(primaryProvider)) {
-    return res.status(400).json({
-      error: `Invalid primaryProvider: ${primaryProvider}. Valid: ${validProviders.join(', ')}`
-    });
-  }
 
   // Check if we have pre-calculated centering
   const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
@@ -457,61 +390,48 @@ export default async function handler(req, res) {
     ? [frontOriginalUrl, backOriginalUrl, frontCroppedUrl, backCroppedUrl]
     : [frontUrl, backUrl];
 
-  // For single mode with Claude, require ANTHROPIC_API_KEY
-  // For other providers, they will check their own keys
-  if (gradeMode === 'single' && primaryProvider === 'claude' && !process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
   }
 
   try {
     console.log('[DeepAnalyzeV2] Starting two-pass analysis...');
-    console.log('[DeepAnalyzeV2] Mode:', gradeMode, '| Primary:', primaryProvider, '| Secondary:', secondaryProvider || 'none');
     const startTime = Date.now();
 
     // ========================================================================
     // PASS 1: Defect Detection (centering handled by software)
-    // Uses provider abstraction for multi-AI support
     // ========================================================================
     console.log('[DeepAnalyzeV2] Pass 1: Defect detection...', hasSoftwareCentering ? '(centering pre-measured)' : '(no centering data)');
 
-    // Use provider abstraction for Pass 1
-    const pass1Result = await callProvider(primaryProvider, {
-      systemPrompt: PASS1_SYSTEM,
-      userPrompt: PASS1_PROMPT,
-      images: imageUrls,
-      maxTokens: 500,
+    const imageContent = imageUrls.map(url => ({
+      type: 'image',
+      source: { type: 'url', url },
+    }));
+
+    const pass1Response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
       temperature: 0.1,
+      system: PASS1_SYSTEM,
+      messages: [{
+        role: 'user',
+        content: [...imageContent, { type: 'text', text: PASS1_PROMPT }],
+      }],
     });
 
-    if (!pass1Result.success) {
-      console.error('[DeepAnalyzeV2] Pass 1 failed:', pass1Result.error);
-      return res.status(500).json({
-        error: 'Pass 1 failed: ' + pass1Result.error,
-        provider: primaryProvider,
-      });
-    }
+    const pass1Text = pass1Response.content.find(c => c.type === 'text')?.text || '';
+    let quickAssessment;
 
-    let quickAssessment = pass1Result.parsed;
-
-    // If parsed is null, try to extract JSON manually
-    if (!quickAssessment && pass1Result.text) {
-      try {
-        let jsonText = pass1Result.text.trim();
-        if (jsonText.startsWith('```')) {
-          jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```$/g, '');
-        }
-        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          quickAssessment = JSON.parse(jsonMatch[0]);
-        }
-      } catch (e) {
-        console.error('[DeepAnalyzeV2] Pass 1 parse error:', pass1Result.text);
-        return res.status(500).json({ error: 'Failed to parse quick assessment', raw: pass1Result.text });
+    try {
+      // Clean JSON from response
+      let jsonText = pass1Text.trim();
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```$/g, '');
       }
-    }
-
-    if (!quickAssessment) {
-      return res.status(500).json({ error: 'Failed to parse quick assessment', raw: pass1Result.text });
+      quickAssessment = JSON.parse(jsonText.trim());
+    } catch (e) {
+      console.error('[DeepAnalyzeV2] Pass 1 parse error:', pass1Text);
+      return res.status(500).json({ error: 'Failed to parse quick assessment', raw: pass1Text });
     }
 
     // Calculate estimated grade from range midpoint for reference query
@@ -538,7 +458,6 @@ export default async function handler(req, res) {
 
     // ========================================================================
     // PASS 2: Final Grade (our centering + AI defect detection)
-    // Supports multiple modes: single, parallel, sequential, synthesize
     // ========================================================================
     console.log('[DeepAnalyzeV2] Pass 2: Final grading...', hasSoftwareCentering ? '(SOFTWARE CENTERING + AI defects)' : '(AI centering + AI defects)');
 
@@ -550,179 +469,36 @@ export default async function handler(req, res) {
 
     const pass2Prompt = buildPass2Prompt(quickAssessment, references, softwareCentering);
 
-    // Prepare options for provider abstraction
-    const pass2Options = {
-      systemPrompt: PASS2_SYSTEM,
-      userPrompt: pass2Prompt,
-      images: imageUrls,
-      maxTokens: 2000,
+    const pass2Response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
       temperature: 0.1,
-    };
+      system: PASS2_SYSTEM,
+      messages: [{
+        role: 'user',
+        content: [...imageContent, { type: 'text', text: pass2Prompt }],
+      }],
+    });
 
+    const pass2Text = pass2Response.content.find(c => c.type === 'text')?.text || '';
     let finalResult;
-    let multiProviderResults = null;
 
-    // ════════════════════════════════════════════════════════════════════════
-    // MODE: SINGLE (default) - One provider only
-    // ════════════════════════════════════════════════════════════════════════
-    if (gradeMode === 'single' || gradeMode === MODES.SINGLE) {
-      const pass2Result = await callProvider(primaryProvider, pass2Options);
-
-      if (!pass2Result.success) {
-        console.error('[DeepAnalyzeV2] Pass 2 failed:', pass2Result.error);
-        return res.status(500).json({
-          error: 'Pass 2 failed: ' + pass2Result.error,
-          provider: primaryProvider,
-        });
+    try {
+      let jsonText = pass2Text.trim();
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```$/g, '');
       }
-
-      finalResult = pass2Result.parsed;
-
-      // Manual parse if needed
-      if (!finalResult && pass2Result.text) {
-        try {
-          let jsonText = pass2Result.text.trim();
-          if (jsonText.startsWith('```')) {
-            jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```$/g, '');
-          }
-          const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            finalResult = JSON.parse(jsonMatch[0]);
-          }
-        } catch (e) {
-          console.error('[DeepAnalyzeV2] Pass 2 parse error:', pass2Result.text);
-          return res.status(500).json({ error: 'Failed to parse final assessment', raw: pass2Result.text });
-        }
-      }
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    // MODE: PARALLEL - Two providers, return both results
-    // ════════════════════════════════════════════════════════════════════════
-    else if (gradeMode === 'parallel' || gradeMode === MODES.PARALLEL) {
-      if (!secondaryProvider) {
-        return res.status(400).json({ error: 'Parallel mode requires secondaryProvider' });
-      }
-
-      console.log(`[DeepAnalyzeV2] Parallel mode: ${primaryProvider} + ${secondaryProvider}`);
-
-      const [result1, result2] = await Promise.all([
-        callProvider(primaryProvider, pass2Options),
-        callProvider(secondaryProvider, pass2Options),
-      ]);
-
-      multiProviderResults = {
-        [primaryProvider]: result1.parsed || parseJsonFromText(result1.text),
-        [secondaryProvider]: result2.parsed || parseJsonFromText(result2.text),
-      };
-
-      // Use primary result as main, include secondary for comparison
-      finalResult = multiProviderResults[primaryProvider] || multiProviderResults[secondaryProvider];
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    // MODE: SEQUENTIAL - First provider grades, second validates
-    // ════════════════════════════════════════════════════════════════════════
-    else if (gradeMode === 'sequential' || gradeMode === MODES.SEQUENTIAL) {
-      if (!secondaryProvider) {
-        return res.status(400).json({ error: 'Sequential mode requires secondaryProvider' });
-      }
-
-      console.log(`[DeepAnalyzeV2] Sequential mode: ${primaryProvider} → ${secondaryProvider}`);
-
-      // First pass
-      const result1 = await callProvider(primaryProvider, pass2Options);
-      const parsed1 = result1.parsed || parseJsonFromText(result1.text);
-
-      // Second pass with first result
-      const validationPrompt = `${pass2Prompt}
-
-## PREVIOUS AI ASSESSMENT (from ${primaryProvider}):
-${JSON.stringify(parsed1, null, 2)}
-
-## YOUR TASK:
-1. First, analyze the card images independently
-2. Then, compare your findings with the previous assessment
-3. If you agree, confirm the grade. If you disagree, explain why and provide your grade.
-4. Your final output should follow the same JSON format.`;
-
-      const result2 = await callProvider(secondaryProvider, {
-        ...pass2Options,
-        userPrompt: validationPrompt,
-      });
-
-      multiProviderResults = {
-        [primaryProvider]: parsed1,
-        [secondaryProvider]: result2.parsed || parseJsonFromText(result2.text),
-      };
-
-      // Use secondary (validator) result as final
-      finalResult = multiProviderResults[secondaryProvider] || multiProviderResults[primaryProvider];
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    // MODE: SYNTHESIZE - Two providers grade, third synthesizes
-    // ════════════════════════════════════════════════════════════════════════
-    else if (gradeMode === 'synthesize' || gradeMode === MODES.SYNTHESIZE) {
-      if (!secondaryProvider || !synthesizerProvider) {
-        return res.status(400).json({ error: 'Synthesize mode requires secondaryProvider and synthesizerProvider' });
-      }
-
-      console.log(`[DeepAnalyzeV2] Synthesize mode: ${primaryProvider} + ${secondaryProvider} → ${synthesizerProvider}`);
-
-      // Both grade in parallel
-      const [result1, result2] = await Promise.all([
-        callProvider(primaryProvider, pass2Options),
-        callProvider(secondaryProvider, pass2Options),
-      ]);
-
-      const parsed1 = result1.parsed || parseJsonFromText(result1.text);
-      const parsed2 = result2.parsed || parseJsonFromText(result2.text);
-
-      // Synthesize (no images, just text)
-      const synthesisPrompt = `You are a card grading expert synthesizing two AI assessments.
-
-## ASSESSMENT 1 (${primaryProvider}):
-${JSON.stringify(parsed1, null, 2)}
-
-## ASSESSMENT 2 (${secondaryProvider}):
-${JSON.stringify(parsed2, null, 2)}
-
-## YOUR TASK:
-1. Compare both assessments
-2. Identify agreements and disagreements
-3. Provide a final synthesized grade that resolves any conflicts
-4. Weight the more accurate-seeming assessment higher
-5. Return the same JSON format with your final grades and notes explaining any disagreements`;
-
-      const synthesisResult = await callProvider(synthesizerProvider, {
-        systemPrompt: PASS2_SYSTEM,
-        userPrompt: synthesisPrompt,
-        images: [],  // No images for synthesis
-        maxTokens: 2000,
-        temperature: 0.1,
-      });
-
-      multiProviderResults = {
-        [primaryProvider]: parsed1,
-        [secondaryProvider]: parsed2,
-        synthesizer: synthesisResult.parsed || parseJsonFromText(synthesisResult.text),
-      };
-
-      finalResult = multiProviderResults.synthesizer || parsed1 || parsed2;
-    }
-
-    // Validate we have a final result
-    if (!finalResult) {
-      return res.status(500).json({ error: 'Failed to get final assessment from any provider' });
+      finalResult = JSON.parse(jsonText.trim());
+    } catch (e) {
+      console.error('[DeepAnalyzeV2] Pass 2 parse error:', pass2Text);
+      return res.status(500).json({ error: 'Failed to parse final assessment', raw: pass2Text });
     }
 
     const elapsed = Date.now() - startTime;
     console.log('[DeepAnalyzeV2] Complete in', elapsed, 'ms:', {
       card: finalResult.cardInfo?.name,
       tagGrade: finalResult.grades?.tag?.grade,
-      confidence: finalResult.grades?.tag?.confidence,
-      mode: gradeMode,
+      confidence: finalResult.grades?.tag?.confidence
     });
 
     // ========================================================================
@@ -730,7 +506,7 @@ ${JSON.stringify(parsed2, null, 2)}
     // ========================================================================
     return res.status(200).json({
       success: true,
-      version: 'v2-multi',
+      version: 'v2',
       passes: {
         quickEstimate: quickAssessment,
         referencesUsed: references.length,
@@ -746,15 +522,8 @@ ${JSON.stringify(parsed2, null, 2)}
         elapsedMs: elapsed,
         imageMode: has4Images ? '4-image' : '2-image',
         centeringSource: hasSoftwareCentering ? 'software' : 'ai-estimated',
-        softwareCentering: softwareCentering || null,
-        // Multi-provider metadata
-        gradeMode: gradeMode,
-        primaryProvider: primaryProvider,
-        secondaryProvider: secondaryProvider || null,
-        synthesizerProvider: synthesizerProvider || null,
-      },
-      // Include all provider results for parallel/sequential/synthesize modes
-      multiProviderResults: multiProviderResults,
+        softwareCentering: softwareCentering || null
+      }
     });
 
   } catch (error) {
