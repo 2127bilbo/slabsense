@@ -26,7 +26,7 @@ import {
   parseJsonFromResponse,
   PROVIDERS,
   MODES,
-} from './providers/index.js';
+} from './_providers/index.js';
 
 // Legacy Anthropic import for backward compatibility
 import Anthropic from '@anthropic-ai/sdk';
