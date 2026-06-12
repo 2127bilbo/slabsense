@@ -313,11 +313,20 @@ function drawLabel(ctx, width, height, style, data) {
 }
 
 function drawSubgrades(ctx, width, height, subgrades) {
+  // Merge front/back subgrades for BGS 4-category display
+  const centering = subgrades.centering ?? Math.min(subgrades.frontCentering || 100, subgrades.backCentering || 100);
+  const corners = subgrades.corners ?? Math.min(subgrades.frontCorners || 100, subgrades.backCorners || 100);
+  const edges = subgrades.edges ?? Math.min(subgrades.frontEdges || 100, subgrades.backEdges || 100);
+  const surface = subgrades.surface ?? Math.min(subgrades.frontSurface || 100, subgrades.backSurface || 100);
+
+  // Convert 100-point scale to 10-point for BGS display
+  const toTenPoint = (val) => val != null ? (val / 10).toFixed(1) : '9.5';
+
   const grades = [
-    { label: 'CEN', value: subgrades.centering },
-    { label: 'COR', value: subgrades.corners },
-    { label: 'EDG', value: subgrades.edges },
-    { label: 'SUR', value: subgrades.surface },
+    { label: 'CEN', value: toTenPoint(centering) },
+    { label: 'COR', value: toTenPoint(corners) },
+    { label: 'EDG', value: toTenPoint(edges) },
+    { label: 'SUR', value: toTenPoint(surface) },
   ];
 
   const startX = width - 100;
@@ -331,7 +340,7 @@ function drawSubgrades(ctx, width, height, subgrades) {
     ctx.fillText(g.label, x, y);
     ctx.fillStyle = '#ffd700';
     ctx.font = 'bold 8px Arial';
-    ctx.fillText(g.value ? (g.value / 100).toFixed(1) : '9.5', x, y + 10);
+    ctx.fillText(g.value, x, y + 10);
   });
 }
 

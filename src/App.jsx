@@ -1064,7 +1064,13 @@ function GradeDisplay({ gradeResult, companyId, isPro = true }) {
       {/* Grade Caps (for debugging/transparency) */}
       {gradeResult.gradeCaps && isPro && gradeResult.gradeCaps.final < 10 && (
         <div style={{marginTop:8,fontFamily:mono,fontSize:9,color:'#666'}}>
-          Limited by: {gradeResult.gradeCaps.centering < gradeResult.gradeCaps.defects ? 'centering' : 'defects'}
+          Limited by: {
+            gradeResult.overall?.capsApplied?.length > 0
+              ? gradeResult.overall.capsApplied.map(cap =>
+                  cap.replace('_CAP_', ' ≤').replace('MIN_SUBGRADE_CLAMP', 'Min Subgrade')
+                ).join(', ')
+              : (gradeResult.gradeCaps.centering < gradeResult.gradeCaps.defects ? 'centering' : 'defects')
+          }
         </div>
       )}
 
@@ -1072,10 +1078,10 @@ function GradeDisplay({ gradeResult, companyId, isPro = true }) {
       {(companyId === 'bgs' || companyId === 'cgc') && isPro && gradeResult.subgrades && (
         <div style={{marginTop:16,display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,padding:"0 8px"}}>
           {[
-            {label:"Center",score:gradeResult.subgrades.frontCenter},
-            {label:"Corners",score:gradeResult.subgrades.condition},
-            {label:"Edges",score:gradeResult.subgrades.condition},
-            {label:"Surface",score:gradeResult.subgrades.condition}
+            {label:"Center",score:gradeResult.companyGrades?.[companyId]?.subgrades?.centering ?? gradeResult.subgrades?.frontCentering},
+            {label:"Corners",score:gradeResult.companyGrades?.[companyId]?.subgrades?.corners ?? gradeResult.subgrades?.frontCorners},
+            {label:"Edges",score:gradeResult.companyGrades?.[companyId]?.subgrades?.edges ?? gradeResult.subgrades?.frontEdges},
+            {label:"Surface",score:gradeResult.companyGrades?.[companyId]?.subgrades?.surface ?? gradeResult.subgrades?.frontSurface}
           ].map((sub,i)=>{
             const subGrade = getGrade(sub.score, companyId);
             return (
@@ -3007,14 +3013,14 @@ export default function SlabSense(){
             rawScore: combined.tag_score,
             grade: tagGrade,
             subgrades: {
-              frontCentering: combined.subgrades.frontCenter || combined.subgrades.frontCentering || 125,
-              backCentering: combined.subgrades.backCenter || combined.subgrades.backCentering || 125,
-              frontCorners: combined.subgrades.frontCorners || 125,
-              backCorners: combined.subgrades.backCorners || 125,
-              frontEdges: combined.subgrades.frontEdges || 125,
-              backEdges: combined.subgrades.backEdges || 125,
-              frontSurface: combined.subgrades.frontSurface || combined.subgrades.condition || 125,
-              backSurface: combined.subgrades.backSurface || 125,
+              frontCentering: combined.subgrades.frontCentering || 100,
+              backCentering: combined.subgrades.backCentering || 100,
+              frontCorners: combined.subgrades.frontCorners || 100,
+              backCorners: combined.subgrades.backCorners || 100,
+              frontEdges: combined.subgrades.frontEdges || 100,
+              backEdges: combined.subgrades.backEdges || 100,
+              frontSurface: combined.subgrades.frontSurface || 100,
+              backSurface: combined.subgrades.backSurface || 100,
             },
             allDings: combined.dings || [],
             processingTimeMs: combined.processing_time_ms,

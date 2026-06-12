@@ -14,15 +14,15 @@ const GRADE_TYPE_STYLES = {
 };
 
 // Get color based on score value
-function getScoreColor(value, maxValue = 125) {
-  if (maxValue === 125) {
-    // TAG 125-point scale
-    if (value >= 120) return '#00ff88';
-    if (value >= 100) return '#66dd44';
+function getScoreColor(value, maxValue = 100) {
+  if (maxValue === 100) {
+    // TAG 100-point scale (maps to 1000-pt system)
+    if (value >= 95) return '#00ff88';
+    if (value >= 90) return '#66dd44';
     if (value >= 80) return '#ffcc00';
     return '#ff6633';
   } else if (maxValue === 10) {
-    // 10-point scale
+    // 10-point scale (BGS/CGC subgrades)
     if (value >= 9.5) return '#00ff88';
     if (value >= 9) return '#66dd44';
     if (value >= 8) return '#ffcc00';
@@ -42,7 +42,7 @@ function formatCenteringRatio(ratio) {
 /**
  * SubgradeBox - Individual subgrade score display
  */
-function SubgradeBox({ label, value, small = false, maxValue = 125 }) {
+function SubgradeBox({ label, value, small = false, maxValue = 100 }) {
   if (value == null) return null;
   const color = getScoreColor(value, maxValue);
   return (

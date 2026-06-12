@@ -12,6 +12,7 @@ import { loadImg, genMaps, LUM } from '../../lib/image-utils.js';
 import { CardViewer3D } from '../CardViewer/CardViewer3D.jsx';
 import { claudeGradingAnalysis, deepGradingAnalysisV2 } from '../../services/api.js';
 import { GradeResultDisplay } from '../Grading/GradeResultDisplay.jsx';
+import { DamageReportModal } from '../DamageReport';
 import holoConfig from '../../../config/holo-config.json';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
@@ -110,6 +111,9 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   const [deepGradeResult, setDeepGradeResult] = useState(null);
   const [deepAiGrades, setDeepAiGrades] = useState(null);
   const [deepAiCentering, setDeepAiCentering] = useState(null);
+
+  // Damage Report modal state
+  const [showDamageReport, setShowDamageReport] = useState(false);
 
   // Gyro input for holo sparkles
   const gyroInputRef = useRef(null);
@@ -1155,6 +1159,30 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                    deepGradeStatus === 'error' ? '✗ Failed' :
                    'Deep Grade'}
                 </button>
+
+                {/* Damage Report Button */}
+                <button
+                  onClick={() => setShowDamageReport(true)}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    background: 'rgba(255,153,68,0.1)',
+                    border: '1px solid rgba(255,153,68,0.3)',
+                    borderRadius: 8,
+                    color: '#ff9944',
+                    fontFamily: mono,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>⚠</span>
+                  Dings
+                </button>
               </div>
             </div>
             );
@@ -1922,21 +1950,48 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
 
       {/* Detail Modal */}
       {renderDetailModal()}
+
+      {/* Damage Report Modal */}
+      {showDamageReport && selectedCard && (
+        <DamageReportModal
+          isOpen={showDamageReport}
+          onClose={() => setShowDamageReport(false)}
+          frontImage={selectedCard.user_card_image || selectedCard.enhanced_front_path || selectedCard.front_image_path}
+          backImage={selectedCard.enhanced_back_path || selectedCard.back_image_path}
+          frontMaps={fM}
+          backMaps={bM}
+          gradeResult={{
+            allDings: selectedCard.software_grade?.allDings || [],
+            subgrades: selectedCard.software_grade?.subgrades || {},
+            defectCounts: selectedCard.software_grade?.defectCounts || {},
+            centeringDeviation: selectedCard.software_grade?.centeringDeviation || {},
+          }}
+          tagDefects={deepGradeResult?.defects?.details || selectedCard.ai_grade?.defects?.details || null}
+        />
+      )}
     </div>
   );
 }
 
 // Helper Components
-function SubgradeBox({ label, value, small = false }) {
+function SubgradeBox({ label, value, small = false, maxValue = 100 }) {
+  // Get color based on score value (100-point scale)
+  const getScoreColor = (val) => {
+    if (val >= 95) return '#00ff88';
+    if (val >= 90) return '#66dd44';
+    if (val >= 80) return '#ffcc00';
+    return '#ff6633';
+  };
+
   return (
     <div style={{ textAlign: 'center' }}>
       <div style={{
         fontFamily: "'JetBrains Mono',monospace",
         fontSize: small ? 14 : 16,
         fontWeight: 700,
-        color: '#8b5cf6',
+        color: getScoreColor(value),
       }}>
-        {value}
+        {value != null ? Math.round(value * 10) / 10 : '--'}
       </div>
       <div style={{
         fontFamily: "'JetBrains Mono',monospace",
@@ -1984,11 +2039,11 @@ function CenteringBox({ label, lr, tb }) {
 }
 
 function ConditionBox({ label, value, isTAG = false }) {
-  // For TAG: value is out of 1000 (per category ~125 max), show as raw score
+  // For TAG: value is out of 100 (unified scale)
   // For others: value is out of 10
   const displayValue = isTAG ? value : value;
-  const maxValue = isTAG ? (label === 'Centering' ? 125 : 125) : 10;
-  const normalizedValue = isTAG ? (value / 125) * 10 : value;
+  const maxValue = isTAG ? 100 : 10;
+  const normalizedValue = isTAG ? (value / 10) : value;
   const color = normalizedValue >= 9 ? '#00ff88' : normalizedValue >= 7 ? '#ffcc00' : '#ff6633';
 
   return (
