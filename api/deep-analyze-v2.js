@@ -56,12 +56,15 @@ function formatReferences(references) {
   if (!references.length) return null;
   return references.map((ref, i) => {
     const defectList = ref.defect_details?.map((d) => `${d.type} (${d.location})`).join(', ') || 'None noted';
+    const adjustedNote = ref.is_adjusted
+      ? '\n⚠ HUMAN-ADJUSTED GRADE: a TAG grader manually set this grade because the automated defect list UNDERSTATES the true damage (usually catastrophic damage like paper loss or creasing). Do NOT calibrate severity from this card\'s defect count.'
+      : '';
     return `
 REFERENCE ${i + 1}: ${ref.grade} (Score: ${ref.score || 'N/A'})
 Card: ${ref.card_name} | Type: ${ref.card_type}
 Centering: Front ${ref.centering_front_lr?.toFixed(1) || '?'}% LR / ${ref.centering_front_tb?.toFixed(1) || '?'}% TB, Back ${ref.centering_back_lr?.toFixed(1) || '?'}% LR / ${ref.centering_back_tb?.toFixed(1) || '?'}% TB
 Defects: ${ref.defect_count} total (${ref.corner_defects} corner, ${ref.edge_defects} edge, ${ref.surface_defects} surface)
-Details: ${defectList}`;
+Details: ${defectList}${adjustedNote}`;
   }).join('\n');
 }
 

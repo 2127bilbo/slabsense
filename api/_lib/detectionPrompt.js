@@ -82,7 +82,32 @@ is this light reflecting off an intact surface?" Fibers → defect.
 Reflection → glare → report it in imageQuality, never in defects.
 
 HOLO PATTERN NOTE: natural holofoil texture is NOT a defect. Look for
-scratches that cut ACROSS the pattern, print lines, and indentations.`;
+scratches that cut ACROSS the pattern, print lines, and indentations.
+
+⚠️ PAPER LOSS IS NOT GLARE — CRITICAL EXCEPTION TO THE GLARE RULE ⚠️
+Missing stock / paper loss / sticker damage / lifted ink looks like white or
+light patches — especially blatant on dark card backs (the blue Pokemon back).
+DISTINGUISH: glare is SOFT-EDGED, follows the light, and the printed design is
+still visible through it. Paper loss has HARD, IRREGULAR edges and the printed
+design is GONE — interrupted artwork, exposed white card stock. Irregular white
+patches that interrupt the printed design = type "TEAR", severity "extreme".
+When the white area sits ON the artwork with ragged borders, it is damage.
+Never let the glare rule erase missing stock.
+
+CREASE HUNT (mandatory, every card, both sides):
+Creases and wrinkles appear as thin light/dark LINE discontinuities crossing
+the print — a shadow-line or highlight-line that bends across artwork, borders,
+or text. Check: diagonals from each corner, horizontal mid-card, and along
+heavy-wear zones. A line that crosses printed elements and disturbs the gloss
+is a CREASE (severity "severe" if it breaks ink/stock, "extreme" if it crosses
+the card or crushes the stock). Whitening that follows a LINE through the
+card face is a crease, not play wear.
+
+SEVERITY-LANGUAGE CONSISTENCY RULE:
+Your "severity" field must match your own words. If your description says
+heavy / deep / significant / major / rounded / chunk / throughout → severity
+MUST be "severe" or "extreme". If it says light / faint / slight / tiny →
+"minor". Never describe damage as heavy and classify it moderate.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // USER PROMPT BUILDER — same core for both paths
@@ -123,6 +148,10 @@ ${imageLayout}`);
   sections.push(centeringContextBlock(centering));
 
   sections.push(`## INSPECTION ORDER (complete EVERY step before responding)
+0. CATASTROPHIC SCAN — both sides FIRST: creases/wrinkles (line discontinuities
+   crossing print), paper loss / missing stock (hard-edged white patches
+   interrupting artwork — NOT glare), tears, water damage, writing. These are
+   the grade-defining defects; hunt them before anything else.
 1. FRONT corners — all four, individually
 2. FRONT edges — all four, full length
 3. FRONT surface — entire face, systematic scan
@@ -131,6 +160,12 @@ ${imageLayout}`);
 6. BACK surface — entire face, systematic scan
 Report EVERY defect found at EVERY step. Never summarize, never skip a step
 because earlier findings were bad. Centering is NOT part of inspection.
+
+GRANULARITY RULE: one JSON entry PER defect. "Wear on all four corners" is
+FOUR entries (one per corner, each with its own severity and coordinates).
+"Edge whitening on multiple sides" is one entry PER edge. Card-wide surface
+scratching is one entry per distinct scratch or scratch cluster (up to ~6
+regions). Never collapse multiple defects into one entry.
 
 ## DEFECT FIELDS (every defect needs all of these)
 - "side": "FRONT" or "BACK"
