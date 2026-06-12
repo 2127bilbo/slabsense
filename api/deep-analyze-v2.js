@@ -239,6 +239,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to parse Pass 1 detection', raw: pass1Result.text });
     }
 
+    // DEBUG: Log AI defects immediately after parsing Pass 1
+    console.log('[DeepAnalyzeV3] Pass 1 AI defects:', JSON.stringify(pass1Detection.defects, null, 2));
+
     // DETERMINISTIC estimated grade: engine on Pass 1 defects (no AI guessing)
     const pass1Defects = sanitizeDefects(pass1Detection.defects);
     const pass1Engine = gradeCard({ defects: pass1Defects, centering });
@@ -396,6 +399,9 @@ ${JSON.stringify(det2 ? { imageQuality: det2.imageQuality, defects: sanitizeDefe
     if (!finalDetection) {
       return res.status(500).json({ error: 'Failed to get final detection from any provider' });
     }
+
+    // DEBUG: Log final AI defects before engine grading
+    console.log('[DeepAnalyzeV3] Final AI defects:', JSON.stringify(finalDetection.defects, null, 2));
 
     // ========================================================================
     // ENGINE: all grading math (GRADING_SCALE.md) + unified assembly

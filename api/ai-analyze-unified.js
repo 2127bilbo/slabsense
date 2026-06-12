@@ -169,6 +169,9 @@ export default async function handler(req, res) {
         });
       }
 
+      // DEBUG: Log AI defects immediately after parsing
+      console.log('[AI-Unified] AI defects:', JSON.stringify(detection.defects, null, 2));
+
       // ── ALL grading math happens here, in the engine ─────────────────────
       const analysis = assembleUnifiedOutput({
         detection,

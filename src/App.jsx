@@ -2814,15 +2814,20 @@ export default function SlabSense(){
   const[deepGradeResult,setDeepGradeResult]=useState(null); // Deep AI grade result
   const[show3DViewer,setShow3DViewer]=useState(false); // 3D viewer modal visibility
   const[cardInfo,setCardInfo]=useState(null); // Card info: { name, cardNumber, setName, etc. }
-  const[aiCondition,setAiCondition]=useState(null); // AI condition assessment: { overall, corners, edges, surface, notes }
-  const[aiGradingNotes,setAiGradingNotes]=useState(null); // AI grading notes: { positives, concerns, estimatedGrade }
-  const[aiGrades,setAiGrades]=useState(null); // Multi-company grades from Claude: { psa, bgs, sgc, cgc, tag }
+  // AI grade results (unified schema - GRADING_OUTPUT_SCHEMA.md)
+  const[aiSubgrades,setAiSubgrades]=useState(null); // AI subgrades: 8 keys (frontCentering...backSurface), 0-100 scale
+  const[aiOverall,setAiOverall]=useState(null); // AI overall: { score, grade, label, displayGrade, capsApplied, minSubgrade }
+  const[aiGrades,setAiGrades]=useState(null); // AI company grades: { psa, bgs, sgc, cgc, tag }
+  const[aiConfidence,setAiConfidence]=useState(null); // AI confidence: { value: 0-1, factors: [] }
   const[aiSummary,setAiSummary]=useState(null); // AI summary: { positives, concerns, recommendation }
+  const[aiGradingNotes,setAiGradingNotes]=useState(null); // AI grading notes (derived): { positives, concerns, estimatedGrade }
 
-  // Deep AI grade results (separate from standard AI)
-  const[deepAiGrades,setDeepAiGrades]=useState(null); // Deep AI grades: { psa, bgs, sgc, cgc, tag }
-  const[deepAiCentering,setDeepAiCentering]=useState(null); // Deep AI centering: { front, back }
-  const[deepAiCondition,setDeepAiCondition]=useState(null); // Deep AI condition assessment
+  // Deep AI grade results (unified schema - GRADING_OUTPUT_SCHEMA.md)
+  const[deepAiSubgrades,setDeepAiSubgrades]=useState(null); // Deep AI subgrades: 8 keys, 0-100 scale
+  const[deepAiOverall,setDeepAiOverall]=useState(null); // Deep AI overall: { score, grade, label, displayGrade, capsApplied }
+  const[deepAiGrades,setDeepAiGrades]=useState(null); // Deep AI company grades: { psa, bgs, sgc, cgc, tag }
+  const[deepAiConfidence,setDeepAiConfidence]=useState(null); // Deep AI confidence: { value: 0-1, factors: [] }
+  const[deepAiCentering,setDeepAiCentering]=useState(null); // Deep AI centering: numeric shape
   const[deepAiSummary,setDeepAiSummary]=useState(null); // Deep AI summary
   const[extractingInfo,setExtractingInfo]=useState(false); // AI analysis in progress
 
@@ -3168,7 +3173,7 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR, useAiCentering, aiCentering, frontCenteringData, backCenteringData, combinedImageQuality]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiGrades(null);setAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);setGradeMode('software');setUseAiCentering(false);setAiCentering(null);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiSubgrades(null);setAiOverall(null);setAiGrades(null);setAiConfidence(null);setAiGradingNotes(null);setAiSummary(null);setDeepAiSubgrades(null);setDeepAiOverall(null);setDeepAiGrades(null);setDeepAiConfidence(null);setDeepAiCentering(null);setDeepAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);setGradeMode('software');setUseAiCentering(false);setAiCentering(null);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -3296,27 +3301,30 @@ export default function SlabSense(){
       cardSet: cardInfo?.setName || null,
       cardNumber: cardInfo?.cardNumber || null,
       cardGame: 'pokemon',
+      // AI results (unified schema)
+      aiSubgrades: aiSubgrades || null,
+      aiOverall: aiOverall || null,
       aiGrades: aiGrades || null,
-      aiCondition: aiCondition || null,
+      aiConfidence: aiConfidence || null,
       aiSummary: aiSummary || null,
-      // Deep AI grades (from two-pass analysis)
+      // Deep AI results (unified schema)
       // Mobile debug: Log deep AI state at save time
       ...((() => {
         console.log('[buildSaveData] Deep AI state:', {
           hasDeepAiGrades: !!deepAiGrades,
           deepAiGradesKeys: deepAiGrades ? Object.keys(deepAiGrades) : [],
-          hasDeepAiCondition: !!deepAiCondition,
+          hasDeepAiSubgrades: !!deepAiSubgrades,
           hasDeepAiSummary: !!deepAiSummary,
         });
         return {};
       })()),
+      deepAiSubgrades: deepAiSubgrades || null,
+      deepAiOverall: deepAiOverall || null,
       deepAiGrades: deepAiGrades || null,
-      deepAiCondition: deepAiCondition || null,
+      deepAiConfidence: deepAiConfidence || null,
       deepAiSummary: deepAiSummary || null,
-      aiCentering: fR?.centering?.source === 'claude-ai' ? {
-        front: { leftRight: fR?.centering?.lrRatio, topBottom: fR?.centering?.tbRatio },
-        back: bR?.centering ? { leftRight: bR?.centering?.lrRatio, topBottom: bR?.centering?.tbRatio } : null,
-      } : null,
+      // Store centering in numeric format (lrRatio/tbRatio)
+      aiCentering: aiCentering || null,
       cardInfo: cardInfo || null,
       tcgdexImage: tcgdexImage || null,
       tcgdexId: tcgdexData?.id || null,
@@ -3477,72 +3485,69 @@ export default function SlabSense(){
         }
 
         // Condition assessment
-        if (result.condition) {
-          setAiCondition(result.condition);
+        // Unified schema fields (GRADING_OUTPUT_SCHEMA.md)
+        // Subgrades: 8 keys, 0-100 scale
+        if (result.subgrades) {
+          setAiSubgrades(result.subgrades);
+          console.log('AI subgrades (0-100):', result.subgrades);
         }
 
-        // Multi-company grades from Claude
+        // Overall: score, grade, label, displayGrade, capsApplied, minSubgrade
+        if (result.overall) {
+          setAiOverall(result.overall);
+          console.log('AI overall:', result.overall);
+        }
+
+        // Company grades: { psa, bgs, sgc, cgc, tag }
         if (result.grades) {
           setAiGrades(result.grades);
-          console.log('AI Multi-company grades:', result.grades);
+          console.log('AI company grades:', result.grades);
+        } else {
+          console.warn('AI result.grades is missing! result keys:', Object.keys(result));
         }
 
-        // Summary with positives/concerns/recommendation
+        // Confidence: { value: 0-1, factors: [] }
+        if (result.confidence) {
+          setAiConfidence(result.confidence);
+          console.log('AI confidence:', result.confidence);
+        }
+
+        // Defects: { counts, items }
+        if (result.defects) {
+          console.log('AI defects:', result.defects);
+        }
+
+        // Summary: { positives, concerns, recommendation }
         if (result.summary) {
           setAiSummary(result.summary);
           setAiGradingNotes({
             positives: result.summary.positives || [],
             concerns: result.summary.concerns || [],
-            estimatedGrade: result.grades?.[gradingCompany]?.grade || result.grades?.tag?.grade,
+            estimatedGrade: result.overall?.grade || result.grades?.tag?.grade,
             recommendation: result.summary.recommendation,
           });
         }
 
-        // Store Claude's centering data SEPARATELY (don't overwrite software centering)
+        // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
         if (result.centering) {
-          console.log('AI Centering:', result.centering);
-
-          const parseCentering = (str) => {
-            if (!str) return null;
-            const parts = str.split('/').map(s => parseFloat(s.trim()));
-            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-              return { left: parts[0], right: parts[1] };
-            }
-            return null;
-          };
-
-          // Parse front centering
-          let frontAiCentering = null;
-          if (result.centering.front) {
-            const lrParsed = parseCentering(result.centering.front.leftRight || result.centering.front.lr);
-            const tbParsed = parseCentering(result.centering.front.topBottom || result.centering.front.tb);
-            if (lrParsed || tbParsed) {
-              frontAiCentering = {
-                lrRatio: lrParsed ? lrParsed.left : 50, // Store as NUMBER
-                tbRatio: tbParsed ? tbParsed.left : 50, // Store as NUMBER
-                lrDisplay: lrParsed ? `${lrParsed.left}/${lrParsed.right}` : '50/50',
-                tbDisplay: tbParsed ? `${tbParsed.left}/${tbParsed.right}` : '50/50',
-              };
-            }
-          }
-
-          // Parse back centering
-          let backAiCentering = null;
-          if (result.centering.back) {
-            const lrParsed = parseCentering(result.centering.back.leftRight || result.centering.back.lr);
-            const tbParsed = parseCentering(result.centering.back.topBottom || result.centering.back.tb);
-            if (lrParsed || tbParsed) {
-              backAiCentering = {
-                lrRatio: lrParsed ? lrParsed.left : 50, // Store as NUMBER
-                tbRatio: tbParsed ? tbParsed.left : 50, // Store as NUMBER
-                lrDisplay: lrParsed ? `${lrParsed.left}/${lrParsed.right}` : '50/50',
-                tbDisplay: tbParsed ? `${tbParsed.left}/${tbParsed.right}` : '50/50',
-              };
-            }
-          }
-
-          // Store AI centering separately - does NOT affect software grade unless checkbox is checked
-          setAiCentering({ front: frontAiCentering, back: backAiCentering });
+          console.log('AI Centering (numeric):', result.centering);
+          // New schema has numeric values directly, convert to display format
+          const front = result.centering.front;
+          const back = result.centering.back;
+          setAiCentering({
+            front: front ? {
+              lrRatio: front.lrRatio ?? 50,
+              tbRatio: front.tbRatio ?? 50,
+              lrDisplay: `${(front.lrRatio ?? 50).toFixed(1)}/${(100 - (front.lrRatio ?? 50)).toFixed(1)}`,
+              tbDisplay: `${(front.tbRatio ?? 50).toFixed(1)}/${(100 - (front.tbRatio ?? 50)).toFixed(1)}`,
+            } : null,
+            back: back ? {
+              lrRatio: back.lrRatio ?? 50,
+              tbRatio: back.tbRatio ?? 50,
+              lrDisplay: `${(back.lrRatio ?? 50).toFixed(1)}/${(100 - (back.lrRatio ?? 50)).toFixed(1)}`,
+              tbDisplay: `${(back.tbRatio ?? 50).toFixed(1)}/${(100 - (back.tbRatio ?? 50)).toFixed(1)}`,
+            } : null,
+          });
         }
 
         setEnhancingStatus('done');
@@ -3657,66 +3662,57 @@ export default function SlabSense(){
           setCardInfo(prev => prev ? { ...prev, ...result.cardInfo, pricing: prev.pricing } : result.cardInfo);
         }
 
-        // Store in DEEP-specific state (not overwriting standard AI)
-        // Merge defects into condition for consistent display access
-        if (result.condition) {
-          setDeepAiCondition({
-            ...result.condition,
-            defects: result.defects || [],
-          });
+        // Unified schema fields (GRADING_OUTPUT_SCHEMA.md)
+        // Subgrades: 8 keys, 0-100 scale
+        if (result.subgrades) {
+          setDeepAiSubgrades(result.subgrades);
+          console.log('Deep AI subgrades (0-100):', result.subgrades);
         }
 
+        // Overall: score, grade, label, displayGrade, capsApplied, minSubgrade
+        if (result.overall) {
+          setDeepAiOverall(result.overall);
+          console.log('Deep AI overall:', result.overall);
+        }
+
+        // Company grades: { psa, bgs, sgc, cgc, tag }
         if (result.grades) {
           setDeepAiGrades(result.grades);
-          console.log('Deep AI grades:', result.grades);
+          console.log('Deep AI company grades:', result.grades);
+        } else {
+          console.warn('Deep AI result.grades is missing! result keys:', Object.keys(result));
         }
 
+        // Confidence: { value: 0-1, factors: [] }
+        if (result.confidence) {
+          setDeepAiConfidence(result.confidence);
+          console.log('Deep AI confidence:', result.confidence);
+        }
+
+        // Summary: { positives, concerns, recommendation }
         if (result.summary) {
           setDeepAiSummary(result.summary);
         }
 
-        // Centering from deep analysis
+        // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
         if (result.centering) {
-          console.log('Deep AI Centering:', result.centering);
-
-          const parseCentering = (str) => {
-            if (!str) return null;
-            const parts = str.split('/').map(s => parseFloat(s.trim()));
-            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-              return { left: parts[0], right: parts[1] };
-            }
-            return null;
-          };
-
-          let frontDeepCentering = null;
-          if (result.centering.front) {
-            const lrParsed = parseCentering(result.centering.front.leftRight);
-            const tbParsed = parseCentering(result.centering.front.topBottom);
-            if (lrParsed || tbParsed) {
-              frontDeepCentering = {
-                lrRatio: lrParsed ? lrParsed.left : 50,
-                tbRatio: tbParsed ? tbParsed.left : 50,
-                lrDisplay: lrParsed ? `${lrParsed.left}/${lrParsed.right}` : '50/50',
-                tbDisplay: tbParsed ? `${tbParsed.left}/${tbParsed.right}` : '50/50',
-              };
-            }
-          }
-
-          let backDeepCentering = null;
-          if (result.centering.back) {
-            const lrParsed = parseCentering(result.centering.back.leftRight);
-            const tbParsed = parseCentering(result.centering.back.topBottom);
-            if (lrParsed || tbParsed) {
-              backDeepCentering = {
-                lrRatio: lrParsed ? lrParsed.left : 50,
-                tbRatio: tbParsed ? tbParsed.left : 50,
-                lrDisplay: lrParsed ? `${lrParsed.left}/${lrParsed.right}` : '50/50',
-                tbDisplay: tbParsed ? `${tbParsed.left}/${tbParsed.right}` : '50/50',
-              };
-            }
-          }
-
-          setDeepAiCentering({ front: frontDeepCentering, back: backDeepCentering });
+          console.log('Deep AI Centering (numeric):', result.centering);
+          const front = result.centering.front;
+          const back = result.centering.back;
+          setDeepAiCentering({
+            front: front ? {
+              lrRatio: front.lrRatio ?? 50,
+              tbRatio: front.tbRatio ?? 50,
+              lrDisplay: `${(front.lrRatio ?? 50).toFixed(1)}/${(100 - (front.lrRatio ?? 50)).toFixed(1)}`,
+              tbDisplay: `${(front.tbRatio ?? 50).toFixed(1)}/${(100 - (front.tbRatio ?? 50)).toFixed(1)}`,
+            } : null,
+            back: back ? {
+              lrRatio: back.lrRatio ?? 50,
+              tbRatio: back.tbRatio ?? 50,
+              lrDisplay: `${(back.lrRatio ?? 50).toFixed(1)}/${(100 - (back.lrRatio ?? 50)).toFixed(1)}`,
+              tbDisplay: `${(back.tbRatio ?? 50).toFixed(1)}/${(100 - (back.tbRatio ?? 50)).toFixed(1)}`,
+            } : null,
+          });
         }
 
         // Switch to deep grade display mode
@@ -4085,7 +4081,7 @@ export default function SlabSense(){
         <div style={{fontFamily:sans,fontSize:18,fontWeight:600,color:"#00ff88",marginBottom:4}}>Analysis Complete</div>
         <div style={{fontFamily:mono,fontSize:12,color:"#666"}}>View results in Grade tab</div>
       </div>
-      <button onClick={()=>{setStep(0);setFI(null);setBI(null);setGradeResult(null);setFR(null);setBR(null);setCardInfo(null);setAiCondition(null);setAiGradingNotes(null);setAiSummary(null);setAiGrades(null);setAiCentering(null);setDeepAiGrades(null);setDeepAiCentering(null);setDeepAiCondition(null);setDeepAiSummary(null);setDeepGradeStatus(null);setDeepGradeResult(null);setGradeMode('software');setUseAiCentering(false);setEnhancingStatus('idle');setSavingStatus('idle');}} style={{
+      <button onClick={()=>{setStep(0);setFI(null);setBI(null);setGradeResult(null);setFR(null);setBR(null);setCardInfo(null);setAiSubgrades(null);setAiOverall(null);setAiGrades(null);setAiConfidence(null);setAiGradingNotes(null);setAiSummary(null);setAiCentering(null);setDeepAiSubgrades(null);setDeepAiOverall(null);setDeepAiGrades(null);setDeepAiConfidence(null);setDeepAiCentering(null);setDeepAiSummary(null);setDeepGradeStatus(null);setDeepGradeResult(null);setGradeMode('software');setUseAiCentering(false);setEnhancingStatus('idle');setSavingStatus('idle');}} style={{
         padding:"14px 32px",borderRadius:10,border:"none",
         background:"linear-gradient(135deg,#6366f1,#8b5cf6)",
         color:"#fff",fontFamily:mono,fontSize:13,fontWeight:700,cursor:"pointer",
@@ -4189,12 +4185,12 @@ export default function SlabSense(){
               )}
               {/* AI Grade Number */}
               <div style={{textAlign:"center"}}>
-                <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:"#8b5cf6"}}>{aiGrades?.[gradingCompany]?.grade ?? '--'}</div>
-                <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:"#8b5cf6",marginTop:2}}>{aiGrades?.[gradingCompany]?.label || 'AI Grade'}</div>
-                {/* Confidence indicator */}
-                {aiGrades?.[gradingCompany]?.confidence !== undefined && (
-                  <div style={{fontFamily:mono,fontSize:10,color:aiGrades[gradingCompany].confidence >= 0.8 ? '#00ff88' : aiGrades[gradingCompany].confidence >= 0.6 ? '#ffcc00' : '#ff6633',marginTop:4}}>
-                    {Math.round(aiGrades[gradingCompany].confidence * 100)}% confident
+                <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:"#8b5cf6"}}>{aiGrades?.[gradingCompany]?.grade ?? aiOverall?.grade ?? '--'}</div>
+                <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:"#8b5cf6",marginTop:2}}>{aiGrades?.[gradingCompany]?.label || aiOverall?.label || 'AI Grade'}</div>
+                {/* Confidence indicator - from unified schema confidence.value */}
+                {aiConfidence?.value !== undefined && (
+                  <div style={{fontFamily:mono,fontSize:10,color:aiConfidence.value >= 0.8 ? '#00ff88' : aiConfidence.value >= 0.6 ? '#ffcc00' : '#ff6633',marginTop:4}}>
+                    {Math.round(aiConfidence.value * 100)}% confident
                   </div>
                 )}
               </div>
@@ -4216,12 +4212,12 @@ export default function SlabSense(){
               )}
               {/* Deep AI Grade Number */}
               <div style={{textAlign:"center"}}>
-                <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:"#f97316"}}>{deepAiGrades?.[gradingCompany]?.grade ?? '--'}</div>
-                <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:"#f97316",marginTop:2}}>{deepAiGrades?.[gradingCompany]?.label || 'Deep AI'}</div>
-                {/* Confidence indicator */}
-                {deepAiGrades?.[gradingCompany]?.confidence !== undefined && (
-                  <div style={{fontFamily:mono,fontSize:10,color:deepAiGrades[gradingCompany].confidence >= 0.8 ? '#00ff88' : deepAiGrades[gradingCompany].confidence >= 0.6 ? '#ffcc00' : '#ff6633',marginTop:4}}>
-                    {Math.round(deepAiGrades[gradingCompany].confidence * 100)}% confident
+                <div style={{fontFamily:mono,fontSize:48,fontWeight:900,color:"#f97316"}}>{deepAiGrades?.[gradingCompany]?.grade ?? deepAiOverall?.grade ?? '--'}</div>
+                <div style={{fontFamily:mono,fontSize:12,fontWeight:600,color:"#f97316",marginTop:2}}>{deepAiGrades?.[gradingCompany]?.label || deepAiOverall?.label || 'Deep AI'}</div>
+                {/* Confidence indicator - from unified schema confidence.value */}
+                {deepAiConfidence?.value !== undefined && (
+                  <div style={{fontFamily:mono,fontSize:10,color:deepAiConfidence.value >= 0.8 ? '#00ff88' : deepAiConfidence.value >= 0.6 ? '#ffcc00' : '#ff6633',marginTop:4}}>
+                    {Math.round(deepAiConfidence.value * 100)}% confident
                   </div>
                 )}
               </div>
@@ -4328,25 +4324,37 @@ export default function SlabSense(){
             </button>
           </div>
 
-          {/* 4 Score Boxes */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-            <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-              <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>CORNERS</div>
-              <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:aiCondition?.corners>=9?"#00ff88":aiCondition?.corners>=7?"#ffcc00":"#ff6633"}}>{aiCondition?.corners || fR?.corners?.score || "--"}</div>
-            </div>
-            <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-              <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>EDGES</div>
-              <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:aiCondition?.edges>=9?"#00ff88":aiCondition?.edges>=7?"#ffcc00":"#ff6633"}}>{aiCondition?.edges || fR?.edges?.score || "--"}</div>
-            </div>
-            <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-              <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>SURFACE</div>
-              <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:aiCondition?.surface>=9?"#00ff88":aiCondition?.surface>=7?"#ffcc00":"#ff6633"}}>{aiCondition?.surface || "--"}</div>
-            </div>
-            <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-              <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>CENTERING {frontCenteringData?.didManualCenter ? '(M)' : ''}</div>
-              <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:frontCenteringData?.didManualCenter ? "#ff9944" : "#00ff88"}}>{frontCenteringData?.didManualCenter ? Math.round(frontCenteringData.lrRatio) : (fR?.centering?.lrRatio||50)}/{frontCenteringData?.didManualCenter ? Math.round(100-frontCenteringData.lrRatio) : (100-(fR?.centering?.lrRatio||50))}</div>
-            </div>
-          </div>
+          {/* 4 Score Boxes - uses subgrades based on gradeMode */}
+          {(() => {
+            // Select subgrades source based on mode
+            const subgrades = gradeMode === 'deep' ? deepAiSubgrades : gradeMode === 'ai' ? aiSubgrades : gr?.subgrades;
+            // Compute combined scores (average front+back, 0-100 scale → display as 0-100)
+            const cornersScore = subgrades ? Math.round(((subgrades.frontCorners ?? 100) + (subgrades.backCorners ?? 100)) / 2) : null;
+            const edgesScore = subgrades ? Math.round(((subgrades.frontEdges ?? 100) + (subgrades.backEdges ?? 100)) / 2) : null;
+            const surfaceScore = subgrades ? Math.round(((subgrades.frontSurface ?? 100) + (subgrades.backSurface ?? 100)) / 2) : null;
+            // Color thresholds for 0-100 scale
+            const getColor = (val) => val >= 95 ? "#00ff88" : val >= 90 ? "#66dd44" : val >= 80 ? "#ffcc00" : "#ff6633";
+            return (
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+                <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
+                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>CORNERS</div>
+                  <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:cornersScore ? getColor(cornersScore) : "#666"}}>{cornersScore ?? "--"}</div>
+                </div>
+                <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
+                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>EDGES</div>
+                  <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:edgesScore ? getColor(edgesScore) : "#666"}}>{edgesScore ?? "--"}</div>
+                </div>
+                <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
+                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>SURFACE</div>
+                  <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:surfaceScore ? getColor(surfaceScore) : "#666"}}>{surfaceScore ?? "--"}</div>
+                </div>
+                <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
+                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>CENTERING {frontCenteringData?.didManualCenter ? '(M)' : ''}</div>
+                  <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:frontCenteringData?.didManualCenter ? "#ff9944" : "#00ff88"}}>{frontCenteringData?.didManualCenter ? Math.round(frontCenteringData.lrRatio) : (fR?.centering?.lrRatio||50)}/{frontCenteringData?.didManualCenter ? Math.round(100-frontCenteringData.lrRatio) : (100-(fR?.centering?.lrRatio||50))}</div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Total Dings */}
           {gr?.totalDings !== undefined && (
@@ -4436,7 +4444,8 @@ export default function SlabSense(){
           )}
 
           {/* TAG 8 Subgrades (DIG Report Style) - AI or Deep AI */}
-          {gradingCompany === 'tag' && (gradeMode === 'ai' ? aiGrades?.tag?.subgrades : gradeMode === 'deep' ? deepAiGrades?.tag?.subgrades : null) && (
+          {/* Uses top-level subgrades (0-100 scale) from unified schema */}
+          {gradingCompany === 'tag' && (gradeMode === 'ai' ? aiSubgrades : gradeMode === 'deep' ? deepAiSubgrades : null) && (
             <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${gradeMode==='deep'?'#f97316':'#8b5cf6'}33`,marginBottom:12}}>
               <div style={{fontFamily:mono,fontSize:10,color:gradeMode==='deep'?'#f97316':'#8b5cf6',textTransform:"uppercase",marginBottom:10}}>Subgrades {gradeMode==='deep'?'(Deep AI)':'(AI)'}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -4450,13 +4459,14 @@ export default function SlabSense(){
                   {k:"frontSurface",l:"Front Surface"},
                   {k:"backSurface",l:"Back Surface"},
                 ].map(({k,l})=>{
-                  const grades = gradeMode==='deep' ? deepAiGrades : aiGrades;
-                  const val = grades?.tag?.subgrades?.[k];
+                  const subgrades = gradeMode==='deep' ? deepAiSubgrades : aiSubgrades;
+                  const val = subgrades?.[k];
                   if(val==null)return null;
-                  const color = val>=120?"#00ff88":val>=100?"#66dd44":val>=80?"#ffcc00":"#ff6633";
+                  // 0-100 scale: 95+ green, 90+ lime, 80+ yellow
+                  const color = val>=95?"#00ff88":val>=90?"#66dd44":val>=80?"#ffcc00":"#ff6633";
                   return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                     <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>{l}</span>
-                    <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color}}>{val}</span>
+                    <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color}}>{val?.toFixed?.(1) ?? val}</span>
                   </div>);
                 })}
               </div>
@@ -4548,52 +4558,54 @@ export default function SlabSense(){
             </div>
           )}
 
-          {/* AI/Deep AI Condition Assessment */}
+          {/* AI/Deep AI Condition Assessment - derived from subgrades (unified schema) */}
           {(()=>{
             const isDeep = gradeMode === 'deep';
-            const condition = isDeep ? deepAiCondition : aiCondition;
-            if (!condition) return null;
-            const borderColor = isDeep ? '#f9731633' : '#1a1c22';
-            const labelColor = isDeep ? '#f97316' : '#666';
+            const subgrades = isDeep ? deepAiSubgrades : aiSubgrades;
+            const overall = isDeep ? deepAiOverall : aiOverall;
+            // Only show for AI/Deep modes when subgrades exist
+            if (gradeMode === 'software' || !subgrades) return null;
+
+            // Convert 0-100 subgrades to combined 1-10 scores
+            const to10 = (val) => val != null ? (val / 10).toFixed(1) : null;
+            const avg = (a, b) => a != null && b != null ? (a + b) / 2 : (a ?? b);
+            const corners10 = to10(avg(subgrades.frontCorners, subgrades.backCorners));
+            const edges10 = to10(avg(subgrades.frontEdges, subgrades.backEdges));
+            const surface10 = to10(avg(subgrades.frontSurface, subgrades.backSurface));
+            const centering10 = to10(avg(subgrades.frontCentering, subgrades.backCentering));
+            const overall10 = overall?.score != null ? to10(overall.score) : null;
+
+            const borderColor = isDeep ? '#f9731633' : '#8b5cf633';
+            const getColor = (val) => parseFloat(val) >= 9 ? "#00ff88" : parseFloat(val) >= 7 ? "#ffcc00" : "#ff6633";
+
             return (
             <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${borderColor}`,marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase"}}>Condition Assessment</div>
+                <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase"}}>Condition (1-10 Scale)</div>
                 {isDeep && <span style={{fontFamily:mono,fontSize:8,color:"#f97316",background:"rgba(249,115,22,0.15)",padding:"2px 6px",borderRadius:4}}>DEEP AI</span>}
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                {condition.corners!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                {corners10!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Corners</span>
-                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:condition.corners>=9?"#00ff88":condition.corners>=7?"#ffcc00":"#ff6633"}}>{condition.corners}/10</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:getColor(corners10)}}>{corners10}/10</span>
                 </div>)}
-                {condition.edges!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                {edges10!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Edges</span>
-                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:condition.edges>=9?"#00ff88":condition.edges>=7?"#ffcc00":"#ff6633"}}>{condition.edges}/10</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:getColor(edges10)}}>{edges10}/10</span>
                 </div>)}
-                {condition.surface!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                {surface10!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Surface</span>
-                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:condition.surface>=9?"#00ff88":condition.surface>=7?"#ffcc00":"#ff6633"}}>{condition.surface}/10</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:getColor(surface10)}}>{surface10}/10</span>
                 </div>)}
-                {condition.centering!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                {centering10!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Centering</span>
-                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:condition.centering>=9?"#00ff88":condition.centering>=7?"#ffcc00":"#ff6633"}}>{condition.centering}/10</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:getColor(centering10)}}>{centering10}/10</span>
                 </div>)}
-                {condition.overall!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                {overall10!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Overall</span>
-                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:condition.overall>=9?"#00ff88":condition.overall>=7?"#ffcc00":"#ff6633"}}>{condition.overall}/10</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:getColor(overall10)}}>{overall10}/10</span>
                 </div>)}
               </div>
-              {condition.defects?.length > 0 && (
-                <div style={{marginTop:10}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#ff9944",marginBottom:4}}>DEFECTS NOTED {isDeep && '(Deep AI)'}</div>
-                  {condition.defects.map((d,i)=>{
-                    // Handle both string defects (AI) and object defects (Deep AI)
-                    const text = typeof d === 'string' ? d :
-                      `${d.type}${d.location ? ` - ${d.location}` : ''}${d.severity ? ` (${d.severity})` : ''}`;
-                    return (<div key={i} style={{fontFamily:sans,fontSize:11,color:"#888",marginBottom:2}}>• {text}</div>);
-                  })}
-                </div>
-              )}
             </div>
             );
           })()}

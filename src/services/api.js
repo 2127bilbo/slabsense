@@ -587,20 +587,33 @@ export async function claudeGradingAnalysis(
 
       const analysis = claudeResult.analysis;
       console.log('[Claude AI] Card identified:', analysis.cardInfo?.name);
+      console.log('[Claude AI] subgrades:', analysis.subgrades);
+      console.log('[Claude AI] overall:', analysis.overall);
 
+      // Return unified schema shape (GRADING_OUTPUT_SCHEMA.md)
       return {
         success: true,
+        // Card identification
         cardInfo: analysis.cardInfo || null,
-        centering: analysis.centering || {
-          front: { leftRight: '50/50', topBottom: '50/50' },
-          back: null,
-        },
-        condition: analysis.condition || null,
-        grades: analysis.grades || null,
+        // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
+        centering: analysis.centering || null,
+        // 8 subgrades (0-100 scale) - UI subgrade panel reads this
+        subgrades: analysis.subgrades || null,
+        // Overall grade info (score, grade, label, displayGrade, capsApplied, minSubgrade)
+        overall: analysis.overall || null,
+        // Company-specific grades (tag, psa, bgs, cgc, sgc)
+        grades: analysis.companyGrades || null,
+        // Defects list with counts and items
+        defects: analysis.defects || null,
+        // Summary (positives, concerns, recommendation)
         summary: analysis.summary || null,
+        // Confidence (value 0-1, factors array)
+        confidence: analysis.confidence || null,
+        // Full analysis for debugging
         rawAnalysis: analysis,
+        // Metadata
         model: claudeResult.model,
-        cost: 0.02, // Direct API is cheaper
+        cost: 0.02,
       };
     }
 
@@ -667,25 +680,29 @@ export async function claudeGradingAnalysis(
     }
 
     const analysis = claudeResult.analysis;
-    console.log('[Claude AI] Card identified:', analysis.cardInfo?.name);
+    console.log('[Claude AI] (Replicate) Card identified:', analysis.cardInfo?.name);
+    console.log('[Claude AI] (Replicate) subgrades:', analysis.subgrades);
 
-    // Return Claude results immediately (SAM will be called separately)
+    // Return unified schema shape (GRADING_OUTPUT_SCHEMA.md)
     return {
       success: true,
-      // Card info from Claude
+      // Card identification
       cardInfo: analysis.cardInfo || null,
-      // Centering measurements (shown on all tabs)
-      centering: analysis.centering || {
-        front: { leftRight: '50/50', topBottom: '50/50' },
-        back: null,
-      },
-      // Raw condition scores
-      condition: analysis.condition || null,
-      // Multi-company grades (PSA, BGS, SGC, CGC, TAG)
-      grades: analysis.grades || null,
-      // Summary with positives/concerns
+      // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
+      centering: analysis.centering || null,
+      // 8 subgrades (0-100 scale) - UI subgrade panel reads this
+      subgrades: analysis.subgrades || null,
+      // Overall grade info (score, grade, label, displayGrade, capsApplied, minSubgrade)
+      overall: analysis.overall || null,
+      // Company-specific grades (tag, psa, bgs, cgc, sgc)
+      grades: analysis.companyGrades || null,
+      // Defects list with counts and items
+      defects: analysis.defects || null,
+      // Summary (positives, concerns, recommendation)
       summary: analysis.summary || null,
-      // Full raw analysis for debugging
+      // Confidence (value 0-1, factors array)
+      confidence: analysis.confidence || null,
+      // Full analysis for debugging
       rawAnalysis: analysis,
       // Metadata
       model: claudeResult.model,
@@ -1552,37 +1569,48 @@ export async function deepGradingAnalysisV2(
       throw new Error(result.error || 'Deep analysis V2 failed');
     }
 
+    // Extract from unified schema (result.analysis contains full GRADING_OUTPUT_SCHEMA)
+    const analysis = result.analysis || {};
+
     console.log('[Deep AI V2] Analysis complete:', {
       card: result.cardInfo?.name,
       tag: result.grades?.tag?.grade,
-      confidence: result.grades?.tag?.confidence,
+      confidence: analysis.confidence?.value,
       referencesUsed: result.passes?.referencesUsed,
       elapsedMs: result.meta?.elapsedMs,
-      // Multi-provider info (if available)
       providers: result.multiProviderResults ? Object.keys(result.multiProviderResults) : ['primary'],
       mode: result.meta?.gradeMode || 'single',
     });
+    console.log('[Deep AI V2] subgrades:', analysis.subgrades);
+    console.log('[Deep AI V2] overall:', analysis.overall);
 
+    // Return unified schema shape (GRADING_OUTPUT_SCHEMA.md)
     return {
       success: true,
       version: 'v2',
       // Two-pass metadata
       passes: result.passes,
       // Card identification
-      cardInfo: result.cardInfo,
-      // Precise centering measurements with deviation %
-      centering: result.centering,
-      // Defect analysis
-      defects: result.defects,
-      // Reference comparison info
-      comparison: result.comparison,
-      // Grades for all companies (PSA, BGS, CGC, SGC, TAG)
-      grades: result.grades,
-      // Summary with recommendations
-      summary: result.summary,
+      cardInfo: result.cardInfo || analysis.cardInfo || null,
+      // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
+      centering: result.centering || analysis.centering || null,
+      // 8 subgrades (0-100 scale) - UI subgrade panel reads this
+      subgrades: analysis.subgrades || null,
+      // Overall grade info (score, grade, label, displayGrade, capsApplied, minSubgrade)
+      overall: analysis.overall || null,
+      // Company-specific grades (tag, psa, bgs, cgc, sgc)
+      grades: result.grades || analysis.companyGrades || null,
+      // Defects list with counts and items
+      defects: result.defects || analysis.defects || null,
+      // Summary (positives, concerns, recommendation)
+      summary: result.summary || analysis.summary || null,
+      // Confidence (value 0-1, factors array)
+      confidence: analysis.confidence || null,
+      // Full analysis for debugging
+      rawAnalysis: analysis,
       // Analysis metadata
       analysisType: 'deep-v2',
-      meta: result.meta,
+      meta: result.meta || analysis.meta || null,
       cost: 0.05,
       // Multi-provider results (if parallel/sequential/synthesize mode)
       multiProviderResults: result.multiProviderResults || null,
