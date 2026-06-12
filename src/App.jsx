@@ -30,6 +30,7 @@ import {
 import { getGyroInput } from "./lib/gyro-input.js";
 import { loadImg, genMaps, LUM } from "./lib/image-utils.js";
 import { cropToOuterBounds, getBoundsFromCorners } from "./lib/centering-utils.js";
+import { gradeCard, scoreToGrade, ENGINE_VERSION } from "./lib/gradingEngine.js";
 import holoConfig from "../config/holo-config.json";
 
 /* ═══════════════════════════════════════════
@@ -825,205 +826,138 @@ function loadTrainingBounds(isHolo, imgW, imgH) {
 
 
 /* ═══════════════════════════════════════════
-   DINGS-BASED SCORING ENGINE v2
-   Calibrated against 507 real TAG-graded cards.
-
-   Key insights from TAG data:
-   - Centering stored as DEVIATION from 50% (not ratio)
-   - 5+ defects = max grade 8.5 (THE DEFECT CLIFF)
-   - Corner/edge defects are grade-killers for 10s
-   - Surface defects more tolerated (PRISTINE allows 3)
+   UNIFIED SCORING — adapter over gradingEngine.js
+   Engine math: docs/GRADING_SCALE.md (100-pt subgrades, TAG baseline)
+   Output contract: docs/GRADING_OUTPUT_SCHEMA.md
+   Company conversion: docs/COMPANY_OFFSETS.md
    ═══════════════════════════════════════════ */
+
+// Map legacy numeric ding severity (1/2/3, 4+) → engine severity keys.
+// Already-string severities pass through untouched (future AI dings).
+function mapDingSeverity(sev) {
+  if (typeof sev === "string") return sev;
+  if (sev >= 4) return "extreme";
+  if (sev >= 3) return "severe";
+  if (sev >= 2) return "moderate";
+  return "minor";
+}
+
+// Map legacy ding type strings → engine deduction type keys
+// (GRADING_SCALE.md §3.1). Order matters: specific surface types first,
+// generic SURFACE fallback last.
+function mapDingType(typeStr) {
+  const t = (typeStr || "").toUpperCase();
+  if (t.includes("CORNER")) return "CORNER";
+  if (t.includes("EDGE")) return "EDGE";
+  if (t.includes("CREASE") || t.includes("WRINKLE") || t.includes("BEND")) return "CREASE";
+  if (t.includes("TEAR") || t.includes("RIP")) return "TEAR";
+  if (t.includes("STAIN") || t.includes("WATER")) return "STAIN";
+  if (t.includes("DENT") || t.includes("INDENT")) return "DENT";
+  if (t.includes("PIT")) return "PIT";
+  if (t.includes("PRINT") || t.includes("INK")) return "PRINT_DEFECT";
+  if (t.includes("SCRATCH")) return "SCRATCH";
+  if (t.includes("SURFACE") || t.includes("WEAR")) return "PLAY_WEAR";
+  return null; // CENTERING and anything unknown → not an engine defect
+}
+
+// Legacy ding → engine defect. Returns null for CENTERING/unknown dings
+// (centering is measured, never a defect item — GRADING_SCALE.md §7).
+function dingToEngineDefect(ding) {
+  if (!ding || ding.type === "CENTERING") return null;
+  const type = mapDingType(ding.type);
+  if (!type) return null;
+  return {
+    side: ding.side === "BACK" ? "BACK" : "FRONT",
+    type,
+    severity: mapDingSeverity(ding.severity),
+    location: ding.location || null,
+    zone: ding.zone ?? null,
+    x: ding.x ?? null,
+    y: ding.y ?? null,
+    width: ding.w ?? ding.width ?? null,
+    height: ding.h ?? ding.height ?? null,
+    description: ding.desc || ding.description || "",
+  };
+}
+
 function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId = DEFAULT_GRADING_COMPANY, imageQuality = null) {
   const allDings = [...frontDings, ...backDings];
   const totalDings = allDings.length;
   const company = GRADING_COMPANIES[companyId] || GRADING_COMPANIES[DEFAULT_GRADING_COMPANY];
 
-  // ═══════════════════════════════════════════
-  // STEP 1: Count defects by type AND side (8 categories for TAG)
-  // ═══════════════════════════════════════════
-  let cornerDefects = 0, edgeDefects = 0, surfaceDefects = 0;
-  let frontCornerDefects = 0, backCornerDefects = 0;
-  let frontEdgeDefects = 0, backEdgeDefects = 0;
-  let frontSurfaceDefects = 0, backSurfaceDefects = 0;
+  // ── 1) Adapt legacy dings → engine defects ─────────────────────────────
+  const defects = allDings.map(dingToEngineDefect).filter(Boolean);
 
-  for (const ding of frontDings) {
-    if (ding.type === "CENTERING") continue;
-    if (ding.type.includes("CORNER")) { frontCornerDefects++; cornerDefects++; }
-    else if (ding.type.includes("EDGE")) { frontEdgeDefects++; edgeDefects++; }
-    else if (ding.type.includes("SURFACE")) { frontSurfaceDefects++; surfaceDefects++; }
-  }
-  for (const ding of backDings) {
-    if (ding.type === "CENTERING") continue;
-    if (ding.type.includes("CORNER")) { backCornerDefects++; cornerDefects++; }
-    else if (ding.type.includes("EDGE")) { backEdgeDefects++; edgeDefects++; }
-    else if (ding.type.includes("SURFACE")) { backSurfaceDefects++; surfaceDefects++; }
-  }
-  const conditionDefects = cornerDefects + edgeDefects + surfaceDefects;
+  // ── 2) Run the engine (ALL math happens in gradingEngine.js) ───────────
+  // Defensive 50/50 default mirrors the old PERFECT_CENTER behavior.
+  const engine = gradeCard({
+    defects,
+    centering: {
+      front: frontCenter || { lrRatio: 50, tbRatio: 50 },
+      back: backCenter || { lrRatio: 50, tbRatio: 50 },
+    },
+  });
 
-  // ═══════════════════════════════════════════
-  // STEP 2: Calculate centering deviation from 50/50
-  // TAG stores centering as DEVIATION (e.g., 5 = 45/55 or 55/45)
-  // ═══════════════════════════════════════════
-  const frontLRDev = ratioToDeviation(Math.min(frontCenter.lrRatio, 100 - frontCenter.lrRatio));
-  const frontTBDev = ratioToDeviation(Math.min(frontCenter.tbRatio, 100 - frontCenter.tbRatio));
-  const backLRDev = ratioToDeviation(Math.min(backCenter.lrRatio, 100 - backCenter.lrRatio));
-  const backTBDev = ratioToDeviation(Math.min(backCenter.tbRatio, 100 - backCenter.tbRatio));
+  const { subgrades, overall, companyGrades } = engine;
+  const tagScore1000 = companyGrades.tag.score;
 
-  // Max deviation for each side (worst axis)
-  const frontMaxDev = Math.max(frontLRDev, frontTBDev);
-  const backMaxDev = Math.max(backLRDev, backTBDev);
+  // ── 3) Legacy compatibility fields (UI reads these today) ──────────────
+  // gradeCaps: rebuilt from engine subgrades so "Limited by: X" still works.
+  const centeringCapGrade = scoreToGrade(
+    Math.min(subgrades.frontCentering, subgrades.backCentering ?? 100)
+  ).grade;
+  const conditionCapGrade = scoreToGrade(
+    Math.min(
+      subgrades.frontCorners, subgrades.backCorners ?? 100,
+      subgrades.frontEdges, subgrades.backEdges ?? 100,
+      subgrades.frontSurface, subgrades.backSurface ?? 100
+    )
+  ).grade;
+  const defectCountCap = engine.defects.counts.total >= 5 ? 8.5 : 10.0;
 
-  // ═══════════════════════════════════════════
-  // STEP 3: Determine grade caps from TAG calibration
-  // ═══════════════════════════════════════════
-
-  // Cap by centering (using real TAG thresholds)
-  const centeringGradeCap = getCenteringGrade(frontMaxDev, backMaxDev);
-
-  // Cap by defect counts (using real TAG data)
-  const defectGradeCap = getMaxGradeByDefects(conditionDefects, cornerDefects, edgeDefects, surfaceDefects);
-
-  // Apply the 5-defect cliff
-  let defectCountCap = 10.0;
-  if (conditionDefects >= 6) defectCountCap = 8.5;
-  else if (conditionDefects >= 5) defectCountCap = 8.5;
-  else if (conditionDefects >= 4) defectCountCap = 9.0;
-  else if (conditionDefects >= 3) defectCountCap = 10.0; // Surface defects allowed
-  else if (conditionDefects >= 1) defectCountCap = 9.9;
-
-  // Final grade cap = minimum of all caps
-  const maxAllowedGrade = Math.min(centeringGradeCap, defectGradeCap, defectCountCap);
-
-  // ═══════════════════════════════════════════
-  // STEP 4: Calculate component scores (for subgrades display)
-  // ═══════════════════════════════════════════
-
-  // Front centering score (0-125 scale for TAG display)
-  let frontCenterScore;
-  if (frontMaxDev <= 2.0) frontCenterScore = 125;
-  else if (frontMaxDev <= 5.0) frontCenterScore = 120;
-  else if (frontMaxDev <= 10.0) frontCenterScore = 115;
-  else if (frontMaxDev <= 15.0) frontCenterScore = 105;
-  else if (frontMaxDev <= 20.0) frontCenterScore = 95;
-  else if (frontMaxDev <= 25.0) frontCenterScore = 85;
-  else if (frontMaxDev <= 30.0) frontCenterScore = 75;
-  else frontCenterScore = Math.max(50, 75 - (frontMaxDev - 30));
-
-  // Back centering score
-  let backCenterScore;
-  if (backMaxDev <= 4.0) backCenterScore = 125;
-  else if (backMaxDev <= 8.0) backCenterScore = 120;
-  else if (backMaxDev <= 12.0) backCenterScore = 115;
-  else if (backMaxDev <= 16.0) backCenterScore = 105;
-  else if (backMaxDev <= 20.0) backCenterScore = 95;
-  else backCenterScore = Math.max(50, 95 - (backMaxDev - 20));
-
-  // Calculate 8 individual subgrade scores (0-125 scale for TAG)
-  // Each category starts at 125 (perfect) and deducts based on defects
-  // Front defects are penalized ~30% more heavily than back defects
-
-  // Corners: 20 points per front defect, 15 per back defect
-  const frontCornersScore = Math.max(80, 125 - frontCornerDefects * 20);
-  const backCornersScore = Math.max(80, 125 - backCornerDefects * 15);
-
-  // Edges: 18 points per front defect, 14 per back defect
-  const frontEdgesScore = Math.max(80, 125 - frontEdgeDefects * 18);
-  const backEdgesScore = Math.max(80, 125 - backEdgeDefects * 14);
-
-  // Surface: 12 points per front defect, 10 per back defect (more tolerant)
-  const frontSurfaceScore = Math.max(80, 125 - frontSurfaceDefects * 12);
-  const backSurfaceScore = Math.max(80, 125 - backSurfaceDefects * 10);
-
-  // Combined condition score for overall raw score calculation
-  const conditionScore = Math.round(
-    (frontCornersScore + backCornersScore +
-     frontEdgesScore + backEdgesScore +
-     frontSurfaceScore + backSurfaceScore) / 6
-  ) * 3; // Scale to ~375 max for backwards compatibility
-
-  // ═══════════════════════════════════════════
-  // STEP 5: Calculate final score
-  // ═══════════════════════════════════════════
-
-  // Total raw score (out of 1000)
-  // Centering = 250 (front 125 + back 125)
-  // Condition = 750 (corners, edges, surface front+back)
-  const centeringTotal = frontCenterScore + backCenterScore;
-  const rawScore = Math.round(centeringTotal + conditionScore * 2); // Scale condition to ~750 range
-  let finalScore = Math.max(100, Math.min(1000, rawScore));
-
-  // Apply grade caps - cap score BELOW the next grade's threshold
-  // TAG Grade thresholds (no 9.9 - Pristine and Gem Mint are both grade 10):
-  // 10: 950-1000 (Pristine 990+, Gem Mint 950-989), 9: 900-949, etc.
-  const gradeThresholds = {
-    10.0: 950, 9.0: 900, 8.5: 850, 8.0: 800,
-    7.5: 750, 7.0: 700, 6.5: 650, 6.0: 600, 5.5: 550,
-    5.0: 500, 4.5: 450, 4.0: 400, 3.5: 350, 3.0: 300,
-    2.5: 250, 2.0: 200, 1.5: 150, 1.0: 100,
-  };
-  // Find the threshold for the NEXT grade up (the one we can't reach)
-  // TAG actual grades (no 9.9 - both Pristine and Gem Mint are grade 10)
-  const gradeOrder = [10.0, 9.0, 8.5, 8.0, 7.5, 7.0, 6.5, 6.0, 5.5, 5.0, 4.5, 4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0];
-  const capIndex = gradeOrder.indexOf(maxAllowedGrade);
-  const nextGradeUp = capIndex > 0 ? gradeOrder[capIndex - 1] : null;
-  const maxAllowedScore = nextGradeUp ? gradeThresholds[nextGradeUp] - 1 : 1000;
-
-  // Cap the score at max allowed (e.g., if capped at 9, max score is 949)
-  if (finalScore > maxAllowedScore) {
-    finalScore = maxAllowedScore;
-  }
-
-  // Calculate weighted score for display
+  // weightedScore: unchanged legacy display metric (numeric severity × side).
   let weightedScore = 0;
   for (const ding of allDings) {
     const sw = ding.side === "FRONT" ? 1.5 : 1.0;
-    weightedScore += (ding.severity || 1) * sw;
+    weightedScore += (typeof ding.severity === "number" ? ding.severity : 1) * sw;
   }
 
-  // ═══════════════════════════════════════════
-  // STEP 6: Calculate confidence
-  // ═══════════════════════════════════════════
   const confidenceResult = calculateSoftwareConfidence(imageQuality, {
     manualCentering: false, // Will be set by caller if applicable
   });
 
+  // ── 4) Return: legacy fields + unified schema fields ───────────────────
   return {
-    rawScore: finalScore,
-    grade: getGrade(finalScore, companyId),
+    // ——— LEGACY (keep until UI migrates; see ENGINE_WIRING.md) ———
+    rawScore: tagScore1000,                       // TAG 1000-pt score
+    grade: getGrade(tagScore1000, companyId),     // legacy band lookup for current UI colors
     companyId,
     companyName: company.name,
     totalDings,
     weightedScore: Math.round(weightedScore * 10) / 10,
     allDings,
-    subgrades: {
-      frontCentering: frontCenterScore,
-      backCentering: backCenterScore,
-      frontCorners: frontCornersScore,
-      backCorners: backCornersScore,
-      frontEdges: frontEdgesScore,
-      backEdges: backEdgesScore,
-      frontSurface: frontSurfaceScore,
-      backSurface: backSurfaceScore,
-    },
-    defectCounts: {
-      total: conditionDefects,
-      corner: cornerDefects,
-      edge: edgeDefects,
-      surface: surfaceDefects,
-    },
+    defectCounts: engine.defects.counts,          // superset of legacy {total,corner,edge,surface}
     centeringDeviation: {
-      front: { lr: frontLRDev, tb: frontTBDev, max: frontMaxDev },
-      back: { lr: backLRDev, tb: backTBDev, max: backMaxDev },
+      front: { lr: engine.centering.front.devLR, tb: engine.centering.front.devTB, max: engine.centering.front.maxDev },
+      back: { lr: engine.centering.back.devLR, tb: engine.centering.back.devTB, max: engine.centering.back.maxDev },
     },
     gradeCaps: {
-      centering: centeringGradeCap,
-      defects: defectGradeCap,
+      centering: centeringCapGrade,
+      defects: conditionCapGrade,
       defectCount: defectCountCap,
-      final: maxAllowedGrade,
+      final: overall.grade,
     },
     confidence: confidenceResult.confidence,
     confidenceFactors: confidenceResult.factors,
+
+    // ——— UNIFIED SCHEMA (GRADING_OUTPUT_SCHEMA.md) — new canonical data ———
+    subgrades,            // 8 keys, 0–100 scale (frontCentering ... backSurface)
+    overall,              // { score, grade, label, displayGrade, capsApplied, minSubgrade }
+    companyGrades,        // { tag, psa, bgs, cgc, sgc } each with native grade/label/subgrades
+    defects: engine.defects,    // { counts, items[] } — every item has its deduction
+    centering: engine.centering, // { source:"manual", front:{...}, back:{...} }
+    gradePath: "software",
+    engineVersion: ENGINE_VERSION,
   };
 }
 
