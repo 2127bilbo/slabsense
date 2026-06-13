@@ -318,7 +318,16 @@ export function confidenceFromImageQuality(iq, { referencesUsed = 0 } = {}) {
  */
 export function assembleUnifiedOutput({ detection, centering, gradePath, frontOnly = false, meta = {} }) {
   const defects = sanitizeDefects(detection?.defects);
+
+  // DEBUG: Log defects before and after sanitization
+  console.log('[assembleUnifiedOutput] RAW defects from AI:', JSON.stringify(detection?.defects, null, 2));
+  console.log('[assembleUnifiedOutput] SANITIZED defects to engine:', JSON.stringify(defects, null, 2));
+  console.log('[assembleUnifiedOutput] centering:', JSON.stringify(centering, null, 2));
+
   const engine = gradeCard({ defects, centering, frontOnly });
+
+  // DEBUG: Log engine output
+  console.log('[assembleUnifiedOutput] ENGINE subgrades:', JSON.stringify(engine.subgrades, null, 2));
 
   const iq = detection?.imageQuality || {};
   const confidence = confidenceFromImageQuality(iq, { referencesUsed: meta.referencesUsed || 0 });
