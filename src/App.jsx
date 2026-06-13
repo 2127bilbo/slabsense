@@ -8,7 +8,7 @@ import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
 import { saveScan, logMissingImage } from "./services/scans.js";
 import { CardCropModal } from "./components/CardCropModal.jsx";
-import { checkBackendHealth, analyzeCardWithBackend, claudeGradingAnalysis, deepGradingAnalysisV2 } from "./services/api.js";
+import { claudeGradingAnalysis, deepGradingAnalysisV2 } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 import { CardIdentifier } from "./components/CardIdentifier/CardIdentifier.jsx";
 import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.jsx";
@@ -497,7 +497,12 @@ function detectCornerDings(d, w, h, bn, side) {
     const whiteRatio      = totalPixels>0 ? whitePixels/totalPixels : 0;
     const colorDevRatio   = totalPixels>0 ? colorDevPixels/totalPixels : 0;
     const avgSharp        = gradCount>0 ? sharpness/gradCount : 0;
-    const effectiveWear   = isDarkBorder ? Math.max(whiteRatio, colorDevRatio*0.7) : whiteRatio;
+    // FIX: For BACK sides with dark borders, don't use colorDevRatio.
+    // Reason: Card backs have physically rounded corners that expose white card stock at the tips.
+    // This is NORMAL - not damage. colorDevRatio falsely triggers on this natural white.
+    // Only use whiteRatio (neutral white pixels l>215, r≈g≈b) which indicates actual wear/whitening.
+    const isBack = side === "back";
+    const effectiveWear   = (isDarkBorder && !isBack) ? Math.max(whiteRatio, colorDevRatio*0.7) : whiteRatio;
     const lumMean         = lN>0 ? lSum/lN : 0;
     const lumVariance     = lN>0 ? lSq/lN - lumMean**2 : 0;
     const isUniformBright = lumMean > 180 && lumVariance < 600;
@@ -522,13 +527,19 @@ function detectCornerDings(d, w, h, bn, side) {
   // when damage is significant enough to exceed the holo-adjusted thresholds.
 
   // ── Pass 3: decide DING per corner and build output ─────────────────────
+  const isBackSide = side === "back";
+
   for (const c of cornerData) {
     // Conservative detection: ALWAYS require both wear AND sharpness issues
     // High W% alone is NOT enough - card backs often have light-colored designs
     // Real wear shows: high white ratio + LOW sharpness (corner is soft/rounded)
     // False positive shows: high white ratio + HIGH sharpness (corner is still sharp)
-    const wearThresh  = isHolo ? 0.22 : 0.15;  // Raised from 0.12
-    const sharpThresh = isHolo ? 3    : 5;     // Raised - require clearly soft corners
+    //
+    // BACK-SIDE FIX: Card backs have physically rounded corners that naturally expose
+    // ~20-35% white card stock at the tips. This is NOT damage. Raise thresholds for backs
+    // to require significantly more white (40%+) to indicate actual corner wear.
+    const wearThresh  = isBackSide ? 0.40 : (isHolo ? 0.22 : 0.15);
+    const sharpThresh = isBackSide ? 3    : (isHolo ? 3    : 5);     // Require softer corners for backs
 
     // ALWAYS require both conditions - no bypass for "severe wear"
     // because card design (especially backs) can have 50%+ white naturally
@@ -537,12 +548,15 @@ function detectCornerDings(d, w, h, bn, side) {
       && c.avgSharp < sharpThresh;
 
     if(hasWear){
+      // Severity thresholds adjusted for back sides (higher baseline due to natural rounded corners)
+      const severeThresh = isBackSide ? 0.55 : 0.25;
+      const moderateThresh = isBackSide ? 0.45 : 0.15;
       dings.push({
         side: sideLabel,
         type: "CORNER WEAR",
         location: `${sideLabel} / ${c.name}`,
-        severity: c.effectiveWear>0.25 ? 3 : c.effectiveWear>0.15 ? 2 : 1,
-        desc: c.effectiveWear>0.25 ? "Significant corner wear" : c.effectiveWear>0.15 ? "Corner wear visible" : "Light corner wear",
+        severity: c.effectiveWear > severeThresh ? 3 : c.effectiveWear > moderateThresh ? 2 : 1,
+        desc: c.effectiveWear > severeThresh ? "Significant corner wear" : c.effectiveWear > moderateThresh ? "Corner wear visible" : "Light corner wear",
       });
     }
 
@@ -2781,8 +2795,6 @@ export default function SlabSense(){
   const[centeringConfirmed,setCenteringConfirmed]=useState(false); // User confirmed edge alignment
   const[ignoreCentering,setIgnoreCentering]=useState(false); // Ignore centering in grade calculation
   const[gradingCompany,setGradingCompany]=useState(DEFAULT_GRADING_COMPANY); // Selected grading company
-  const[useBackend,setUseBackend]=useState(true); // Use Python backend for analysis
-  const[backendStatus,setBackendStatus]=useState({available:null,checking:true}); // Backend health status
 
   // Photo quality state
   const[frontQuality,setFrontQuality]=useState(null);
@@ -2908,16 +2920,6 @@ export default function SlabSense(){
     }
   }, [auth.profile]);
 
-  // Check backend health on mount
-  useEffect(() => {
-    checkBackendHealth().then(status => {
-      setBackendStatus({...status, checking: false});
-      if (!status.available) {
-        setUseBackend(false); // Fall back to client-side if backend unavailable
-      }
-    });
-  }, []);
-
   // Re-runs analysis with manual boundary overrides, updates grade, cropped image, and centering data
   const applyManualCorrection = useCallback(async (side, overrideBounds, overrideCentering) => {
     const src = side === 'front' ? fI : bI;
@@ -2994,137 +2996,75 @@ export default function SlabSense(){
   const run=useCallback(async()=>{
     if(!fI||!bI)return; setStep(1);
     try{
-      // Use Python backend if enabled and available
-      if (useBackend && backendStatus.available) {
-        setProg("Sending to backend for analysis...");await new Promise(r=>setTimeout(r,30));
-        const backendResult = await analyzeCardWithBackend(fI, bI, 'tcg');
+      // If user did manual centering during upload, use those bounds for analysis
+      let frontOverrideBounds = null, frontOverrideCentering = null;
+      let backOverrideBounds = null, backOverrideCentering = null;
 
-        // Use backend results directly for TAG grading
-        const fr = backendResult.front;
-        const br = backendResult.back;
-        fr.scaledImgUrl = fI;
-        br.scaledImgUrl = bI;
-        setFR(fr);
-        setBR(br);
-
-        // Use backend's grade directly for TAG, convert for other companies
-        const combined = backendResult.combined;
-        setProg(`Processing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
-
-        if (gradingCompany === 'tag') {
-          // Use backend TAG score directly with 8 subgrades
-          const tagGrade = getGrade(combined.tag_score, 'tag');
-          setGradeResult({
-            rawScore: combined.tag_score,
-            grade: tagGrade,
-            subgrades: {
-              frontCentering: combined.subgrades.frontCentering || 100,
-              backCentering: combined.subgrades.backCentering || 100,
-              frontCorners: combined.subgrades.frontCorners || 100,
-              backCorners: combined.subgrades.backCorners || 100,
-              frontEdges: combined.subgrades.frontEdges || 100,
-              backEdges: combined.subgrades.backEdges || 100,
-              frontSurface: combined.subgrades.frontSurface || 100,
-              backSurface: combined.subgrades.backSurface || 100,
-            },
-            allDings: combined.dings || [],
-            processingTimeMs: combined.processing_time_ms,
-            source: 'backend',
-          });
-        } else {
-          // Convert to other company scales
-          const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
-          const effBack = ignoreCentering ? PERFECT_CENTER : br.centering;
-          // Combine quality metrics for confidence
-          const fq = frontQuality?.metrics || {};
-          const bq = backQuality?.metrics || {};
-          const imageQuality = (frontQuality || backQuality) ? {
-            metrics: {
-              sharpness: Math.min(fq.sharpness || 999, bq.sharpness || 999),
-              brightRatio: Math.max(fq.brightRatio || 0, bq.brightRatio || 0),
-              darkRatio: Math.max(fq.darkRatio || 0, bq.darkRatio || 0),
-              contrast: Math.min(fq.contrast || 255, bq.contrast || 255),
-            },
-          } : null;
-          const grade = computeGrade(fr.allDings, br.allDings, effFront, effBack, gradingCompany, imageQuality);
-          setGradeResult({...grade, source: 'backend'});
+      if (frontCenteringData?.didManualCenter) {
+        // Extract bounds from manual centering data
+        if (frontCenteringData.measureMode === 'corner' && frontCenteringData.outerCorners) {
+          const oc = frontCenteringData.outerCorners;
+          frontOverrideBounds = { left: oc.tl.x, right: oc.tr.x, top: oc.tl.y, bottom: oc.bl.y };
+        } else if (frontCenteringData.outer) {
+          frontOverrideBounds = frontCenteringData.outer;
         }
-
-        setProg("Generating surface vision maps...");await new Promise(r=>setTimeout(r,30));
-        setFM(await genMaps(fI)); setBM(await genMaps(bI));
-        setStep(2);
-      } else {
-        // Fall back to client-side analysis
-        // If user did manual centering during upload, use those bounds for analysis
-        let frontOverrideBounds = null, frontOverrideCentering = null;
-        let backOverrideBounds = null, backOverrideCentering = null;
-
-        if (frontCenteringData?.didManualCenter) {
-          // Extract bounds from manual centering data
-          if (frontCenteringData.measureMode === 'corner' && frontCenteringData.outerCorners) {
-            const oc = frontCenteringData.outerCorners;
-            frontOverrideBounds = { left: oc.tl.x, right: oc.tr.x, top: oc.tl.y, bottom: oc.bl.y };
-          } else if (frontCenteringData.outer) {
-            frontOverrideBounds = frontCenteringData.outer;
-          }
-          frontOverrideCentering = {
-            lrRatio: frontCenteringData.lrRatio,
-            tbRatio: frontCenteringData.tbRatio,
-            borderL: frontCenteringData.borderL,
-            borderR: frontCenteringData.borderR,
-            borderT: frontCenteringData.borderT,
-            borderB: frontCenteringData.borderB,
-          };
-        }
-
-        if (backCenteringData?.didManualCenter) {
-          if (backCenteringData.measureMode === 'corner' && backCenteringData.outerCorners) {
-            const oc = backCenteringData.outerCorners;
-            backOverrideBounds = { left: oc.tl.x, right: oc.tr.x, top: oc.tl.y, bottom: oc.bl.y };
-          } else if (backCenteringData.outer) {
-            backOverrideBounds = backCenteringData.outer;
-          }
-          backOverrideCentering = {
-            lrRatio: backCenteringData.lrRatio,
-            tbRatio: backCenteringData.tbRatio,
-            borderL: backCenteringData.borderL,
-            borderR: backCenteringData.borderR,
-            borderT: backCenteringData.borderT,
-            borderB: backCenteringData.borderB,
-          };
-        }
-
-        setProg(frontOverrideBounds ? "Analyzing with manual bounds (front)..." : "Detecting card bounds (front)...");
-        await new Promise(r=>setTimeout(r,30));
-        const fr=await analyzeCardFull(fI,"front", frontOverrideBounds, frontOverrideCentering); setFR(fr);
-
-        setProg(backOverrideBounds ? "Analyzing with manual bounds (back)..." : "Detecting card bounds (back)...");
-        await new Promise(r=>setTimeout(r,30));
-        const br=await analyzeCardFull(bI,"back", backOverrideBounds, backOverrideCentering); setBR(br);
-
-        setProg(`Computing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
-        const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
-        const effBack = ignoreCentering ? PERFECT_CENTER : br.centering;
-        // Combine quality metrics for confidence
-        const fq = frontQuality?.metrics || {};
-        const bq = backQuality?.metrics || {};
-        const imageQuality = (frontQuality || backQuality) ? {
-          metrics: {
-            sharpness: Math.min(fq.sharpness || 999, bq.sharpness || 999),
-            brightRatio: Math.max(fq.brightRatio || 0, bq.brightRatio || 0),
-            darkRatio: Math.max(fq.darkRatio || 0, bq.darkRatio || 0),
-            contrast: Math.min(fq.contrast || 255, bq.contrast || 255),
-          },
-          manualCentering: frontCenteringData?.didManualCenter || backCenteringData?.didManualCenter,
-        } : null;
-        const grade=computeGrade(fr.allDings,br.allDings,effFront,effBack,gradingCompany,imageQuality);
-        setGradeResult({...grade, source: 'client'});
-        setProg("Generating surface vision maps...");await new Promise(r=>setTimeout(r,30));
-        setFM(await genMaps(fI)); setBM(await genMaps(bI));
-        setStep(2);
+        frontOverrideCentering = {
+          lrRatio: frontCenteringData.lrRatio,
+          tbRatio: frontCenteringData.tbRatio,
+          borderL: frontCenteringData.borderL,
+          borderR: frontCenteringData.borderR,
+          borderT: frontCenteringData.borderT,
+          borderB: frontCenteringData.borderB,
+        };
       }
+
+      if (backCenteringData?.didManualCenter) {
+        if (backCenteringData.measureMode === 'corner' && backCenteringData.outerCorners) {
+          const oc = backCenteringData.outerCorners;
+          backOverrideBounds = { left: oc.tl.x, right: oc.tr.x, top: oc.tl.y, bottom: oc.bl.y };
+        } else if (backCenteringData.outer) {
+          backOverrideBounds = backCenteringData.outer;
+        }
+        backOverrideCentering = {
+          lrRatio: backCenteringData.lrRatio,
+          tbRatio: backCenteringData.tbRatio,
+          borderL: backCenteringData.borderL,
+          borderR: backCenteringData.borderR,
+          borderT: backCenteringData.borderT,
+          borderB: backCenteringData.borderB,
+        };
+      }
+
+      setProg(frontOverrideBounds ? "Analyzing with manual bounds (front)..." : "Detecting card bounds (front)...");
+      await new Promise(r=>setTimeout(r,30));
+      const fr=await analyzeCardFull(fI,"front", frontOverrideBounds, frontOverrideCentering); setFR(fr);
+
+      setProg(backOverrideBounds ? "Analyzing with manual bounds (back)..." : "Detecting card bounds (back)...");
+      await new Promise(r=>setTimeout(r,30));
+      const br=await analyzeCardFull(bI,"back", backOverrideBounds, backOverrideCentering); setBR(br);
+
+      setProg(`Computing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
+      const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
+      const effBack = ignoreCentering ? PERFECT_CENTER : br.centering;
+      // Combine quality metrics for confidence
+      const fq = frontQuality?.metrics || {};
+      const bq = backQuality?.metrics || {};
+      const imageQuality = (frontQuality || backQuality) ? {
+        metrics: {
+          sharpness: Math.min(fq.sharpness || 999, bq.sharpness || 999),
+          brightRatio: Math.max(fq.brightRatio || 0, bq.brightRatio || 0),
+          darkRatio: Math.max(fq.darkRatio || 0, bq.darkRatio || 0),
+          contrast: Math.min(fq.contrast || 255, bq.contrast || 255),
+        },
+        manualCentering: frontCenteringData?.didManualCenter || backCenteringData?.didManualCenter,
+      } : null;
+      const grade=computeGrade(fr.allDings,br.allDings,effFront,effBack,gradingCompany,imageQuality);
+      setGradeResult({...grade, source: 'client'});
+      setProg("Generating surface vision maps...");await new Promise(r=>setTimeout(r,30));
+      setFM(await genMaps(fI)); setBM(await genMaps(bI));
+      setStep(2);
     }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);}
-  },[fI,bI,ignoreCentering,gradingCompany,useBackend,backendStatus.available,frontCenteringData,backCenteringData,frontQuality,backQuality]);
+  },[fI,bI,ignoreCentering,gradingCompany,frontCenteringData,backCenteringData,frontQuality,backQuality]);
 
   // Combine image quality for grading confidence calculation
   const combinedImageQuality = useCallback(() => {

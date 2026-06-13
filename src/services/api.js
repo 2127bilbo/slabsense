@@ -1,372 +1,60 @@
 /**
- * SlabSense - Backend API Service (Multi-AI Edition)
+ * SlabSense - Backend API Service
  *
- * EDITED VERSION for multi-provider support.
- * Changes from original:
- * - /api/ai-analyze → /api/ai-analyze-unified?mode=replicate
- * - /api/ai-analyze-direct → /api/ai-analyze-unified?mode=direct
- * - /api/analyze-card → /api/card-info-unified?mode=claude
- * - /api/extract-card-info → /api/card-info-unified?mode=llava
- * - /api/deep-analyze-v2 unchanged (provider selection via ai-config.json)
+ * Unified API client for AI grading endpoints.
+ * Uses Direct Anthropic API (Replicate path removed).
  *
- * Original file: src/services/api.js
- * Last updated: 2026-06-10
+ * Endpoints:
+ * - /api/ai-analyze-unified → Standard AI Grade
+ * - /api/card-info-unified?mode=claude → Card identification
+ * - /api/deep-analyze-v2 → Deep AI Grade (multi-provider)
+ *
+ * Last updated: 2026-06-12
  */
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
 
-// Backend URL - defaults to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-/**
- * Check if backend is available
- */
-export async function checkBackendHealth() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/health`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
-    if (!response.ok) return { available: false, error: 'Backend not responding' };
-    const data = await response.json();
-    return { available: data.status === 'healthy', version: data.version };
-  } catch (error) {
-    return { available: false, error: error.message };
-  }
-}
-
-/**
- * Convert data URL to Blob for file upload
- */
-function dataURLtoBlob(dataURL) {
-  const arr = dataURL.split(',');
-  const mime = arr[0].match(/:(.*?);/)[1];
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new Blob([u8arr], { type: mime });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// API PROVIDER CONFIG
-// Toggle between Replicate (current) and Direct Anthropic API
-// ═══════════════════════════════════════════════════════════════════════════
-const USE_DIRECT_ANTHROPIC = true;  // true = Direct Anthropic, false = Replicate
-// ═══════════════════════════════════════════════════════════════════════════
-
 // ═══════════════════════════════════════════════════════════════════════════
 // UNIFIED ENDPOINT MAPPING
-// These constants map to the new merged endpoints
 // ═══════════════════════════════════════════════════════════════════════════
 const ENDPOINTS = {
-  // Combined ai-analyze.js + ai-analyze-direct.js
+  // AI grading analysis (Direct Anthropic)
   AI_ANALYZE_UNIFIED: '/api/ai-analyze-unified',
-  // Combined analyze-card.js + extract-card-info.js
+  // Card identification (Claude Vision)
   CARD_INFO_UNIFIED: '/api/card-info-unified',
-  // Multi-provider deep analysis (reads from ai-config.json)
+  // Multi-provider deep analysis
   DEEP_ANALYZE_V2: '/api/deep-analyze-v2',
 };
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════════
-// IMAGE COMPRESSION CONFIG
-// This compression is required while using Replicate (Vercel 4.5MB payload limit)
-// Not needed when USE_DIRECT_ANTHROPIC = true (images uploaded to Supabase)
-// ═══════════════════════════════════════════════════════════════════════════
-const ENABLE_COMPRESSION = !USE_DIRECT_ANTHROPIC; // Auto-disable when using direct API
-const MAX_CLAUDE_DIMENSION = 1500;
-const DEFAULT_JPEG_QUALITY = 0.85;
-
-/**
- * Compress image for API calls to stay under Vercel's 4.5MB payload limit
- * Required for Replicate-based AI grade. Will be removed post-Replicate migration.
- *
- * @param {string} dataUrl - Original image data URL
- * @param {number} maxDimension - Max width/height (default 1500)
- * @param {number} quality - JPEG quality 0-1 (default 0.85)
- * @returns {Promise<string>} Compressed image data URL (or original if compression disabled)
- */
-async function compressImageForAPI(dataUrl, maxDimension = MAX_CLAUDE_DIMENSION, quality = DEFAULT_JPEG_QUALITY) {
-  // Easy toggle to disable compression when Replicate is removed
-  if (!ENABLE_COMPRESSION) {
-    console.log('[Compress] Compression disabled, using original image');
-    return dataUrl;
-  }
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      let width = img.width;
-      let height = img.height;
-
-      // Scale down if larger than max dimension
-      if (width > maxDimension || height > maxDimension) {
-        if (width > height) {
-          height = Math.round((height / width) * maxDimension);
-          width = maxDimension;
-        } else {
-          width = Math.round((width / height) * maxDimension);
-          height = maxDimension;
-        }
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const compressed = canvas.toDataURL('image/jpeg', quality);
-      const originalSize = Math.round(dataUrl.length / 1024);
-      const newSize = Math.round(compressed.length / 1024);
-      console.log(`[Compress] ${img.width}x${img.height} -> ${width}x${height} (${originalSize}KB -> ${newSize}KB)`);
-
-      resolve(compressed);
-    };
-    img.onerror = () => reject(new Error('Failed to load image for compression'));
-    img.src = dataUrl;
-  });
-}
-
-/**
- * Analyze card images using the backend
- * @param {string} frontImageDataUrl - Base64 data URL of front image
- * @param {string} backImageDataUrl - Base64 data URL of back image (optional)
- * @param {string} cardType - "tcg" or "sports"
- * @returns {Promise<object>} Analysis result
- */
-export async function analyzeCard(frontImageDataUrl, backImageDataUrl = null, cardType = 'tcg') {
-  const formData = new FormData();
-
-  // Convert data URLs to blobs and append to form
-  if (frontImageDataUrl) {
-    const frontBlob = dataURLtoBlob(frontImageDataUrl);
-    formData.append('front_image', frontBlob, 'front.png');
-  }
-
-  if (backImageDataUrl) {
-    const backBlob = dataURLtoBlob(backImageDataUrl);
-    formData.append('back_image', backBlob, 'back.png');
-  }
-
-  formData.append('card_type', cardType);
-  formData.append('apply_perspective', 'true');
-
-  const response = await fetch(`${API_BASE_URL}/api/v1/analyze`, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-    throw new Error(error.detail || `Backend error: ${response.status}`);
-  }
-
-  return await response.json();
-}
-
-/**
- * Get centering analysis only (lighter weight)
- * @param {string} imageDataUrl - Base64 data URL of image
- * @param {string} side - "front" or "back"
- * @param {string} cardType - "tcg" or "sports"
- * @returns {Promise<object>} Centering result
- */
-export async function analyzeCentering(imageDataUrl, side = 'front', cardType = 'tcg') {
-  const formData = new FormData();
-
-  const blob = dataURLtoBlob(imageDataUrl);
-  formData.append('image', blob, 'card.png');
-  formData.append('side', side);
-  formData.append('card_type', cardType);
-
-  const response = await fetch(`${API_BASE_URL}/api/v1/centering`, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Backend error: ${response.status}`);
-  }
-
-  return await response.json();
-}
-
-/**
- * Apply perspective correction to image
- * @param {string} imageDataUrl - Base64 data URL of image
- * @returns {Promise<object>} Corrected image result
- */
-export async function correctPerspective(imageDataUrl) {
-  const formData = new FormData();
-
-  const blob = dataURLtoBlob(imageDataUrl);
-  formData.append('image', blob, 'card.png');
-  formData.append('return_image', 'true');
-
-  const response = await fetch(`${API_BASE_URL}/api/v1/perspective`, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Backend error: ${response.status}`);
-  }
-
-  return await response.json();
-}
-
-/**
- * Convert backend result to frontend format
- * Maps the backend API response to the format expected by the frontend UI
- */
-export function convertBackendResult(backendResult, side = 'front') {
-  const result = backendResult.combined_result;
-  if (!result) return null;
-
-  const centering = result.centering || {};
-  const isBack = side === 'back';
-
-  // Extract centering for the requested side
-  const lr = isBack ? centering.back_lr : centering.front_lr;
-  const tb = isBack ? centering.back_tb : centering.front_tb;
-  const maxOffset = isBack ? centering.back_max_offset : centering.front_max_offset;
-
-  // Get border pixel data for overlay
-  const boundsData = isBack ? result.back_bounds : result.front_bounds;
-  const bordersPx = boundsData?.borders_px || {};
-  const imageSize = boundsData?.image_size || { width: 750, height: 1050 };
-
-  // Calculate border widths for centering display
-  const borderL = bordersPx.left || 0;
-  const borderR = imageSize.width - (bordersPx.right || imageSize.width);
-  const borderT = bordersPx.top || 0;
-  const borderB = imageSize.height - (bordersPx.bottom || imageSize.height);
-
-  // Convert to frontend centering format
-  const frontendCentering = {
-    lrRatio: lr ? lr[0] : 50,
-    tbRatio: tb ? tb[0] : 50,
-    borderL: borderL,
-    borderR: borderR,
-    borderT: borderT,
-    borderB: borderB,
-    maxOffset: maxOffset || 50,
-  };
-
-  // Build bounds object for frontend overlay
-  const bounds = {
-    left: bordersPx.left || 0,
-    right: bordersPx.right || imageSize.width,
-    top: bordersPx.top || 0,
-    bottom: bordersPx.bottom || imageSize.height,
-    cardW: (bordersPx.right || imageSize.width) - (bordersPx.left || 0),
-    cardH: (bordersPx.bottom || imageSize.height) - (bordersPx.top || 0),
-  };
-
-  // Convert defects to dings format
-  const dings = (result.defects || []).map(d => ({
-    type: d.type,
-    severity: d.severity,
-    desc: d.description,
-    side: d.side || side,
-    location: d.location,
-    deduction: d.severity * 20, // Approximate deduction
-  }));
-
-  // Add centering ding if it's the limiting factor
-  const centerScore = isBack ? result.subgrades?.backCenter : result.subgrades?.frontCenter;
-  if (centerScore && centerScore < 970) {
-    dings.push({
-      type: 'centering',
-      severity: centerScore < 900 ? 3 : (centerScore < 950 ? 2 : 1),
-      desc: `${side.charAt(0).toUpperCase() + side.slice(1)} centering ${Math.round(maxOffset)}/${Math.round(100-maxOffset)}`,
-      side: side,
-      location: 'CENTER',
-      deduction: 990 - centerScore,
-    });
-  }
-
-  // Create placeholder corner details for UI compatibility
-  const cornerSize = Math.min(bounds.cardW, bounds.cardH) * 0.12;
-  const cornerDetails = [
-    { name: 'TL', cropX: bounds.left, cropY: bounds.top, cropSize: cornerSize, hasDing: false },
-    { name: 'TR', cropX: bounds.right - cornerSize, cropY: bounds.top, cropSize: cornerSize, hasDing: false },
-    { name: 'BL', cropX: bounds.left, cropY: bounds.bottom - cornerSize, cropSize: cornerSize, hasDing: false },
-    { name: 'BR', cropX: bounds.right - cornerSize, cropY: bounds.bottom - cornerSize, cropSize: cornerSize, hasDing: false },
-  ];
-
-  return {
-    centering: frontendCentering,
-    centerDings: dings.filter(d => d.type === 'centering'),
-    allDings: dings,
-    corners: { dings: dings.filter(d => d.type?.includes('CORNER')), details: cornerDetails },
-    edges: { dings: dings.filter(d => d.type?.includes('EDGE')), maps: null },
-    surface: { dings: dings.filter(d => d.type?.includes('SURFACE')), maps: null },
-    bounds: bounds,
-    imgW: imageSize.width,
-    imgH: imageSize.height,
-    scaledImgUrl: null,
-    // Backend-specific data
-    backendScore: result.tag_score,
-    backendGrade: result.grade,
-    backendGradeLabel: result.grade_label,
-    backendSubgrades: result.subgrades,
-    processingTimeMs: result.processing_time_ms,
-  };
-}
-
-/**
- * Full backend analysis with format conversion
- */
-export async function analyzeCardWithBackend(frontImageDataUrl, backImageDataUrl, cardType = 'tcg') {
-  const result = await analyzeCard(frontImageDataUrl, backImageDataUrl, cardType);
-
-  if (!result.success) {
-    throw new Error(result.error || 'Analysis failed');
-  }
-
-  return {
-    raw: result,
-    front: convertBackendResult(result, 'front'),
-    back: backImageDataUrl ? convertBackendResult(result, 'back') : null,
-    combined: result.combined_result,
-  };
-}
-
 /**
  * Analyze card using Claude Vision AI (UNIFIED ENDPOINT)
- * Extracts card info, condition assessment, and grading notes
+ * Extracts card identification info (name, set, rarity, etc.)
  *
- * CHANGED: Now uses /api/card-info-unified?mode=claude
+ * NOTE: This endpoint is IDENTIFICATION-ONLY. For grading, use:
+ * - claudeGradingAnalysis() for Standard AI Grade
+ * - deepGradingAnalysisV2() for Deep AI Grade
  *
  * @param {string} imageDataUrl - Card image (cropped preferred)
  * @param {string} cardType - 'pokemon' | 'sports' | 'tcg'
- * @param {boolean} includeGrading - Include condition/grading analysis
- * @returns {Promise<object>} Full analysis result
+ * @returns {Promise<object>} Card identification result
  */
-export async function analyzeCardWithVision(imageDataUrl, cardType = 'pokemon', includeGrading = true) {
+export async function analyzeCardWithVision(imageDataUrl, cardType = 'pokemon') {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for vision
 
   try {
-    console.log(`[Claude Vision] Starting ${cardType} card analysis...`);
+    console.log(`[Claude Vision] Starting ${cardType} card identification...`);
 
-    // Compress image to avoid Vercel's 4.5MB payload limit
-    const compressedImage = await compressImageForAPI(imageDataUrl);
-
-    // CHANGED: Use unified endpoint with mode=claude
+    // Use unified endpoint with mode=claude (identification-only)
     const response = await fetch(`${ENDPOINTS.CARD_INFO_UNIFIED}?mode=claude`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        image: compressedImage,
+        image: imageDataUrl,
         cardType,
-        includeGrading,
       }),
       signal: controller.signal,
     });
@@ -379,12 +67,12 @@ export async function analyzeCardWithVision(imageDataUrl, cardType = 'pokemon', 
     }
 
     const result = await response.json();
-    console.log('[Claude Vision] Analysis complete:', result.analysis?.cardInfo?.name);
+    console.log('[Claude Vision] Identification complete:', result.analysis?.cardInfo?.name);
     return result;
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
-      throw new Error('Card analysis timed out - please try again');
+      throw new Error('Card identification timed out - please try again');
     }
     console.error('[Claude Vision] Error:', error);
     throw error;
@@ -396,51 +84,12 @@ export async function analyzeCardWithVision(imageDataUrl, cardType = 'pokemon', 
  * @deprecated Use analyzeCardWithVision instead
  */
 export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
-  const result = await analyzeCardWithVision(imageDataUrl, cardType, false);
+  const result = await analyzeCardWithVision(imageDataUrl, cardType);
   // Transform to legacy format for backwards compatibility
   return {
     success: result.success,
     cardInfo: result.analysis?.cardInfo || null,
     rawResponse: result.rawResponse,
-  };
-}
-
-/**
- * Stitch two cropped card images side-by-side for Claude analysis
- * Both images should be the same height (standard card dimensions)
- */
-async function stitchCroppedCards(frontDataUrl, backDataUrl) {
-  const [frontImg, backImg] = await Promise.all([
-    loadImageFromUrl(frontDataUrl),
-    loadImageFromUrl(backDataUrl),
-  ]);
-
-  // Use consistent height, scale if needed
-  const targetHeight = Math.max(frontImg.height, backImg.height);
-  const frontScale = targetHeight / frontImg.height;
-  const backScale = targetHeight / backImg.height;
-
-  const frontW = Math.round(frontImg.width * frontScale);
-  const backW = Math.round(backImg.width * backScale);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = frontW + backW;
-  canvas.height = targetHeight;
-  const ctx = canvas.getContext('2d');
-
-  // Draw front on left, back on right
-  ctx.drawImage(frontImg.img, 0, 0, frontW, targetHeight);
-  ctx.drawImage(backImg.img, frontW, 0, backW, targetHeight);
-
-  const stitched = canvas.toDataURL('image/jpeg', 0.90);
-  console.log(`[Stitch Cropped] ${frontW}+${backW} x ${targetHeight} = ${canvas.width}x${canvas.height} (${Math.round(stitched.length/1024)}KB)`);
-
-  return {
-    dataUrl: stitched,
-    width: canvas.width,
-    height: canvas.height,
-    frontWidth: frontW,
-    backWidth: backW,
   };
 }
 
@@ -501,187 +150,87 @@ async function uploadImageForStandardAnalysis(dataUrl, side, userId) {
 /**
  * CLAUDE GRADING ANALYSIS - Returns grades immediately (UNIFIED ENDPOINT)
  *
- * CHANGED: Now uses /api/ai-analyze-unified with mode parameter
- * - mode=direct: Uses direct Anthropic API (default when USE_DIRECT_ANTHROPIC=true)
- * - mode=replicate: Uses Replicate API (legacy)
+ * Uses Direct Anthropic API with images uploaded to Supabase.
  *
  * Cost: ~$0.02-0.03 per analysis
  *
  * @param {string} frontImageDataUrl - Front card image
- * @param {string} backImageDataUrl - Back card image (optional for Replicate, recommended for Direct)
+ * @param {string} backImageDataUrl - Back card image (optional)
  * @param {string} cardType - 'pokemon' | 'sports' | 'tcg'
- * @param {string} userId - User ID (required when USE_DIRECT_ANTHROPIC = true)
+ * @param {string} userId - User ID (required)
+ * @param {object} frontCentering - Optional software centering { lrRatio, tbRatio }
+ * @param {object} backCentering - Optional software centering { lrRatio, tbRatio }
  */
 export async function claudeGradingAnalysis(
   frontImageDataUrl,
   backImageDataUrl = null,
   cardType = 'pokemon',
   userId = null,
-  // Optional software-calculated centering (more accurate than AI estimation)
-  frontCentering = null,  // { lrRatio, tbRatio }
-  backCentering = null    // { lrRatio, tbRatio }
+  frontCentering = null,
+  backCentering = null
 ) {
   const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
   console.log('[Claude AI] Starting grading analysis...');
-  console.log('[Claude AI] Provider:', USE_DIRECT_ANTHROPIC ? 'Direct Anthropic' : 'Replicate');
   console.log('[Claude AI] Has back image:', !!backImageDataUrl);
   console.log('[Claude AI] Has software centering:', hasSoftwareCentering);
 
+  if (!userId) {
+    throw new Error('User ID required for AI Grade. Please sign in.');
+  }
+
   try {
-    // ═══════════════════════════════════════════════════════════════════════
-    // DIRECT ANTHROPIC PATH - Upload images, call unified endpoint with mode=direct
-    // ═══════════════════════════════════════════════════════════════════════
-    if (USE_DIRECT_ANTHROPIC) {
-      if (!userId) {
-        throw new Error('User ID required for Direct Anthropic API. Please sign in.');
-      }
-
-      // Upload images to Supabase to get public URLs
-      console.log('[Claude AI] Uploading images to Supabase...');
-      const uploadPromises = [uploadImageForStandardAnalysis(frontImageDataUrl, 'front', userId)];
-      if (backImageDataUrl) {
-        uploadPromises.push(uploadImageForStandardAnalysis(backImageDataUrl, 'back', userId));
-      }
-
-      const urls = await Promise.all(uploadPromises);
-      const frontUrl = urls[0];
-      const backUrl = urls[1] || null;
-
-      console.log('[Claude AI] Images uploaded, calling unified AI endpoint (mode=direct)...');
-
-      // Build request body
-      const requestBody = {
-        frontUrl,
-        backUrl,
-        cardType,
-      };
-
-      // Include software centering if available (more accurate than AI estimation)
-      if (hasSoftwareCentering) {
-        requestBody.frontCentering = frontCentering;
-        requestBody.backCentering = backCentering;
-        console.log('[Claude AI] Using software centering:', {
-          front: `${frontCentering.lrRatio.toFixed(1)}/${frontCentering.tbRatio.toFixed(1)}`,
-          back: `${backCentering.lrRatio.toFixed(1)}/${backCentering.tbRatio.toFixed(1)}`
-        });
-      }
-
-      // CHANGED: Use unified endpoint with mode=direct
-      const response = await fetch(`${ENDPOINTS.AI_ANALYZE_UNIFIED}?mode=direct`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('[Claude AI] Direct API error:', errorData);
-        throw new Error(errorData.error || `API error: ${response.status}`);
-      }
-
-      const claudeResult = await response.json();
-
-      if (!claudeResult.success) {
-        throw new Error(claudeResult.error || 'Direct analysis failed');
-      }
-
-      const analysis = claudeResult.analysis;
-      console.log('[Claude AI] Card identified:', analysis.cardInfo?.name);
-      console.log('[Claude AI] subgrades:', analysis.subgrades);
-      console.log('[Claude AI] overall:', analysis.overall);
-
-      // Return unified schema shape (GRADING_OUTPUT_SCHEMA.md)
-      return {
-        success: true,
-        // Card identification
-        cardInfo: analysis.cardInfo || null,
-        // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
-        centering: analysis.centering || null,
-        // 8 subgrades (0-100 scale) - UI subgrade panel reads this
-        subgrades: analysis.subgrades || null,
-        // Overall grade info (score, grade, label, displayGrade, capsApplied, minSubgrade)
-        overall: analysis.overall || null,
-        // Company-specific grades (tag, psa, bgs, cgc, sgc)
-        grades: analysis.companyGrades || null,
-        // Defects list with counts and items
-        defects: analysis.defects || null,
-        // Summary (positives, concerns, recommendation)
-        summary: analysis.summary || null,
-        // Confidence (value 0-1, factors array)
-        confidence: analysis.confidence || null,
-        // Full analysis for debugging
-        rawAnalysis: analysis,
-        // Metadata
-        model: claudeResult.model,
-        cost: 0.02,
-      };
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // REPLICATE PATH - Stitch images, call unified endpoint with mode=replicate
-    // ═══════════════════════════════════════════════════════════════════════
-    let imageForClaude;
-    let isStitched = false;
-
+    // Upload images to Supabase to get public URLs
+    console.log('[Claude AI] Uploading images to Supabase...');
+    const uploadPromises = [uploadImageForStandardAnalysis(frontImageDataUrl, 'front', userId)];
     if (backImageDataUrl) {
-      const stitched = await stitchCroppedCards(frontImageDataUrl, backImageDataUrl);
-      imageForClaude = stitched.dataUrl;
-      isStitched = true;
-      console.log(`[Claude AI] Stitched originals: ${stitched.width}x${stitched.height} (${Math.round(stitched.dataUrl.length/1024)}KB)`);
-    } else {
-      imageForClaude = frontImageDataUrl;
+      uploadPromises.push(uploadImageForStandardAnalysis(backImageDataUrl, 'back', userId));
     }
 
-    // Call Claude API with retry logic for rate limits
-    let claudeResult = null;
-    let lastError = null;
+    const urls = await Promise.all(uploadPromises);
+    const frontUrl = urls[0];
+    const backUrl = urls[1] || null;
 
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      console.log(`[Claude AI] API attempt ${attempt}/3...`);
+    console.log('[Claude AI] Images uploaded, calling unified AI endpoint...');
 
-      // CHANGED: Use unified endpoint with mode=replicate
-      const response = await fetch(`${ENDPOINTS.AI_ANALYZE_UNIFIED}?mode=replicate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: imageForClaude,
-          isStitched,
-          cardType,
-        }),
+    // Build request body
+    const requestBody = {
+      frontUrl,
+      backUrl,
+      cardType,
+    };
+
+    // Include software centering if available (more accurate than AI estimation)
+    if (hasSoftwareCentering) {
+      requestBody.frontCentering = frontCentering;
+      requestBody.backCentering = backCentering;
+      console.log('[Claude AI] Using software centering:', {
+        front: `${frontCentering.lrRatio.toFixed(1)}/${frontCentering.tbRatio.toFixed(1)}`,
+        back: `${backCentering.lrRatio.toFixed(1)}/${backCentering.tbRatio.toFixed(1)}`
       });
-
-      if (response.ok) {
-        claudeResult = await response.json();
-        if (claudeResult.success) {
-          console.log('[Claude AI] Grading complete!');
-          break;
-        }
-      }
-
-      // Handle errors
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      lastError = errorData;
-      console.error(`[Claude AI] Attempt ${attempt} failed:`, errorData);
-
-      // If rate limited (429), wait and retry
-      if (response.status === 429 || errorData.status === 429) {
-        const waitTime = (errorData.retry_after || 2) * 1000 + 500;
-        console.log(`[Claude AI] Rate limited, waiting ${waitTime}ms before retry...`);
-        await new Promise(r => setTimeout(r, waitTime));
-        continue;
-      }
-
-      break;
     }
 
-    if (!claudeResult?.success) {
-      console.error('[Claude AI] Failed:', lastError);
-      throw new Error(lastError?.error || lastError?.message || 'Claude grading failed');
+    const response = await fetch(ENDPOINTS.AI_ANALYZE_UNIFIED, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('[Claude AI] API error:', errorData);
+      throw new Error(errorData.error || `API error: ${response.status}`);
+    }
+
+    const claudeResult = await response.json();
+
+    if (!claudeResult.success) {
+      throw new Error(claudeResult.error || 'Analysis failed');
     }
 
     const analysis = claudeResult.analysis;
-    console.log('[Claude AI] (Replicate) Card identified:', analysis.cardInfo?.name);
-    console.log('[Claude AI] (Replicate) subgrades:', analysis.subgrades);
+    console.log('[Claude AI] Card identified:', analysis.cardInfo?.name);
+    console.log('[Claude AI] subgrades:', analysis.subgrades);
+    console.log('[Claude AI] overall:', analysis.overall);
 
     // Return unified schema shape (GRADING_OUTPUT_SCHEMA.md)
     return {
@@ -706,7 +255,7 @@ export async function claudeGradingAnalysis(
       rawAnalysis: analysis,
       // Metadata
       model: claudeResult.model,
-      cost: 0.03,
+      cost: 0.02,
     };
 
   } catch (error) {
