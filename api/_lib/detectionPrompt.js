@@ -210,28 +210,23 @@ reliable inspection of any area, say so in "warning".
 
 ## RESPONSE — return ONLY this JSON, no other text:
 {
-  "cardInfo": { "name": "...", "setName": "...", "cardNumber": "...", "rarity": "...", "year": "...", "hp": "...", "variant": null, "language": "English" },
+  "cardInfo": { "name": null, "setName": null, "cardNumber": null, "rarity": null, "year": null, "hp": null, "variant": null, "language": "English" },
   "imageQuality": {
-    "front": { "glareLevel": "none|minor|moderate|severe", "blurLevel": "none|minor|moderate|severe", "glareLocations": [] },
-    "back":  { "glareLevel": "...", "blurLevel": "...", "glareLocations": [] },
-    "overall": "good|acceptable|poor",
+    "front": { "glareLevel": "none", "blurLevel": "none", "glareLocations": [] },
+    "back":  { "glareLevel": "none", "blurLevel": "none", "glareLocations": [] },
+    "overall": "good",
     "warning": null
   },
-  "defects": [],
+  "defects": [
+    { "side": "FRONT", "type": "CORNER", "severity": "minor", "location": "TOP LEFT", "x": 8, "y": 7, "width": 5, "height": 5, "description": "Light whitening at corner tip" }
+  ],
   "summary": {
-    "positives": ["..."],
-    "concerns": ["..."],
-    "recommendation": "..."
+    "positives": ["at least one factual positive observation"],
+    "concerns": ["at least one factual concern, or 'No notable concerns'"],
+    "recommendation": "one sentence on overall physical condition (no grades)"
   }
 }
-
-CRITICAL: The "defects" array above is EMPTY — that is the starting point. Only add
-defects you ACTUALLY SEE in the images. Do NOT invent defects. Do NOT copy examples.
-A pristine card has "defects": []. A damaged card has defects YOU observed with
-coordinates YOU measured from the actual images. Every defect must reference
-something visible in the provided photos.
-
-Unknown cardInfo values are null.`);
+Unknown cardInfo values are null. An immaculate card returns "defects": [].`);
 
   return sections.join('\n\n');
 }
@@ -323,7 +318,16 @@ export function confidenceFromImageQuality(iq, { referencesUsed = 0 } = {}) {
  */
 export function assembleUnifiedOutput({ detection, centering, gradePath, frontOnly = false, meta = {} }) {
   const defects = sanitizeDefects(detection?.defects);
+
+  // DEBUG: Log defects before and after sanitization
+  console.log('[assembleUnifiedOutput] RAW defects from AI:', JSON.stringify(detection?.defects, null, 2));
+  console.log('[assembleUnifiedOutput] SANITIZED defects to engine:', JSON.stringify(defects, null, 2));
+  console.log('[assembleUnifiedOutput] centering:', JSON.stringify(centering, null, 2));
+
   const engine = gradeCard({ defects, centering, frontOnly });
+
+  // DEBUG: Log engine output
+  console.log('[assembleUnifiedOutput] ENGINE subgrades:', JSON.stringify(engine.subgrades, null, 2));
 
   const iq = detection?.imageQuality || {};
   const confidence = confidenceFromImageQuality(iq, { referencesUsed: meta.referencesUsed || 0 });
