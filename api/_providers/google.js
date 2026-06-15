@@ -17,13 +17,14 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const GEMINI_MODELS = {
+  PRO_25: 'gemini-2.5-pro',
   PRO: 'gemini-1.5-pro',
   PRO_LATEST: 'gemini-1.5-pro-latest',
   FLASH: 'gemini-1.5-flash',
   FLASH_LATEST: 'gemini-1.5-flash-latest',
 };
 
-const DEFAULT_MODEL = GEMINI_MODELS.PRO;
+const DEFAULT_MODEL = GEMINI_MODELS.PRO_25;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN FUNCTION

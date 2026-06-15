@@ -58,7 +58,7 @@ export const PROVIDER_CAPS = {
     supportsBase64Images: true,
     maxImages: 16,
     models: GEMINI_MODELS,
-    defaultModel: 'gemini-1.5-pro',
+    defaultModel: 'gemini-2.5-pro',
   },
   [PROVIDERS.GPT]: {
     supportsVision: true,
