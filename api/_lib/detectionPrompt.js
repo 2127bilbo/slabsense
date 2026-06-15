@@ -134,14 +134,29 @@ horizontal and diagonal line check — and found nothing. A missed crease is
 the single worst error you can make: it is the difference between a playable
 card and a destroyed one.
 
-DETECTION BIAS — ERR TOWARD REPORTING:
-When uncertain whether something is damage or glare, REPORT IT as a defect
-and note "possible glare" in the description. A false positive can be filtered
-out; a missed crease or corner ding destroys grade accuracy. The scoring
-engine handles severity calibration — your job is to NOT MISS real damage.
-If a card looks heavily played or damaged, your defect list should reflect
-that with multiple severe/extreme entries. An obviously worn card returning
-zero defects or all "minor" severities is a detection failure.`;
+TYPE-SPECIFIC DETECTION BIAS (this resolves an apparent contradiction):
+The right bias depends ENTIRELY on the defect type. Do not apply one blanket
+"report more" or "report less" rule.
+
+STRUCTURAL defects — CREASE, TEAR, STAIN, DENT, paper loss:
+→ Lean toward REPORTING when uncertain. These are rare, severe, and define
+  the grade; a missed crease destroys accuracy and a false one is obvious and
+  rare. If you see a suspicious line/patch and cannot rule it out as design or
+  glare, report it.
+
+COSMETIC wear — CORNER, EDGE, PLAY_WEAR, light SCRATCH:
+→ Lean toward NOT reporting when uncertain. These are extremely easy to
+  false-positive (foil shimmer, gold borders, rounded stock, flash falloff),
+  and every false one wrongly lowers the grade. Report a corner or edge ONLY
+  when you can point to exposed paper fibers at THAT specific spot. "Might be
+  slight wear" on a clean-looking corner → do NOT report it.
+
+The asymmetry is intentional: structural misses are catastrophic and rare;
+cosmetic false-positives are minor individually but common and cumulatively
+wreck clean-card grades. Most gem-mint cards have ZERO or ONE reported defect,
+not eight. If you have listed wear on more than ~2 corners on a card that
+otherwise looks clean, you are almost certainly over-reporting — re-inspect
+and keep only corners with visible exposed fiber.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // USER PROMPT BUILDER — same core for both paths
@@ -222,13 +237,11 @@ regions). Never collapse multiple defects into one entry.
 - "width", "height": approximate extent as percentage of card
 - "description": one short factual sentence
 
-COORDINATE GUIDE (these are RANGES — pick the exact value where YOU see the defect):
-corners → TOP LEFT x∈[5-15], y∈[5-15] · TOP RIGHT x∈[85-95], y∈[5-15] ·
-BOTTOM LEFT x∈[5-15], y∈[85-95] · BOTTOM RIGHT x∈[85-95], y∈[85-95]
-edges → TOP y∈[2-8] · BOTTOM y∈[92-98] · LEFT x∈[2-8] · RIGHT x∈[92-98]
-center area → x∈[30-70], y∈[30-70]
-Example: a defect at the very tip of TOP LEFT corner might be x=5, y=5;
-one slightly inward might be x=12, y=10. Never default to x=8, y=8.`);
+COORDINATE GUIDE (percent of card):
+corners → TOP LEFT x≈5-15,y≈5-15 · TOP RIGHT x≈85-95,y≈5-15 ·
+BOTTOM LEFT x≈5-15,y≈85-95 · BOTTOM RIGHT x≈85-95,y≈85-95
+edges → TOP y≈2-8 · BOTTOM y≈92-98 · LEFT x≈2-8 · RIGHT x≈92-98
+center area → x≈30-70, y≈30-70`);
 
   if (priorFindings) {
     sections.push(`## PRIOR SCAN FINDINGS (verify, refine, and complete — do not blindly copy)
@@ -253,7 +266,22 @@ Rate glare and blur per side: "none", "minor", "moderate", or "severe".
 List glare locations using the location labels above. If quality prevents a
 reliable inspection of any area, say so in "warning".
 
-## RESPONSE — return ONLY this JSON, no other text:
+## HOW TO INSPECT — REASON FIRST, THEN REPORT
+Before the JSON, think through the card in plain prose (this reasoning is
+expected and will be ignored by the parser — the JSON is your final answer):
+1. State the card's overall condition in a sentence.
+2. Go corner by corner (all 8), then edge by edge, then surface zone by zone.
+   For EACH possible mark, explicitly decide: "exposed paper fiber / broken
+   surface (DEFECT)" vs "glare, foil shimmer, gloss, or print design (NOT a
+   defect)". Say which, and why, for anything you're tempted to flag.
+3. Do the dedicated crease/line hunt on BOTH sides — trace the diagonals and
+   the full-width horizontal; decide if any line is a crease vs artwork.
+4. Re-read your own findings against the TYPE-SPECIFIC DETECTION BIAS: did you
+   over-list cosmetic corners? did you miss any structural damage?
+Then output the JSON below as your FINAL block. Only defects that survived
+step 2's fiber-vs-glare test and step 4's re-read go in the array.
+
+## RESPONSE — end your reply with ONLY this JSON object (after your reasoning):
 {
   "cardInfo": { "name": null, "setName": null, "cardNumber": null, "rarity": null, "year": null, "hp": null, "variant": null, "language": "English" },
   "imageQuality": {
@@ -301,16 +329,42 @@ Unknown cardInfo values are null. An immaculate card returns "defects": [].`);
 // POST-PROCESSING — parse, sanitize, score, assemble
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Extract JSON from an AI text response (handles ``` fences and chatter). */
+/**
+ * Extract the FINAL JSON object from an AI text response.
+ * The model may write a free-form reasoning/inspection pass BEFORE the JSON
+ * (see REASONING step in the prompt). We therefore scan for the last balanced
+ * top-level {...} block, not the first — a stray "{" in the prose can't break it.
+ */
 export function parseDetection(text) {
   if (!text) return null;
+  let t = String(text).trim();
+  // Strip code fences if the whole tail is fenced
+  t = t.replace(/```json?\s*/gi, '').replace(/```/g, '');
+
+  // Walk from the end: find the last '}', then match its opening '{' by depth.
+  const lastClose = t.lastIndexOf('}');
+  if (lastClose === -1) return null;
+  let depth = 0;
+  let start = -1;
+  for (let i = lastClose; i >= 0; i--) {
+    const ch = t[i];
+    if (ch === '}') depth++;
+    else if (ch === '{') {
+      depth--;
+      if (depth === 0) { start = i; break; }
+    }
+  }
+  if (start === -1) return null;
   try {
-    let t = String(text).trim();
-    if (t.startsWith('```')) t = t.replace(/```json?\n?/g, '').replace(/```\s*$/g, '');
-    const match = t.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : null;
+    return JSON.parse(t.slice(start, lastClose + 1));
   } catch {
-    return null;
+    // Fallback: greedy first-to-last (handles odd nesting in reasoning)
+    try {
+      const m = t.match(/\{[\s\S]*\}/);
+      return m ? JSON.parse(m[0]) : null;
+    } catch {
+      return null;
+    }
   }
 }
 
