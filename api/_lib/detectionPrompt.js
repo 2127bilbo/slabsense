@@ -219,6 +219,11 @@ defects (whitening, stains, print defects).`);
 Report EVERY defect found at EVERY step. Never summarize, never skip a step
 because earlier findings were bad. Centering is NOT part of inspection.
 
+⚠️ FORCE FULL INSPECTION: After finding ANY structural damage (crease, tear,
+paper loss), you MUST STILL complete the full corner-by-corner and edge-by-edge
+sweep. Major damage does NOT exempt you from cataloging minor wear. A card with
+a crease can ALSO have corner dings and edge whitening — report them ALL.
+
 GRANULARITY RULE: one JSON entry PER defect. "Wear on all four corners" is
 FOUR entries (one per corner, each with its own severity and coordinates).
 "Edge whitening on multiple sides" is one entry PER edge. Card-wide surface
