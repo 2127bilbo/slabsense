@@ -132,7 +132,16 @@ Never write "no creases", "no structural damage", or similar in positives
 unless you completed the crease hunt on BOTH sides — including the full-width
 horizontal and diagonal line check — and found nothing. A missed crease is
 the single worst error you can make: it is the difference between a playable
-card and a destroyed one.`;
+card and a destroyed one.
+
+DETECTION BIAS — ERR TOWARD REPORTING:
+When uncertain whether something is damage or glare, REPORT IT as a defect
+and note "possible glare" in the description. A false positive can be filtered
+out; a missed crease or corner ding destroys grade accuracy. The scoring
+engine handles severity calibration — your job is to NOT MISS real damage.
+If a card looks heavily played or damaged, your defect list should reflect
+that with multiple severe/extreme entries. An obviously worn card returning
+zero defects or all "minor" severities is a detection failure.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // USER PROMPT BUILDER — same core for both paths
@@ -213,11 +222,13 @@ regions). Never collapse multiple defects into one entry.
 - "width", "height": approximate extent as percentage of card
 - "description": one short factual sentence
 
-COORDINATE GUIDE (percent of card):
-corners → TOP LEFT x≈5-15,y≈5-15 · TOP RIGHT x≈85-95,y≈5-15 ·
-BOTTOM LEFT x≈5-15,y≈85-95 · BOTTOM RIGHT x≈85-95,y≈85-95
-edges → TOP y≈2-8 · BOTTOM y≈92-98 · LEFT x≈2-8 · RIGHT x≈92-98
-center area → x≈30-70, y≈30-70`);
+COORDINATE GUIDE (these are RANGES — pick the exact value where YOU see the defect):
+corners → TOP LEFT x∈[5-15], y∈[5-15] · TOP RIGHT x∈[85-95], y∈[5-15] ·
+BOTTOM LEFT x∈[5-15], y∈[85-95] · BOTTOM RIGHT x∈[85-95], y∈[85-95]
+edges → TOP y∈[2-8] · BOTTOM y∈[92-98] · LEFT x∈[2-8] · RIGHT x∈[92-98]
+center area → x∈[30-70], y∈[30-70]
+Example: a defect at the very tip of TOP LEFT corner might be x=5, y=5;
+one slightly inward might be x=12, y=10. Never default to x=8, y=8.`);
 
   if (priorFindings) {
     sections.push(`## PRIOR SCAN FINDINGS (verify, refine, and complete — do not blindly copy)
