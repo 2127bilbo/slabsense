@@ -106,7 +106,23 @@ export async function callClaude(options) {
       text: userPrompt,
     });
 
+    // DEBUG: Log exact image URLs being sent
     console.log(`[Claude] Calling ${model} with ${images.length} images...`);
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      if (img.startsWith('http')) {
+        console.log(`[Claude] Image ${i + 1} URL: ${img}`);
+        // Verify URL is accessible
+        try {
+          const checkResp = await fetch(img, { method: 'HEAD' });
+          console.log(`[Claude] Image ${i + 1} check: ${checkResp.status} ${checkResp.headers.get('content-type')} ${checkResp.headers.get('content-length')} bytes`);
+        } catch (e) {
+          console.log(`[Claude] Image ${i + 1} check FAILED: ${e.message}`);
+        }
+      } else {
+        console.log(`[Claude] Image ${i + 1}: base64 (${img.substring(0, 30)}...)`);
+      }
+    }
 
     const response = await anthropic.messages.create({
       model: model,
@@ -135,6 +151,8 @@ export async function callClaude(options) {
     }
 
     console.log(`[Claude] Response: ${text.length} chars, JSON: ${parsed ? 'yes' : 'no'}`);
+    // DEBUG: Log raw response text (first 800 chars) to check if responses are identical across cards
+    console.log(`[Claude] RAW RESPONSE (first 800 chars):\n${text.substring(0, 800)}`);
 
     return {
       success: true,
