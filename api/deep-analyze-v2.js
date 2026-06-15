@@ -37,7 +37,7 @@ import { gradeCard } from '../src/lib/gradingEngine.js';
 // ═══════════════════════════════════════════════════════════════════════════
 const DEFAULT_CONFIG = {
   mode: MODES.SINGLE,
-  primary: PROVIDERS.CLAUDE,
+  primary: PROVIDERS.GEMINI,  // Testing Gemini for resolution comparison
   secondary: null,
   synthesizer: null,
 };
