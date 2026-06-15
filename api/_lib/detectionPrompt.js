@@ -103,11 +103,36 @@ is a CREASE (severity "severe" if it breaks ink/stock, "extreme" if it crosses
 the card or crushes the stock). Whitening that follows a LINE through the
 card face is a crease, not play wear.
 
+⚠️ DESIGN CAMOUFLAGE TRAP — POKEMON CARD BACKS ⚠️
+The Pokemon card back artwork contains soft white energy swirls. Damage hides
+in them. The differences: printed swirls are SOFT-EDGED, CURVED, and never
+cross the Pokeball or the border; a crease is a STRAIGHT or angular line with
+CRACKLED/fractured texture (exposed paper fibers) that ignores the artwork —
+running through the Pokeball, across the full card width, or into the border.
+Any straight fractured white line on a card back is a CREASE, severity
+"extreme" if it spans the card. Never classify a full-width line as part of
+the design.
+
 SEVERITY-LANGUAGE CONSISTENCY RULE:
 Your "severity" field must match your own words. If your description says
 heavy / deep / significant / major / rounded / chunk / throughout → severity
 MUST be "severe" or "extreme". If it says light / faint / slight / tiny →
-"minor". Never describe damage as heavy and classify it moderate.`;
+"minor". Never describe damage as heavy and classify it moderate.
+
+UNIFORM-CORNER RED FLAG:
+"All corners show identical light wear" is almost always a misread of foil
+pattern, gold borders, or flash falloff — real wear is uneven. Report a
+corner defect ONLY when you can see exposed paper fibers at THAT specific
+corner. Each corner is judged independently; if you cannot point to fibers
+at a corner, that corner is clean. Never report wear on every corner as a
+hedge.
+
+NO UNVERIFIED NEGATIVES:
+Never write "no creases", "no structural damage", or similar in positives
+unless you completed the crease hunt on BOTH sides — including the full-width
+horizontal and diagonal line check — and found nothing. A missed crease is
+the single worst error you can make: it is the difference between a playable
+card and a destroyed one.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // USER PROMPT BUILDER — same core for both paths
@@ -143,7 +168,16 @@ export function buildDetectionPrompt({ cardType, centering, imageLayout, referen
   sections.push(`Identify this ${cardType} card and perform a COMPLETE defect inspection.
 
 ## IMAGE LAYOUT
-${imageLayout}`);
+${imageLayout}
+
+If FILTERED images (EMBOSS / HI-PASS / EDGES) are included in the layout:
+these are processed versions of the SAME card that make surface topology
+visible. Creases, dents, and indentations appear as bright ridge lines or
+sharp discontinuities in these images even when invisible in the normal
+photos. A continuous line crossing the card in a filtered image IS a crease —
+report it even if the normal photo looks clean. Use filtered images for
+STRUCTURE only (creases/dents/pits); use normal images for color-based
+defects (whitening, stains, print defects).`);
 
   sections.push(centeringContextBlock(centering));
 
@@ -217,15 +251,36 @@ reliable inspection of any area, say so in "warning".
     "overall": "good",
     "warning": null
   },
-  "defects": [
-    { "side": "FRONT", "type": "CORNER", "severity": "minor", "location": "TOP LEFT", "x": 8, "y": 7, "width": 5, "height": 5, "description": "Light whitening at corner tip" }
-  ],
+  "defects": [],
   "summary": {
     "positives": ["at least one factual positive observation"],
     "concerns": ["at least one factual concern, or 'No notable concerns'"],
     "recommendation": "one sentence on overall physical condition (no grades)"
   }
 }
+
+The defects array above is shown EMPTY on purpose — that is the correct
+output for a card with no visible defects. Populate it ONLY with defects you
+can actually see in THIS card's images. Each defect object uses this schema
+(this is a FORMAT REFERENCE — never copy its values):
+  {"side": <FRONT|BACK>, "type": <one of the type list>, "severity": <minor|moderate|severe|extreme>,
+   "location": <one of the location list>, "x": <measured % 0-100>, "y": <measured %>,
+   "width": <measured %>, "height": <measured %>, "description": <what you actually see>}
+
+⚠️ ANTI-TEMPLATE RULES — these defects are the most-faked part of the output:
+- DO NOT report a defect on all four corners by default. Most cards do NOT
+  have wear on every corner. Report a corner ONLY if you SEE exposed paper
+  fibers at that specific corner in this image. Clean corners are normal.
+- DO NOT reuse placeholder coordinates. x/y must be where the defect actually
+  sits in THIS image. If two corners legitimately have wear, their coordinates
+  and severities will still differ — identical numbers across defects is a
+  sign you are guessing, not measuring.
+- Every defect's "description" must state what you SEE ("exposed white fiber
+  along 3mm of the top-left corner tip"), not a generic phrase. If you cannot
+  describe what you see, do not report the defect.
+- Vary severity by what you observe. A card where every defect is "minor" and
+  every corner is listed is almost always a fabricated/templated response —
+  re-inspect and report only real, observed damage at its true severity.
 Unknown cardInfo values are null. An immaculate card returns "defects": [].`);
 
   return sections.join('\n\n');
@@ -318,16 +373,7 @@ export function confidenceFromImageQuality(iq, { referencesUsed = 0 } = {}) {
  */
 export function assembleUnifiedOutput({ detection, centering, gradePath, frontOnly = false, meta = {} }) {
   const defects = sanitizeDefects(detection?.defects);
-
-  // DEBUG: Log defects before and after sanitization
-  console.log('[assembleUnifiedOutput] RAW defects from AI:', JSON.stringify(detection?.defects, null, 2));
-  console.log('[assembleUnifiedOutput] SANITIZED defects to engine:', JSON.stringify(defects, null, 2));
-  console.log('[assembleUnifiedOutput] centering:', JSON.stringify(centering, null, 2));
-
   const engine = gradeCard({ defects, centering, frontOnly });
-
-  // DEBUG: Log engine output
-  console.log('[assembleUnifiedOutput] ENGINE subgrades:', JSON.stringify(engine.subgrades, null, 2));
 
   const iq = detection?.imageQuality || {};
   const confidence = confidenceFromImageQuality(iq, { referencesUsed: meta.referencesUsed || 0 });
