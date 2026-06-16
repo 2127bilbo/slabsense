@@ -5,6 +5,16 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
 
+// Columns to select for scan lists (excludes heavy base64 image columns like user_card_image)
+const SCAN_LIST_COLUMNS = `
+  id, user_id, card_name, card_set, card_number, card_game,
+  front_image_path, back_image_path, tcgdex_image, tcgdex_id,
+  grading_company, raw_score, grade_value, grade_label,
+  subgrades, is_favorite, created_at, updated_at,
+  ai_grades, ai_condition, ai_summary, ai_centering, card_info,
+  front_centering, back_centering
+`;
+
 /**
  * Upload an image to Supabase Storage
  * @param {string} userId - User ID
@@ -96,7 +106,7 @@ export async function saveScan(userId, scanData) {
       tcgdex_id: scanData.tcgdexId || null,        // TCGDex card ID for future lookups
       user_card_image: scanData.userCardImage || null, // User-cropped image when TCGDex has none
     })
-    .select()
+    .select(SCAN_LIST_COLUMNS)
     .single();
 
   if (error) throw error;
@@ -128,7 +138,7 @@ export async function saveScan(userId, scanData) {
         .from('scans')
         .update(updates)
         .eq('id', scan.id)
-        .select()
+        .select(SCAN_LIST_COLUMNS)
         .single();
       return updated || scan;
     }
@@ -149,7 +159,7 @@ export async function getUserScans(userId, options = {}) {
 
   const { data, error } = await supabase
     .from('scans')
-    .select('*')
+    .select(SCAN_LIST_COLUMNS)
     .eq('user_id', userId)
     .order(orderBy, { ascending })
     .range(offset, offset + limit - 1);
@@ -189,7 +199,7 @@ export async function getScan(scanId) {
 
   const { data, error } = await supabase
     .from('scans')
-    .select('*')
+    .select(SCAN_LIST_COLUMNS)
     .eq('id', scanId)
     .single();
 
@@ -209,7 +219,7 @@ export async function updateScan(scanId, updates) {
     .from('scans')
     .update(updates)
     .eq('id', scanId)
-    .select()
+    .select(SCAN_LIST_COLUMNS)
     .single();
 
   if (error) throw error;
