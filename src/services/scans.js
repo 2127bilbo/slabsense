@@ -159,6 +159,27 @@ export async function getUserScans(userId, options = {}) {
 }
 
 /**
+ * Get lightweight scan data for stats (avoids loading full JSON blobs)
+ */
+export async function getUserScansForStats(userId, options = {}) {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  const { limit = 100 } = options;
+
+  const { data, error } = await supabase
+    .from('scans')
+    .select('id, card_info, ai_grades, raw_score')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
  * Get a single scan by ID
  */
 export async function getScan(scanId) {
