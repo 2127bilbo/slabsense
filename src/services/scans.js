@@ -221,7 +221,7 @@ export async function getScanCount(userId) {
 
   const { count, error } = await supabase
     .from('scans')
-    .select('*', { count: 'exact', head: true })
+    .select('*', { count: 'estimated', head: true })
     .eq('user_id', userId);
 
   if (error) throw error;
