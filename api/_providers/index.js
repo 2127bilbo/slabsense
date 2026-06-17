@@ -50,7 +50,7 @@ export const PROVIDER_CAPS = {
     supportsBase64Images: true,
     maxImages: 20,
     models: CLAUDE_MODELS,
-    defaultModel: 'claude-opus-4-20250514',
+    defaultModel: 'claude-sonnet-4-20250514',
   },
   [PROVIDERS.GEMINI]: {
     supportsVision: true,
