@@ -20,7 +20,7 @@ export const CLAUDE_MODELS = {
   HAIKU: 'claude-3-5-haiku-20241022',
 };
 
-const DEFAULT_MODEL = CLAUDE_MODELS.SONNET;
+const DEFAULT_MODEL = CLAUDE_MODELS.OPUS;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN FUNCTION
