@@ -5,16 +5,6 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
 
-// Columns to select for scan lists (excludes heavy base64 image columns like user_card_image)
-const SCAN_LIST_COLUMNS = `
-  id, user_id, card_name, card_set, card_number, card_game,
-  front_image_path, back_image_path, tcgdex_image, tcgdex_id,
-  grading_company, raw_score, grade_value, grade_label,
-  subgrades, is_favorite, created_at, updated_at,
-  ai_grades, ai_condition, ai_summary, ai_centering, card_info,
-  front_centering, back_centering
-`;
-
 /**
  * Upload an image to Supabase Storage
  * @param {string} userId - User ID
@@ -104,33 +94,44 @@ export async function saveScan(userId, scanData) {
       card_info: scanData.cardInfo || null,        // { name, hp, cardNumber, setName, rarity, year, variant, language }
       tcgdex_image: scanData.tcgdexImage || null,  // High-quality card image URL from TCGDex
       tcgdex_id: scanData.tcgdexId || null,        // TCGDex card ID for future lookups
-      user_card_image: scanData.userCardImage || null, // User-cropped image when TCGDex has none
+      // Note: user_card_image is set via upload below (URL, not base64)
     })
-    .select(SCAN_LIST_COLUMNS)
+    .select()
     .single();
 
   if (error) throw error;
 
-  // If enhanced images provided, upload them and update the scan
-  console.log('[saveScan] Enhanced images provided:', {
-    front: !!scanData.enhancedFront,
-    back: !!scanData.enhancedBack,
-  });
-  if (scanData.enhancedFront || scanData.enhancedBack) {
+  // If images provided, upload them to bucket and update the scan with URLs
+  const hasImagesToUpload = scanData.enhancedFront || scanData.enhancedBack || scanData.userCardImage;
+
+  if (hasImagesToUpload) {
+    console.log('[saveScan] Images to upload:', {
+      enhancedFront: !!scanData.enhancedFront,
+      enhancedBack: !!scanData.enhancedBack,
+      userCardImage: !!scanData.userCardImage,
+    });
+
     const updates = {};
 
     if (scanData.enhancedFront) {
-      console.log('[saveScan] Uploading front image...');
+      console.log('[saveScan] Uploading enhanced front...');
       const url = await uploadCardImage(userId, scan.id, scanData.enhancedFront, 'enhanced_front');
-      console.log('[saveScan] Front upload result:', url ? 'success' : 'failed');
+      console.log('[saveScan] Enhanced front upload:', url ? 'success' : 'failed');
       if (url) updates.enhanced_front_path = url;
     }
 
     if (scanData.enhancedBack) {
-      console.log('[saveScan] Uploading back image...');
+      console.log('[saveScan] Uploading enhanced back...');
       const url = await uploadCardImage(userId, scan.id, scanData.enhancedBack, 'enhanced_back');
-      console.log('[saveScan] Back upload result:', url ? 'success' : 'failed');
+      console.log('[saveScan] Enhanced back upload:', url ? 'success' : 'failed');
       if (url) updates.enhanced_back_path = url;
+    }
+
+    if (scanData.userCardImage) {
+      console.log('[saveScan] Uploading user card image...');
+      const url = await uploadCardImage(userId, scan.id, scanData.userCardImage, 'user_card');
+      console.log('[saveScan] User card image upload:', url ? 'success' : 'failed');
+      if (url) updates.user_card_image = url;
     }
 
     if (Object.keys(updates).length > 0) {
@@ -138,7 +139,7 @@ export async function saveScan(userId, scanData) {
         .from('scans')
         .update(updates)
         .eq('id', scan.id)
-        .select(SCAN_LIST_COLUMNS)
+        .select()
         .single();
       return updated || scan;
     }
@@ -159,31 +160,10 @@ export async function getUserScans(userId, options = {}) {
 
   const { data, error } = await supabase
     .from('scans')
-    .select(SCAN_LIST_COLUMNS)
+    .select('*')
     .eq('user_id', userId)
     .order(orderBy, { ascending })
     .range(offset, offset + limit - 1);
-
-  if (error) throw error;
-  return data || [];
-}
-
-/**
- * Get lightweight scan data for stats (avoids loading full JSON blobs)
- */
-export async function getUserScansForStats(userId, options = {}) {
-  if (!isSupabaseConfigured()) {
-    return [];
-  }
-
-  const { limit = 100 } = options;
-
-  const { data, error } = await supabase
-    .from('scans')
-    .select('id, card_info, ai_grades, raw_score')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(limit);
 
   if (error) throw error;
   return data || [];
@@ -199,7 +179,7 @@ export async function getScan(scanId) {
 
   const { data, error } = await supabase
     .from('scans')
-    .select(SCAN_LIST_COLUMNS)
+    .select('*')
     .eq('id', scanId)
     .single();
 
@@ -219,7 +199,7 @@ export async function updateScan(scanId, updates) {
     .from('scans')
     .update(updates)
     .eq('id', scanId)
-    .select(SCAN_LIST_COLUMNS)
+    .select()
     .single();
 
   if (error) throw error;
@@ -252,7 +232,7 @@ export async function getScanCount(userId) {
 
   const { count, error } = await supabase
     .from('scans')
-    .select('*', { count: 'estimated', head: true })
+    .select('*', { count: 'exact', head: true })
     .eq('user_id', userId);
 
   if (error) throw error;

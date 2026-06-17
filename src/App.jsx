@@ -2878,8 +2878,8 @@ export default function SlabSense(){
   // Function to refresh collection stats (called on load and after changes)
   const refreshCollectionStats = useCallback(() => {
     if (auth.isAuthenticated && auth.user?.id) {
-      import('./services/scans.js').then(({ getUserScansForStats }) => {
-        getUserScansForStats(auth.user.id, { limit: 100 }).then(scans => {
+      import('./services/scans.js').then(({ getUserScans }) => {
+        getUserScans(auth.user.id, { limit: 100 }).then(scans => {
           let totalValue = 0;
           let gradeSum = 0;
           let gradeCount = 0;
