@@ -28,7 +28,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const DIRECT_MODEL = 'claude-opus-4-20250514';
+const DIRECT_MODEL = 'claude-opus-4-5-20251101';
 
 export const config = {
   api: {

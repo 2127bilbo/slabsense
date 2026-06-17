@@ -16,7 +16,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 export const CLAUDE_MODELS = {
   SONNET: 'claude-sonnet-4-20250514',
-  OPUS: 'claude-opus-4-20250514',
+  OPUS: 'claude-opus-4-5-20251101',
   HAIKU: 'claude-3-5-haiku-20241022',
 };
 
