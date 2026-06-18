@@ -1,8 +1,55 @@
 # SlabSense Development Handoff
 
-**Date:** June 11, 2026
+**Date:** June 17, 2026
 **Status:** Active Development - Beta Phase
 **Codebase Audit:** See `CODEBASE_AUDIT.md` for detailed analysis
+
+---
+
+## 🔥 CURRENT SESSION (June 17, 2026)
+
+### What We Were Working On
+Testing AI grading after fixing model IDs and database image storage.
+
+### Recent Changes Made
+
+| Change | Status | Details |
+|--------|--------|---------|
+| **Claude Opus 4.5 model ID** | ✅ Fixed | Changed from `claude-opus-4-20250514` (doesn't exist) to `claude-opus-4-5-20251101` |
+| **user_card_image storage** | ✅ Fixed | Now uploads to Supabase bucket and stores URL instead of 8MB base64 |
+| **Deep AI provider** | ✅ Fixed | Switched back from Gemini to Claude |
+| **Debug logging** | ✅ Cleaned | Removed verbose image verification logs from anthropic.js |
+
+### Model Configuration (Current)
+
+| Endpoint | Model |
+|----------|-------|
+| Regular AI Grade (`ai-analyze-unified.js`) | `claude-opus-4-5-20251101` |
+| Deep AI Grade (`deep-analyze-v2.js`) | `claude-opus-4-5-20251101` (via PROVIDERS.CLAUDE) |
+| Provider default (`_providers/anthropic.js`) | `claude-opus-4-5-20251101` |
+
+### Image Storage Fix
+
+**Problem:** `user_card_image` column stored ~8MB base64 per row, causing collection loading timeout (TOAST decompression).
+
+**Fix:** Now follows same pattern as `enhanced_front`/`enhanced_back`:
+1. Upload image to Supabase Storage bucket (`card-images`)
+2. Store returned URL in `user_card_image` column
+3. Existing references in CollectionView work unchanged (URLs work in `<img src>`)
+
+**File changed:** `src/services/scans.js`
+
+### Testing Status
+- **AI Grade:** Testing with Claude Opus 4.5 - awaiting results
+- **Deep AI Grade:** Testing with Claude Opus 4.5 - awaiting results
+- **Collection loading:** Should be fast now (no base64 in queries)
+- **Image saving:** Need to verify images upload to bucket correctly
+
+### If API Still Fails
+Check Vercel logs for actual error. Common issues:
+- 404 = wrong model ID (should be fixed now)
+- 401 = API key issue
+- 429 = rate limited
 
 ---
 
@@ -268,8 +315,8 @@ The app now supports multiple AI providers with an abstraction layer. Currently 
 ### Supported Providers
 | Provider | Model | Status | Env Variable |
 |----------|-------|--------|--------------|
-| Claude (Anthropic) | claude-sonnet-4-20250514 | **Active** (Primary) | `ANTHROPIC_API_KEY` |
-| Gemini (Google) | gemini-1.5-pro | Ready | `GOOGLE_AI_API_KEY` |
+| Claude (Anthropic) | claude-opus-4-5-20251101 | **Active** (Primary) | `ANTHROPIC_API_KEY` |
+| Gemini (Google) | gemini-2.5-pro | Ready | `GOOGLE_AI_API_KEY` |
 | GPT (OpenAI) | gpt-4o | Ready | `OPENAI_API_KEY` |
 | Grok (xAI) | grok-vision-beta | Ready | `XAI_API_KEY` |
 
@@ -762,4 +809,4 @@ vercel --prod
 
 ---
 
-*Last Updated: June 11, 2026 (Multi-AI Provider System deployed)*
+*Last Updated: June 17, 2026 (Claude Opus 4.5 + image storage fix)*
