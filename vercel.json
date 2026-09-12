@@ -1,6 +1,9 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/v/:cert", "destination": "/slabview.html?cert=:cert" },
+    { "source": "/studio", "destination": "/studio.html" },
+    { "source": "/queue", "destination": "/studio.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
