@@ -1,6 +1,11 @@
 -- 20260912_slabs.sql — slabbing orders, cert numbers, public cert view
 -- Apply in the Supabase SQL editor. Safe to re-run (IF NOT EXISTS / OR REPLACE throughout).
 
+-- Columns the app already writes (src/services/scans.js) but no earlier migration declares.
+alter table scans add column if not exists card_info jsonb;
+alter table scans add column if not exists enhanced_front_path text;
+alter table scans add column if not exists enhanced_back_path text;
+
 create sequence if not exists slab_cert_seq;
 
 create or replace function next_cert() returns text
