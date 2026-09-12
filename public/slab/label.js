@@ -381,8 +381,8 @@ function fromScan(row,cert){
     cert:cert, grade:gv, gradeWord:gl
   };
 }
-var readyResolve, ready=new Promise(function(r){readyResolve=r;});
-function init(){ try{loadFonts();readyResolve();}catch(e){ready=Promise.reject(e);} }
+var readyResolve, readyReject, ready=new Promise(function(r,j){readyResolve=r;readyReject=j;});
+function init(){ try{loadFonts();readyResolve();}catch(e){readyReject(e);} }
 var defaults={};for(var k in DEF)defaults[k]=DEF[k];
 root.SlabLabel={ready:ready,defaults:Object.freeze(defaults),GRADES:GRADES,fromScan:fromScan,payload:payload,build:build,drawCanvas:drawCanvas,qrOnlySVG:qrOnlySVG,
   _internal:{geometry:geometry,toSVG:toSVG,capOf:capOf,levelsFor:levelsFor,capacity:capacity}};

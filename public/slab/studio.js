@@ -90,7 +90,6 @@ function render(){
 
 /* ---------- export ---------- */
 var dl=null;
-if(window.claude&&claude.use)claude.use("downloads").then(function(d){dl=d;}).catch(function(){});
 function offer(fn,data,type){
   var b=(data instanceof Blob)?data:new Blob([data],{type:type||"image/svg+xml"});
   if(dl)return dl.save({filename:fn,data:b}).then(function(){return true;},function(e){if(e&&e.code==="declined")return false;fb(fn,b);return true;});

@@ -26,7 +26,7 @@ export function makeHandler(db) {
     }
     if (!data) return res.status(404).json({ error: 'not_found' });
 
-    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
     return res.status(200).json({ slab: data });
   };
 }
