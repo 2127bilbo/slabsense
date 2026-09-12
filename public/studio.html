@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SlabSense Slab Engraving Studio</title>
+<style>
+  :root{--bg:#f4f5f7;--panel:#fff;--panel2:#fafbfc;--fg:#15181d;--muted:#5f6673;
+    --line:#dfe2e8;--line2:#eceef2;--accent:#2f6fe4;--accent-fg:#fff;
+    --warn-bg:#fff5e6;--warn-fg:#8a4b06;--warn-line:#f0d6ab;
+    --bad-bg:#fdecec;--bad-fg:#8d2020;--bad-line:#f3c9c9;
+    --ok-bg:#eaf7ef;--ok-fg:#13623c;--ok-line:#c3e6d1;
+    --field:#fff;--shadow:0 1px 2px rgba(16,20,28,.06),0 8px 24px rgba(16,20,28,.06);}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --bg:#0d0f13;--panel:#15181e;--panel2:#191d24;--fg:#e9ecf1;--muted:#98a0ae;
+    --line:#262b34;--line2:#1e222a;--accent:#7ea5ff;--accent-fg:#0d0f13;
+    --warn-bg:#2a2013;--warn-fg:#f0bd6d;--warn-line:#4a3819;
+    --bad-bg:#2c1616;--bad-fg:#f0908f;--bad-line:#4e2323;
+    --ok-bg:#12251a;--ok-fg:#7fd3a1;--ok-line:#204533;
+    --field:#10131a;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);}}
+  :root[data-theme="dark"]{--bg:#0d0f13;--panel:#15181e;--panel2:#191d24;--fg:#e9ecf1;--muted:#98a0ae;
+    --line:#262b34;--line2:#1e222a;--accent:#7ea5ff;--accent-fg:#0d0f13;
+    --warn-bg:#2a2013;--warn-fg:#f0bd6d;--warn-line:#4a3819;
+    --bad-bg:#2c1616;--bad-fg:#f0908f;--bad-line:#4e2323;
+    --ok-bg:#12251a;--ok-fg:#7fd3a1;--ok-line:#204533;
+    --field:#10131a;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);}
+  *{box-sizing:border-box}html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5}
+  .wrap{max-width:1300px;margin:0 auto;padding:20px 16px 64px}
+  .top{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+  h1{font-size:19px;font-weight:600;margin:0 0 4px}
+  .sub{margin:0;color:var(--muted);font-size:13px;max-width:82ch}
+  .grid{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px;align-items:start}
+  @media (max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}}
+  .panel{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+  details.grp{border-bottom:1px solid var(--line2)}details.grp:last-of-type{border-bottom:0}
+  details.grp>summary{cursor:pointer;list-style:none;padding:11px 14px;font-weight:600;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+  details.grp>summary::-webkit-details-marker{display:none}
+  details.grp>summary::after{content:"+";font-size:15px}details.grp[open]>summary::after{content:"–"}
+  details.grp>.body{padding:0 14px 14px}
+  label.f{display:block;margin:0 0 9px}
+  label.f>span{display:block;font-size:11.5px;color:var(--muted);margin-bottom:3px}
+  input[type=text],input[type=number],select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:var(--field);color:var(--fg);font:inherit;font-size:13px}
+  input[readonly]{color:var(--muted);background:var(--panel2)}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .chk{display:flex;gap:8px;align-items:flex-start;margin:0 0 9px;font-size:13px;cursor:pointer}
+  .chk input{margin-top:3px;flex:none;accent-color:var(--accent)}
+  .chk em{display:block;font-style:normal;color:var(--muted);font-size:11.5px;line-height:1.35}
+  button{font:inherit;font-size:13px;font-weight:500;padding:8px 13px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer}
+  button:hover{border-color:var(--accent)}button.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+  button.sm{padding:5px 9px;font-size:12px}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .presets button{padding:5px 9px;font-size:12px}
+  .certrow{display:flex;gap:6px;align-items:flex-end}.certrow label.f{flex:1;margin:0}
+  .stagewrap{padding:14px}
+  .stage{border-radius:10px;padding:18px}
+  .stage.clear{background:#8d939b;background-image:linear-gradient(45deg,rgba(255,255,255,.09) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.09) 75%),linear-gradient(45deg,rgba(255,255,255,.09) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.09) 75%);background-size:16px 16px;background-position:0 0,8px 8px}
+  .stage.dark{background:#15171c}.stage.light{background:#e8eaee}
+  canvas#cv{width:100%;height:auto;display:block}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(106px,1fr));gap:8px;margin-top:12px}
+  .stat{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:8px 10px}
+  .stat b{display:block;font-size:15px;font-weight:600}.stat span{font-size:11px;color:var(--muted)}
+  .note{border-radius:8px;padding:9px 11px;font-size:12.5px;margin-top:9px;border:1px solid}
+  .note.warn{background:var(--warn-bg);color:var(--warn-fg);border-color:var(--warn-line)}
+  .note.bad{background:var(--bad-bg);color:var(--bad-fg);border-color:var(--bad-line)}
+  .note.ok{background:var(--ok-bg);color:var(--ok-fg);border-color:var(--ok-line)}
+  .note.info{background:var(--panel2);color:var(--muted);border-color:var(--line2)}
+  .payload{margin-top:12px;padding:9px 11px;border:1px dashed var(--line);border-radius:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;overflow-x:auto;white-space:nowrap;background:var(--panel2)}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:7px}
+  /* settings drawer */
+  dialog#settings{position:fixed;inset:0 auto 0 0;margin:0;width:min(420px,100vw);max-width:100vw;height:100vh;max-height:100vh;border:0;border-right:1px solid var(--line);background:var(--panel);color:var(--fg);padding:0;box-shadow:var(--shadow);overflow:auto}
+  dialog#settings::backdrop{background:rgba(0,0,0,.25)}
+  dialog#settings .dhead{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--panel);border-bottom:1px solid var(--line2)}
+  dialog#settings .dhead h2{font-size:14px;font-weight:600;margin:0}
+  dialog#settings .dfoot{display:flex;gap:8px;justify-content:space-between;padding:12px 14px;border-top:1px solid var(--line2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>SlabSense Slab Engraving Studio</h1>
+      <p class="sub">Manual mode — for test tiles and one-offs. Paid orders arrive in the queue (coming next).</p>
+    </div>
+    <button type="button" id="openSettings" title="Slab profile, header, layout, QR, cert counter, export">⚙ Settings</button>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+
+      <details class="grp" open>
+        <summary>Card</summary>
+        <div class="body">
+          <label class="f"><span>Card name</span><input type="text" id="name" value="PIKACHU V" autocomplete="off"></label>
+          <label class="f"><span>Line 2</span><input type="text" id="l2" value="2024 POKÉMON x SPONGEBOB" autocomplete="off"></label>
+          <label class="f"><span>Line 3</span><input type="text" id="l3" value="BIKINI BOTTOM PROMO #001" autocomplete="off"></label>
+          <label class="f"><span>Line 4</span><input type="text" id="l4" value="SPECIAL ILLUSTRATION RARE" autocomplete="off"></label>
+        </div>
+      </details>
+
+      <details class="grp" open>
+        <summary>Grade</summary>
+        <div class="body">
+          <label class="f"><span>Grade</span><select id="gradeSel"></select></label>
+        </div>
+      </details>
+
+      <details class="grp" open>
+        <summary>Cert number</summary>
+        <div class="body">
+          <div class="certrow">
+            <label class="f"><span>This label</span><input type="text" id="cert" value="" readonly autocomplete="off"></label>
+            <button type="button" class="sm" id="certEdit" title="Override this cert number">Edit</button>
+            <button type="button" class="sm" id="certReset" title="Back to the counter" hidden>↺</button>
+          </div>
+          <p class="hint" id="certHint"></p>
+        </div>
+      </details>
+
+      <details class="grp" open>
+        <summary>Export</summary>
+        <div class="body">
+          <div class="btns" style="margin-top:0">
+            <button class="primary" id="dlSVG" type="button">Download SVG</button>
+            <button id="dlQRSVG" type="button">QR only</button>
+            <button id="dlPNG" type="button">Proof PNG</button>
+            <button id="copySVG" type="button">Copy SVG</button>
+          </div>
+          <p class="hint">Real millimetres, no background. Downloading the SVG advances the cert counter. <kbd>Ctrl</kbd>+<kbd>S</kbd> also downloads.</p>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel">
+      <div class="stagewrap">
+        <div class="stage clear" id="stage"><canvas id="cv" width="1600" height="496"></canvas></div>
+        <div class="stats" id="stats"></div>
+        <div id="warns"></div>
+        <div class="payload" id="payload">…</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<dialog id="settings">
+  <div class="dhead"><h2>Settings</h2><button type="button" class="sm" id="closeSettings">Done</button></div>
+
+  <details class="grp" open>
+    <summary>Slab profile</summary>
+    <div class="body">
+      <div class="presets">
+        <button type="button" data-trim="69,21.4">69 × 21.4</button>
+        <button type="button" data-trim="69,25">69 × 25</button>
+        <button type="button" data-trim="69,28">69 × 28</button>
+      </div>
+      <div class="row">
+        <label class="f"><span>Width (mm)</span><input type="number" id="W" min="20" max="200" step="0.1"></label>
+        <label class="f"><span>Height (mm)</span><input type="number" id="H" min="8" max="90" step="0.1"></label>
+      </div>
+      <p class="hint">The trim is the outer edge of the outermost engraved line.</p>
+      <label class="f"><span>Frame ornament scale — <b id="fsOut"></b>%</span><input type="range" id="frameScale" min="0.5" max="1.3" step="0.01"></label>
+    </div>
+  </details>
+
+  <details class="grp" open>
+    <summary>Header</summary>
+    <div class="body">
+      <label class="f"><span>Header scale — <b id="hsOut"></b>%</span><input type="range" id="headerScale" min="0.5" max="1.2" step="0.01"></label>
+      <div class="row">
+        <label class="f"><span>Nudge X (mm, + right)</span><input type="number" id="hdrX" min="-20" max="20" step="0.1"></label>
+        <label class="f"><span>Nudge Y (mm, + down)</span><input type="number" id="hdrY" min="-5" max="10" step="0.1"></label>
+      </div>
+      <p class="hint">Default is centred with the badge top 1.0 mm below the trim. The QR column only has to clear the wordmark, not the badge.</p>
+    </div>
+  </details>
+
+  <details class="grp">
+    <summary>Layout</summary>
+    <div class="body">
+      <div class="row">
+        <label class="f"><span>Divider 1 (× W)</span><input type="number" id="div1" min="0.2" max="0.7" step="0.002"></label>
+        <label class="f"><span>Divider 2 (× W)</span><input type="number" id="div2" min="0.5" max="0.95" step="0.002"></label>
+      </div>
+      <div class="row">
+        <label class="f"><span>Text left (× W)</span><input type="number" id="textL" min="0.01" max="0.2" step="0.002"></label>
+        <label class="f"><span>Divider clearance (mm)</span><input type="number" id="colGap" min="0.1" max="2" step="0.1"></label>
+      </div>
+      <label class="f"><span>Cert number placement</span><select id="certPos">
+        <option value="qr">Vertical, left of the QR</option>
+        <option value="card">Under the card text (replaces line 4)</option>
+      </select></label>
+      <label class="chk"><input type="checkbox" id="showBoxes"><span>Show content boxes<em>Preview guides only — never exported.</em></span></label>
+      <button type="button" class="sm" id="fitQR">Widen QR column to 0.5 mm modules</button>
+    </div>
+  </details>
+
+  <details class="grp">
+    <summary>Grade style</summary>
+    <div class="body">
+      <div class="row">
+        <label class="f"><span>Number font</span><select id="gradeFont">
+          <option value="i3">Inter Light</option><option value="i5">Inter Medium</option><option value="i7">Inter Bold</option>
+          <option value="mi">Michroma</option><option value="bcS">Barlow Condensed SemiBold</option>
+        </select></label>
+        <label class="f"><span>Designation font</span><select id="wordFont">
+          <option value="i5">Inter Medium</option><option value="i7">Inter Bold</option><option value="mi">Michroma</option>
+          <option value="i3">Inter Light</option><option value="bcS">Barlow Condensed SemiBold</option>
+        </select></label>
+      </div>
+      <label class="f"><span>Outline weight — <b id="owOut"></b> mm</span><input type="range" id="outlineW" min="0.05" max="0.4" step="0.01"></label>
+      <p class="hint">The designation's outline scales down with its size (about 0.1 mm at 2 mm text) — that is the line the laser cuts; LightBurn ignores stroke width.</p>
+      <label class="chk"><input type="checkbox" id="gradeOutline"><span>Grade as outline<em>Off fills it solid.</em></span></label>
+    </div>
+  </details>
+
+  <details class="grp">
+    <summary>QR code</summary>
+    <div class="body">
+      <div class="presets">
+        <button type="button" data-base="slabsenseai.com/v/">slabsenseai.com/v/</button>
+        <button type="button" data-base="slabsenseai.com/">slabsenseai.com/</button>
+        <button type="button" data-base="https://slabsenseai.com/v/">https://…/v/</button>
+      </div>
+      <label class="f"><span>Verify URL (cert is appended)</span><input type="text" id="base" autocomplete="off"></label>
+      <label class="chk"><input type="checkbox" id="compact"><span>Compact encoding (uppercase)<em>Alphanumeric mode — smaller code, bigger modules.</em></span></label>
+      <label class="f"><span>Error correction</span><select id="ec">
+        <option value="auto">Auto — smallest code, highest level that fits</option>
+        <option value="H">H (30 %) — required for a centre mark</option>
+        <option value="Q">Q (25 %)</option>
+        <option value="M">M (15 %)</option>
+        <option value="L">L (7 %)</option>
+      </select></label>
+      <div class="row3">
+        <label class="f"><span>Modules</span><select id="dot"><option value="square">Square</option><option value="rounded">Rounded</option><option value="dot">Dots</option></select></label>
+        <label class="f"><span>Finder eyes</span><select id="eye"><option value="square">Square</option><option value="rounded">Rounded</option><option value="circle">Circle</option></select></label>
+        <label class="f"><span>Centre mark %</span><input type="number" id="logoPct" min="0" max="30" step="1"></label>
+      </div>
+      <p class="hint">Square modules and square eyes scan best on a frosted engrave. A centre mark up to 25 % keeps error-correction at Q; above that the code has to grow to level H.</p>
+      <label class="chk"><input type="checkbox" id="qrAuto"><span>Auto-size to the column<em>Largest that fits with a full quiet zone.</em></span></label>
+      <label class="f"><span>QR size when not auto (mm)</span><input type="number" id="qrMM" min="4" max="40" step="0.1"></label>
+      <label class="chk"><input type="checkbox" id="useToken"><span>Append HMAC check token<em>4 chars — needs the verify server to share the secret.</em></span></label>
+      <label class="f"><span>Signing secret</span><input type="text" id="secret" autocomplete="off"></label>
+    </div>
+  </details>
+
+  <details class="grp">
+    <summary>Cert counter</summary>
+    <div class="body">
+      <div class="row3">
+        <label class="f"><span>Prefix</span><input type="text" id="certPrefix" autocomplete="off"></label>
+        <label class="f"><span>Digits</span><input type="number" id="certDigits" min="1" max="10" step="1"></label>
+        <label class="f"><span>Next number</span><input type="number" id="certNext" min="1" step="1"></label>
+      </div>
+      <p class="hint">Manual mode uses the TEST- prefix. Real certs are minted by the database when an order is paid.</p>
+    </div>
+  </details>
+
+  <details class="grp">
+    <summary>Export</summary>
+    <div class="body">
+      <label class="f"><span>Colour</span><select id="color">
+        <option value="black">Black (single layer)</option>
+        <option value="layers">Colour-coded layers for LightBurn</option>
+      </select></label>
+      <label class="chk"><input type="checkbox" id="grpLayers"><span>Group by operation<em>Named groups: frame, text, grade, qr, mark.</em></span></label>
+      <label class="f"><span>Preview backdrop</span><select id="backdrop">
+        <option value="clear">Clear acrylic</option><option value="dark">Dark backing</option><option value="light">Light backing</option>
+      </select></label>
+    </div>
+  </details>
+
+  <div class="dfoot">
+    <button type="button" class="sm" id="resetDefaults">Restore defaults</button>
+    <button type="button" class="sm primary" id="closeSettings2">Done</button>
+  </div>
+</dialog>
+
+<script src="slab/vendor/qrcode.js"></script>
+<script src="slab/vendor/opentype.js"></script>
+<script src="slab/vendor/polygon-clipping.js"></script>
+<script src="slab/fonts.js"></script>
+<script src="slab/frame.js"></script>
+<script src="slab/label.js"></script>
+<script src="slab/studio.js"></script>
+</body></html>
+
