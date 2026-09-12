@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><title>verify-label</title>
+<script src="../public/slab/vendor/qrcode.js"></script>
+<script src="../public/slab/vendor/opentype.js"></script>
+<script src="../public/slab/vendor/polygon-clipping.js"></script>
+<script src="../public/slab/fonts.js"></script>
+<script src="../public/slab/frame.js"></script>
+<script src="../public/slab/label.js"></script>
+<pre id="out"></pre><pre id="meta"></pre><pre id="err"></pre>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search), settings={}, input={name:"PIKACHU V",l2:"2024 POKÉMON x SPONGEBOB",l3:"BIKINI BOTTOM PROMO #001",l4:"SPECIAL ILLUSTRATION RARE",cert:"SS26-00001",grade:"10",gradeWord:"PRISTINE"};
+  for(var k in SlabLabel.defaults)settings[k]=SlabLabel.defaults[k];
+  q.forEach(function(v,k){ if(k in input)input[k]=v; else if(k in settings)settings[k]=(typeof settings[k]==="number")?parseFloat(v):(typeof settings[k]==="boolean")?v==="true":v; });
+  SlabLabel.ready.then(function(){ return SlabLabel.payload(input,settings); }).then(function(p){
+    var b=SlabLabel.build(input,settings,p.url,p.alnum);
+    if(!b){document.getElementById("err").textContent="BUILD_NULL";return;}
+    document.getElementById("out").textContent=b.svg;
+    document.getElementById("meta").textContent=JSON.stringify({url:p.url,version:b.stats.version,level:b.stats.level,modules:b.qr.N,moduleMM:b.qr.module,qrMM:b.stats.qrMM,W:settings.W,H:settings.H});
+  }).catch(function(e){document.getElementById("err").textContent="ERR "+(e&&e.stack||e);});
+})();
+</script>
