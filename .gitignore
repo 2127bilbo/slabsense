@@ -32,6 +32,9 @@ public/models/*.zip
 scripts/unused/
 docs/my slab/
 
+# Extracted/temporary
+scripts/studio-app.extracted.js
+
 # Python
 __pycache__/
 *.pyc
@@ -41,3 +44,6 @@ __pycache__/
 api/Slabsense Gemini API-.txt
 *.api-keys.txt
 *-API-.txt
+
+# SDD scratch
+.superpowers/
