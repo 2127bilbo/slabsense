@@ -13,7 +13,11 @@ document.getElementById('f').addEventListener('load',function(){
   Promise.resolve(api.ready)
   .then(function(){log.push(['cert',api.getState().cert]);log.push(['svgStarts',api.getSVG().slice(0,5)]);api.advanceCert();return api.render();})
   .then(function(){log.push(['afterAdvance',api.getState().cert]);return api.set({grade:'8.5 NM-MT+'});})
-  .then(function(){var s=api.getState();log.push(['grade',s.version+'-'+s.level+' '+s.moduleMM]);document.getElementById('out').textContent=JSON.stringify(log);})
+  .then(function(){var s=api.getState();log.push(['grade',s.version+'-'+s.level+' '+s.moduleMM]);
+    w.confirm=function(){return true;};
+    w.document.getElementById('resetDefaults').click();
+    return api.render();})
+  .then(function(){log.push(['afterReset',api.getState().cert]);document.getElementById('out').textContent=JSON.stringify(log);})
   .catch(function(e){document.getElementById('err').textContent='ERR '+(e&&e.stack||e);});
 });
 </script>`);
@@ -23,5 +27,5 @@ const err=(dom.match(/<pre id="err">([\s\S]*?)<\/pre>/)||[])[1];if(err&&err.trim
 const log=JSON.parse(dec((dom.match(/<pre id="out">([\s\S]*?)<\/pre>/)||[])[1]));
 console.log(JSON.stringify(log));
 const m=Object.fromEntries(log);
-const ok=m.cert==='TEST-00001'&&m.svgStarts==='<?xml'&&m.afterAdvance==='TEST-00002'&&/^2-Q 0\.44/.test(m.grade);
+const ok=m.cert==='TEST-00001'&&m.svgStarts==='<?xml'&&m.afterAdvance==='TEST-00002'&&/^2-Q 0\.44/.test(m.grade)&&m.afterReset==='TEST-00002';
 fs.rmSync(tmp,{recursive:true,force:true});process.exit(ok?0:1);

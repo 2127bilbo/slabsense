@@ -22,7 +22,8 @@ function settingsToUI(){
   BOOL.forEach(function(k){el[k].checked=!!S[k];});
 }
 function uiToSettings(){
-  NUM.forEach(function(k){var x=parseFloat(el[k].value);S[k]=isNaN(x)?DEF[k]:x;});
+  var d=allDefaults();
+  NUM.forEach(function(k){var x=parseFloat(el[k].value);S[k]=isNaN(x)?d[k]:x;});
   STR.forEach(function(k){S[k]=el[k].value;});
   BOOL.forEach(function(k){S[k]=el[k].checked;});
   S.logoPct=Math.max(0,Math.min(30,S.logoPct));
@@ -156,7 +157,7 @@ document.getElementById("openSettings").addEventListener("click",function(){dlg.
 dlg.addEventListener("click",function(e){if(e.target===dlg)dlg.close();});
 document.getElementById("resetDefaults").addEventListener("click",function(){
   if(!confirm("Restore every setting to the defaults? The cert counter is kept."))return;
-  var next=S.certNext;for(var k in DEF)S[k]=DEF[k];S.certNext=next;settingsToUI();render();
+  var next=S.certNext;S=allDefaults();S.certNext=next;settingsToUI();render();
 });
 
 /* ---------- wiring ---------- */
