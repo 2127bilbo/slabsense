@@ -1,0 +1,11 @@
+{ "slab": {
+  "cert": "SS26-00001", "status": "engraved", "paid_at": "2026-09-10T15:00:00Z", "engraved_at": "2026-09-11T18:30:00Z", "shipped_at": null,
+  "card_name": "Pikachu V", "card_set": "2024 Pokémon x SpongeBob", "card_number": "001", "card_game": "pokemon",
+  "card_info": { "rarity": "Special Illustration Rare", "variant": "Bikini Bottom Promo", "year": "2024" },
+  "grade_value": 10, "grade_label": "Pristine",
+  "subgrades": { "centering": 10, "corners": 10, "edges": 10, "surface": 9.5 },
+  "front_centering": { "lr": "52/48", "tb": "51/49" }, "back_centering": { "lr": "55/45", "tb": "50/50" },
+  "dings": [ { "type": "SURFACE", "severity": "minor", "location": "lower left", "note": "faint print line" } ],
+  "user_card_image": "../SlabSense Slab Engraving Studio/Referances/slabsence spongebob.jpg",
+  "enhanced_front_path": null, "enhanced_back_path": null, "front_image_path": null, "back_image_path": null
+} }

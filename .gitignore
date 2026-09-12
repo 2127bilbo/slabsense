@@ -35,6 +35,9 @@ docs/my slab/
 # Extracted/temporary
 scripts/studio-app.extracted.js
 
+# Screenshot test output
+scripts/out-*.png
+
 # Python
 __pycache__/
 *.pyc

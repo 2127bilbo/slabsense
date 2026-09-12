@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SlabSense Cert</title>
+<style>
+  :root{--bg:#0b0c10;--panel:#14161c;--fg:#e9ecf1;--muted:#98a0ae;--line:#262b34;--accent:#7ea5ff;--ok:#7fd3a1;--warn:#f0bd6d}
+  *{box-sizing:border-box}html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;padding:0 16px 64px}
+  .wrap{max-width:960px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 0;border-bottom:1px solid var(--line)}
+  header .brand{font-weight:700;letter-spacing:.02em}header .brand span{font-weight:300}
+  .cert{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--muted)}
+  main{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:28px;align-items:start;padding-top:24px}
+  @media (max-width:800px){main{grid-template-columns:minmax(0,1fr)}}
+  .slab{position:relative;width:100%;aspect-ratio:987/1024;background:#000;border-radius:14px;overflow:hidden;isolation:isolate}
+  .slab .card{position:absolute;object-fit:cover;filter:blur(.25px) contrast(.94) brightness(.96);box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)}
+  .slab .well{position:absolute;box-shadow:inset 0 2px 8px rgba(0,0,0,.85),inset 0 -1px 3px rgba(0,0,0,.6);pointer-events:none}
+  .slab .plate{position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;pointer-events:none}
+  .slab canvas.label{position:absolute;filter:drop-shadow(0 0 .6px rgba(255,255,255,.9)) drop-shadow(0 0 3px rgba(255,255,255,.25));pointer-events:none}
+  .toggle{display:flex;gap:8px;margin-top:10px}.toggle button{font:inherit;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}.toggle button[aria-pressed=true]{border-color:var(--accent)}
+  .grade{display:flex;align-items:baseline;gap:14px;margin:0 0 6px}.grade b{font-size:64px;font-weight:300;line-height:1}.grade span{font-size:18px;letter-spacing:.08em;text-transform:uppercase}
+  h1{font-size:22px;margin:0 0 2px}.sub{color:var(--muted);margin:0 0 18px}
+  .status{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:13px;margin-bottom:18px}
+  .status.shipped{border-color:var(--ok);color:var(--ok)}.status.engraved{border-color:var(--accent);color:var(--accent)}.status.paid{border-color:var(--warn);color:var(--warn)}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  section h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+  .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}.kv div b{display:block;font-size:20px;font-weight:600}.kv div span{font-size:12px;color:var(--muted)}
+  ul.dings{margin:0;padding-left:18px}ul.dings li{margin:4px 0}ul.dings em{color:var(--muted);font-style:normal}
+  .images{display:grid;grid-template-columns:1fr 1fr;gap:10px}.images img{width:100%;border-radius:8px;background:#000}
+  .empty{padding:80px 0;text-align:center;color:var(--muted)}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body data-state="loading">
+<div class="wrap">
+  <header><div class="brand">slab<span>sense</span></div><div class="cert" id="hdrCert"></div></header>
+  <div id="loading" class="empty">Loading…</div>
+  <div id="notfound" class="empty" hidden><p>No slab with that cert number.</p><p class="cert" id="nfCert"></p></div>
+  <main id="main" hidden>
+    <div>
+      <div class="slab" id="slab">
+        <img class="card" id="card" alt="" hidden>
+        <div class="well" id="well"></div>
+        <img class="plate" src="slab/plate-straight.png" alt="">
+        <canvas class="label" id="label"></canvas>
+      </div>
+      <div class="toggle"><button id="btnFront" aria-pressed="true">Front</button><button id="btnBack" aria-pressed="false">Back</button></div>
+    </div>
+    <div>
+      <p class="grade"><b id="gradeNum"></b><span id="gradeWord"></span></p>
+      <h1 id="name"></h1><p class="sub" id="setline"></p>
+      <span class="status" id="status"></span>
+      <section><h2>Subgrades</h2><div class="kv" id="subgrades"></div></section>
+      <section><h2>Centering</h2><div class="kv" id="centering"></div></section>
+      <section><h2>Defects found</h2><ul class="dings" id="dings"></ul><p id="nodings" class="sub" hidden>None recorded.</p></section>
+      <section><h2>Images</h2><div class="images" id="images"></div></section>
+      <section><h2>Cert</h2><div class="kv" id="dates"></div></section>
+    </div>
+  </main>
+</div>
+<script src="slab/vendor/qrcode.js"></script>
+<script src="slab/vendor/opentype.js"></script>
+<script src="slab/vendor/polygon-clipping.js"></script>
+<script src="slab/fonts.js"></script>
+<script src="slab/frame.js"></script>
+<script src="slab/label.js"></script>
+<script src="slab/slabview.js"></script>
+</body>
+</html>
