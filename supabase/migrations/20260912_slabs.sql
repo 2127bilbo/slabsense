@@ -9,8 +9,8 @@ alter table scans add column if not exists enhanced_back_path text;
 create sequence if not exists slab_cert_seq;
 
 create or replace function next_cert() returns text
-language sql volatile as $$
-  select 'SS' || to_char(now() at time zone 'utc', 'YY') || '-' || lpad(nextval('slab_cert_seq')::text, 5, '0');
+language sql volatile security definer set search_path = public as $$
+  select 'SS' || to_char(now() at time zone 'utc', 'YY') || '-' || lpad(nextval('public.slab_cert_seq')::text, 5, '0');
 $$;
 
 create table if not exists slabs (
@@ -45,6 +45,11 @@ select
   c.user_card_image, c.enhanced_front_path, c.enhanced_back_path, c.front_image_path, c.back_image_path
 from slabs s
 join scans c on c.id = s.scan_id;
+
+-- Revoke direct grants: the public cert page reads this view through api/slab.js using the
+-- Supabase service role, which bypasses RLS/grants entirely. Anon/authenticated clients should
+-- never query slab_public straight from the browser (no per-cert filtering to hide behind).
+revoke select on slab_public from anon, authenticated;
 
 -- Label SVGs, private; written by admin routes only.
 insert into storage.buckets (id, name, public)
