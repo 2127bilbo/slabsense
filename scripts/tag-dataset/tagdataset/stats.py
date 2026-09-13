@@ -5,11 +5,13 @@ from pathlib import Path
 
 import pandas as pd
 
+from . import labels
+
 SECTIONS = (
     "== cards by grade and split ==", "== crops by split ==", "== markers by engine_type ==",
     "== markers by type_name ==", "== unmapped ==", "== nulls ==", "== score_total coverage ==",
     "== canvas aspect check ==", "== file completeness by grade ==", "== ding crops without upload ==",
-    "== duplicates ==",
+    "== duplicates ==", "== markers with rotation ==", "== boxes out of range ==",
 )
 LABEL_NULL_COLUMNS = {
     "manifest": ["grade_label", "grade_num", "era", "rollup_centering", "rollup_corners", "rollup_edges",
@@ -54,6 +56,20 @@ def report(out_dir: str) -> str:
     lines.append(f"markers UNKNOWN: {len(unm)} " + (unm.groupby(["type_name", unm.subtype_name.fillna("")]).size().to_dict().__repr__() if len(unm) else ""))
     lines.append(f"dings UNKNOWN: {len(und)} " + (und.type_name.value_counts().to_dict().__repr__() if len(und) else ""))
 
+    # A subtype that map_engine_type can't match falls straight through to UNKNOWN, but the
+    # UNKNOWN totals above don't say *why* — this lists exactly the (type, subtype) pairs
+    # missing an exact `type|subtype` key in type_map.json, i.e. what needs adding there.
+    keys = labels.type_map_keys()
+    if len(s):
+        has_subtype = s.subtype_name.notna() & (s.subtype_name.astype(str) != "")
+        sub = s[has_subtype]
+        combo = sub.type_name.astype(str) + "|" + sub.subtype_name.astype(str)
+        fallback = sub[~combo.isin(keys)]
+    else:
+        fallback = s
+    lines.append(f"fallback pairs (type|subtype not in map): {len(fallback)} " +
+                 (fallback.groupby(["type_name", "subtype_name"]).size().to_dict().__repr__() if len(fallback) else ""))
+
     lines.append(SECTIONS[5])
     for name, cols in LABEL_NULL_COLUMNS.items():
         df = t[name]
@@ -67,6 +83,8 @@ def report(out_dir: str) -> str:
     lines.append(f"score_total present: {int(m.score_total.notna().sum()) if len(m) else 0}/{len(m)}")
 
     lines.append(SECTIONS[7])
+    lines.append("compares each side's canvas (ann_*_w/h) to the card's single image_w/h; "
+                 "a training-time check must read the real sfx_* pixel dimensions instead.")
     if len(m):
         for side in ("front", "back"):
             sub = m[m[f"ann_{side}_w"].notna() & m.image_w.notna()]
@@ -87,6 +105,21 @@ def report(out_dir: str) -> str:
     lines.append(SECTIONS[10])
     lines.append(f"duplicate certs in manifest: {int(m.cert.duplicated().sum()) if len(m) else 0}; "
                  f"in splits: {int(sp.cert.duplicated().sum()) if len(sp) else 0}")
+
+    lines.append(SECTIONS[11])
+    if len(s):
+        rot = s[s.rotation_deg != 0]
+        lines.append(f"rotated markers: {len(rot)} " +
+                     (rot.groupby("family").size().to_dict().__repr__() if len(rot) else ""))
+    else:
+        lines.append("rotated markers: 0")
+
+    lines.append(SECTIONS[12])
+    if len(s):
+        bad = s[(s.x < 0) | (s.y < 0) | ((s.x + s.w) > 1) | ((s.y + s.h) > 1)]
+        lines.append(f"boxes out of range: {len(bad)}")
+    else:
+        lines.append("boxes out of range: 0")
     return "\n".join(lines)
 
 
