@@ -22,10 +22,12 @@ def expected_files(detail: dict, score: dict | None) -> list[tuple[str, str]]:
     d = (detail or {}).get("data") or {}
     s = (score or {}).get("data") or {}
     out: list[tuple[str, str]] = []
+    used_names: set[str] = set()
 
     def add(name: str, url: str | None) -> None:
         if url:
             out.append((name, url))
+            used_names.add(name)
 
     add("front.jpg", d.get("imageFileDeskewedFront"))
     add("back.jpg", d.get("imageFileDeskewedBack"))
@@ -37,6 +39,20 @@ def expected_files(detail: dict, score: dict | None) -> list[tuple[str, str]]:
         add(f"corner_{tag}.png", s.get(key))
     for tag, key in EDGE_KEYS.items():
         add(f"edge_{tag}.png", s.get(key))
-    for ding in ((d.get("dingsJSON") or {}).get("Dings") or []):
-        add(f"ding_{ding.get('Ordering')}.jpg", ding.get("ImageURL"))
+    for i, ding in enumerate(((d.get("dingsJSON") or {}).get("Dings") or []), start=1):
+        ordering = ding.get("Ordering")
+        if isinstance(ordering, int):
+            candidate = f"ding_{ordering}.jpg"
+        else:
+            candidate = f"ding_{i}.jpg"
+
+        if candidate in used_names:
+            if isinstance(ordering, int):
+                name = f"ding_{ordering}_{i}.jpg"
+            else:
+                name = f"ding_idx{i}.jpg"
+        else:
+            name = candidate
+
+        add(name, ding.get("ImageURL"))
     return out
