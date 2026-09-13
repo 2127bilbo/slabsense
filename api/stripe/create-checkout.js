@@ -5,6 +5,7 @@
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { SLAB_PRICE_KEY, slabSessionParams } from '../_lib/slabs.js';
 
 export const config = {
   api: {
@@ -31,6 +32,7 @@ const PRICES = {
   pack_20: process.env.STRIPE_PRICE_PACK_20,
   pack_30: process.env.STRIPE_PRICE_PACK_30,
   pack_50: process.env.STRIPE_PRICE_PACK_50,
+  slab: process.env.STRIPE_PRICE_SLAB,
 };
 
 // Subscription prices (for mode detection)
@@ -51,7 +53,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, priceKey, quantity = 1, successUrl, cancelUrl } = req.body;
+    const { userId, priceKey, quantity = 1, successUrl, cancelUrl, scanId } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: 'User ID required' });
@@ -99,6 +101,25 @@ export default async function handler(req, res) {
         .from('profiles')
         .update({ stripe_customer_id: customerId })
         .eq('id', userId);
+    }
+
+    // Slabbing order: one card, shipping collected, cert minted by the webhook.
+    if (priceKey === SLAB_PRICE_KEY) {
+      if (!scanId) return res.status(400).json({ error: 'scan_required' });
+      const { data: scan, error: scanErr } = await supabase
+        .from('scans').select('id, user_id, grade_value, user_card_image, enhanced_front_path, front_image_path')
+        .eq('id', scanId).maybeSingle();
+      if (scanErr || !scan) return res.status(404).json({ error: 'scan_not_found' });
+      if (scan.user_id !== userId) return res.status(403).json({ error: 'scan_not_owned' });
+      if (scan.grade_value == null) return res.status(400).json({ error: 'scan_not_graded' });
+      if (!(scan.user_card_image || scan.enhanced_front_path || scan.front_image_path)) return res.status(400).json({ error: 'scan_has_no_image' });
+      const base = process.env.VITE_APP_URL || 'https://slabsenseai.com';
+      const session = await stripe.checkout.sessions.create(slabSessionParams({
+        customerId, userId, scanId, priceId,
+        successUrl: successUrl || `${base}/?slab_ordered=1`,
+        cancelUrl: cancelUrl || `${base}/?slab_canceled=1`,
+      }));
+      return res.status(200).json({ success: true, sessionId: session.id, url: session.url });
     }
 
     // Determine checkout mode

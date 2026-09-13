@@ -5,6 +5,7 @@
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { SLAB_PRICE_KEY, mintSlab } from '../_lib/slabs.js';
 
 export const config = {
   api: {
@@ -115,6 +116,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ received: true });
   } catch (err) {
     console.error('[Webhook] Error processing event:', err);
+    // Release the idempotency claim so Stripe's retry is processed instead of dropped as a duplicate.
+    await supabase.from('stripe_events').delete().eq('id', event.id);
     return res.status(500).json({ error: 'Webhook processing failed' });
   }
 }
@@ -134,6 +137,16 @@ async function handleCheckoutComplete(session) {
   }
 
   console.log('[Webhook] Checkout complete:', { userId, priceId, mode });
+
+  if (session.metadata?.price_key === SLAB_PRICE_KEY) {
+    const shipping = session.shipping_details || session.collected_information?.shipping_details || null;
+    const { slab, created } = await mintSlab(
+      { db: supabase, storage: supabase.storage, fetchImpl: fetch },
+      { scanId: session.metadata.scan_id, userId, stripeSessionId: session.id, shipping }
+    );
+    console.log(`[Webhook] Slab ${created ? 'minted' : 'already existed'}: ${slab.cert} for scan ${slab.scan_id}`);
+    return;
+  }
 
   // Get user profile
   const { data: profile, error: profileError } = await supabase
