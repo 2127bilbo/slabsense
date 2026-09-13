@@ -50,3 +50,8 @@ api/Slabsense Gemini API-.txt
 
 # SDD scratch
 .superpowers/
+
+scripts/tag-dataset/data/
+scripts/tag-dataset/config.toml
+scripts/tag-dataset/config.smoke.toml
+scripts/tag-dataset/.venv/
