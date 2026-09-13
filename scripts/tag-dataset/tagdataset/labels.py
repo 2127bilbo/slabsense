@@ -139,3 +139,89 @@ def edge_rows(cert: str, score: dict) -> list[dict]:
             "crop_path": f"{PREFIX}/{cert}/edge_{k}.png",
         })
     return out
+
+
+# ── surface markers ──────────────────────────────────────────────────────
+SURFACE_COLUMNS = [
+    "cert", "side", "marker_id", "ordering", "type_name", "subtype_name", "family", "engine_type",
+    "location", "source", "is_rollup", "x", "y", "w", "h", "x1", "y1", "x2", "y2",
+    "rotation_deg", "deduction", "deduction_raw", "deduction_override", "area", "depth", "white_scale",
+]
+
+
+def _bbox(m: dict, W: float, H: float) -> tuple[float, float, float, float, float, float, float, float]:
+    """Return (x, y, w, h, x1, y1, x2, y2) as canvas fractions; NaN where absent."""
+    if all(m.get(k) is not None for k in ("x1", "y1", "x2", "y2")):
+        rx1, ry1, rx2, ry2 = _num(m["x1"]), _num(m["y1"]), _num(m["x2"]), _num(m["y2"])
+        x1, y1, x2, y2 = rx1 / W, ry1 / H, rx2 / W, ry2 / H
+        x, y = min(x1, x2), min(y1, y2)
+        # Divide the raw pixel delta (not the pre-divided fractions) to avoid float
+        # rounding drift between divide-then-subtract and subtract-then-divide.
+        w, h = max(abs(rx2 - rx1) / W, LINE_MIN_FRAC), max(abs(ry2 - ry1) / H, LINE_MIN_FRAC)
+        return x, y, w, h, x1, y1, x2, y2
+    if all(m.get(k) is not None for k in ("top", "left", "width", "height")):
+        return (_num(m["left"]) / W, _num(m["top"]) / H, _num(m["width"]) / W, _num(m["height"]) / H,
+                NAN, NAN, NAN, NAN)
+    return (NAN,) * 8
+
+
+def _effective_deduction(m: dict) -> tuple[float, float, float]:
+    raw = _num(m.get("scoreDeduction"))
+    ovr = _num(m.get("scoreDeduction_Override"))
+    if not math.isnan(ovr) and ovr != 0:
+        return ovr, raw, ovr
+    return raw, raw, NAN
+
+
+def surface_rows(cert: str, score: dict) -> list[dict]:
+    s = (score or {}).get("data") or {}
+    out = []
+    for side, key in (("F", "surfaceFrontData"), ("B", "surfaceBackData")):
+        ann = ((s.get(key) or {}).get("annotations")) or {}
+        W, H = _num(ann.get("width")), _num(ann.get("height"))
+        for m in ann.get("markers") or []:
+            t = m.get("typeName") or ""
+            if math.isnan(W) or math.isnan(H) or W == 0 or H == 0:
+                geom = (NAN,) * 8
+            else:
+                geom = _bbox(m, W, H)
+            ded, raw, ovr = _effective_deduction(m)
+            out.append({
+                "cert": cert, "side": side,
+                "marker_id": m.get("ID"), "ordering": m.get("Ordering"),
+                "type_name": t, "subtype_name": m.get("subtypeName"),
+                "family": t.split("Marker", 1)[0] if "Marker" in t else "",
+                "engine_type": map_engine_type(t, m.get("subtypeName"), m.get("location")),
+                "location": m.get("location"), "source": m.get("Source"),
+                "is_rollup": bool(m.get("isRollup")),
+                "x": geom[0], "y": geom[1], "w": geom[2], "h": geom[3],
+                "x1": geom[4], "y1": geom[5], "x2": geom[6], "y2": geom[7],
+                "rotation_deg": _num(m.get("rotationAngle")) if m.get("rotationAngle") is not None else 0.0,
+                "deduction": ded, "deduction_raw": raw, "deduction_override": ovr,
+                "area": _num(m.get("Area")), "depth": _num(m.get("Depth")), "white_scale": _num(m.get("WhiteScale")),
+            })
+    return out
+
+
+# ── dings ────────────────────────────────────────────────────────────────
+DING_COLUMNS = ["cert", "side", "ordering", "type_name", "engine_type", "location",
+                "px_x", "px_y", "px_w", "px_h", "x", "y", "w", "h", "crop_path"]
+
+
+def ding_rows(cert: str, detail: dict) -> list[dict]:
+    d = (detail or {}).get("data") or {}
+    W, H = _num(d.get("imageWidth")), _num(d.get("imageHeight"))
+    out = []
+    for i, g in enumerate((d.get("dingsJSON") or {}).get("Dings") or [], start=1):
+        px, py, pw, ph = (_num(g.get("LocationX")), _num(g.get("LocationY")), _num(g.get("Width")), _num(g.get("Height")))
+        ordering = g.get("Ordering") if isinstance(g.get("Ordering"), int) else i
+        out.append({
+            "cert": cert, "side": (g.get("Side") or "?")[0].upper(),
+            "ordering": ordering, "type_name": g.get("Type"),
+            "engine_type": map_engine_type(g.get("Type"), None, None), "location": g.get("Location"),
+            "px_x": px, "px_y": py, "px_w": pw, "px_h": ph,
+            "x": px / W if W else NAN, "y": py / H if H else NAN,
+            "w": pw / W if W else NAN, "h": ph / H if H else NAN,
+            "crop_path": f"{PREFIX}/{cert}/ding_{ordering}.jpg",
+        })
+    return out
