@@ -13,6 +13,7 @@ import pandas as pd
 from . import download as dl
 from . import sample as smp
 from . import verify as vf
+from . import build as bld
 from .bucket import Bucket
 from .config import load_config
 from .fetch import run_fetch, run_fetch_proxied
@@ -159,6 +160,15 @@ def cmd_verify(args, cfg) -> int:
     return 1 if len(retryable) else 0
 
 
+def cmd_build(args, cfg) -> int:
+    store = Store(cfg.db_path)
+    counts = bld.build(store, args.out, seed=args.seed)
+    store.close()
+    print(f"build done: {counts}")
+    print(f"outputs in {args.out}: {', '.join(bld.OUTPUTS)}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="tagdataset")
     p.add_argument("--config", default="config.toml")
@@ -193,6 +203,11 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("--out", default="data/missing.parquet")
     v.add_argument("--check-bucket", action="store_true", help="also list the bucket and compare")
     v.set_defaults(func=cmd_verify)
+    b = sub.add_parser("build", help="write training parquet tables from the store")
+    b.add_argument("--out", default="data/dataset")
+    b.add_argument("--seed", type=int, default=42)
+    b.set_defaults(func=cmd_build)
+
     return p
 
 
