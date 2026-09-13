@@ -32,8 +32,8 @@ All run from `scripts/tag-dataset` with the venv active. Every command is safe t
 |---|---|
 | `python -m tagdataset sample --cache "../Tag scraper/tag_cache.json"` | Apply the composition rule to the browse cache → `data/certs.parquet`. Add `--certs-file list.txt` to use an explicit list instead. |
 | `python -m tagdataset fetch` | Detail + score for every cert in `data/certs.parquet` not yet in the store. `--retry-failures` re-attempts parked certs, reading their grade keys from the same `data/certs.parquet`. |
-| `python -m tagdataset download` | Upload all expected files for every fetched cert. `--retry-missing data/missing.parquet` re-does a verify list. |
-| `python -m tagdataset verify` | Print completeness per grade, write `data/missing.parquet`, exit 1 if anything is missing. `--check-bucket` also lists the bucket. |
+| `python -m tagdataset download` | Upload all expected files for every fetched cert. `--retry-missing data/missing.parquet` re-does a verify list. `--include-gone` also retries files previously recorded as unavailable upstream (HTTP 403/404); without it those names are skipped. |
+| `python -m tagdataset verify` | Print completeness per grade, write retryable gaps to `data/missing.parquet`, exit 1 only if retryable gaps remain. Files upstream does not have (HTTP 403/404) are reported separately as an `unavailable upstream: N files across M certs` line and never fail the exit code. `--check-bucket` also lists the bucket. |
 
 Config can point at a different prefix (e.g. `scratch/smoke`) to test without touching the real dataset.
 
@@ -43,4 +43,4 @@ Config can point at a different prefix (e.g. `scratch/smoke`) to test without to
 
 ## Store
 
-`data/raw.sqlite`: `raw` (verbatim detail/score JSON per cert, HTTP status), `files` (every uploaded object with size and sha256), `failures` (what gave up and why).
+`data/raw.sqlite`: `raw` (verbatim detail/score JSON per cert, HTTP status), `files` (every uploaded object with size and sha256), `failures` (what gave up and why). A `failures` row with `kind='download'` and reason `HTTP 403` or `HTTP 404` means upstream does not have that file — it is not retried automatically; `download` skips it (see `--include-gone`) and `verify` reports it as `unavailable_upstream` instead of a retryable gap.

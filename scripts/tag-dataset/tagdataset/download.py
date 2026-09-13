@@ -14,6 +14,10 @@ from .store import Store
 
 DOWNLOAD_TIMEOUT = aiohttp.ClientTimeout(total=120)
 
+# Statuses meaning the CDN does not have the object (S3 AccessDenied reads as 403 for a
+# missing key on TAG's bucket). Retrying these forever is pointless; record and move on.
+GONE_STATUSES = (403, 404)
+
 
 class HttpStatusError(Exception):
     def __init__(self, status: int):
@@ -21,14 +25,16 @@ class HttpStatusError(Exception):
         self.status = status
 
 
-def pending_files(store: Store, only_certs: set[str] | None = None) -> list[tuple[str, str, str]]:
+def pending_files(store: Store, only_certs: set[str] | None = None,
+                  include_gone: bool = False) -> list[tuple[str, str, str]]:
     out: list[tuple[str, str, str]] = []
     for cert, detail, score in store.iter_raw_ok():
         if only_certs is not None and cert not in only_certs:
             continue
         have = store.files_for(cert)
+        gone = set() if include_gone else store.gone_files(cert)
         for name, url in expected_files(detail, score):
-            if name not in have:
+            if name not in have and name not in gone:
                 out.append((cert, name, url))
     return out
 
@@ -52,6 +58,9 @@ async def download_one(session, bucket, store: Store, cert: str, name: str, url:
                 data = await _fetch_bytes(session, url)
             await asyncio.to_thread(bucket.put, cert, name, data, content_type)
         except HttpStatusError as e:
+            if e.status in GONE_STATUSES:
+                store.add_failure("download", cert, name, f"HTTP {e.status}")
+                return "gone"
             last = f"HTTP {e.status}"
             continue
         except Exception as e:  # network, bucket, timeout — all retried the same way
@@ -70,7 +79,7 @@ async def run_download(session, bucket, store: Store, items: list[tuple[str, str
     queue: asyncio.Queue = asyncio.Queue()
     for item in items:
         queue.put_nowait(item)
-    counts = {"ok": 0, "failed": 0}
+    counts = {"ok": 0, "gone": 0, "failed": 0}
 
     async def worker() -> None:
         while True:

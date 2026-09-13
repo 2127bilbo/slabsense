@@ -49,7 +49,37 @@ def test_completeness_by_grade(tmp_path, detail_fixture, score_fixture):
         store.put_file("OTHER7", name, url, 1, "h")
     missing = verify.verify(store)
     table = verify.completeness_by_grade(store, missing)
-    assert list(table.columns) == ["grade_key", "cards", "expected_files", "missing_files", "complete_cards"]
+    assert list(table.columns) == [
+        "grade_key", "cards", "expected_files", "missing_files", "unavailable_files", "complete_cards"]
     row = table[table.grade_key == "7"].iloc[0]
     n = len(files.expected_files(detail_fixture, score_fixture))
-    assert (row.cards, row.expected_files, row.missing_files, row.complete_cards) == (2, 2 * n, n, 1)
+    assert (row.cards, row.expected_files, row.missing_files, row.unavailable_files, row.complete_cards) == (
+        2, 2 * n, n, 0, 1)
+
+
+def test_verify_reports_unavailable_upstream(tmp_path, detail_fixture, score_fixture):
+    store = seeded(tmp_path, detail_fixture, score_fixture)
+    expected = files.expected_files(detail_fixture, score_fixture)
+    gone_name, gone_url = expected[0]
+    store.add_failure("download", "C1240631", gone_name, "HTTP 403")
+    for name, url in expected:
+        if name != gone_name:
+            store.put_file("C1240631", name, url, 1, "h")
+    missing = verify.verify(store)
+    assert missing.to_dict("records") == [
+        {"cert": "C1240631", "name": gone_name, "url": gone_url, "reason": "unavailable_upstream"}]
+
+
+def test_completeness_by_grade_counts_unavailable_separately_and_card_is_complete(
+        tmp_path, detail_fixture, score_fixture):
+    store = seeded(tmp_path, detail_fixture, score_fixture)
+    expected = files.expected_files(detail_fixture, score_fixture)
+    gone_name, gone_url = expected[0]
+    store.add_failure("download", "C1240631", gone_name, "HTTP 403")
+    for name, url in expected:
+        if name != gone_name:
+            store.put_file("C1240631", name, url, 1, "h")
+    missing = verify.verify(store)
+    table = verify.completeness_by_grade(store, missing)
+    row = table[table.grade_key == "7"].iloc[0]
+    assert (row.missing_files, row.unavailable_files, row.complete_cards) == (0, 1, 1)

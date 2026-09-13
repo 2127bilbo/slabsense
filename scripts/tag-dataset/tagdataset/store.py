@@ -125,6 +125,17 @@ class Store:
             )
         ]
 
+    def gone_files(self, cert: str) -> set[str]:
+        """Names for this cert whose download failure means upstream does not have the file (HTTP 403/404)."""
+        return {
+            r[0]
+            for r in self.conn.execute(
+                "SELECT name FROM failures WHERE kind='download' AND cert=? "
+                "AND (reason LIKE 'HTTP 403%' OR reason LIKE 'HTTP 404%')",
+                (cert,),
+            )
+        }
+
     # ── misc ─────────────────────────────────────────────────────────────
     def counts(self) -> dict[str, int]:
         q = lambda sql: self.conn.execute(sql).fetchone()[0]

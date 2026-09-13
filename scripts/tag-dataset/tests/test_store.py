@@ -53,6 +53,15 @@ def test_failures_count_attempts_and_clear(tmp_path):
     assert s.list_failures("fetch") == []
 
 
+def test_gone_files_returns_403_and_404_only(tmp_path):
+    s = make_store(tmp_path)
+    s.add_failure("download", "X", "sfx_front_annotated.jpg", "HTTP 403")
+    s.add_failure("download", "X", "sfx_back_annotated.jpg", "HTTP 404")
+    s.add_failure("download", "X", "front.jpg", "timeout")
+    assert s.gone_files("X") == {"sfx_front_annotated.jpg", "sfx_back_annotated.jpg"}
+    assert s.gone_files("UNKNOWN") == set()
+
+
 def test_counts(tmp_path, detail_fixture, score_fixture):
     s = make_store(tmp_path)
     s.put_raw("A", "7", detail_fixture, score_fixture, 200, None)

@@ -36,6 +36,19 @@ def test_pending_files_filters_by_cert(tmp_path, detail_fixture, score_fixture):
     assert len(download.pending_files(store, only_certs={"C1240631"})) > 0
 
 
+def test_pending_files_excludes_gone_unless_include_gone(tmp_path, detail_fixture, score_fixture):
+    store = seeded_store(tmp_path, detail_fixture, score_fixture)
+    expected = files.expected_files(detail_fixture, score_fixture)
+    gone_name = expected[0][0]
+    store.add_failure("download", "C1240631", gone_name, "HTTP 403")
+    pending = download.pending_files(store)
+    assert gone_name not in [n for _, n, _ in pending]
+    assert len(pending) == len(expected) - 1
+    pending_all = download.pending_files(store, include_gone=True)
+    assert gone_name in [n for _, n, _ in pending_all]
+    assert len(pending_all) == len(expected)
+
+
 def test_download_one_uploads_and_records(tmp_path, detail_fixture, score_fixture, fake_bucket):
     store = seeded_store(tmp_path, detail_fixture, score_fixture)
     url = detail_fixture["data"]["imageFileDeskewedFront"]
@@ -102,6 +115,47 @@ def test_run_download_processes_all_pending(tmp_path, detail_fixture, score_fixt
     items = download.pending_files(store)
     session = FakeSession({url: b"data-" + name.encode() for _, name, url in items})
     counts = run(download.run_download(session, fake_bucket, store, items, concurrency=4, sleep=no_sleep))
-    assert counts == {"ok": len(items), "failed": 0}
+    assert counts == {"ok": len(items), "gone": 0, "failed": 0}
     assert download.pending_files(store) == []
     assert len(fake_bucket.objects) == len(items)
+
+
+def test_download_one_gone_on_403_no_retry(tmp_path, detail_fixture, score_fixture, fake_bucket):
+    store = seeded_store(tmp_path, detail_fixture, score_fixture)
+    url = "https://cdn/x.jpg"
+    session = FakeSession({url: [403, b"would-succeed"]})
+    slept = []
+
+    async def sleep(s):
+        slept.append(s)
+
+    result = run(download.download_one(session, fake_bucket, store, "C1240631", "front.jpg", url,
+                                       asyncio.Semaphore(4), sleep))
+    assert result == "gone"
+    assert slept == []
+    assert len(session.calls) == 1
+    assert store.list_failures("download") == [("C1240631", "front.jpg", "HTTP 403", 1)]
+    assert not store.has_file("C1240631", "front.jpg")
+
+
+def test_download_one_gone_on_404_no_retry(tmp_path, detail_fixture, score_fixture, fake_bucket):
+    store = seeded_store(tmp_path, detail_fixture, score_fixture)
+    url = "https://cdn/x.jpg"
+    session = FakeSession({url: [404, b"would-succeed"]})
+    result = run(download.download_one(session, fake_bucket, store, "C1240631", "front.jpg", url,
+                                       asyncio.Semaphore(4), no_sleep))
+    assert result == "gone"
+    assert len(session.calls) == 1
+    assert store.list_failures("download") == [("C1240631", "front.jpg", "HTTP 404", 1)]
+    assert not store.has_file("C1240631", "front.jpg")
+
+
+def test_run_download_counts_gone_separately(tmp_path, detail_fixture, score_fixture, fake_bucket):
+    store = seeded_store(tmp_path, detail_fixture, score_fixture)
+    items = download.pending_files(store)
+    responses = {url: b"data-" + name.encode() for _, name, url in items}
+    gone_cert, gone_name, gone_url = items[0]
+    responses[gone_url] = 403
+    session = FakeSession(responses)
+    counts = run(download.run_download(session, fake_bucket, store, items, concurrency=4, sleep=no_sleep))
+    assert counts == {"ok": len(items) - 1, "gone": 1, "failed": 0}

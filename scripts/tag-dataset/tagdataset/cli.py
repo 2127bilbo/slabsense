@@ -93,7 +93,7 @@ def cmd_download(args, cfg) -> int:
         only = None
         if args.certs_file:
             only = {c.strip() for c in Path(args.certs_file).read_text().splitlines() if c.strip()}
-        items = dl.pending_files(store, only)
+        items = dl.pending_files(store, only, include_gone=args.include_gone)
     print(f"{len(items)} files to download")
 
     async def go():
@@ -114,11 +114,15 @@ def cmd_verify(args, cfg) -> int:
     missing = vf.verify(store, bucket)
     table = vf.completeness_by_grade(store, missing)
     print(table.to_string(index=False))
+    retryable = missing[missing.reason != vf.UNAVAILABLE_REASON]
+    unavailable = missing[missing.reason == vf.UNAVAILABLE_REASON]
+    n_certs = unavailable.cert.nunique() if len(unavailable) else 0
+    print(f"unavailable upstream: {len(unavailable)} files across {n_certs} certs")
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    missing.to_parquet(args.out, index=False)
-    print(f"{len(missing)} missing files written to {args.out}")
+    retryable.to_parquet(args.out, index=False)
+    print(f"{len(retryable)} missing files written to {args.out}")
     store.close()
-    return 1 if len(missing) else 0
+    return 1 if len(retryable) else 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -145,6 +149,8 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--concurrency", type=int)
     d.add_argument("--certs-file", help="limit to these certs")
     d.add_argument("--retry-missing", help="missing.parquet from verify")
+    d.add_argument("--include-gone", action="store_true",
+                   help="also retry files previously marked unavailable upstream (HTTP 403/404)")
     d.set_defaults(func=cmd_download)
 
     v = sub.add_parser("verify", help="report files that should exist but do not")
