@@ -241,3 +241,25 @@ def test_run_download_parks_after_20_throttles(tmp_path, detail_fixture, score_f
                                        concurrency=1, rate=1000, sleep=no_sleep))
     assert counts == {"ok": 0, "gone": 0, "failed": 1, "throttled": 20}
     assert store.list_failures("download") == [("C1240631", "front.jpg", "HTTP 403 x20", 1)]
+
+
+def test_run_download_pins_park_reason_per_item_status(tmp_path, detail_fixture, score_fixture, fake_bucket):
+    """Two items throttled forever by different statuses must each keep their own last-seen
+    status in the park reason — this pins the last_status contract documented in download.py
+    (read immediately after download_one returns, no await in between) against a future
+    regression where an inserted await lets one item's status leak into the other's reason."""
+    store = seeded_store(tmp_path, detail_fixture, score_fixture)
+    url_a = "https://cdn/a.jpg"
+    url_b = "https://cdn/b.jpg"
+    session = FakeSession({
+        url_a: [(403, b"<html>blocked</html>")] * 100,
+        url_b: [429] * 100,
+    })
+    items = [("CERT_A", "front.jpg", url_a), ("CERT_B", "front.jpg", url_b)]
+    counts = run(download.run_download(session, fake_bucket, store, items, concurrency=2, rate=1000,
+                                       sleep=no_sleep))
+    assert counts == {"ok": 0, "gone": 0, "failed": 2, "throttled": 40}
+    assert store.list_failures("download") == [
+        ("CERT_A", "front.jpg", "HTTP 403 x20", 1),
+        ("CERT_B", "front.jpg", "HTTP 429 x20", 1),
+    ]

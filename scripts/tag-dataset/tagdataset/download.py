@@ -76,12 +76,19 @@ async def download_one(session, bucket, store: Store, cert: str, name: str, url:
         except HttpStatusError as e:
             if e.status in GONE_STATUSES:
                 if e.status == 403 and classify_403(e.body) == "throttled":
+                    # Undocumented-by-type contract: run_download reads this right back off
+                    # `throttle` via getattr() to build the park reason. Safe only because
+                    # nothing here awaits between this assignment and download_one returning,
+                    # and run_download reads it immediately after `await download_one(...)`
+                    # with no await in between — no other worker's assignment can land in
+                    # that window. Do not insert an await between this line and that read.
                     throttle.last_status = e.status
                     throttle.trip()
                     return "throttled"
                 store.add_failure("download", cert, name, f"HTTP {e.status}")
                 return "gone"
             if e.status in THROTTLE_STATUSES:
+                # Same last_status contract as above — see the comment in the 403 branch.
                 throttle.last_status = e.status
                 throttle.trip()
                 return "throttled"
@@ -123,6 +130,11 @@ async def run_download(session, bucket, store: Store, items: list[tuple[str, str
                 attempts = throttle_attempts.get(key, 0) + 1
                 throttle_attempts[key] = attempts
                 if attempts >= MAX_THROTTLE_ATTEMPTS:
+                    # last_status must be read here, before any await follows the
+                    # download_one call above (there is none between that `await` returning
+                    # and this line) — no await may be inserted between them, or a
+                    # concurrently-scheduled worker's throttle event could overwrite this
+                    # item's status first. See the comment where last_status is set.
                     status = getattr(throttle, "last_status", 429)
                     store.add_failure("download", cert, name, f"HTTP {status} x{MAX_THROTTLE_ATTEMPTS}")
                     counts["failed"] += 1
