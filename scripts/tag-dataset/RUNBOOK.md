@@ -201,3 +201,34 @@ Back up the database while a run is active by copying it with the WAL: stop the 
 **Lost `data/raw.sqlite` but the bucket is intact.** Re-run `sample` and `fetch` (the API responses must be re-pulled; there is no copy of them in the bucket), then `download`. Existing objects are overwritten with identical bytes, so nothing is duplicated.
 
 **Want to pull a different set of certs.** Write them one per line to a text file and run `sample --certs-file that.txt --out data\that.parquet`, then `fetch --certs data\that.parquet`. Everything else is unchanged.
+
+## 10. Building the training tables
+
+Once a pull (or a fresh chunk of one) has landed in `data/raw.sqlite`, turn it into the parquet
+tables the models train on:
+
+```powershell
+cd "G:\Grading App\SlabSense\scripts\tag-dataset"
+.\.venv\Scripts\python.exe -m tagdataset build
+```
+
+This is read-only against `data/raw.sqlite` — safe to run while a pull is still writing to it —
+and writes `manifest.parquet`, `corners.parquet`, `edges.parquet`, `surface.parquet`,
+`dings.parquet`, and `splits.parquet` to `data/dataset/`. The authoritative split assignment
+lives at `splits/splits.parquet` (not under `data/`, so it is tracked in git); `build` reads any
+existing assignments there, adds splits only for certs it has not seen before, and writes the
+merged result back to both `splits/splits.parquet` and `data/dataset/splits.parquet`. A card's
+split, once assigned, never changes on a later rebuild.
+
+Check the result with `stats`:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from tagdataset import stats; from tagdataset.store import Store; t=stats.report('data/dataset'); s=Store('data/raw.sqlite'); n=stats.ding_crops_without_upload('data/dataset', s); print(t.replace('(requires the store; see cli stats --db for the joined count)', f'ding crops not in files table: {n}'))" > data/dataset/stats_report.txt
+```
+
+Read `stats_report.txt` for `markers UNKNOWN: 0`, `dings UNKNOWN: 0`, no `fallback pairs`, and a
+sane `boxes out of range` count before trusting a build.
+
+**After every build that added new certs, commit `scripts/tag-dataset/splits/splits.parquet`.**
+It is the only durable record of which cards are frozen into `test` — losing it (or failing to
+commit it) risks re-randomizing those assignments on a machine that never had the file.
