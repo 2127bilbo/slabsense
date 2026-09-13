@@ -157,6 +157,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       if (onCollectionChange) onCollectionChange();
     } catch (err) {
       console.error('Delete failed:', err);
+      alert('This card could not be deleted.' + (err?.message ? ` (${err.message})` : ''));
     }
   };
 
@@ -801,19 +802,23 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           <div style={{ fontFamily: sans, fontSize: 14, fontWeight: 600, color: '#fff' }}>
             Card Details
           </div>
-          <button
-            onClick={() => setDeleteConfirm(selectedCard.id)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#666',
-              fontSize: 16,
-              cursor: 'pointer',
-              padding: '4px 8px',
-            }}
-          >
-            🗑
-          </button>
+          {slab ? (
+            <span style={{ width: 32 }} />
+          ) : (
+            <button
+              onClick={() => setDeleteConfirm(selectedCard.id)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#666',
+                fontSize: 16,
+                cursor: 'pointer',
+                padding: '4px 8px',
+              }}
+            >
+              🗑
+            </button>
+          )}
         </div>
 
         {/* Content */}
