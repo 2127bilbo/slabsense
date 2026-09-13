@@ -59,3 +59,17 @@ def test_build_empty_store_writes_empty_frames_with_columns(tmp_path):
     assert counts["cards"] == 0
     m = pd.read_parquet(out / "manifest.parquet")
     assert len(m) == 0 and list(m.columns) == labels.MANIFEST_COLUMNS
+
+
+def test_build_non_numeric_marker_id_does_not_break_surface_parquet(tmp_path, detail_fixture, score_fixture):
+    ann = score_fixture["data"]["surfaceFrontData"]["annotations"]
+    bad_marker = {**ann["markers"][0], "ID": "ERROR"}
+    good_marker = {**ann["markers"][0], "ID": 1}
+    score = {"data": {**score_fixture["data"],
+                       "surfaceFrontData": {"annotations": {**ann, "markers": [bad_marker, good_marker]}}}}
+    store = Store(str(tmp_path / "t.sqlite"))
+    store.put_raw("C1240631", "7", detail_fixture, score, 200, None)
+    out = tmp_path / "out"
+    build.build(store, str(out), seed=1)
+    surface = pd.read_parquet(out / "surface.parquet")
+    assert surface["marker_id"].dtype.kind == "f"

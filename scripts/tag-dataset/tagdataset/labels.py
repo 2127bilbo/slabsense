@@ -188,7 +188,10 @@ def surface_rows(cert: str, score: dict) -> list[dict]:
             ded, raw, ovr = _effective_deduction(m)
             out.append({
                 "cert": cert, "side": side,
-                "marker_id": m.get("ID"), "ordering": m.get("Ordering"),
+                # ID/Ordering are usually ints, but some real markers carry "ERROR" (a string);
+                # coerce through _num so the column stays a single float dtype (NaN for non-numeric)
+                # instead of a mixed int/str column that breaks to_parquet.
+                "marker_id": _num(m.get("ID")), "ordering": _num(m.get("Ordering")),
                 "type_name": t, "subtype_name": m.get("subtypeName"),
                 "family": t.split("Marker", 1)[0] if "Marker" in t else "",
                 "engine_type": map_engine_type(t, m.get("subtypeName"), m.get("location")),

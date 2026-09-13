@@ -149,6 +149,14 @@ def test_surface_rows_unknown_type_and_missing_geometry_survive():
     assert r["engine_type"] == "UNKNOWN" and math.isnan(r["x"]) and math.isnan(r["deduction"])
 
 
+def test_surface_rows_non_numeric_marker_id_becomes_nan():
+    bad = {"ID": "ERROR", "typeName": "Weird_New"}
+    good = {"ID": 3, "typeName": "Weird_New"}
+    rows = labels.surface_rows("X", _score_with_markers([bad, good]))
+    assert math.isnan(rows[0]["marker_id"]) and math.isnan(rows[0]["ordering"])
+    assert rows[1]["marker_id"] == 3.0
+
+
 def test_surface_rows_empty_when_no_annotations(detail_fixture):
     assert labels.surface_rows("X", {"data": {"surfaceFrontData": {"image": "u"}}}) == []
 
