@@ -39,7 +39,7 @@ function drawLabel(row){
   }).catch(function(){document.body.setAttribute("data-label","failed");});
 }
 function showSide(row,side){
-  var src=side==="front"?(row.user_card_image||row.enhanced_front_path||row.front_image_path):(row.enhanced_back_path||row.back_image_path);
+  var src=side==="front"?row.front_image_url:row.back_image_url;
   var img=$("card"); img.hidden=!src; if(src)img.src=src; place(img,CARD_WIN); place($("well"),CARD_WIN);
   $("label").hidden=side!=="front";
   $("btnFront").setAttribute("aria-pressed",side==="front");$("btnBack").setAttribute("aria-pressed",side==="back");
@@ -97,7 +97,7 @@ function render(row){
     return '<div><b>'+esc(centeringText(x[1]))+'</b><span>'+esc(x[0])+'</span></div>';
   }).join("");
   var d=row.dings||[];$("dings").innerHTML=d.map(function(x){var sev=severityText(x.severity);return '<li>'+(x.side?esc(x.side)+' — ':'')+esc(x.type||"defect")+(sev?' <em>('+esc(sev)+')</em>':'')+(x.location?' — '+esc(x.location):'')+(x.note||x.desc?': '+esc(x.note||x.desc):'')+'</li>';}).join("");$("nodings").hidden=d.length>0;
-  var imgs=[["Front",row.user_card_image||row.enhanced_front_path||row.front_image_path],["Back",row.enhanced_back_path||row.back_image_path]].filter(function(x){return x[1];});
+  var imgs=[["Front",row.front_image_url],["Back",row.back_image_url]].filter(function(x){return x[1];});
   $("images").innerHTML=imgs.map(function(x){return '<figure style="margin:0"><img src="'+esc(x[1])+'" alt="'+esc(x[0])+'"><figcaption class="sub">'+esc(x[0])+'</figcaption></figure>';}).join("")||'<p class="sub">No images on file.</p>';
   kv($("dates"),{paid:row.paid_at,engraved:row.engraved_at,shipped:row.shipped_at},fmtDate);
   showSide(row,"front");
