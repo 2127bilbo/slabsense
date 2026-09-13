@@ -14,6 +14,7 @@ import { claudeGradingAnalysis, deepGradingAnalysisV2 } from '../../services/api
 import { GradeResultDisplay } from '../Grading/GradeResultDisplay.jsx';
 import { DamageReportModal } from '../DamageReport';
 import holoConfig from '../../../config/holo-config.json';
+import { orderSlab, getSlabForScan, SLAB_STATUS_TEXT, certUrl } from '../../services/slabs.js';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
@@ -114,6 +115,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
 
   // Damage Report modal state
   const [showDamageReport, setShowDamageReport] = useState(false);
+  const [slab, setSlab] = useState(null);
+  const [slabBusy, setSlabBusy] = useState(false);
 
   // Gyro input for holo sparkles
   const gyroInputRef = useRef(null);
@@ -230,6 +233,27 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       setShow3DViewer(false);
     }
   }, [selectedCard]);
+
+  // Load the slab order (if any) for the selected card
+  useEffect(() => {
+    let alive = true;
+    setSlab(null);
+    if (selectedCard?.id) getSlabForScan(selectedCard.id).then((s) => { if (alive) setSlab(s); });
+    return () => { alive = false; };
+  }, [selectedCard?.id]);
+
+  const handleOrderSlab = async () => {
+    if (!selectedCard || slabBusy) return;
+    setSlabBusy(true);
+    try {
+      const { url } = await orderSlab(userId, selectedCard.id);
+      window.location.href = url;
+    } catch (err) {
+      console.error('Slab order failed:', err);
+      alert(`Could not start checkout: ${err.message}`);
+      setSlabBusy(false);
+    }
+  };
 
   // Handle re-grading with AI
   const handleRegrade = async () => {
@@ -794,6 +818,32 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
 
         {/* Content */}
         <div style={{ padding: 16, flex: 1 }}>
+          {/* Slabbing */}
+          <div style={{ marginBottom: 14, padding: '10px 12px', border: '1px solid #1f2229', borderRadius: 10, background: '#0f1116', fontFamily: sans, fontSize: 13 }}>
+            {slab ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ color: '#fff', fontWeight: 600 }}>Slab {slab.cert}</div>
+                  <div style={{ color: '#98a0ae' }}>{SLAB_STATUS_TEXT[slab.status] || slab.status}</div>
+                </div>
+                <a href={certUrl(slab.cert)} target="_blank" rel="noreferrer" style={{ color: '#7ea5ff' }}>View cert page ↗</a>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ color: '#98a0ae' }}>
+                  {selectedCard.grade_value == null ? 'Grade this card to order a slab.' : 'Have SlabSense engrave and ship this card in a slab.'}
+                </div>
+                <button
+                  onClick={handleOrderSlab}
+                  disabled={slabBusy || selectedCard.grade_value == null || !(selectedCard.user_card_image || selectedCard.enhanced_front_path || selectedCard.front_image_path)}
+                  style={{ background: '#2f6fe4', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: sans, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: slabBusy ? 0.6 : 1 }}
+                >
+                  {slabBusy ? 'Opening checkout…' : 'Get it slabbed'}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Grade Toggle (AI vs Software) */}
           {hasBothGrades && (
             <div style={{
