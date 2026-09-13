@@ -81,3 +81,9 @@ were absorbed this way, and a file throttled more than 20 times is parked as a f
 - `surface.parquet` — one row per surface marker (`cert`, `side`, `marker_id`): type (`type_name`, `subtype_name`, `family`, `engine_type`, an `is_rollup` flag for rollup-only markers), geometry as canvas fractions (`x`, `y`, `w`, `h`, plus raw-fraction endpoints `x1`/`y1`/`x2`/`y2` and `rotation_deg` where the source gave a line), and scoring (`deduction`, `deduction_raw`, `deduction_override`, `area`, `depth`, `white_scale`).
 - `dings.parquet` — one row per ding, kept separate from `surface.parquet` since dings come from the detail record's `dingsJSON` rather than the score record's annotations: `cert`, `side`, `ordering`, `type_name`, `engine_type`, `location`, pixel geometry (`px_x`, `px_y`, `px_w`, `px_h`) and the same geometry as canvas fractions (`x`, `y`, `w`, `h`), plus `crop_path`.
 - `splits.parquet` — one row per card (`cert`, `split`, `stratum`, `assigned_at`); frozen across rebuilds so a card's split never changes once assigned.
+
+## Status
+
+| Date | Run | Result | Notes |
+|---|---|---|---|
+| 2026-09-13 | first dataset build (`build` + `stats`) | 1,721 cards → 13,768 corner rows, 13,768 edge rows, 19,133 markers (2,638 rollup), 6,740 dings; splits 1,365 / 187 / 169 (train/val/test), test frozen from this build on | unmapped: 0 marker types, 2 ding types (`SURFACE / PRINT LINES`, `SURFACE / MARK / WRITING`); canvas aspect mismatch: 1 back side (K1916397); score_total present on 206 cards; 7 markers with non-numeric ID coerced to NaN |
