@@ -17,6 +17,8 @@ class Config:
     rate: float
     workers: int
     concurrency: int
+    cooldown_start: float
+    cooldown_max: float
 
 
 def load_config(path: str = "config.toml") -> Config:
@@ -34,4 +36,6 @@ def load_config(path: str = "config.toml") -> Config:
         rate=float(data.get("fetch", {}).get("rate", 4.0)),
         workers=int(data.get("fetch", {}).get("workers", 8)),
         concurrency=int(data.get("download", {}).get("concurrency", 16)),
+        cooldown_start=float(data.get("fetch", {}).get("cooldown_start", 300.0)),
+        cooldown_max=float(data.get("fetch", {}).get("cooldown_max", 900.0)),
     )

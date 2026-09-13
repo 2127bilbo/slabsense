@@ -74,7 +74,8 @@ def cmd_fetch(args, cfg) -> int:
     async def go():
         async with aiohttp.ClientSession() as session:
             return await run_fetch(TagClient(session), store, certs, args.rate or cfg.rate,
-                                   args.workers or cfg.workers, progress=_progress("fetch"))
+                                   args.workers or cfg.workers, progress=_progress("fetch"),
+                                   cooldown_start=cfg.cooldown_start, cooldown_max=cfg.cooldown_max)
 
     counts = asyncio.run(go())
     print(f"\nfetch done: {counts}")

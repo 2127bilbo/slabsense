@@ -10,8 +10,13 @@ prefix = "tag-dataset"
 # Keys are read from env vars B2_KEY_ID and B2_APP_KEY. Never put them here.
 
 [fetch]
-rate = 4.0
-workers = 8
+# Measured limit: TAG rate-limits at roughly 20-25 requests per 5-minute sliding
+# window per client, and blocked (429) requests count toward that window. These
+# defaults (1 request/15s, 2 workers) stay well under it.
+rate = 0.0667
+workers = 2
+cooldown_start = 300
+cooldown_max = 900
 
 [download]
 concurrency = 16
