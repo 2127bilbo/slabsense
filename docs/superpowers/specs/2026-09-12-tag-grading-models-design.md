@@ -28,7 +28,7 @@
 
 | Question | Decision |
 |---|---|
-| Image storage | S3-compatible cloud bucket (Backblaze B2, Cloudflare R2, or Supabase Storage). Local disk holds only the manifest, SQLite raw store, and small samples. |
+| Image storage | Backblaze B2 (S3-compatible API). Local disk holds only the manifest, SQLite raw store, and small samples. Chosen 2026-09-12 for ~$4/month storage at 650 GB and free egress up to 3x stored volume per month. |
 | Serving | One Python inference service on a serverless GPU host. Modal first; RunPod Serverless or Replicate are drop-in alternatives. |
 | Role in app | Models measure, LLM reads and explains. Trained models produce subscores and defects; existing `gradingEngine.js` and company offsets produce grades; Claude/Gemini identify the card and write the summary from the model output. |
 | Dataset composition | Every cert at grade 5.5 and below plus all 10 PRISTINE (~15,000). Grades 6 through 10 capped at 1,500 each, stratified across eras (~12,000). |
@@ -179,5 +179,5 @@ Each step gets its own implementation plan under `docs/superpowers/plans/`.
 
 ## 14. Open items
 
-- Bucket provider and region: pick at the start of step 1 (cost and egress toward the GPU host are the deciding factors).
+- Bucket region: pick the B2 region closest to the GPU host when step 1 starts (US West or US East).
 - TAG terms of use for bulk access: the user to check before step 1 runs at full scale; the pipeline's rate limit is set conservatively regardless.
