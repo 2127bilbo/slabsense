@@ -8,7 +8,7 @@ from typing import Callable
 import aiohttp
 
 from .store import Store
-from .tagapi import TagHttpError
+from .tagapi import TagHttpError, TagClient
 
 BACKOFF = (1, 4, 16)
 GONE_STATUSES = (403, 404)
@@ -133,3 +133,140 @@ async def run_fetch(client, store: Store, certs: list[tuple[str, str | None]], r
 
     await asyncio.gather(*(worker() for _ in range(max(1, workers))))
     return counts
+
+
+async def run_fetch_proxied(
+    clients: list[TagClient],
+    store: Store,
+    certs: list[tuple[str, str | None]],
+    rate: float,
+    workers_per_proxy: int = 1,
+    sleep=asyncio.sleep,
+    progress: Callable[[dict], None] | None = None,
+    cooldown_start: float = 300.0,
+    cooldown_max: float = 900.0,
+    clock=time.monotonic,
+) -> dict[str, int]:
+    """Fetch using smart proxy rotation that skips throttled proxies.
+
+    When a proxy hits 429, it's marked as cooling down and skipped.
+    Only healthy proxies are used. If ALL proxies are throttled, we wait
+    for the shortest cooldown to expire.
+    """
+    num_proxies = len(clients)
+
+    # Per-proxy cooldowns - must match TAG's ~5 min rate window
+    # Starting lower causes immediate re-throttle when proxy resumes
+    proxy_cooldown_start = 300.0  # 5 min to match TAG's window
+    proxy_cooldown_max = 600.0    # Max 10 min for repeated offenders
+    proxy_cooldown_until: list[float] = [0.0] * num_proxies
+    proxy_cooldown_duration: list[float] = [proxy_cooldown_start] * num_proxies
+    proxy_last_request: list[float] = [0.0] * num_proxies
+
+    # Minimum spacing per proxy
+    min_spacing_per_proxy = 1.0 / rate * num_proxies if rate > 0 else 5.0
+
+    # Build work queue
+    work_queue = [(cert, grade_key) for cert, grade_key in certs if not store.has_raw(cert)]
+    counts = {"ok": 0, "gone": 0, "failed": 0, "skipped": len(certs) - len(work_queue), "throttled": 0}
+    throttle_attempts: dict[str, int] = {}
+
+    work_idx = 0
+    while work_idx < len(work_queue):
+        cert, grade_key = work_queue[work_idx]
+        now = clock()
+
+        # Find a healthy proxy (not in cooldown)
+        best_proxy = None
+        best_ready_time = float('inf')
+        healthy_count = 0
+
+        for idx in range(num_proxies):
+            if proxy_cooldown_until[idx] > now:
+                # This proxy is in cooldown
+                if proxy_cooldown_until[idx] < best_ready_time:
+                    best_ready_time = proxy_cooldown_until[idx]
+                continue
+
+            healthy_count += 1
+            # Check per-proxy spacing
+            ready_at = proxy_last_request[idx] + min_spacing_per_proxy
+            if best_proxy is None or ready_at < best_ready_time:
+                best_proxy = idx
+                best_ready_time = ready_at
+
+        # If all proxies are in cooldown, wait for the shortest one
+        if healthy_count == 0:
+            wait_time = best_ready_time - now
+            if wait_time > 0:
+                print(f"\n[All {num_proxies} proxies cooling down, waiting {wait_time:.0f}s]", flush=True)
+                await sleep(wait_time)
+            continue  # Re-check proxy availability
+
+        # Wait for the best proxy to be ready (per-proxy spacing)
+        wait_for_spacing = best_ready_time - now
+        if wait_for_spacing > 0:
+            await sleep(wait_for_spacing)
+
+        proxy_idx = best_proxy
+        client = clients[proxy_idx]
+        proxy_last_request[proxy_idx] = clock()
+
+        # Make the request
+        result = await _fetch_one_no_throttle(client, store, cert, grade_key, sleep)
+
+        if result == "throttled":
+            counts["throttled"] += 1
+            # Mark this proxy as in cooldown
+            proxy_cooldown_until[proxy_idx] = clock() + proxy_cooldown_duration[proxy_idx]
+            # Double cooldown for next time (up to max)
+            proxy_cooldown_duration[proxy_idx] = min(proxy_cooldown_duration[proxy_idx] * 2, proxy_cooldown_max)
+
+            attempts = throttle_attempts.get(cert, 0) + 1
+            throttle_attempts[cert] = attempts
+            if attempts >= MAX_THROTTLE_ATTEMPTS:
+                store.add_failure("fetch", cert, "", f"HTTP 429 x{MAX_THROTTLE_ATTEMPTS}")
+                counts["failed"] += 1
+                work_idx += 1
+            else:
+                work_queue.append((cert, grade_key))  # Re-queue for retry
+                work_idx += 1
+        else:
+            counts[result] += 1
+            # Reset cooldown duration on success
+            proxy_cooldown_duration[proxy_idx] = proxy_cooldown_start
+            work_idx += 1
+
+        if progress:
+            progress(counts)
+
+    return counts
+
+
+async def _fetch_one_no_throttle(client, store: Store, cert: str, grade_key: str | None,
+                                  sleep=asyncio.sleep) -> str:
+    """Fetch one cert without throttle management (caller handles timing)."""
+    import aiohttp
+    last = "unknown"
+    for delay in (0,) + BACKOFF:
+        if delay:
+            await sleep(delay)
+        try:
+            detail = await client.detail(cert)
+            score = await client.score(cert)
+        except TagHttpError as e:
+            if e.status == THROTTLE_STATUS:
+                return "throttled"
+            if e.status in GONE_STATUSES:
+                store.put_raw(cert, grade_key, None, None, e.status, e.body)
+                return "gone"
+            last = f"HTTP {e.status}"
+            continue
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as e:
+            last = f"{type(e).__name__}: {e}"[:200]
+            continue
+        store.put_raw(cert, grade_key, detail, score, 200, None)
+        store.clear_failure("fetch", cert, "")
+        return "ok"
+    store.add_failure("fetch", cert, "", last)
+    return "failed"

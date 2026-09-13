@@ -15,9 +15,10 @@ from . import sample as smp
 from . import verify as vf
 from .bucket import Bucket
 from .config import load_config
-from .fetch import run_fetch
+from .fetch import run_fetch, run_fetch_proxied
 from .store import Store
 from .tagapi import TagClient
+from .proxies import load_proxies, ProxyPool
 
 
 def _bucket(cfg) -> Bucket:
@@ -71,13 +72,43 @@ def cmd_fetch(args, cfg) -> int:
     else:
         certs = [(c, gk) for c, gk in grade_map.items()]
 
-    async def go():
-        async with aiohttp.ClientSession() as session:
-            return await run_fetch(TagClient(session), store, certs, args.rate or cfg.rate,
-                                   args.workers or cfg.workers, progress=_progress("fetch"),
-                                   cooldown_start=cfg.cooldown_start, cooldown_max=cfg.cooldown_max)
+    # Use proxies if provided
+    if args.proxies:
+        proxies = load_proxies(args.proxies)
+        if not proxies:
+            print(f"No valid proxies found in {args.proxies}")
+            return 1
 
-    counts = asyncio.run(go())
+        # Conservative rate: TAG allows ~4-5 req/min per IP
+        # Target 80% of limit to avoid edge-case throttles
+        # 10 proxies × 4 req/min × 0.8 = 32 req/min = 0.53 req/s
+        safe_rate = len(proxies) * 4 * 0.8 / 60  # ~0.53 req/s for 10 proxies
+        proxy_rate = args.rate or safe_rate
+        print(f"Using {len(proxies)} proxies at {proxy_rate:.2f} req/s")
+        print(f"Each IP sees ~{60 / len(proxies) * proxy_rate:.1f} req/min (limit: ~5/min)")
+
+        async def go_proxied():
+            async with ProxyPool(proxies) as pool:
+                clients = [pool.get_client(i) for i in range(len(pool))]
+                return await run_fetch_proxied(
+                    clients, store, certs,
+                    rate=proxy_rate,
+                    workers_per_proxy=args.workers or 1,
+                    progress=_progress("fetch"),
+                    cooldown_start=cfg.cooldown_start,
+                    cooldown_max=cfg.cooldown_max,
+                )
+
+        counts = asyncio.run(go_proxied())
+    else:
+        async def go():
+            async with aiohttp.ClientSession() as session:
+                return await run_fetch(TagClient(session), store, certs, args.rate or cfg.rate,
+                                       args.workers or cfg.workers, progress=_progress("fetch"),
+                                       cooldown_start=cfg.cooldown_start, cooldown_max=cfg.cooldown_max)
+
+        counts = asyncio.run(go())
+
     print(f"\nfetch done: {counts}")
     print("store:", store.counts())
     store.close()
@@ -142,8 +173,9 @@ def build_parser() -> argparse.ArgumentParser:
     f.add_argument("--certs", default="data/certs.parquet",
                     help="certs.parquet; also used to look up grade keys when retrying failures")
     f.add_argument("--rate", type=float)
-    f.add_argument("--workers", type=int)
+    f.add_argument("--workers", type=int, help="workers per proxy when using --proxies, or total workers otherwise")
     f.add_argument("--retry-failures", action="store_true")
+    f.add_argument("--proxies", help="path to proxy list file (host:port:user:pass per line)")
     f.set_defaults(func=cmd_fetch)
 
     d = sub.add_parser("download", help="upload every expected image to the bucket")

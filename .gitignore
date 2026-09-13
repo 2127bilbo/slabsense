@@ -55,3 +55,4 @@ scripts/tag-dataset/data/
 scripts/tag-dataset/config.toml
 scripts/tag-dataset/config.smoke.toml
 scripts/tag-dataset/.venv/
+scripts/tag-dataset/tagdataset.egg-info/

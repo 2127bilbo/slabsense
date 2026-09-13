@@ -54,12 +54,13 @@ class TagHttpError(Exception):
 
 
 class TagClient:
-    def __init__(self, session: aiohttp.ClientSession):
+    def __init__(self, session: aiohttp.ClientSession, proxy_url: str | None = None):
         self.session = session
+        self.proxy_url = proxy_url
 
     async def _get(self, url: str, key: str) -> dict:
         headers = {**HEADERS_BASE, "x-tag-key": key}
-        async with self.session.get(url, headers=headers, timeout=TIMEOUT) as r:
+        async with self.session.get(url, headers=headers, timeout=TIMEOUT, proxy=self.proxy_url) as r:
             text = await r.text()
             if r.status != 200:
                 raise TagHttpError(r.status, text[:200])
