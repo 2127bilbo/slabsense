@@ -169,7 +169,7 @@ def test_card_row_from_fixture(detail_fixture, score_fixture):
     assert row["grade_label"] == d["grade"]
     assert row["grade_num"] == float(d["pop"]["grade"])
     assert row["is_pristine"] is False
-    assert row["era"] == "1999-2003" and row["year"] == 2000
+    assert row["era"] == "2004-2010" and row["year"] == 2008
     assert row["set_name"] == d["cardSet"]["setName"] and row["card_name"] == d["cardName"]
     assert row["rollup_centering"] == s["scoreRollupCentering"]
     assert row["rollup_surface"] == s["scoreRollupSurface"]
