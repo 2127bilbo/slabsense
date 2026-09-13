@@ -68,7 +68,11 @@ class _FakeResponse:
 
 
 class FakeSession:
-    """Maps url -> bytes, or url -> list of outcomes (bytes | int status | Exception) popped per call."""
+    """Maps url -> bytes, or url -> list of outcomes popped per call.
+
+    An outcome is bytes (200 with that body), an int status (that status with an
+    empty body), a (status, body_bytes) tuple, or an Exception to raise.
+    """
 
     def __init__(self, responses: dict):
         self.responses = {k: (list(v) if isinstance(v, list) else v) for k, v in responses.items()}
@@ -81,6 +85,9 @@ class FakeSession:
             outcome = outcome.pop(0)
         if isinstance(outcome, Exception):
             raise outcome
+        if isinstance(outcome, tuple):
+            status, body = outcome
+            return _FakeResponse(status, body)
         if isinstance(outcome, int):
             return _FakeResponse(outcome, b"")
         return _FakeResponse(200, outcome)

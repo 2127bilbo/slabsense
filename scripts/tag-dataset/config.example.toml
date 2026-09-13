@@ -19,4 +19,6 @@ cooldown_start = 300
 cooldown_max = 900
 
 [download]
-concurrency = 16
+# Measured 2026-09-13: 16 concurrent unthrottled tripped a CloudFront block after ~750 files.
+concurrency = 4
+rate = 8.0

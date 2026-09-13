@@ -4,11 +4,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import time
 from typing import Callable
 
 import aiohttp
 
-from .fetch import BACKOFF
+from .fetch import BACKOFF, MAX_THROTTLE_ATTEMPTS, Throttle
 from .files import CONTENT_TYPES, expected_files
 from .store import Store
 
@@ -16,13 +17,27 @@ DOWNLOAD_TIMEOUT = aiohttp.ClientTimeout(total=120)
 
 # Statuses meaning the CDN does not have the object (S3 AccessDenied reads as 403 for a
 # missing key on TAG's bucket). Retrying these forever is pointless; record and move on.
+# A 403 can also mean a CloudFront rate-limit block page — see classify_403.
 GONE_STATUSES = (403, 404)
+THROTTLE_STATUSES = (429,)
 
 
 class HttpStatusError(Exception):
-    def __init__(self, status: int):
+    def __init__(self, status: int, body: bytes = b""):
         super().__init__(f"HTTP {status}")
         self.status = status
+        self.body = body[:512]
+
+
+def classify_403(body: bytes) -> str:
+    """Tell a real "object does not exist" 403 apart from a CDN rate-limit block.
+
+    TAG's bucket answers a missing key with an XML AccessDenied/NoSuchKey body. A
+    CloudFront rate-limit block answers 403 with an HTML page or an empty body.
+    """
+    if b"<Code>AccessDenied</Code>" in body or b"<Code>NoSuchKey</Code>" in body:
+        return "gone"
+    return "throttled"
 
 
 def pending_files(store: Store, only_certs: set[str] | None = None,
@@ -41,26 +56,35 @@ def pending_files(store: Store, only_certs: set[str] | None = None,
 
 async def _fetch_bytes(session, url: str) -> bytes:
     async with session.get(url, timeout=DOWNLOAD_TIMEOUT) as r:
+        body = await r.read()
         if r.status != 200:
-            raise HttpStatusError(r.status)
-        return await r.read()
+            raise HttpStatusError(r.status, body)
+        return body
 
 
 async def download_one(session, bucket, store: Store, cert: str, name: str, url: str,
-                       sem: asyncio.Semaphore, sleep=asyncio.sleep) -> str:
+                       throttle: Throttle, sleep=asyncio.sleep) -> str:
     content_type = CONTENT_TYPES.get(os.path.splitext(name)[1].lower(), "application/octet-stream")
     last = "unknown"
     for delay in (0,) + BACKOFF:
         if delay:
             await sleep(delay)
         try:
-            async with sem:
-                data = await _fetch_bytes(session, url)
+            await throttle.wait()
+            data = await _fetch_bytes(session, url)
             await asyncio.to_thread(bucket.put, cert, name, data, content_type)
         except HttpStatusError as e:
             if e.status in GONE_STATUSES:
+                if e.status == 403 and classify_403(e.body) == "throttled":
+                    throttle.last_status = e.status
+                    throttle.trip()
+                    return "throttled"
                 store.add_failure("download", cert, name, f"HTTP {e.status}")
                 return "gone"
+            if e.status in THROTTLE_STATUSES:
+                throttle.last_status = e.status
+                throttle.trip()
+                return "throttled"
             last = f"HTTP {e.status}"
             continue
         except Exception as e:  # network, bucket, timeout — all retried the same way
@@ -68,18 +92,23 @@ async def download_one(session, bucket, store: Store, cert: str, name: str, url:
             continue
         store.put_file(cert, name, url, len(data), hashlib.sha256(data).hexdigest())
         store.clear_failure("download", cert, name)
+        throttle.succeed()
         return "ok"
     store.add_failure("download", cert, name, last)
     return "failed"
 
 
 async def run_download(session, bucket, store: Store, items: list[tuple[str, str, str]], concurrency: int,
-                       sleep=asyncio.sleep, progress: Callable[[dict], None] | None = None) -> dict[str, int]:
-    sem = asyncio.Semaphore(max(1, concurrency))
+                       rate: float, sleep=asyncio.sleep, progress: Callable[[dict], None] | None = None,
+                       cooldown_start: float = 300.0, cooldown_max: float = 900.0,
+                       clock=time.monotonic) -> dict[str, int]:
+    throttle = Throttle(rate, cooldown_start=cooldown_start, cooldown_max=cooldown_max,
+                        sleep=sleep, clock=clock)
     queue: asyncio.Queue = asyncio.Queue()
     for item in items:
         queue.put_nowait(item)
-    counts = {"ok": 0, "gone": 0, "failed": 0}
+    counts = {"ok": 0, "gone": 0, "failed": 0, "throttled": 0}
+    throttle_attempts: dict[tuple[str, str], int] = {}
 
     async def worker() -> None:
         while True:
@@ -87,7 +116,20 @@ async def run_download(session, bucket, store: Store, items: list[tuple[str, str
                 cert, name, url = queue.get_nowait()
             except asyncio.QueueEmpty:
                 return
-            counts[await download_one(session, bucket, store, cert, name, url, sem, sleep)] += 1
+            result = await download_one(session, bucket, store, cert, name, url, throttle, sleep)
+            if result == "throttled":
+                counts["throttled"] += 1
+                key = (cert, name)
+                attempts = throttle_attempts.get(key, 0) + 1
+                throttle_attempts[key] = attempts
+                if attempts >= MAX_THROTTLE_ATTEMPTS:
+                    status = getattr(throttle, "last_status", 429)
+                    store.add_failure("download", cert, name, f"HTTP {status} x{MAX_THROTTLE_ATTEMPTS}")
+                    counts["failed"] += 1
+                else:
+                    queue.put_nowait((cert, name, url))
+            else:
+                counts[result] += 1
             if progress:
                 progress(counts)
 

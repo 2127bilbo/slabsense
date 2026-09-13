@@ -28,7 +28,37 @@ TAG's API (`api.taggrading.com`) throttles per client IP.
 | Cost per card | 2 requests, so about 2 cards per minute at best |
 | Observed pace | about 1.4 cards per minute, because the occasional 429 still costs a 5-minute pause |
 
-The image CDN (`cloudfront.net`) has shown no rate limit. Downloads run 16 at a time.
+The image CDN (`cloudfront.net`) also rate-limits, measured the hard way on 2026-09-13: a pilot
+download at 16 concurrent unthrottled requests (~180 files/s) tripped a CloudFront block after
+about 750 files. Once tripped, every request — including URLs that had just succeeded a moment
+earlier — came back HTTP 403 with an HTML block page. Because a *genuinely* missing object on
+this bucket also answers 403 (S3 AccessDenied reads as 403 for a missing key), the two look
+identical by status code alone; the old runner treated every 403 as "object does not exist" and
+on that pilot run mislabeled 12,045 fetchable files as permanently unavailable. The fix:
+distinguish by body — a real miss answers with an XML body containing `<Code>AccessDenied</Code>`
+or `<Code>NoSuchKey</Code>`; a rate-limit block answers with an HTML page or an empty body.
+`download.classify_403` makes that call, and a 403 (or 429) classified as a block is treated as a
+throttle, not a permanent miss.
+
+| Fact | Value |
+|---|---|
+| Observed trip point | ~750 files at 16 concurrent unthrottled requests |
+| What happens over budget | HTTP 403 (or 429) on every request, HTML or empty body |
+| Real "does not exist" | HTTP 403 with `<Code>AccessDenied</Code>` or `<Code>NoSuchKey</Code>` in the body |
+| New default | `concurrency = 4`, `rate = 8.0` requests/second, shared across all download workers |
+
+How the download runner behaves, from `config.toml` `[download]`:
+
+- `concurrency = 4`, `rate = 8.0` → four workers in flight, sharing a global 8 requests/second cap.
+- On a 429, or a 403 whose body is not AccessDenied/NoSuchKey: **every worker pauses** for
+  `cooldown_start` (default 300 s, same setting fetch uses). The file is put back in the queue,
+  not marked failed. Each further trip doubles the pause up to `cooldown_max` (900 s); a success
+  resets it to `cooldown_start`.
+- A file throttled 20 separate times is parked in `failures` with reason `HTTP 403 x20` or
+  `HTTP 429 x20` (whichever it last saw) so the run can end. `download --retry-missing` (after a
+  `verify`) picks it back up later.
+- A 403 whose body *is* AccessDenied/NoSuchKey, or any 404, is recorded once and never retried —
+  TAG genuinely does not have that file.
 
 How the fetch runner behaves, from `config.toml` `[fetch]`:
 
@@ -124,9 +154,10 @@ Reasons and what they mean:
 
 | Reason | Meaning | Action |
 |---|---|---|
-| `HTTP 429 x20` | throttled 20 times in one run | `fetch --retry-failures` after a quiet spell |
+| `HTTP 429 x20` on a fetch | throttled 20 times in one run | `fetch --retry-failures` after a quiet spell |
+| `HTTP 403 x20` / `HTTP 429 x20` on a download | CDN block absorbed 20 times without clearing | `verify` then `download --retry-missing` after a quiet spell |
 | `HTTP 5xx`, `TimeoutError`, `ClientConnectorError` | transient | `fetch --retry-failures` or `download --retry-missing` |
-| `HTTP 403` / `HTTP 404` on a download | TAG never generated that file (common for annotated surface images) | nothing; `verify` reports these as `unavailable upstream` and they do not block a clean run |
+| `HTTP 403` / `HTTP 404` on a download (no `x20` suffix) | TAG never generated that file (common for annotated surface images); the 403 body was AccessDenied/NoSuchKey, not a block page | nothing; `verify` reports these as `unavailable upstream` and they do not block a clean run |
 | `HTTP 403` / `HTTP 404` on a fetch | cert not public | nothing; counted as `raw_gone` |
 
 `verify` exits 0 when only unavailable-upstream files are missing, and 1 when something retryable is missing.

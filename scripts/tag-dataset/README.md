@@ -32,7 +32,7 @@ All run from `scripts/tag-dataset` with the venv active. Every command is safe t
 |---|---|
 | `python -m tagdataset sample --cache "../Tag scraper/tag_cache.json"` | Apply the composition rule to the browse cache → `data/certs.parquet`. Add `--certs-file list.txt` to use an explicit list instead. |
 | `python -m tagdataset fetch` | Detail + score for every cert in `data/certs.parquet` not yet in the store, throttled to stay under TAG's rate limit. `--retry-failures` re-attempts parked certs, reading their grade keys from the same `data/certs.parquet`. |
-| `python -m tagdataset download` | Upload all expected files for every fetched cert. `--retry-missing data/missing.parquet` re-does a verify list. `--include-gone` also retries files previously recorded as unavailable upstream (HTTP 403/404); without it those names are skipped. |
+| `python -m tagdataset download` | Upload all expected files for every fetched cert, throttled to stay under the image CDN's rate limit. `--retry-missing data/missing.parquet` re-does a verify list. `--include-gone` also retries files previously recorded as unavailable upstream (HTTP 403/404 with an AccessDenied/NoSuchKey body); without it those names are skipped. `--rate` overrides `config.toml`'s `[download] rate`. |
 | `python -m tagdataset verify` | Print completeness per grade, write retryable gaps to `data/missing.parquet`, exit 1 only if retryable gaps remain. Files upstream does not have (HTTP 403/404) are reported separately as an `unavailable upstream: N files across M certs` line and never fail the exit code. `--check-bucket` also lists the bucket. |
 
 Config can point at a different prefix (e.g. `scratch/smoke`) to test without touching the real dataset.
@@ -48,6 +48,18 @@ progress doesn't keep hammering TAG and extending the ban. The `throttled` count
 summary is how many `429` responses were absorbed this way; a cert throttled more than 20 times
 is parked as a failure (`HTTP 429 x20`) instead of being retried forever. At the default rate a
 507-cert run takes about 4 hours.
+
+The image CDN (`cloudfront.net`) also rate-limits: a pilot run at 16 concurrent unthrottled
+requests (~180 files/s) tripped a CloudFront block after about 750 files, after which every
+request — including URLs that had just succeeded — came back HTTP 403 with an HTML block page.
+A real missing object answers 403 with an XML body containing `<Code>AccessDenied</Code>` (or
+`NoSuchKey</Code>`); `download` tells the two apart by body content (`download.classify_403`) so
+a block does not get mislabeled as a permanently missing file. `download`'s default config
+(`concurrency = 4`, `rate = 8.0` requests/second, shared across workers) stays under that limit.
+A 429, or a 403 classified as a block, trips the same shared cooldown described above for fetch
+(same `cooldown_start`/`cooldown_max`); the `throttled` count in the download summary is how many
+were absorbed this way, and a file throttled more than 20 times is parked as a failure
+(`HTTP 403 x20` or `HTTP 429 x20`, whichever it last saw) instead of being retried forever.
 
 ## Layout in the bucket
 

@@ -131,7 +131,9 @@ def cmd_download(args, cfg) -> int:
     async def go():
         async with aiohttp.ClientSession() as session:
             return await dl.run_download(session, bucket, store, items, args.concurrency or cfg.concurrency,
-                                         progress=_progress("download"))
+                                         args.rate or cfg.download_rate,
+                                         progress=_progress("download"),
+                                         cooldown_start=cfg.cooldown_start, cooldown_max=cfg.cooldown_max)
 
     counts = asyncio.run(go())
     print(f"\ndownload done: {counts}")
@@ -180,6 +182,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     d = sub.add_parser("download", help="upload every expected image to the bucket")
     d.add_argument("--concurrency", type=int)
+    d.add_argument("--rate", type=float, help="requests/second across all workers")
     d.add_argument("--certs-file", help="limit to these certs")
     d.add_argument("--retry-missing", help="missing.parquet from verify")
     d.add_argument("--include-gone", action="store_true",
