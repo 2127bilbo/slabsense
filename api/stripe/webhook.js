@@ -5,7 +5,7 @@
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { SLAB_PRICE_KEY, mintSlab } from '../_lib/slabs.js';
+import { SLAB_PRICE_KEY, mintSlab, slabOrderFromSession } from '../_lib/slabs.js';
 
 export const config = {
   api: {
@@ -139,11 +139,7 @@ async function handleCheckoutComplete(session) {
   console.log('[Webhook] Checkout complete:', { userId, priceId, mode });
 
   if (session.metadata?.price_key === SLAB_PRICE_KEY) {
-    const shipping = session.shipping_details || session.collected_information?.shipping_details || null;
-    const { slab, created } = await mintSlab(
-      { db: supabase, storage: supabase.storage, fetchImpl: fetch },
-      { scanId: session.metadata.scan_id, userId, stripeSessionId: session.id, shipping }
-    );
+    const { slab, created } = await mintSlab({ db: supabase, storage: supabase.storage, fetchImpl: fetch }, slabOrderFromSession(session));
     console.log(`[Webhook] Slab ${created ? 'minted' : 'already existed'}: ${slab.cert} for scan ${slab.scan_id}`);
     return;
   }

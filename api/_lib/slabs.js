@@ -10,10 +10,26 @@ export function slabSessionParams({ customerId, userId, scanId, priceId, success
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
     mode: 'payment',
+    // Card only — delayed-notification methods (e.g. ACH, some wallets) fire
+    // checkout.session.completed before the money has actually arrived, which
+    // would let the webhook mint a cert for a session that later fails to pay.
+    payment_method_types: ['card'],
     shipping_address_collection: { allowed_countries: ['US'] },
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: { user_id: userId, price_id: priceId, price_key: SLAB_PRICE_KEY, scan_id: scanId },
+  };
+}
+
+/** Mint arguments from a completed Checkout session. Throws when the session is not actually paid. */
+export function slabOrderFromSession(session) {
+  if (session.payment_status !== 'paid') throw new Error(`slab session ${session.id} is not paid (${session.payment_status})`);
+  const scanId = session.metadata?.scan_id;
+  const userId = session.metadata?.user_id;
+  if (!scanId || !userId) throw new Error(`slab session ${session.id} is missing scan_id/user_id metadata`);
+  return {
+    scanId, userId, stripeSessionId: session.id,
+    shipping: session.shipping_details || session.collected_information?.shipping_details || null,
   };
 }
 

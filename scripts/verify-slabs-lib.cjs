@@ -1,10 +1,11 @@
 (async()=>{
-const {slabSessionParams,pickImages,copySlabImages,mintSlab,SLAB_PRICE_KEY}=await import('../api/_lib/slabs.js');
+const {slabSessionParams,pickImages,copySlabImages,mintSlab,slabOrderFromSession,SLAB_PRICE_KEY}=await import('../api/_lib/slabs.js');
 let bad=0;const fail=(m,...x)=>{console.log('FAIL',m,...x);bad++;};
 
 // slabSessionParams
 const p=slabSessionParams({customerId:'cus_1',userId:'u1',scanId:'s1',priceId:'price_slab',successUrl:'https://x/ok',cancelUrl:'https://x/no'});
 if(p.mode!=='payment')fail('mode',p.mode);
+if(!p.payment_method_types||p.payment_method_types.join()!=='card')fail('payment_method_types',p.payment_method_types);
 if(!p.shipping_address_collection||p.shipping_address_collection.allowed_countries.join()!=='US')fail('shipping',p.shipping_address_collection);
 if(p.metadata.scan_id!=='s1'||p.metadata.price_key!==SLAB_PRICE_KEY||p.metadata.user_id!=='u1'||p.metadata.price_id!=='price_slab')fail('metadata',p.metadata);
 if(p.line_items.length!==1||p.line_items[0].price!=='price_slab'||p.line_items[0].quantity!==1)fail('line_items',p.line_items);
@@ -58,6 +59,16 @@ if(!threw)fail('mint wrong owner throws');
 db=fakeDb({scan});r=await mintSlab({db,storage:fakeStorage(),fetchImpl:fetchBad,log:(...a)=>logs.push(a.join(' '))},{scanId:'scan1',userId:'u1',stripeSessionId:'cs_4',shipping:null});
 if(!r.created||r.slab.front_image_url!==null)fail('mint tolerates copy failure',r);
 if(!logs.some(l=>/image/i.test(l)&&/SS26-/.test(l)))fail('copy failure logged with cert',logs);
+
+// slabOrderFromSession
+let o=slabOrderFromSession({id:'cs_a',payment_status:'paid',metadata:{scan_id:'s1',user_id:'u1'},shipping_details:{name:'Bob',address:{country:'US'}}});
+if(o.scanId!=='s1'||o.userId!=='u1'||o.stripeSessionId!=='cs_a'||!o.shipping||o.shipping.name!=='Bob')fail('slabOrderFromSession shipping_details',o);
+o=slabOrderFromSession({id:'cs_b',payment_status:'paid',metadata:{scan_id:'s1',user_id:'u1'},collected_information:{shipping_details:{name:'Alice',address:{country:'US'}}}});
+if(!o.shipping||o.shipping.name!=='Alice')fail('slabOrderFromSession collected_information fallback',o);
+threw=false;try{slabOrderFromSession({id:'cs_c',payment_status:'unpaid',metadata:{scan_id:'s1',user_id:'u1'}});}catch(e){threw=/not paid/.test(e.message);}
+if(!threw)fail('slabOrderFromSession unpaid throws');
+threw=false;try{slabOrderFromSession({id:'cs_d',payment_status:'paid',metadata:{user_id:'u1'}});}catch(e){threw=/metadata/.test(e.message);}
+if(!threw)fail('slabOrderFromSession missing scan_id throws');
 
 console.log(bad?'FAIL':'PASS');process.exit(bad?1:0);
 })();
