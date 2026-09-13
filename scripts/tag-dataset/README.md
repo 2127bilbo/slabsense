@@ -31,7 +31,7 @@ All run from `scripts/tag-dataset` with the venv active. Every command is safe t
 | Command | What it does |
 |---|---|
 | `python -m tagdataset sample --cache "../Tag scraper/tag_cache.json"` | Apply the composition rule to the browse cache → `data/certs.parquet`. Add `--certs-file list.txt` to use an explicit list instead. |
-| `python -m tagdataset fetch` | Detail + score for every cert in `data/certs.parquet` not yet in the store. `--retry-failures` re-attempts parked certs. |
+| `python -m tagdataset fetch` | Detail + score for every cert in `data/certs.parquet` not yet in the store. `--retry-failures` re-attempts parked certs, reading their grade keys from the same `data/certs.parquet`. |
 | `python -m tagdataset download` | Upload all expected files for every fetched cert. `--retry-missing data/missing.parquet` re-does a verify list. |
 | `python -m tagdataset verify` | Print completeness per grade, write `data/missing.parquet`, exit 1 if anything is missing. `--check-bucket` also lists the bucket. |
 

@@ -40,6 +40,11 @@ def _progress(label: str):
     return show
 
 
+def _grade_keys(certs_parquet: str) -> dict[str, str | None]:
+    df = pd.read_parquet(certs_parquet)
+    return {str(r.cert): (None if pd.isna(r.grade_key) else str(r.grade_key)) for r in df.itertuples()}
+
+
 def cmd_sample(args, cfg) -> int:
     rows = smp.load_cache(args.cache)
     store = Store(cfg.db_path)
@@ -58,13 +63,13 @@ def cmd_sample(args, cfg) -> int:
 
 def cmd_fetch(args, cfg) -> int:
     store = Store(cfg.db_path)
+    grade_map = _grade_keys(args.certs)
     if args.retry_failures:
-        certs = [(cert, store.grade_key_for(cert)) for cert, _, _, _ in store.list_failures("fetch")]
+        certs = [(cert, grade_map.get(cert)) for cert, _, _, _ in store.list_failures("fetch")]
         for cert, _ in certs:
             store.clear_failure("fetch", cert, "")
     else:
-        df = pd.read_parquet(args.certs)
-        certs = [(str(r.cert), (None if pd.isna(r.grade_key) else str(r.grade_key))) for r in df.itertuples()]
+        certs = [(c, gk) for c, gk in grade_map.items()]
 
     async def go():
         async with aiohttp.ClientSession() as session:
@@ -129,7 +134,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_sample)
 
     f = sub.add_parser("fetch", help="fetch detail+score for sampled certs")
-    f.add_argument("--certs", default="data/certs.parquet")
+    f.add_argument("--certs", default="data/certs.parquet",
+                    help="certs.parquet; also used to look up grade keys when retrying failures")
     f.add_argument("--rate", type=float)
     f.add_argument("--workers", type=int)
     f.add_argument("--retry-failures", action="store_true")
