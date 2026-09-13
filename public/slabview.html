@@ -14,7 +14,17 @@
   .cert{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--muted)}
   main{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:28px;align-items:start;padding-top:24px}
   @media (max-width:800px){main{grid-template-columns:minmax(0,1fr)}}
-  .slab{position:relative;width:100%;aspect-ratio:987/1024;background:#000;border-radius:14px;overflow:hidden;isolation:isolate}
+  .slab{position:relative;width:100%;aspect-ratio:987/1024;background:#000;border-radius:14px;overflow:hidden;isolation:isolate;cursor:zoom-in;transition:transform .25s ease}
+  .slab.zoomed{transform:scale(2.5);cursor:zoom-out}
+  /* full-screen view */
+  .zoom{position:fixed;inset:0;z-index:50;background:rgba(6,7,10,.96);display:flex;flex-direction:column}
+  .zoom .zbar{display:flex;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .zoom .zbar button{font:inherit;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+  .zoom .zbar button[aria-pressed=true]{border-color:var(--accent)}
+  .zoom .zbar .spacer{flex:1}
+  .zoom .zstage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:12px;cursor:zoom-out}
+  .zoom .zstage .slab{width:auto;height:100%;max-width:100%;aspect-ratio:987/1024;border-radius:10px}
+  body.zooming{overflow:hidden}
   .slab .card{position:absolute;object-fit:cover;filter:blur(.25px) contrast(.94) brightness(.96);box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)}
   .slab .well{position:absolute;box-shadow:inset 0 2px 8px rgba(0,0,0,.85),inset 0 -1px 3px rgba(0,0,0,.6);pointer-events:none}
   .slab .plate{position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;pointer-events:none}
@@ -60,6 +70,10 @@
       <section><h2>Cert</h2><div class="kv" id="dates"></div></section>
     </div>
   </main>
+</div>
+<div id="zoom" class="zoom" hidden>
+  <div class="zbar"><button id="zFront" aria-pressed="true">Front</button><button id="zBack" aria-pressed="false">Back</button><span class="spacer"></span><span class="cert" id="zCert"></span><button id="zClose" aria-label="Close">✕</button></div>
+  <div class="zstage" id="zstage"></div>
 </div>
 <script src="/slab/vendor/qrcode.js"></script>
 <script src="/slab/vendor/opentype.js"></script>
