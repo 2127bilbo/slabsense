@@ -85,6 +85,28 @@ def test_duplicate_ordering_values(detail_fixture, score_fixture):
     assert d["ding_1_2.jpg"] == "https://example.com/ding2.jpg"
 
 
+def test_ding_names_matches_expected_files_duplicate_ordering(detail_fixture, score_fixture):
+    """files.ding_names must return exactly the ding filenames expected_files emits,
+    including the duplicate-Ordering collision suffix."""
+    base_ding = detail_fixture["data"]["dingsJSON"]["Dings"][0]
+    detail = {
+        "data": {
+            **detail_fixture["data"],
+            "dingsJSON": {
+                "Dings": [
+                    {**base_ding, "ImageURL": "https://example.com/ding1.jpg"},
+                    {**base_ding, "ImageURL": "https://example.com/ding2.jpg"},
+                ],
+                "DingsCount": 2,
+                "Summary": {},
+            }
+        }
+    }
+    expected = files.expected_files(detail, score_fixture)
+    expected_ding_names = [n for n, _ in expected if n.startswith("ding_")]
+    assert files.ding_names(detail) == expected_ding_names == ["ding_1.jpg", "ding_1_2.jpg"]
+
+
 def test_none_ordering_with_int_ordering(detail_fixture, score_fixture):
     """Ding with Ordering: None alongside one with Ordering: 2 should have unique, sensible names."""
     detail = {

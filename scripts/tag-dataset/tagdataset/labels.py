@@ -5,7 +5,7 @@ import json
 import math
 from pathlib import Path
 
-from .files import CORNER_KEYS, EDGE_KEYS
+from .files import CORNER_KEYS, EDGE_KEYS, ding_names
 from .grades import era_for_year
 
 NAN = float("nan")
@@ -27,10 +27,17 @@ def _num(v) -> float:
         return NAN
 
 
+def type_map_keys() -> frozenset[str]:
+    return frozenset(_TYPE_MAP)
+
+
 def map_engine_type(type_name: str | None, subtype_name: str | None, location: str | None) -> str:
     t = type_name or ""
-    if subtype_name and f"{t}|{subtype_name}" in _TYPE_MAP:
-        return _TYPE_MAP[f"{t}|{subtype_name}"]
+    if subtype_name:
+        # A non-empty subtype must match an exact type|subtype key; no fallthrough to the
+        # bare type, so a subtype we have not reviewed maps to UNKNOWN instead of silently
+        # taking on a possibly-wrong bare-type label.
+        return _TYPE_MAP.get(f"{t}|{subtype_name}", "UNKNOWN")
     if location in CORNER_LOCATIONS and f"{t}|corner" in _TYPE_MAP:
         return _TYPE_MAP[f"{t}|corner"]
     if location in EDGE_LOCATIONS and f"{t}|edge" in _TYPE_MAP:
@@ -157,7 +164,15 @@ def _bbox(m: dict, W: float, H: float) -> tuple[float, float, float, float, floa
         x, y = min(x1, x2), min(y1, y2)
         # Divide the raw pixel delta (not the pre-divided fractions) to avoid float
         # rounding drift between divide-then-subtract and subtract-then-divide.
-        w, h = max(abs(rx2 - rx1) / W, LINE_MIN_FRAC), max(abs(ry2 - ry1) / H, LINE_MIN_FRAC)
+        raw_w, raw_h = abs(rx2 - rx1) / W, abs(ry2 - ry1) / H
+        w, h = max(raw_w, LINE_MIN_FRAC), max(raw_h, LINE_MIN_FRAC)
+        # When the minimum-size bump kicks in on an axis, centre the box on the segment
+        # instead of anchoring it at the segment's min corner, so a near-zero-width line
+        # doesn't get pushed entirely to one side of its true position.
+        if raw_w < LINE_MIN_FRAC:
+            x = (x1 + x2) / 2 - w / 2
+        if raw_h < LINE_MIN_FRAC:
+            y = (y1 + y2) / 2 - h / 2
         return x, y, w, h, x1, y1, x2, y2
     if all(m.get(k) is not None for k in ("top", "left", "width", "height")):
         return (_num(m["left"]) / W, _num(m["top"]) / H, _num(m["width"]) / W, _num(m["height"]) / H,
@@ -214,8 +229,10 @@ DING_COLUMNS = ["cert", "side", "ordering", "type_name", "engine_type", "locatio
 def ding_rows(cert: str, detail: dict) -> list[dict]:
     d = (detail or {}).get("data") or {}
     W, H = _num(d.get("imageWidth")), _num(d.get("imageHeight"))
+    dings = (d.get("dingsJSON") or {}).get("Dings") or []
+    names = ding_names(detail)
     out = []
-    for i, g in enumerate((d.get("dingsJSON") or {}).get("Dings") or [], start=1):
+    for i, (g, name) in enumerate(zip(dings, names), start=1):
         px, py, pw, ph = (_num(g.get("LocationX")), _num(g.get("LocationY")), _num(g.get("Width")), _num(g.get("Height")))
         ordering = g.get("Ordering") if isinstance(g.get("Ordering"), int) else i
         out.append({
@@ -225,6 +242,6 @@ def ding_rows(cert: str, detail: dict) -> list[dict]:
             "px_x": px, "px_y": py, "px_w": pw, "px_h": ph,
             "x": px / W if W else NAN, "y": py / H if H else NAN,
             "w": pw / W if W else NAN, "h": ph / H if H else NAN,
-            "crop_path": f"{PREFIX}/{cert}/ding_{ordering}.jpg",
+            "crop_path": f"{PREFIX}/{cert}/{name}",
         })
     return out

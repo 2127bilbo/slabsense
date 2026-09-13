@@ -1,6 +1,6 @@
 import math
 
-from tagdataset import labels
+from tagdataset import files, labels
 from tagdataset.files import CORNER_KEYS, EDGE_KEYS
 
 
@@ -14,7 +14,9 @@ def test_map_engine_type_prefers_location_for_esw():
 def test_map_engine_type_prefers_subtype_for_ink():
     assert labels.map_engine_type("FrameMarker_Ink", "DENTS", None) == "DENT"
     assert labels.map_engine_type("FrameMarker_Ink", None, None) == "PRINT_DEFECT"
-    assert labels.map_engine_type("FrameMarker_Ink", "SOMETHING NEW", None) == "PRINT_DEFECT"
+    assert labels.map_engine_type("FrameMarker_Ink", "", None) == "PRINT_DEFECT"
+    # An unreviewed subtype must not fall through to the bare type's mapping.
+    assert labels.map_engine_type("FrameMarker_Ink", "SOMETHING NEW", None) == "UNKNOWN"
 
 
 def test_map_engine_type_ding_strings_and_unknown():
@@ -129,6 +131,17 @@ def test_surface_rows_line_marker_bbox_with_min_size():
     assert (r["x1"], r["y1"], r["x2"], r["y2"]) == (0.75, 0.9, 0.76, 0.02)
 
 
+def test_surface_rows_line_marker_vertical_min_box_is_centered():
+    """A perfectly vertical line's bumped-up width must be centred on the line, not
+    anchored at its left edge."""
+    m = {"ID": 2, "typeName": "LineMarker_Roller", "Source": "Manual",
+         "x1": 1000.0, "y1": 0.0, "x2": 1000.0, "y2": 3000.0, "scoreDeduction": 10}
+    r = labels.surface_rows("X", _score_with_markers([m]))[0]
+    x1 = 1000.0 / 2000
+    assert r["w"] == labels.LINE_MIN_FRAC
+    assert r["x"] == x1 - labels.LINE_MIN_FRAC / 2
+
+
 def test_surface_rows_override_rollup_subtype_and_back_side():
     front = {"ID": 1, "typeName": "FrameMarker_Ink", "subtypeName": "DENTS", "top": 0, "left": 0,
              "width": 10, "height": 10, "scoreDeduction": 40, "scoreDeduction_Override": 55}
@@ -181,6 +194,29 @@ def test_ding_rows_from_fixture(detail_fixture):
     assert r["px_x"] == g["LocationX"] and r["px_w"] == g["Width"]
     assert r["x"] == g["LocationX"] / d["imageWidth"] and r["h"] == g["Height"] / d["imageHeight"]
     assert r["crop_path"] == f"tag-dataset/C1240631/ding_{g['Ordering']}.jpg"
+
+
+def test_ding_rows_names_match_files_expected_files_duplicate_ordering(detail_fixture, score_fixture):
+    """ding_rows' crop_path names must equal files.expected_files' ding names, including the
+    duplicate-Ordering collision suffix (same pattern as test_files.test_duplicate_ordering_values)."""
+    base_ding = detail_fixture["data"]["dingsJSON"]["Dings"][0]
+    detail = {
+        "data": {
+            **detail_fixture["data"],
+            "dingsJSON": {
+                "Dings": [
+                    {**base_ding, "ImageURL": "https://example.com/ding1.jpg"},
+                    {**base_ding, "ImageURL": "https://example.com/ding2.jpg"},
+                ],
+                "DingsCount": 2,
+                "Summary": {},
+            }
+        }
+    }
+    expected = files.expected_files(detail, score_fixture)
+    expected_ding_names = [n for n, _ in expected if n.startswith("ding_")]
+    rows = labels.ding_rows("C1240631", detail)
+    assert [r["crop_path"] for r in rows] == [f"tag-dataset/C1240631/{n}" for n in expected_ding_names]
 
 
 def test_ding_rows_without_dimensions():
