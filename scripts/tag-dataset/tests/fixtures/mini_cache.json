@@ -1,0 +1,20 @@
+{
+  "cached_at": "2026-01-01T00:00:00",
+  "cards": {
+    "1999|WOTC Pokémon|Base Set|Charizard|4|Holo": {
+      "year": "1999", "brand": "WOTC Pokémon", "set": "Base Set",
+      "card_name": "Charizard", "card_number": "4", "variation": "Holo",
+      "grades": { "3": ["A0000001", "A0000002"], "9": ["A0000003", "A0000004", "A0000005"], "VA": ["A0000099"] }
+    },
+    "2016|Pokémon XY|Evolutions|Pikachu|35|": {
+      "year": "2016", "brand": "Pokémon XY", "set": "Evolutions",
+      "card_name": "Pikachu", "card_number": "35", "variation": "",
+      "grades": { "9": ["B0000001", "B0000002", "B0000003", "B0000004", "B0000005", "B0000006"], "10P": ["B0000007"] }
+    },
+    "2024|Pokémon Scarlet & Violet|Temporal Forces|Iron Leaves|25|": {
+      "year": "2024", "brand": "Pokémon Scarlet & Violet", "set": "Temporal Forces",
+      "card_name": "Iron Leaves", "card_number": "25", "variation": "",
+      "grades": { "9": ["C0000001", "C0000002", "C0000003", "C0000004", "C0000005", "C0000006", "C0000007", "C0000008", "C0000009", "C0000010"], "1": ["C0000011"] }
+    }
+  }
+}
