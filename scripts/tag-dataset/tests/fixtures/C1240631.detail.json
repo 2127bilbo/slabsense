@@ -1,0 +1,147 @@
+{
+ "data": {
+  "isVaCard": false,
+  "id": 1308730,
+  "uuid": "07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd",
+  "certificateValue": "C1240631",
+  "isAdjusted": true,
+  "imageFileOriginalFront": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_FRONT_MAIN.png",
+  "imageFileDeskewedFront": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_FRONT_MAIN.jpg",
+  "imageFileDeskewedBack": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_BACK_MAIN.jpg",
+  "imageFileFSFX": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_FRONT_SFX.jpg",
+  "imageFileBSFX": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_BACK_SFX.jpg",
+  "imageWidth": 4389,
+  "imageHeight": 6092,
+  "imageSlabbedBack": "https://d39lwrz0lm7c9r.cloudfront.net/slab-images/C1240631_Slabbed_BACK.jpg",
+  "imageSlabbedFront": "https://d39lwrz0lm7c9r.cloudfront.net/slab-images/C1240631_Slabbed_FRONT.jpg",
+  "imageSlabbedSmallBack": "https://d39lwrz0lm7c9r.cloudfront.net/slab-images/C1240631_Slabbed_1x1_BACK.jpg",
+  "imageSlabbedSmallFront": "https://d39lwrz0lm7c9r.cloudfront.net/slab-images/C1240631_Slabbed_1x1_FRONT.jpg",
+  "surfaceFrontData": {
+   "image": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_FRONT_SFX_Annotated.jpg"
+  },
+  "surfaceBackData": {
+   "image": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_BACK_SFX_Annotated.jpg"
+  },
+  "centerLeftDTE": 182,
+  "centerRightDTE": 156,
+  "centerTopDTE": 177,
+  "centerBottomDTE": 181,
+  "bCenterLeftDTE": 195,
+  "bCenterRightDTE": 235,
+  "bCenterTopDTE": 244,
+  "bCenterBottomDTE": 253,
+  "cardName": "Regigigas",
+  "cardId": 19627791,
+  "card": {
+   "id": 19627791,
+   "cardNumber": "37/146",
+   "cardName": "Regigigas"
+  },
+  "cardSet": {
+   "id": 964415,
+   "brandName": "Pok\u00e9mon Diamond & Pearl",
+   "setName": "Legends Awakened",
+   "subsetName": "",
+   "cardSetType": "Pokemon",
+   "setYear": 2008,
+   "manufacturer": {
+    "name": "Pokemon"
+   }
+  },
+  "scoreTotal": 748,
+  "grade": "7 NEAR MINT",
+  "tagXGrade": null,
+  "pop": {
+   "uuid": "07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd",
+   "tagGrade": 748,
+   "grade": "7",
+   "dateGraded": "2026-05-09T18:56:56.000Z",
+   "gpDate": "2026-05-11T23:23:49.000Z",
+   "certificateValue": "C1240631",
+   "overallCardRank": 2,
+   "countOverallCardRank": 1,
+   "overallChronology": 4,
+   "rankByGrade": 1,
+   "countRankByGrade": 1,
+   "chronologyByGrade": 2,
+   "totalByCard": 4,
+   "totalByGrade": 2,
+   "gradeAlias": "NEAR MINT",
+   "setNamePop": "Legends Awakened"
+  },
+  "orderType": "st3",
+  "dingsJSON": {
+   "Dings": [
+    {
+     "Side": "FRONT",
+     "Type": "EDGE/CORNER / BEND",
+     "Width": 52,
+     "Height": 169,
+     "ImageURL": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_FRONT_EDGE_BEND_1.jpg",
+     "Location": "MIDDLE LEFT",
+     "Ordering": 1,
+     "LocationX": 47,
+     "LocationY": 3947
+    },
+    {
+     "Side": "BACK",
+     "Type": "SURFACE / SCRATCH(ES)",
+     "Width": 1107,
+     "Height": 220,
+     "ImageURL": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_BACK_SURFACE_DEFECT_2.jpg",
+     "Location": "TOP CENTER",
+     "Ordering": 2,
+     "LocationX": 2996,
+     "LocationY": 1751
+    },
+    {
+     "Side": "BACK",
+     "Type": "CORNER WEAR",
+     "Width": 220,
+     "Height": 220,
+     "ImageURL": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_BACK_BOTTOMLEFT.png",
+     "Location": "BOTTOMLEFT",
+     "Ordering": 3,
+     "LocationX": 49,
+     "LocationY": 5822
+    },
+    {
+     "Side": "BACK",
+     "Type": "CORNER WEAR",
+     "Width": 220,
+     "Height": 220,
+     "ImageURL": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_BACK_BOTTOMRIGHT.png",
+     "Location": "BOTTOMRIGHT",
+     "Ordering": 4,
+     "LocationX": 4117,
+     "LocationY": 5820
+    },
+    {
+     "Side": "BACK",
+     "Type": "CORNER WEAR",
+     "Width": 220,
+     "Height": 220,
+     "ImageURL": "https://d39lwrz0lm7c9r.cloudfront.net/card-images/07c1ea53-8ff7-443f-a1d3-9c0fc7742bfd_BACK_TOPLEFT.png",
+     "Location": "TOPLEFT",
+     "Ordering": 5,
+     "LocationX": 55,
+     "LocationY": 51
+    }
+   ],
+   "Summary": {
+    "EdgesBack": 0,
+    "EdgesFront": 1,
+    "CornersBack": 3,
+    "SurfaceBack": 1,
+    "CornersFront": 0,
+    "SurfaceFront": 0,
+    "CenteringBack": "45L/55R 49T/51B",
+    "CenteringFront": "54L/46R 49T/51B"
+   },
+   "DingsCount": 5
+  },
+  "witnessed": {
+   "video360": null
+  }
+ }
+}
