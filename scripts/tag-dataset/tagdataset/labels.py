@@ -5,6 +5,7 @@ import json
 import math
 from pathlib import Path
 
+from .files import CORNER_KEYS, EDGE_KEYS
 from .grades import era_for_year
 
 NAN = float("nan")
@@ -114,29 +115,27 @@ EDGE_COLUMNS = ["cert", "side", "edge", "score_fill", "score_fray", "fill_px", "
 def corner_rows(cert: str, score: dict) -> list[dict]:
     s = (score or {}).get("data") or {}
     out = []
-    for side in "FB":
-        for corner in ("TL", "TR", "BL", "BR"):
-            k = f"{side}{corner}"
-            out.append({
-                "cert": cert, "side": side, "corner": corner,
-                "score_angle": _num(s.get(f"score{k}CAngle")), "score_fill": _num(s.get(f"score{k}CFill")),
-                "score_fray": _num(s.get(f"score{k}CFray")), "fill_px": _num(s.get(f"fill{k}Cpx")),
-                "fray_px": _num(s.get(f"fray{k}Cpx")), "angle_deg": _num(s.get(f"angle{k}")),
-                "crop_path": f"{PREFIX}/{cert}/corner_{k}.png",
-            })
+    for k in CORNER_KEYS:
+        side, corner = k[0], k[1:]
+        out.append({
+            "cert": cert, "side": side, "corner": corner,
+            "score_angle": _num(s.get(f"score{k}CAngle")), "score_fill": _num(s.get(f"score{k}CFill")),
+            "score_fray": _num(s.get(f"score{k}CFray")), "fill_px": _num(s.get(f"fill{k}Cpx")),
+            "fray_px": _num(s.get(f"fray{k}Cpx")), "angle_deg": _num(s.get(f"angle{k}")),
+            "crop_path": f"{PREFIX}/{cert}/corner_{k}.png",
+        })
     return out
 
 
 def edge_rows(cert: str, score: dict) -> list[dict]:
     s = (score or {}).get("data") or {}
     out = []
-    for side in "FB":
-        for edge in "TBLR":
-            k = f"{side}{edge}"
-            out.append({
-                "cert": cert, "side": side, "edge": edge,
-                "score_fill": _num(s.get(f"score{k}EFill")), "score_fray": _num(s.get(f"score{k}EFray")),
-                "fill_px": _num(s.get(f"fill{k}Epx")), "fray_px": _num(s.get(f"fray{k}Epx")),
-                "crop_path": f"{PREFIX}/{cert}/edge_{k}.png",
-            })
+    for k in EDGE_KEYS:
+        side, edge = k[0], k[1]
+        out.append({
+            "cert": cert, "side": side, "edge": edge,
+            "score_fill": _num(s.get(f"score{k}EFill")), "score_fray": _num(s.get(f"score{k}EFray")),
+            "fill_px": _num(s.get(f"fill{k}Epx")), "fray_px": _num(s.get(f"fray{k}Epx")),
+            "crop_path": f"{PREFIX}/{cert}/edge_{k}.png",
+        })
     return out

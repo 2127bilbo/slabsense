@@ -1,6 +1,7 @@
 import math
 
 from tagdataset import labels
+from tagdataset.files import CORNER_KEYS, EDGE_KEYS
 
 
 # ── type map ──────────────────────────────────────────────────────────────
@@ -74,6 +75,9 @@ def test_corner_rows(score_fixture):
     btl = next(r for r in rows if r["side"] == "B" and r["corner"] == "TL")
     assert math.isnan(btl["score_angle"]) and math.isnan(btl["angle_deg"])
     assert btl["score_fill"] == s["scoreBTLCFill"]
+    assert (rows[0]["side"], rows[0]["corner"]) == ("F", "TL")
+    assert (rows[7]["side"], rows[7]["corner"]) == ("B", "BR")
+    assert {r["side"] + r["corner"] for r in rows} == set(CORNER_KEYS)
 
 
 def test_edge_rows(score_fixture):
@@ -84,6 +88,9 @@ def test_edge_rows(score_fixture):
     assert bl["score_fill"] == s["scoreBLEFill"] and bl["score_fray"] == s["scoreBLEFray"]
     assert bl["fill_px"] == s["fillBLEpx"] and bl["fray_px"] == s["frayBLEpx"]
     assert bl["crop_path"] == "tag-dataset/C1240631/edge_BL.png"
+    assert (rows[0]["side"], rows[0]["edge"]) == ("F", "T")
+    assert (rows[7]["side"], rows[7]["edge"]) == ("B", "R")
+    assert {r["side"] + r["edge"] for r in rows} == set(EDGE_KEYS)
 
 
 def test_corner_rows_missing_keys_become_nan():
