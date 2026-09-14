@@ -15,6 +15,11 @@ export const DIM = 512;
  */
 export function writeShard(outDir, shardId, ids, cards, matrix) {
   if (matrix.length !== ids.length * DIM) throw new Error(`matrix/ids length mismatch: ${matrix.length} vs ${ids.length}×${DIM}`);
+  // Guard: rows must be unit length or they dominate every dot-product search (bug of 2026-09-14).
+  for (let r = 0; r < ids.length; r++) {
+    let n = 0; for (let i = 0; i < DIM; i++) n += matrix[r * DIM + i] ** 2;
+    if (Math.abs(Math.sqrt(n) - 1) > 0.02) throw new Error(`row ${r} (${ids[r]}) is not unit length (norm ${Math.sqrt(n).toFixed(3)}); normalize before writeShard`);
+  }
   fs.mkdirSync(outDir, { recursive: true });
   const bytes = encodeF16(matrix);
   const f16Path = path.join(outDir, `${shardId}.f16`);

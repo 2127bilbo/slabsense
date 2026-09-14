@@ -28,7 +28,8 @@ async function cachedFetch(url) {
  * @returns {Promise<{ matrix: Float32Array, ids: string[], cards: object, meta: object }>}
  */
 export async function loadCardDb({ baseUrl, onProgress = null }) {
-  const mr = await fetch(`${baseUrl}/manifest.json`, { cache: 'no-cache' });
+  // Cache-bust the manifest (CDN may hold it briefly); shards are immutable and cached by id.
+  const mr = await fetch(`${baseUrl}/manifest.json?v=${Date.now()}`, { cache: 'no-cache' });
   if (!mr.ok) throw new Error(`manifest: HTTP ${mr.status}`);
   const manifest = await mr.json();
   const dim = manifest.dim;
@@ -44,6 +45,13 @@ export async function loadCardDb({ baseUrl, onProgress = null }) {
     const f = decodeF16(bin);
     if (f.length !== meta.count * dim) throw new Error(`shard ${s.id}: expected ${meta.count * dim} values, got ${f.length}`);
     if (row + meta.count > manifest.count) throw new Error(`shard ${s.id}: exceeds manifest count`);
+    // Defensive: rows must be unit length for dot-product search. Normalize any that are not
+    // (a shard published without normalization would otherwise win every query).
+    for (let r = 0; r < meta.count; r++) {
+      let n = 0; for (let i = 0; i < dim; i++) n += f[r * dim + i] * f[r * dim + i];
+      n = Math.sqrt(n);
+      if (n > 0 && Math.abs(n - 1) > 0.02) for (let i = 0; i < dim; i++) f[r * dim + i] /= n;
+    }
     matrix.set(f, row * dim);
     row += meta.count;
     for (const id of meta.ids) ids.push(id);

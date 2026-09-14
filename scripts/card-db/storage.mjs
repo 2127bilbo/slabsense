@@ -14,8 +14,15 @@ export function getClient() {
   return createClient(url(), key, { auth: { persistSession: false } });
 }
 
+/**
+ * Cache policy: shards are immutable (addressed by id, never rewritten) → cache for a year.
+ * The manifest changes on every publish → 60 s, and the client also cache-busts it with a
+ * query string so a stale CDN copy can never point at removed shards.
+ */
+const cacheControlFor = (p) => (p === 'manifest.json' ? '60' : '31536000');
+
 export async function uploadFile(p, body, contentType) {
-  const { error } = await getClient().storage.from(BUCKET).upload(p, body, { contentType, upsert: true, cacheControl: '3600' });
+  const { error } = await getClient().storage.from(BUCKET).upload(p, body, { contentType, upsert: true, cacheControl: cacheControlFor(p) });
   if (error) throw new Error(`upload ${p}: ${error.message}`);
 }
 

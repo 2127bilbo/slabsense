@@ -20,7 +20,7 @@ if (!fs.existsSync(path.join(OUT, 'manifest.json'))) {
 }
 
 const srv = http.createServer((req, res) => {
-  const f = path.join(OUT, req.url.replace(/^\//, '').replace(/^shards\//, ''));
+  const f = path.join(OUT, req.url.split('?')[0].replace(/^\//, '').replace(/^shards\//, ''));
   if (!fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'content-type': f.endsWith('.json') ? 'application/json' : 'application/octet-stream' });
   fs.createReadStream(f).pipe(res);

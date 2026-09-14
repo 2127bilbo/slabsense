@@ -222,7 +222,9 @@ for (const cert of certs) {
   const isMatch = (id) => norm(db.cards[id]?.name) === tName && numerator(db.cards[id]?.number || id.split('-').slice(1).join('-')) === tNum;
 
   let q;
-  try { q = Array.from((await extractor(src, { pooling: 'mean', normalize: true })).data); }
+  // Query must be unit length (the pipeline's normalize flag does not do it); the browser
+  // matcher normalizes too, so thresholds and boosts here match production scale.
+  try { q = Array.from((await extractor(src, { pooling: 'mean', normalize: true })).data); let n = 0; for (const v of q) n += v * v; n = Math.sqrt(n) || 1; q = q.map((v) => v / n); }
   catch (e) { cards.push({ cert, truth: { name: t.name, number: t.number, set: t.set }, inDb, error: String(e?.message || e) }); errors++; continue; }
   const hits = topK(db, q, K);
   let d = null;
