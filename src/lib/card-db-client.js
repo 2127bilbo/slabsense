@@ -12,6 +12,34 @@ async function openCache() {
   try { return typeof caches !== 'undefined' ? await caches.open(CACHE_NAME) : null; } catch { return null; }
 }
 
+async function sha256Hex(buf) {
+  try {
+    const d = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('');
+  } catch { return null; } // no WebCrypto (insecure context): skip verification
+}
+
+/**
+ * Fetch with Cache API persistence. When `expectSha` is given, a cached copy whose bytes do not
+ * match is discarded and refetched once, so a shard id that was ever republished can never be
+ * served stale from the browser cache.
+ */
+async function cachedFetchBytes(url, expectSha = null) {
+  const cache = await openCache();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let res = cache && attempt === 0 ? await cache.match(url) : null;
+    const fromCache = !!res;
+    if (!res) { res = await fetch(url); if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`); if (cache) { try { await cache.put(url, res.clone()); } catch { /* quota */ } } }
+    const buf = await res.arrayBuffer();
+    if (!expectSha) return buf;
+    const sha = await sha256Hex(buf);
+    if (sha === null || sha === expectSha) return buf;
+    if (cache && fromCache) { try { await cache.delete(url); } catch { /* ignore */ } continue; }
+    throw new Error(`${url}: checksum mismatch`);
+  }
+  throw new Error(`${url}: checksum mismatch after refetch`);
+}
+
 async function cachedFetch(url) {
   const cache = await openCache();
   if (cache) { const hit = await cache.match(url); if (hit) return hit; }
@@ -33,13 +61,14 @@ export async function loadCardDb({ baseUrl, onProgress = null }) {
   if (!mr.ok) throw new Error(`manifest: HTTP ${mr.status}`);
   const manifest = await mr.json();
   const dim = manifest.dim;
+  const retired = new Set(manifest.retired || []);   // ids TCGDex no longer serves; rows are zeroed so they never match
   const matrix = new Float32Array(manifest.count * dim);
   const ids = [];
   const cards = {};
   let row = 0, done = 0;
   for (const s of manifest.shards) {
     const [bin, meta] = await Promise.all([
-      cachedFetch(`${baseUrl}/shards/${s.id}.f16`).then((r) => r.arrayBuffer()),
+      cachedFetchBytes(`${baseUrl}/shards/${s.id}.f16`, s.sha256 || null),
       cachedFetch(`${baseUrl}/shards/${s.id}.meta.json`).then((r) => r.json()),
     ]);
     const f = decodeF16(bin);
@@ -52,6 +81,7 @@ export async function loadCardDb({ baseUrl, onProgress = null }) {
       n = Math.sqrt(n);
       if (n > 0 && Math.abs(n - 1) > 0.02) for (let i = 0; i < dim; i++) f[r * dim + i] /= n;
     }
+    if (retired.size) meta.ids.forEach((id, r) => { if (retired.has(id)) f.fill(0, r * dim, (r + 1) * dim); });
     matrix.set(f, row * dim);
     row += meta.count;
     for (const id of meta.ids) ids.push(id);

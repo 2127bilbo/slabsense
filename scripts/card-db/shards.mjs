@@ -30,4 +30,12 @@ export function writeShard(outDir, shardId, ids, cards, matrix) {
   return { f16Path, metaPath, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), count: ids.length };
 }
 
-export const nextShardId = (manifest) => String((manifest?.shards?.length || 0) + 1).padStart(4, '0');
+/**
+ * Shard ids are never reused (browsers cache shards by URL). Use the manifest's monotonic
+ * counter when present, else one past the highest id ever seen (shards + retired shard ids).
+ */
+export const nextShardId = (manifest) => {
+  const seen = [...(manifest?.shards || []).map((s) => s.id), ...(manifest?.removedShards || [])].map((id) => Number(id)).filter(Number.isFinite);
+  const n = Math.max(manifest?.nextShard || 0, ...seen.map((x) => x + 1), 1);
+  return String(n).padStart(4, '0');
+};

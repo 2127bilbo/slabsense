@@ -240,9 +240,34 @@ export async function smartSearch(ocrResults) {
 /**
  * Get full card data with image URLs
  */
+/**
+ * Resolve an id that TCGDex no longer serves. Happens when TCGDex splits a subset into its
+ * own set (swsh12.5-GG70 → swsh12.5gg-GG70, swsh9-TG09 → swsh9tg-TG09, swsh4.5-SV001 →
+ * swsh4.5sv-SV001): our embedding DB may still carry the old id. Search by localId and prefer
+ * a result whose set id extends the old set id.
+ */
+async function resolveMovedCardId(cardId) {
+  const dash = cardId.lastIndexOf('-');
+  if (dash <= 0) return null;
+  const oldSet = cardId.slice(0, dash), localId = cardId.slice(dash + 1);
+  try {
+    const r = await fetch(`https://api.tcgdex.net/v2/en/cards?localId=${encodeURIComponent(localId)}`);
+    if (!r.ok) return null;
+    const cards = await r.json();
+    const hit = cards.find((c) => c.id !== cardId && c.id.startsWith(oldSet)) || (cards.length === 1 ? cards[0] : null);
+    if (hit) console.warn(`[TCGDex] ${cardId} moved → ${hit.id}`);
+    return hit?.id || null;
+  } catch { return null; }
+}
+
 export async function getFullCardData(cardId) {
   try {
-    const card = await tcgdex.card.get(cardId);
+    let card = null;
+    try { card = await tcgdex.card.get(cardId); } catch { card = null; }
+    if (!card) {
+      const movedId = await resolveMovedCardId(cardId);
+      if (movedId) { try { card = await tcgdex.card.get(movedId); } catch { card = null; } }
+    }
     if (!card) return null;
 
     return {

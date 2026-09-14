@@ -14,7 +14,7 @@ import path from 'node:path';
 import { loadEnv } from './env.mjs';
 import { fetchSets, fetchSet, downloadImage, isPocketSet, isPocketSetId } from './tcgdex.mjs';
 import { fetchManifest, uploadFile, publicUrl } from './storage.mjs';
-import { writeShard, nextShardId } from './shards.mjs';
+import { writeShard, nextShardId, DIM } from './shards.mjs';
 import { embedImages } from './embed.mjs';
 
 loadEnv();
@@ -39,9 +39,30 @@ if (!DRY) {
 const manifest = await fetchManifest();
 if (!manifest) throw new Error('no manifest in bucket; run build-initial first');
 const known = new Set();
+const where = new Map();   // id → { shard, row, name }  (for vector reuse on renames)
 for (const s of manifest.shards) {
   const meta = await (await fetch(publicUrl(`shards/${s.id}.meta.json`))).json();
-  for (const id of meta.ids) known.add(id);
+  meta.ids.forEach((id, row) => { known.add(id); where.set(id, { shard: s.id, row, name: meta.cards[id]?.name || null }); });
+}
+const retired = new Set(manifest.retired || []);
+const normName = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const shardCache = new Map();
+async function rowVector(id) {
+  const w = where.get(id); if (!w) return null;
+  if (!shardCache.has(w.shard)) { const { decodeF16 } = await import('../../src/lib/f16.js'); shardCache.set(w.shard, decodeF16(await (await fetch(publicUrl(`shards/${w.shard}.f16`))).arrayBuffer())); }
+  const f = shardCache.get(w.shard); return f.subarray(w.row * DIM, (w.row + 1) * DIM);
+}
+/**
+ * TCGDex sometimes splits a subset into its own set (swsh12.5 GG cards → swsh12.5gg, TG → *tg,
+ * SV → *sv). The new set usually has no images. If our DB holds the same card under the old id
+ * (same name, same localId, old set id is a prefix of the new one), reuse its vector under the
+ * new id and retire the old id instead of leaving the card pending forever.
+ */
+function findRenamedFrom(setId, card) {
+  const m = setId.match(/^(.+?)(tg|gg|sv|cc|sh)$/i); if (!m) return null;
+  const oldId = `${m[1]}-${card.localId}`;
+  const w = where.get(oldId);
+  return w && !retired.has(oldId) && normName(w.name) === normName(card.name) ? oldId : null;
 }
 const pendingById = Object.fromEntries((manifest.pending || []).map((p) => [p.id, p]));
 console.log(`manifest v${manifest.version}: ${known.size} cards in ${manifest.shards.length} shards, ${Object.keys(pendingById).length} pending`);
@@ -60,10 +81,14 @@ for (const s of toInspect) {
   setInfo[set.id] = set;
   for (const c of set.cards) {
     if (known.has(c.id)) continue;
+    const renamedFrom = findRenamedFrom(set.id, c);
+    if (renamedFrom) { newCards.push({ ...c, set: set.id, renamedFrom }); continue; }   // vector reuse, no download
     if (pendingById[c.id]) { if (RETRY && c.image) newCards.push({ ...c, set: set.id }); continue; } // retry only once TCGDex has an image
     newCards.push({ ...c, set: set.id });
   }
 }
+const renames = newCards.filter((c) => c.renamedFrom);
+if (renames.length) console.log(`renamed ids (vector reused, old id retired): ${renames.length}`);
 console.log(`new cards: ${newCards.length}${newCards.length > MAX ? ` (capped to ${MAX} this run)` : ''}`);
 const batch = newCards.slice(0, MAX);
 for (const [id, s] of Object.entries(setInfo)) { const n = batch.filter((c) => c.set === id).length; if (n) console.log(`  ${id} ${s.name}: +${n}`); }
@@ -74,7 +99,9 @@ if (!batch.length) { console.log('nothing to do'); process.exit(0); }
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'card-db-'));
 const ok = [];
 const pending = { ...pendingById };
-const queue = [...batch];
+const reused = [];   // { card, vector }
+for (const c of batch.filter((x) => x.renamedFrom)) { const v = await rowVector(c.renamedFrom); if (v) { reused.push({ card: c, vector: Float32Array.from(v) }); delete pending[c.id]; retired.add(c.renamedFrom); } }
+const queue = batch.filter((x) => !x.renamedFrom);
 let active = 0;
 await new Promise((resolve) => {
   const next = () => {
@@ -91,28 +118,34 @@ await new Promise((resolve) => {
   };
   next();
 });
-console.log(`downloaded ${ok.length}, pending ${Object.keys(pending).length}`);
-if (!ok.length) { console.log('nothing to embed; manifest unchanged'); process.exit(0); }
+console.log(`downloaded ${ok.length}, reused ${reused.length}, pending ${Object.keys(pending).length}`);
+if (!ok.length && !reused.length) { console.log('nothing to embed; manifest unchanged'); process.exit(0); }
 
 // Embed → shard → upload → manifest
-const matrix = await embedImages(ok.map((c) => c.path), (d, t) => console.log(`  embedded ${d}/${t}`));
-const ids = ok.map((c) => c.id);
-const cards = Object.fromEntries(ok.map((c) => [c.id, { name: c.name, set: c.set, number: c.localId }]));
+const embedded = ok.length ? await embedImages(ok.map((c) => c.path), (d, t) => console.log(`  embedded ${d}/${t}`)) : new Float32Array(0);
+const all = [...ok, ...reused.map((r) => r.card)];
+const matrix = new Float32Array(all.length * DIM);
+matrix.set(embedded, 0);
+reused.forEach((r, i) => matrix.set(r.vector, (ok.length + i) * DIM));
+const ids = all.map((c) => c.id);
+const cards = Object.fromEntries(all.map((c) => [c.id, { name: c.name, set: c.set, number: c.localId }]));
 const shardId = nextShardId(manifest);
 const out = path.join(process.cwd(), 'scripts', 'card-db', 'out');
 const w = writeShard(out, shardId, ids, cards, matrix);
 await uploadFile(`shards/${shardId}.f16`, fs.readFileSync(w.f16Path), 'application/octet-stream');
 await uploadFile(`shards/${shardId}.meta.json`, fs.readFileSync(w.metaPath), 'application/json');
 const sets = { ...manifest.sets };
-for (const c of ok) sets[c.set] = (sets[c.set] || 0) + 1;
+for (const c of all) sets[c.set] = (sets[c.set] || 0) + 1;
 const next = {
   ...manifest,
   version: manifest.version + 1,
-  count: manifest.count + ok.length,
+  count: manifest.count + all.length,       // retired ids still occupy rows; the client zeroes them
   generated: new Date().toISOString(),
   shards: [...manifest.shards, { id: shardId, count: w.count, bytes: w.bytes, sha256: w.sha256 }],
   sets,
   pending: Object.values(pending),
+  retired: [...retired],
+  nextShard: Number(shardId) + 1,
 };
 await uploadFile('manifest.json', JSON.stringify(next, null, 1), 'application/json');
-console.log(`published v${next.version}: +${ok.length} cards in shard ${shardId}, ${next.count} total, ${next.pending.length} pending`);
+console.log(`published v${next.version}: +${ok.length} embedded, +${reused.length} renamed in shard ${shardId}, ${next.count} rows, ${next.retired.length} retired, ${next.pending.length} pending`);

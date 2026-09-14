@@ -42,6 +42,8 @@ const next = {
   version: manifest.version + 1,
   generated: new Date().toISOString(),
   shards: [...manifest.shards.filter((s) => !bad.includes(s.id)), { id: shardId, count: w.count, bytes: w.bytes, sha256: w.sha256 }],
+  removedShards: [...new Set([...(manifest.removedShards || []), ...bad])],   // ids never to reuse
+  nextShard: Number(shardId) + 1,
 };
 next.count = next.shards.reduce((s, x) => s + x.count, 0);
 await uploadFile('manifest.json', JSON.stringify(next, null, 1), 'application/json');
