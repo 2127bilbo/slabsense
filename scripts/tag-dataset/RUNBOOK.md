@@ -223,7 +223,7 @@ split, once assigned, never changes on a later rebuild.
 Check the result with `stats`:
 
 ```powershell
-.\.venv\Scripts\python.exe -c "from tagdataset import stats; from tagdataset.store import Store; t=stats.report('data/dataset'); s=Store('data/raw.sqlite'); n=stats.ding_crops_without_upload('data/dataset', s); print(t.replace('(requires the store; see cli stats --db for the joined count)', f'ding crops not in files table: {n}'))" > data/dataset/stats_report.txt
+.\.venv\Scripts\python.exe -m tagdataset stats --save data/dataset/stats_report.txt
 ```
 
 Read `stats_report.txt` for `markers UNKNOWN: 0`, `dings UNKNOWN: 0`, no `fallback pairs`, and a

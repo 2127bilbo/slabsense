@@ -13,6 +13,7 @@ import pandas as pd
 from . import build as bld
 from . import download as dl
 from . import sample as smp
+from . import stats as st
 from . import verify as vf
 from .bucket import Bucket
 from .config import load_config
@@ -196,10 +197,26 @@ def cmd_verify(args, cfg) -> int:
 
 def cmd_build(args, cfg) -> int:
     store = Store(cfg.db_path)
-    counts = bld.build(store, args.out, seed=args.seed)
+    counts = bld.build(store, args.out, seed=args.seed, splits_path=args.splits)
     store.close()
     print(f"build done: {counts}")
-    print(f"outputs in {args.out}: {', '.join(bld.OUTPUTS)}")
+    print(f"outputs in {args.out}: {', '.join(bld.OUTPUTS)} (splits: {args.splits})")
+    return 0
+
+
+def cmd_stats(args, cfg) -> int:
+    text = st.report(args.out)
+    store = Store(cfg.db_path)
+    n = st.ding_crops_without_upload(args.out, store)
+    store.close()
+    text = text.replace(
+        "ding crops not in files table: (run `python -m tagdataset stats` for the store-joined count)",
+        f"ding crops not in files table: {n}",
+    )
+    print(text)
+    if args.save:
+        Path(args.save).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.save).write_text(text, encoding="utf-8")
     return 0
 
 
@@ -242,7 +259,14 @@ def build_parser() -> argparse.ArgumentParser:
     b = sub.add_parser("build", help="write training parquet tables from the store")
     b.add_argument("--out", default="data/dataset")
     b.add_argument("--seed", type=int, default=42)
+    b.add_argument("--splits", default=str(bld.DEFAULT_SPLITS_PATH),
+                   help="authoritative split file; existing assignments are never changed")
     b.set_defaults(func=cmd_build)
+
+    st_p = sub.add_parser("stats", help="print dataset health report")
+    st_p.add_argument("--out", default="data/dataset")
+    st_p.add_argument("--save", help="also write the report text to this path")
+    st_p.set_defaults(func=cmd_stats)
     return p
 
 

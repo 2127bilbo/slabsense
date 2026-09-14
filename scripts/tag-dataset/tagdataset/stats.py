@@ -109,7 +109,7 @@ def report(out_dir: str) -> str:
         lines.append(g.to_string())
 
     lines.append(SECTIONS[9])
-    lines.append("(requires the store; see cli stats --db for the joined count)")
+    lines.append("ding crops not in files table: (run `python -m tagdataset stats` for the store-joined count)")
 
     lines.append(SECTIONS[10])
     lines.append(f"duplicate certs in manifest: {int(m.cert.duplicated().sum()) if len(m) else 0}; "
