@@ -2443,6 +2443,7 @@ export default function SlabSense(){
       gradeValue,
       gradeLabel,
       subgrades: gradeResult.subgrades,
+      companyGrades: gradeResult.companyGrades || null,   // F1: engine per-company grades
       frontCentering: fR?.centering,
       backCentering: bR?.centering,
       dings: gradeResult.allDings,

@@ -75,6 +75,7 @@ export async function saveScan(userId, scanData) {
       grade_value: scanData.gradeValue,
       grade_label: scanData.gradeLabel,
       subgrades: scanData.subgrades || {},
+      company_grades: scanData.companyGrades || null,   // engine per-company grades (F1)
       front_centering: scanData.frontCentering || {},
       back_centering: scanData.backCentering || {},
       dings: scanData.dings || [],

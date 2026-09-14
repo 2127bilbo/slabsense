@@ -32,5 +32,21 @@ const worn = computeGrade(
 check('one moderate front corner → TAG 921 / grade 9', worn.rawScore === 921 && worn.overall.grade === 9, `got ${worn.rawScore}`);
 check('defect counted', worn.defectCounts.total === 1 && worn.defectCounts.corner === 1);
 
+console.log('— F1 company-aware grade');
+const oneEdge = [{ side: 'FRONT', type: 'EDGE WEAR', location: 'FRONT / TOP', severity: 1 }];
+const C = { lrRatio: 50, tbRatio: 50 };
+const asTag = computeGrade(oneEdge, [], C, C, 'tag', null);
+const asPsa = computeGrade(oneEdge, [], C, C, 'psa', null);
+const asBgs = computeGrade(oneEdge, [], C, C, 'bgs', null);
+check('TAG: one minor edge → grade 10', asTag.grade.grade === 10, `got ${asTag.grade.grade}`);
+check('PSA: one minor edge → grade 9 (any-defect cap)', asPsa.grade.grade === 9, `got ${asPsa.grade.grade}`);
+check('BGS: one minor edge → grade 10', asBgs.grade.grade === 10, `got ${asBgs.grade.grade}`);
+check('grade matches companyGrades for psa', asPsa.grade.grade === asPsa.companyGrades.psa.grade && asPsa.grade.label === asPsa.companyGrades.psa.label);
+check('grade carries color/bg', typeof asPsa.grade.color === 'string' && typeof asPsa.grade.bg === 'string');
+// 56/44 front → 6.0 deviation → BGS centering subgrade 9 → overall 9.5 (0.5 rule).
+// (55/45 is only 5.0 deviation → BGS centering 9.5 → overall lifts to 10.)
+const halfBgs = computeGrade([], [], { lrRatio: 56, tbRatio: 50 }, C, 'bgs', null);
+check('BGS 9.5 reachable', halfBgs.grade.grade === 9.5, `got ${halfBgs.grade.grade}`);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

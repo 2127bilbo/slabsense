@@ -9,7 +9,7 @@
  * ============================================================================
  */
 import { gradeCard, scoreToGrade, ENGINE_VERSION } from './gradingEngine.js';
-import { GRADING_COMPANIES, DEFAULT_GRADING_COMPANY, calculateSoftwareConfidence } from './masterweights.js';
+import { GRADING_COMPANIES, DEFAULT_GRADING_COMPANY, GRADE_COLORS, calculateSoftwareConfidence } from './masterweights.js';
 
 // Legacy GRADES array for backwards compatibility (uses selected company's scale)
 export const getGradesForCompany = (companyId) => {
@@ -80,6 +80,20 @@ export function dingToEngineDefect(ding) {
   };
 }
 
+/**
+ * F1: the displayed grade must come from the engine's per-company conversion,
+ * not from a TAG-band lookup of the TAG score. Shape matches what the UI read
+ * from the legacy getGrade() object: { grade, label, displayGrade, color, bg }.
+ */
+export function companyGradeObject(companyGrades, companyId, overall) {
+  const cg = companyGrades[companyId] || companyGrades.tag;
+  const isTag = !companyGrades[companyId] || companyId === 'tag';
+  const grade = cg.grade;
+  const label = isTag && overall?.label ? overall.label : cg.label;
+  const colors = GRADE_COLORS[grade] || GRADE_COLORS[1];
+  return { grade, label, displayGrade: cg.displayGrade ?? String(grade), ...colors };
+}
+
 export function computeGrade(frontDings, backDings, frontCenter, backCenter, companyId = DEFAULT_GRADING_COMPANY, imageQuality = null) {
   const allDings = [...frontDings, ...backDings];
   const totalDings = allDings.length;
@@ -130,7 +144,7 @@ export function computeGrade(frontDings, backDings, frontCenter, backCenter, com
   return {
     // ——— LEGACY (keep until UI migrates; see ENGINE_WIRING.md) ———
     rawScore: tagScore1000,                       // TAG 1000-pt score
-    grade: getGrade(tagScore1000, companyId),     // legacy band lookup for current UI colors
+    grade: companyGradeObject(companyGrades, companyId, overall),   // F1: engine per-company grade
     companyId,
     companyName: company.name,
     totalDings,

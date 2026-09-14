@@ -504,18 +504,23 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
         company: company,
       };
     }
-    // Software grade - recalculate from raw_score for selected company
+    // Software grade (F1): prefer the engine's stored per-company grade.
+    // Fallbacks: TAG can be recomputed from raw_score; other companies on old rows
+    // show whatever was stored at save time (a TAG-band grade, pre-F1).
     const rawScore = scan.raw_score || 0;
-    const recalcGrade = rawScore > 0 ? getGradeFromScore(rawScore, company) : null;
+    const stored = scan.company_grades?.[company];
+    const recalcGrade = !stored && company === 'tag' && rawScore > 0 ? getGradeFromScore(rawScore, 'tag') : null;
+    const value = stored?.grade ?? recalcGrade?.grade ?? scan.grade_value;
+    const label = stored?.label ?? recalcGrade?.label ?? scan.grade_label;
     return {
-      value: recalcGrade?.grade ?? scan.grade_value,
-      label: recalcGrade?.label ?? scan.grade_label,
-      color: recalcGrade?.color ?? GRADING_COMPANIES[company]?.color,
+      value,
+      label,
+      color: recalcGrade?.color ?? (value != null ? getGradeColor(value) : GRADING_COMPANIES[company]?.color),
       isAi: false,
       isDeep: false,
       score: company === 'tag' ? rawScore : null,
       rawScore: rawScore,
-      subgrades: scan.subgrades, // Include stored subgrades (8 for TAG)
+      subgrades: stored?.subgrades ?? scan.subgrades, // company subgrades when stored, else the 8 TAG subgrades
       company: company,
     };
   };
