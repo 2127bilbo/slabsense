@@ -19,7 +19,7 @@ const rows=[{cert:'SS26-00001',status:'paid',paid_at:'2026-09-13',scans:{id:'s1'
 function fakeDb(){const st={rows:rows.map(r=>({...r})),updates:[],uploads:[]};
   const q=(t)=>{let f=[],ord=null;const b={select:()=>b,eq:(k,v)=>{f.push([k,v]);return b;},order:(k,o)=>{ord=[k,o];return b;},limit:()=>b,
     maybeSingle:async()=>({data:st.rows.find(r=>f.every(([k,v])=>r[k]===v))||null,error:null}),
-    update:(patch)=>({eq:async(k,v)=>{const r=st.rows.find(r=>r[k]===v);if(r)Object.assign(r,patch);st.updates.push({patch,k,v});return {data:null,error:null};}}),
+    update:(patch)=>{const conds=[];const u={eq:(k,v)=>{conds.push([k,v]);return u;},then:(ok)=>{const r=st.rows.find(r=>conds.every(([k,v])=>r[k]===v));if(r)Object.assign(r,patch);st.updates.push({patch,k:conds[0][0],v:conds[0][1]});return ok({data:null,error:null});}};return u;},
     then:(ok)=>ok({data:st.rows.filter(r=>f.every(([k,v])=>r[k]===v)),error:null})};
     return b;};
   return {st,auth:admin.auth,from:q,storage:{from:(bk)=>({upload:async(p,body,o)=>{st.uploads.push({bk,p,len:String(body).length,o});return {data:{path:p},error:null};}})}};

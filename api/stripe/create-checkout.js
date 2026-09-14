@@ -66,6 +66,13 @@ export default async function handler(req, res) {
 
     const priceId = PRICES[priceKey];
 
+    // Slab orders must come from the signed-in owner; verify before any side effect.
+    if (priceKey === SLAB_PRICE_KEY) {
+      let payer;
+      try { payer = await requireUser({ db: supabase }, req); } catch (e) { return sendAuthError(res, e); }
+      if (payer.id !== userId) return res.status(403).json({ error: 'user_mismatch' });
+    }
+
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -106,9 +113,6 @@ export default async function handler(req, res) {
 
     // Slabbing order: one card, shipping collected, cert minted by the webhook.
     if (priceKey === SLAB_PRICE_KEY) {
-      let payer;
-      try { payer = await requireUser({ db: supabase }, req); } catch (e) { return sendAuthError(res, e); }
-      if (payer.id !== userId) return res.status(403).json({ error: 'user_mismatch' });
       if (!scanId) return res.status(400).json({ error: 'scan_required' });
       const { data: scan, error: scanErr } = await supabase
         .from('scans').select('id, user_id, grade_value, user_card_image, enhanced_front_path, front_image_path')

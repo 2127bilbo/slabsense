@@ -31,7 +31,7 @@ export function makeHandler({ db, adminIds, now }) {
       patch.label_text = body.label_text;
       patch.label_settings = sanitizeSettings(body.label_settings);
     }
-    const upd = await db.from('slabs').update(patch).eq('cert', cert);
+    const upd = await db.from('slabs').update(patch).eq('cert', cert).eq('status', slab.status);
     if (upd.error) { console.error('[slabs/status] update', upd.error); return res.status(500).json({ error: 'update_failed' }); }
     return res.status(200).json({ slab: { ...slab, ...patch } });
   };

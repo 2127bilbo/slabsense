@@ -13,6 +13,7 @@ export const SLAB_STATUS_TEXT = {
 };
 
 export async function orderSlab(userId, scanId) {
+  if (!supabase) throw new Error('Please sign in again.');
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Please sign in again.');
   const response = await fetch(`${API_BASE}/api/stripe/create-checkout`, {
