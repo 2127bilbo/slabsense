@@ -54,7 +54,7 @@ def ding_location_class(location: str | None) -> str | None:
     "MIDDLE LEFT", edge-centers like "TOP CENTER", or corner variants missing the space)."""
     if location is None:
         return None
-    loc = location.upper()
+    loc = " ".join(location.split()).upper()
     if loc in _DING_CORNER_WORDS:
         return _DING_CORNER_WORDS[loc]
     if loc in _DING_EDGE_WORDS:

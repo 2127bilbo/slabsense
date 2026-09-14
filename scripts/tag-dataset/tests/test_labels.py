@@ -63,6 +63,15 @@ def test_ding_location_class():
     assert labels.ding_location_class(None) is None
 
 
+def test_ding_location_class_is_whitespace_tolerant():
+    assert labels.ding_location_class(" TOP LEFT") == "TL"
+    assert labels.ding_location_class("TOP LEFT ") == "TL"
+    assert labels.ding_location_class("TOP  LEFT") == "TL"
+    assert labels.ding_location_class("bottom right") == "BR"
+    assert labels.ding_location_class("") is None
+    assert labels.ding_location_class(None) is None
+
+
 def test_ding_rows_uses_location_class_for_engine_type():
     """Item 1: ding_rows must derive a location class from Location before mapping, so a
     corner-only key like FRAMEMARKER_ESW_CSW|corner can match."""
