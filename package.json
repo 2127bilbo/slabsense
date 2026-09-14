@@ -11,7 +11,7 @@
     "verify:label": "node scripts/verify-label.cjs",
     "harness": "node --expose-gc scripts/harness/run.mjs",
     "harness:compare": "node scripts/harness/compare.mjs",
-    "test:lib": "node src/lib/gradingEngine.test.js && node src/lib/detectors.test.js && node src/lib/softwareGrade.test.js"
+    "test:lib": "node src/lib/gradingEngine.test.js && node src/lib/detectors.test.js && node src/lib/softwareGrade.test.js && node src/lib/f16.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
