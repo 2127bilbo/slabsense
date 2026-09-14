@@ -42,7 +42,8 @@ function drawLabel(row){
     var b=SlabLabel.build(input,s,p.url,p.alnum);
     if(!b){document.body.setAttribute("data-label","failed");return;}
     var cv=$("label"), slab=$("slab"), rect=LABEL_WIN;
-    var pxW=Math.round(slab.clientWidth*rect.w*3);  // 3× for crisp downscale (and the zoom view)
+    var over=3*Math.max(1,Math.min(3,window.devicePixelRatio||1));   // 3× oversample × device pixels (zoom view stays crisp on phones)
+    var pxW=Math.min(4096,Math.round(slab.clientWidth*rect.w*over));
     cv.width=pxW; cv.height=Math.round(pxW*s.H/s.W); place(cv,rect);
     SlabLabel.drawCanvas(cv,b.shapes,b.cfg,"#ffffff");
     document.body.setAttribute("data-label","drawn");
@@ -67,22 +68,26 @@ function openZoom(){
   if(zoomOpen||!window.__row)return;
   var slab=$("slab"); slabHome=slab.parentNode;
   $("zstage").appendChild(slab); $("zoom").hidden=false; document.body.classList.add("zooming"); zoomOpen=true;
-  slab.classList.remove("zoomed"); slab.style.transformOrigin="";
+  unzoom();
   drawLabel(window.__row);
 }
 function closeZoom(){
   if(!zoomOpen)return;
-  var slab=$("slab"); slab.classList.remove("zoomed"); slab.style.transformOrigin="";
+  var slab=$("slab"); unzoom();
   slabHome.insertBefore(slab,slabHome.firstChild); $("zoom").hidden=true; document.body.classList.remove("zooming"); zoomOpen=false;
   drawLabel(window.__row);
 }
+function unzoom(){var st=$("zstage");st.classList.remove("zoomed");$("slab").style.width="";st.scrollLeft=0;st.scrollTop=0;}
 function onSlabClick(e){
-  var slab=$("slab");
+  var slab=$("slab"), st=$("zstage");
   if(!zoomOpen){openZoom();return;}
-  if(slab.classList.contains("zoomed")){slab.classList.remove("zoomed");slab.style.transformOrigin="";return;}
-  var r=slab.getBoundingClientRect();
-  slab.style.transformOrigin=((e.clientX-r.left)/r.width*100)+"% "+((e.clientY-r.top)/r.height*100)+"%";
-  slab.classList.add("zoomed");
+  if(st.classList.contains("zoomed")){unzoom();return;}
+  /* remember where on the slab the tap landed, zoom by real size, then scroll that spot to the middle */
+  var r=slab.getBoundingClientRect(), fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
+  st.classList.add("zoomed"); slab.style.width=Math.round(r.width*2.5)+"px";
+  var r2=slab.getBoundingClientRect(), sr=st.getBoundingClientRect();
+  st.scrollLeft+= (r2.left+fx*r2.width)-(sr.left+st.clientWidth/2);
+  st.scrollTop += (r2.top+fy*r2.height)-(sr.top+st.clientHeight/2);
 }
 function labelOf(k){return k.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/^./,function(c){return c.toUpperCase();});}
 function kv(el,obj,fmt){el.innerHTML=Object.keys(obj||{}).map(function(k){var v=obj[k];if(v&&typeof v==="object")v=Object.values(v).join(" / ");return '<div><b>'+esc(fmt?fmt(v):v)+'</b><span>'+esc(labelOf(k))+'</span></div>';}).join("")||'<div><span>Not recorded</span></div>';}

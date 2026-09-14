@@ -14,8 +14,10 @@
   .cert{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--muted)}
   main{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:28px;align-items:start;padding-top:24px}
   @media (max-width:800px){main{grid-template-columns:minmax(0,1fr)}}
-  .slab{position:relative;width:100%;aspect-ratio:987/1024;background:#000;border-radius:14px;overflow:hidden;isolation:isolate;cursor:zoom-in;transition:transform .25s ease}
-  .slab.zoomed{transform:scale(2.5);cursor:zoom-out}
+  .slab{position:relative;width:100%;aspect-ratio:987/1024;background:#000;border-radius:14px;overflow:hidden;isolation:isolate;cursor:zoom-in}
+  /* zoom by real size (not transform): iOS Safari never re-rasterises a transform-scaled layer, so it blurs */
+  .zoom .zstage.zoomed{display:block;overflow:auto;-webkit-overflow-scrolling:touch}
+  .zoom .zstage.zoomed .slab{margin:0;cursor:zoom-out;max-width:none}   /* width set in px by the script (2.5× the fitted size) */
   /* full-screen view */
   .zoom{position:fixed;inset:0;z-index:50;background:#06070a;display:flex;flex-direction:column}
   .zoom .zbar{display:flex;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
@@ -27,7 +29,7 @@
      stage height (landscape/desktop). height:100% + max-width alone stretched the box on narrow screens. */
   .zoom .zstage .slab{height:auto;width:min(100%,calc((100vh - 84px) * 987 / 1024));width:min(100%,calc((100dvh - 84px) * 987 / 1024));aspect-ratio:987/1024;border-radius:10px}
   body.zooming{overflow:hidden}
-  .slab .card{position:absolute;object-fit:cover;filter:blur(.25px) contrast(.94) brightness(.96);box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)}
+  .slab .card{position:absolute;object-fit:cover;filter:contrast(.94) brightness(.96);box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)}
   .slab .well{position:absolute;box-shadow:inset 0 2px 8px rgba(0,0,0,.85),inset 0 -1px 3px rgba(0,0,0,.6);pointer-events:none}
   .slab .plate{position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;pointer-events:none}
   .slab canvas.label{position:absolute;filter:drop-shadow(0 0 .6px rgba(255,255,255,.9)) drop-shadow(0 0 3px rgba(255,255,255,.25));pointer-events:none}
