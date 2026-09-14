@@ -32,7 +32,7 @@ function uiToSettings(){
 }
 function save(){
   try{localStorage.setItem(KEY,JSON.stringify({s:S,card:CARD.reduce(function(a,k){a[k]=el[k].value;return a;},{}),
-    grade:el.gradeSel.value,certOverride:certOverride}));}catch(e){}
+    grade:el.gradeSel.value,certOverride:Q.mode!=="queue"?certOverride:null}));}catch(e){}
 }
 function load(){
   S=allDefaults();
@@ -54,6 +54,13 @@ function cfgFrom(){
   return c;
 }
 function refreshCertUI(){
+  if(Q.mode==="queue"){
+    el.cert.readOnly=true; el.cert.value=currentCert();
+    document.getElementById("certEdit").hidden=true;
+    document.getElementById("certReset").hidden=true;
+    document.getElementById("certHint").textContent=Q.selected?"From the order — cannot be changed.":"Select a slab from the queue.";
+    return;
+  }
   var ov=certOverride!==null;
   el.cert.readOnly=!ov; el.cert.value=currentCert();
   document.getElementById("certEdit").hidden=ov;
@@ -113,7 +120,7 @@ function downloadSVG(){
   if(!curSVG)return;
   var cert=cur.input.cert;
   offer("slabsense-"+safeName(cert)+".svg",curSVG).then(function(ok){if(!ok)return;
-    if(Q.mode==="queue"&&Q.selected)return markEngraved();
+    if(Q.mode==="queue"){if(Q.selected)return markEngraved();return;}
     advanceCert(cert);});
 }
 document.getElementById("dlSVG").addEventListener("click",downloadSVG);
@@ -149,9 +156,9 @@ document.getElementById("dlPNG").addEventListener("click",function(){
 document.getElementById("certEdit").addEventListener("click",function(){
   certOverride=counterCert(); refreshCertUI(); el.cert.focus(); el.cert.select();
 });
-document.getElementById("certReset").addEventListener("click",function(){certOverride=null;render();});
-el.cert.addEventListener("input",function(){if(certOverride!==null){certOverride=el.cert.value;sched();}});
-el.cert.addEventListener("blur",function(){if(certOverride!==null&&(certOverride===counterCert()||!certOverride.trim())){certOverride=null;render();}});
+document.getElementById("certReset").addEventListener("click",function(){if(Q.mode==="queue")return;certOverride=null;render();});
+el.cert.addEventListener("input",function(){if(Q.mode==="queue")return;if(certOverride!==null){certOverride=el.cert.value;sched();}});
+el.cert.addEventListener("blur",function(){if(Q.mode==="queue")return;if(certOverride!==null&&(certOverride===counterCert()||!certOverride.trim())){certOverride=null;render();}});
 
 /* ---------- settings drawer ---------- */
 var dlg=document.getElementById("settings");
@@ -185,16 +192,23 @@ function authHeaders(){return Q.session?{"Authorization":"Bearer "+Q.session.acc
 function api(path,opts){
   if(Q.testing)return Promise.reject(new Error("offline (test mode)"));
   opts=opts||{};opts.headers=Object.assign({"Content-Type":"application/json"},authHeaders(),opts.headers||{});
-  return fetch(path,opts).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||("HTTP "+r.status));return j;});});
+  return fetch(path,opts).then(function(r){return r.text().then(function(t){
+    var j;try{j=t?JSON.parse(t):{};}catch(e){j={error:"HTTP "+r.status};}
+    if(!r.ok)throw new Error(j.error||("HTTP "+r.status));
+    return j;
+  });});
 }
+var queueGrade=null;                      // {grade,gradeWord} from the record while a queue row is selected
+function clearQueueSelection(){Q.selected=null;certOverride=null;queueGrade=null;qEl("queueDetail").hidden=true;}
 function setMode(m){
   Q.mode=m;
   qEl("queuePanel").hidden=m!=="queue";
   qEl("modeQueue").setAttribute("aria-pressed",m==="queue");qEl("modeManual").setAttribute("aria-pressed",m==="manual");
   el.cert.readOnly=true; qEl("certEdit").hidden=m==="queue"; qEl("certReset").hidden=true;
-  if(m==="manual"){Q.selected=null;certOverride=null;queueGrade=null;render();}
+  el.gradeSel.disabled=m==="queue";
+  clearQueueSelection();
+  render();
 }
-var queueGrade=null;                      // {grade,gradeWord} from the record while a queue row is selected
 function renderQueueList(){
   var list=qEl("queueList"), q=(qEl("queueSearch").value||"").toLowerCase();
   var rows=Q.rows.filter(function(r){return !q||r.cert.toLowerCase().indexOf(q)>=0||String(r.scan&&r.scan.card_name||"").toLowerCase().indexOf(q)>=0;});
@@ -210,7 +224,8 @@ function selectQueueRow(cert){
   el.name.value=input.name||"";el.l2.value=input.l2||"";el.l3.value=input.l3||"";el.l4.value=input.l4||"";
   certOverride=r.cert; queueGrade={grade:input.grade,gradeWord:input.gradeWord};
   var idx=-1;GRADES.forEach(function(g,i){if(idx<0&&g[0]===input.grade&&g[1]===input.gradeWord)idx=i;});if(idx>=0)el.gradeSel.value=idx;
-  qEl("queueDetail").hidden=false;qEl("queueMeta").textContent=r.cert+" · "+(r.status==="paid"?"paid ":r.status+" ")+new Date(r.paid_at).toLocaleString();
+  var qd=r.status==="paid"?r.paid_at:(r.status==="engraved"?r.engraved_at:r.shipped_at);
+  qEl("queueDetail").hidden=false;qEl("queueMeta").textContent=r.cert+" · "+(r.status==="paid"?"paid ":r.status+" ")+(qd?new Date(qd).toLocaleString():"");
   qEl("queueShip").textContent=fmtShip(r.shipping);qEl("markShipped").hidden=r.status!=="engraved";
   return render();
 }
@@ -221,25 +236,29 @@ function loadQueue(){
     .catch(function(e){qEl("queueMsg").textContent="Queue failed: "+e.message;});
 }
 function engravePayload(){
-  var lt={name:el.name.value,l2:el.l2.value,l3:el.l3.value,l4:el.l4.value,cert:currentCert(),grade:queueGrade?queueGrade.grade:"",gradeWord:queueGrade?queueGrade.gradeWord:""};
+  if(!Q.selected||currentCert()!==Q.selected.cert)throw new Error("selected slab changed — reselect it");
+  var lt={name:el.name.value,l2:el.l2.value,l3:el.l3.value,l4:el.l4.value,cert:Q.selected.cert,grade:queueGrade?queueGrade.grade:"",gradeWord:queueGrade?queueGrade.gradeWord:""};
   var s={};for(var k in S)if(k!=="secret")s[k]=S[k];s.useToken=false;
-  return {cert:lt.cert,svg:curSVG,label_text:lt,label_settings:s};
+  return {cert:Q.selected.cert,svg:curSVG,label_text:lt,label_settings:s};
 }
 function markEngraved(){
-  var p=engravePayload();
+  if(!Q.selected)return;
+  if(Q.selected.status!=="paid"){qEl("queueMsg").textContent="This slab is already "+Q.selected.status+".";return;}
+  var p;
+  try{p=engravePayload();}catch(e){qEl("queueMsg").textContent="Could not mark engraved: "+e.message;return;}
   return api("/api/slabs/status",{method:"POST",body:JSON.stringify(Object.assign({status:"engraved"},p))})
-    .then(function(){qEl("queueMsg").textContent=p.cert+" marked engraved.";Q.selected=null;qEl("queueDetail").hidden=true;return loadQueue();})
+    .then(function(){qEl("queueMsg").textContent=p.cert+" marked engraved.";clearQueueSelection();render();return loadQueue();})
     .catch(function(e){qEl("queueMsg").textContent="Could not mark engraved: "+e.message+" — the SVG was downloaded; retry from the list.";});
 }
 qEl("markShipped").addEventListener("click",function(){
   if(!Q.selected)return;var cert=Q.selected.cert;
   api("/api/slabs/status",{method:"POST",body:JSON.stringify({cert:cert,status:"shipped"})})
-    .then(function(){qEl("queueMsg").textContent=cert+" marked shipped.";Q.selected=null;qEl("queueDetail").hidden=true;return loadQueue();})
+    .then(function(){qEl("queueMsg").textContent=cert+" marked shipped.";clearQueueSelection();render();return loadQueue();})
     .catch(function(e){qEl("queueMsg").textContent="Could not mark shipped: "+e.message;});
 });
 qEl("copyShip").addEventListener("click",function(){navigator.clipboard.writeText(qEl("queueShip").textContent).catch(function(){});});
 Array.prototype.forEach.call(document.querySelectorAll("[data-qstatus]"),function(b){b.addEventListener("click",function(){
-  Q.status=b.getAttribute("data-qstatus");Array.prototype.forEach.call(document.querySelectorAll("[data-qstatus]"),function(x){x.setAttribute("aria-pressed",x===b);});Q.selected=null;qEl("queueDetail").hidden=true;loadQueue();});});
+  Q.status=b.getAttribute("data-qstatus");Array.prototype.forEach.call(document.querySelectorAll("[data-qstatus]"),function(x){x.setAttribute("aria-pressed",x===b);});clearQueueSelection();loadQueue();});});
 qEl("queueSearch").addEventListener("input",renderQueueList);
 qEl("modeQueue").addEventListener("click",function(){setMode("queue");loadQueue();});
 qEl("modeManual").addEventListener("click",function(){setMode("manual");});
@@ -248,15 +267,23 @@ qEl("modeManual").addEventListener("click",function(){setMode("manual");});
 function initAuth(){
   if(Q.testing){qEl("auth").hidden=true;setMode("queue");return Promise.resolve();}
   return fetch("/api/slabs/config").then(function(r){return r.json();}).then(function(c){
-    if(!c.supabaseUrl||!window.supabase){qEl("queueMsg").textContent="Studio config unavailable — manual mode only.";return;}
+    if(!c.supabaseUrl||!window.supabase){qEl("queueMsg").textContent="Studio config unavailable — manual mode only.";qEl("auth").hidden=true;setMode("manual");return;}
     Q.client=window.supabase.createClient(c.supabaseUrl,c.anonKey);
-    function apply(session){Q.session=session;qEl("signin").hidden=!!session;qEl("signedIn").hidden=!session;qEl("modes").hidden=!session;
-      if(session){qEl("authWho").textContent=session.user.email||"";setMode("queue");loadQueue();}else setMode("manual");}
+    var authApplied=false;
+    function apply(session){
+      var wasIn=!!Q.session, nowIn=!!session, sameUser=wasIn&&nowIn&&Q.session.user.id===session.user.id;
+      var first=!authApplied; authApplied=true;
+      Q.session=session;
+      qEl("signin").hidden=!!session;qEl("signedIn").hidden=!session;qEl("modes").hidden=!session;
+      if(session)qEl("authWho").textContent=session.user.email||"";
+      if(nowIn&&!sameUser){setMode("queue");loadQueue();}
+      else if(!nowIn&&(wasIn||first)){setMode("manual");}
+    }
     Q.client.auth.getSession().then(function(r){apply(r.data.session);});
     Q.client.auth.onAuthStateChange(function(_e,session){apply(session);});
     qEl("signin").addEventListener("submit",function(e){e.preventDefault();Q.client.auth.signInWithPassword({email:qEl("authEmail").value,password:qEl("authPass").value}).then(function(r){if(r.error)qEl("queueMsg").textContent="Sign-in failed: "+r.error.message;});});
     qEl("signout").addEventListener("click",function(){Q.client.auth.signOut();});
-  }).catch(function(){qEl("queueMsg").textContent="Studio config unavailable — manual mode only.";});
+  }).catch(function(){qEl("queueMsg").textContent="Studio config unavailable — manual mode only.";qEl("auth").hidden=true;setMode("manual");});
 }
 
 /* small API for automation and the future app integration */
