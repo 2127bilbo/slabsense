@@ -37,6 +37,8 @@ const ONLY = opt('--cert', null);
 const DB_SRC = opt('--db', 'local');
 const SKIP_OCR = args.includes('--skip-ocr');
 const SKIP_PIXEL = args.includes('--skip-pixel');
+const PIXEL_W = Number(opt('--pixel-weight', 0.25));   // boost = PIXEL_W × max(0, ncc)
+const OCR_W = Number(opt('--ocr-weight', 0.15));       // boost when the OCR'd number matches
 const K = 20;
 
 // ── DB ──────────────────────────────────────────────────────────────────────
@@ -237,12 +239,12 @@ for (const cert of certs) {
     let ranked, status;
     if (v === 'current') { ranked = hits.map((h) => ({ ...h, s2: h.s })); status = statusCurrent(ranked[0].s2); }
     else if (v === 'margin') { ranked = hits.map((h) => ({ ...h, s2: h.s })); status = statusMargin(ranked[0].s2, ranked[1]?.s2 ?? 0); }
-    else if (v === 'ocr') { if (rec.ocrRead === undefined) rec.ocrRead = await ocrNumerator(); const read = rec.ocrRead; ranked = rerank(hits, (h) => (read && numerator(db.cards[h.id]?.number || h.id.split('-').slice(1).join('-')) === read ? 0.15 : 0)); status = statusMargin(ranked[0].s2, ranked[1]?.s2 ?? 0); }
+    else if (v === 'ocr') { if (rec.ocrRead === undefined) rec.ocrRead = await ocrNumerator(); const read = rec.ocrRead; ranked = rerank(hits, (h) => (read && numerator(db.cards[h.id]?.number || h.id.split('-').slice(1).join('-')) === read ? OCR_W : 0)); status = statusMargin(ranked[0].s2, ranked[1]?.s2 ?? 0); }
     else if (v === 'pixel' || v === 'both') {
-      if (!rec._boosts) { const qf = stripFeature(d); const boosts = {}; let found = 0; for (const h of hits) { const rf = await refFeature(h.id); if (rf) found++; boosts[h.id] = rf ? 0.25 * Math.max(0, ncc(qf, rf)) : 0; } rec._boosts = boosts; rec.pixel = { refFound: found, boosts: hits.slice(0, 5).map((h) => ({ id: h.id, boost: +boosts[h.id].toFixed(3), match: isMatch(h.id) })) }; }
+      if (!rec._boosts) { const qf = stripFeature(d); const boosts = {}; let found = 0; for (const h of hits) { const rf = await refFeature(h.id); if (rf) found++; boosts[h.id] = rf ? PIXEL_W * Math.max(0, ncc(qf, rf)) : 0; } rec._boosts = boosts; rec.pixel = { refFound: found, boosts: hits.slice(0, 5).map((h) => ({ id: h.id, boost: +boosts[h.id].toFixed(3), match: isMatch(h.id) })) }; }
       if (v === 'both' && rec.ocrRead === undefined) rec.ocrRead = await ocrNumerator();
       const read = v === 'both' ? rec.ocrRead : null;
-      ranked = rerank(hits, (h) => rec._boosts[h.id] + (read && numerator(db.cards[h.id]?.number || h.id.split('-').slice(1).join('-')) === read ? 0.15 : 0));
+      ranked = rerank(hits, (h) => rec._boosts[h.id] + (read && numerator(db.cards[h.id]?.number || h.id.split('-').slice(1).join('-')) === read ? OCR_W : 0));
       status = statusMargin(ranked[0].s2, ranked[1]?.s2 ?? 0);
     }
     const top1 = ranked[0].id; const ok = isMatch(top1); const top5 = ranked.slice(0, 5).some((h) => isMatch(h.id));

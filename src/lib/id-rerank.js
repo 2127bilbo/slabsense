@@ -83,10 +83,10 @@ function ncc(a, ref) {
 /**
  * @param {string} cropSrc  user's cropped card image
  * @param {Array<{id:string, image:string}>} candidates  from findMatches(); `image` is the TCGDex base URL
- * @param {object} [o]  { concurrency = 4, quality = 'high' }
- * @returns {Promise<Record<string, number>>}  id → boost (0.25 × max(0, ncc)), 0 when the reference failed to load
+ * @param {object} [o]  { concurrency = 4, quality = 'high', weight = 0.03 }
+ * @returns {Promise<Record<string, number>>}  id → boost (weight × max(0, ncc)), 0 when the reference failed to load
  */
-export async function pixelBoosts(cropSrc, candidates, { concurrency = 4, quality = 'high' } = {}) {
+export async function pixelBoosts(cropSrc, candidates, { concurrency = 4, quality = 'high', weight = 0.03 } = {}) {
   const { data } = await cardPixels(cropSrc);
   const qf = stripFeature(data);
   const boosts = {};
@@ -97,7 +97,7 @@ export async function pixelBoosts(cropSrc, candidates, { concurrency = 4, qualit
       try {
         const { data: rd } = await cardPixels(`${c.image}/${quality}.webp`);
         const feat = stripFeature(rd);
-        boosts[c.id] = 0.25 * Math.max(0, ncc(qf, { feat, boxes: inkBoxes(feat) }));
+        boosts[c.id] = weight * Math.max(0, ncc(qf, { feat, boxes: inkBoxes(feat) }));
       } catch { boosts[c.id] = 0; }
     }
   }));

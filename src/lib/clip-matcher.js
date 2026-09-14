@@ -45,7 +45,12 @@ const CARD_DB_BASE = (() => {
  *   'both'  → both boosts
  * Set from the bake-off winner; override per call with matchCard(src, { rerank }).
  */
-export const DEFAULT_RERANK = 'both';
+export const DEFAULT_RERANK = 'ocr';
+/** Weight of the pixel number-line boost (× max(0, NCC)). 0.25 was harmful at production scale
+ *  (bake-off 2026-09-14, normalized queries): use only what the harness validated. */
+export const PIXEL_WEIGHT = 0.03;
+/** Boost when the OCR'd set number equals the candidate's number. */
+export const OCR_WEIGHT = 0.15;
 
 function l2normalize(v) {
   let n = 0; for (let i = 0; i < v.length; i++) n += v[i] * v[i];
@@ -395,11 +400,11 @@ export async function matchCard(imageSource, options = {}) {
       try {
         const { pixelBoosts, ocrNumber, numerator } = await import('./id-rerank.js');
         const cropSrc = processedImage instanceof HTMLCanvasElement ? processedImage.toDataURL('image/jpeg', 0.92) : processedImage;
-        const boosts = rerank === 'pixel' || rerank === 'both' ? await pixelBoosts(cropSrc, matches) : {};
+        const boosts = rerank === 'pixel' || rerank === 'both' ? await pixelBoosts(cropSrc, matches, { weight: PIXEL_WEIGHT }) : {};
         if (rerank === 'ocr' || rerank === 'both') ocrRead = await ocrNumber(cropSrc);
         for (const m of matches) {
           m.baseSimilarity = m.similarity;
-          m.similarity = m.similarity + (boosts[m.id] || 0) + (ocrRead && numerator(m.number) === ocrRead ? 0.15 : 0);
+          m.similarity = m.similarity + (boosts[m.id] || 0) + (ocrRead && numerator(m.number) === ocrRead ? OCR_WEIGHT : 0);
         }
         matches.sort((a, b) => b.similarity - a.similarity);
         for (const m of matches) m.confidence = getConfidence(m.similarity);
