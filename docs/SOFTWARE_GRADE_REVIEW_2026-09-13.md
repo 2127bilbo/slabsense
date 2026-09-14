@@ -75,6 +75,10 @@ Each finding is tagged **[SOFTWARE ONLY]**, **[SHARED]** (also affects AI / Deep
   (App.jsx:4127), which is `companyGrades` from `assembleUnifiedOutput()`. In the collection,
   non-TAG AI company grades carry no `score` field, so the recalc is skipped and the stored
   grade is used.
+- **Status:** fixed 2026-09-14, commit `0c993fe` (branch `software-grade-harness`).
+  `computeGrade().grade` now comes from `companyGrades[companyId]`; scans gain a
+  `company_grades` column (migration `20260914_scans_company_grades.sql`, must be applied);
+  the collection view reads it and only recomputes from `raw_score` for TAG.
 
 ### F2. Detectors run on the original photo, not the crop — [SOFTWARE ONLY] — confirmed
 
@@ -90,6 +94,10 @@ Each finding is tagged **[SOFTWARE ONLY]**, **[SHARED]** (also affects AI / Deep
   and edge samples.
 - Fix direction: run detectors on the cropped image with bounds = full image, or return
   original-space corners in both modes and crop before detecting.
+- **Status:** fixed 2026-09-14, commit `56e9196` (branch `software-grade-harness`). `run()`
+  analyzes `frontCroppedImage` / `backCroppedImage` with no bounds override whenever a crop
+  exists; Apply Correction crops first, then analyzes the crop. Corner and edge measure
+  modes now share one path. Browser verification still to be done by the owner.
 
 ### F3. Detector severity does not match engine severity — [SOFTWARE ONLY] — main "too harsh" source
 
@@ -280,14 +288,78 @@ Still open:
 | `.../TAG Map/results1.json` | Full DIG records (card, grade, score, centering px, dings with x/y) for 92 cards | File has trailing extra JSON after line 9686; parse the first document only |
 | `.../TAG Map/tag-calibration-tool.html` | Coordinate calibration tool for mapping TAG ding x/y onto user photos | Related to `Mapping Defects/COORDINATE_MAPPING.md` |
 | `scripts/Tag scraper/dig info/master.md` | Per-card surface scores, centering, ding counts by category | |
-| `scripts/Tag scraper/validation_test` | 3 cards with phone-style front/back photos: E6899567 (10 GEM MINT), H9479369 (1 POOR), N8241348 (1 POOR) | Closest thing to real user input; the two POOR cards are the crease test |
+| `scripts/Tag scraper/validation_test` | 3 cards: E6899567 (10 GEM MINT), H9479369 (1 POOR), N8241348 (1 POOR) | Same 4400×6100 TAG downloads as the main set, NOT phone photos. The two POOR cards (H9479369 Glaceon has a visible horizontal crease) are a good crease test |
 | `scripts/Tag scraper/Slabs` | 62 slab photos (31 cards) | In-slab, less useful for detectors |
 | `scripts/analyze_tag_calibration.cjs` | Pulls `graded_references` from Supabase and derives the calibration tables | Source of `GRADE_CEILINGS` (F7) |
 
-Caveat: the TAG photos are studio-lit and flat. The detectors will behave differently on
-phone photos; `validation_test` is the only phone-style set. Worth growing that set.
+Caveat: every photo in the repo is a TAG studio download (flat, even light, card fills the
+frame). There is no phone-photo set at all, so harness numbers measure detector accuracy
+under ideal conditions only. Building a phone-photo set with known TAG grades (cards the
+owner has in hand) is worth doing before trusting thresholds in production.
 
-## 7. Files touched by this review (read only)
+The structured ground truth for these 507 cards (TAG rollup subgrades, per-corner and
+per-edge scores, typed dings with normalized x/y) comes from the tag-dataset parquet tables
+and is exported to `scripts/harness/ground-truth.json`. The wider tag-dataset covers 2,215
+certs, but only 356 have images uploaded to the bucket as of 2026-09-14.
+
+## 8. Harness baseline (2026-09-14)
+
+Harness: `npm run harness` (see `scripts/harness/README.md`). 507 cards, TAG's own centering
+fed to the engine, detectors unchanged since commit `050a162`. Full tables in
+`scripts/harness/results/2026-09-14-baseline.md`. Sign: software − TAG, positive = lenient.
+
+| Grade | MAE | signed | exact % | within 0.5 % | within 1.0 % |
+|---|---|---|---|---|---|
+| all 506 cards | 3.04 | +2.72 | 16.4 | 22.7 | 31.4 |
+| TAG 9–10 (103) | 0.65 | −0.35 | | 68.0 | |
+| TAG 7–8.5 (161) | 1.54 | +1.20 | | 25.5 | |
+| TAG 5–6.5 (118) | 3.41 | +3.37 | | 2.5 | |
+| TAG 1–4.5 (124) | 6.64 | +6.64 | | 0.8 | |
+
+17 of 31 POOR (grade 1) cards graded 10; 21 of 37 grade-4 cards graded 10. The Glaceon
+crease card (H9479369, TAG 1) graded 8.5 with zero software dings; its only deduction was
+centering.
+
+| Subgrade (software×10 − TAG rollup) | MAE | signed |
+|---|---|---|
+| corners | 177 | +177 |
+| edges | 131 | +92 |
+| surface | 247 | +247 |
+| centering | 13 | +6 |
+
+| Dings (side, type) | TAG count | software count | matched | precision | recall |
+|---|---|---|---|---|---|
+| FRONT CORNER | 66 | 1 | 0 | 0 | 0 |
+| BACK CORNER | 691 | 0 | 0 | – | 0 |
+| FRONT EDGE | 32 | 138 | 5 | 0.04 | 0.16 |
+| BACK EDGE | 237 | 22 | 3 | 0.14 | 0.01 |
+| FRONT PLAY_WEAR | 76 | 27 | 5 | 0.19 | 0.07 |
+| BACK PLAY_WEAR | 116 | 0 | 0 | – | 0 |
+| CREASE (both sides) | 178 | 0 | 0 | – | 0 |
+| DENT / SCRATCH / PRINT / PIT / STAIN / TEAR | 242 | 0 | 0 | – | 0 |
+
+Cards with at least one software ding: 122. Cards with at least one TAG ding: 426.
+
+What it says:
+- **F10 dominates.** Centering is the only subgrade the software gets right (MAE 13 on the
+  1000-pt scale). Every defect category is scored 90–250 points too high because the
+  detectors emit almost nothing.
+- **F3 (over-harsh corners/edges) is moot on these photos.** The corner detector fired once
+  in 1,014 sides against 757 TAG corner dings; the edge detector fires mostly on cards TAG
+  did not ding (precision 0.04 front). On studio-lit TAG photos the whitening test does not
+  see corner wear at all. This must be re-checked on phone photos before touching F3.
+- **New: `findBounds` cuts into the card on 66 of 507 studio photos** (card box under 85% of
+  the frame on one side, e.g. front left edge placed 116 px in on a 1012 px image). Those
+  cards averaged +3.3 grades lenient. With F2 the app now relies on `findBounds` for every
+  crop, so this is production-relevant: track as **F11**.
+- One card (V2954531) errored with "Unsupported image type"; its JPEG is probably a
+  mislabeled PNG or progressive variant node-canvas rejects. Excluded from the numbers.
+
+After F1/F2 (`scripts/harness/results/2026-09-14-after-f1-f2.md`): identical numbers, as
+expected. The next round (crease / dent / scratch detection, then corner recall) is where
+this table should move.
+
+## 9. Files touched by this review (read only)
 
 `src/App.jsx`, `src/lib/gradingEngine.js`, `src/lib/gradingEngine.test.js`,
 `src/lib/masterweights.js`, `src/lib/tag-calibration.js`, `src/utils/gradingScales.js`,
