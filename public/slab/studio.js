@@ -201,12 +201,11 @@ function api(path,opts){
 var queueGrade=null;                      // {grade,gradeWord} from the record while a queue row is selected
 function clearQueueSelection(){Q.selected=null;certOverride=null;queueGrade=null;qEl("queueDetail").hidden=true;}
 function setMode(m){
-  Q.mode=m;
+  var wasQueue=Q.mode==="queue"; Q.mode=m; if(wasQueue||m==="queue")clearQueueSelection();
   qEl("queuePanel").hidden=m!=="queue";
   qEl("modeQueue").setAttribute("aria-pressed",m==="queue");qEl("modeManual").setAttribute("aria-pressed",m==="manual");
   el.cert.readOnly=true; qEl("certEdit").hidden=m==="queue"; qEl("certReset").hidden=true;
   el.gradeSel.disabled=m==="queue";
-  clearQueueSelection();
   render();
 }
 function renderQueueList(){
