@@ -1,8 +1,8 @@
 (async()=>{
 const L=await import('../api/_lib/slabs.js');
-const {makeHandler:mkQueue}=await import('../api/slabs/queue.js');
-const {makeHandler:mkStatus}=await import('../api/slabs/status.js');
-const {makeHandler:mkConfig}=await import('../api/slabs/config.js');
+const {makeHandler:mkQueue}=await import('../api/_lib/routes/slabs-queue.js');
+const {makeHandler:mkStatus}=await import('../api/_lib/routes/slabs-status.js');
+const {makeHandler:mkConfig}=await import('../api/_lib/routes/slabs-config.js');
 let bad=0;const fail=(m,...x)=>{console.log('FAIL',m,...x);bad++;};
 function res(){return {code:200,body:null,headers:{},setHeader(k,v){this.headers[k]=v;},status(c){this.code=c;return this;},json(b){this.body=b;return this;},end(){return this;}};}
 // lib

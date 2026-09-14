@@ -2,9 +2,7 @@
  * GET /api/slab?cert=SS26-00001
  * Public read of one slab through the slab_public view (no user id, no shipping — see migration 20260912_slabs.sql).
  */
-import { createClient } from '@supabase/supabase-js';
 
-export const config = { maxDuration: 10 };
 
 const CERT_RE = /^[A-Z]{2,4}\d{2}-\d{5}$/;
 
@@ -31,8 +29,3 @@ export function makeHandler(db) {
   };
 }
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'http://localhost',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'missing'
-);
-export default makeHandler(supabase);

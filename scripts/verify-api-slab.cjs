@@ -1,5 +1,5 @@
 (async()=>{
-const {makeHandler}=await import('../api/slab.js');
+const {makeHandler}=await import('../api/_lib/routes/slab-get.js');
 function res(){const r={code:200,body:null,headers:{}};r.setHeader=(k,v)=>{r.headers[k]=v;};r.status=c=>{r.code=c;return r;};r.json=b=>{r.body=b;return r;};r.end=()=>r;return r;}
 const row={cert:'SS26-00001',status:'paid',card_name:'Pikachu V',grade_value:10};
 let calls=0;const db={from:(t)=>{calls++;return ({select:()=>({eq:(c,v)=>({maybeSingle:async()=>({data:(t==='slab_public'&&v==='SS26-00001')?row:null,error:null})})})});}};

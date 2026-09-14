@@ -1,9 +1,7 @@
 /** POST /api/slabs/status — admin only. {cert,status:'engraved',svg,label_text,label_settings} | {cert,status:'shipped'} */
-import { createClient } from '@supabase/supabase-js';
-import { requireAdmin, adminIdsFromEnv, sendAuthError } from '../_lib/auth.js';
-import { assertTransition, statusPatch, sanitizeSettings, SLAB_LABEL_BUCKET } from '../_lib/slabs.js';
+import { requireAdmin, adminIdsFromEnv, sendAuthError } from '../auth.js';
+import { assertTransition, statusPatch, sanitizeSettings, SLAB_LABEL_BUCKET } from '../slabs.js';
 
-export const config = { maxDuration: 10 };
 
 export function makeHandler({ db, adminIds, now }) {
   return async function handler(req, res) {
@@ -37,5 +35,3 @@ export function makeHandler({ db, adminIds, now }) {
     return res.status(200).json({ slab: { ...slab, ...patch } });
   };
 }
-const supabase = createClient(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'http://localhost', process.env.SUPABASE_SERVICE_ROLE_KEY || 'missing');
-export default makeHandler({ db: supabase, adminIds: adminIdsFromEnv(process.env) });

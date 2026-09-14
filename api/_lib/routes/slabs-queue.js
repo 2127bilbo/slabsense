@@ -1,9 +1,7 @@
 /** GET /api/slabs/queue?status=paid|engraved|shipped[&q=] — admin only. */
-import { createClient } from '@supabase/supabase-js';
-import { requireAdmin, adminIdsFromEnv, sendAuthError } from '../_lib/auth.js';
-import { QUEUE_SELECT, flattenQueueRow } from '../_lib/slabs.js';
+import { requireAdmin, adminIdsFromEnv, sendAuthError } from '../auth.js';
+import { QUEUE_SELECT, flattenQueueRow } from '../slabs.js';
 
-export const config = { maxDuration: 10 };
 const STATUSES = ['paid', 'engraved', 'shipped'];
 
 export function makeHandler({ db, adminIds }) {
@@ -24,5 +22,3 @@ export function makeHandler({ db, adminIds }) {
     return res.status(200).json({ rows });
   };
 }
-const supabase = createClient(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'http://localhost', process.env.SUPABASE_SERVICE_ROLE_KEY || 'missing');
-export default makeHandler({ db: supabase, adminIds: adminIdsFromEnv(process.env) });
