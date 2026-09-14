@@ -1,0 +1,3555 @@
+{
+ "generated": "2026-09-14T18:39:53+00:00",
+ "count": 507,
+ "certs": {
+  "C1240631": {
+   "name": "Regigigas",
+   "number": "37/146",
+   "set": "Legends Awakened",
+   "year": 2008,
+   "image": "C1240631_7_NEAR_MINT_front.jpg"
+  },
+  "C1287305": {
+   "name": "Dark Patch",
+   "number": "216/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "C1287305_9_MINT_front.jpg"
+  },
+  "C1714354": {
+   "name": "Dragonair",
+   "number": "18/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "C1714354_5_EXCELLENT_front.jpg"
+  },
+  "C2020553": {
+   "name": "Mimikyu V",
+   "number": "TG16",
+   "set": "Brilliant Stars Trainer Gallery",
+   "year": 2022,
+   "image": "C2020553_7_NEAR_MINT_front.jpg"
+  },
+  "C2146206": {
+   "name": "Garchomp V",
+   "number": "TG23",
+   "set": "Astral Radiance Trainer Gallery",
+   "year": 2022,
+   "image": "C2146206_9_MINT_front.jpg"
+  },
+  "C4050208": {
+   "name": "Charizard",
+   "number": "39/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "C4050208_1_POOR_front.jpg"
+  },
+  "C4110021": {
+   "name": "Mega Heracross EX",
+   "number": "112/111",
+   "set": "Furious Fists",
+   "year": 2014,
+   "image": "C4110021_1_POOR_front.jpg"
+  },
+  "C4409654": {
+   "name": "Bianca",
+   "number": "147/149",
+   "set": "Boundaries Crossed",
+   "year": 2012,
+   "image": "C4409654_5_EXCELLENT_front.jpg"
+  },
+  "C4704033": {
+   "name": "Machamp V",
+   "number": "172/189",
+   "set": "Astral Radiance",
+   "year": 2022,
+   "image": "C4704033_8_NM_MT_front.jpg"
+  },
+  "C5787006": {
+   "name": "Glaceon",
+   "number": "20/100",
+   "set": "Pok\u00e9mon Countdown Calender",
+   "year": 2008,
+   "image": "C5787006_7_5_NEAR_MINT__front.jpg"
+  },
+  "C6048086": {
+   "name": "Pikachu ex",
+   "number": "276/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "C6048086_7_NEAR_MINT_front.jpg"
+  },
+  "C6315771": {
+   "name": "Pikachu V",
+   "number": "SWSH198",
+   "set": "Pikachu V Showcase",
+   "year": 2022,
+   "image": "C6315771_4_VG_EX_front.jpg"
+  },
+  "C6660561": {
+   "name": "Mysterious Fossil",
+   "number": "62/62",
+   "set": "Fossil",
+   "year": 1999,
+   "image": "C6660561_7_NEAR_MINT_front.jpg"
+  },
+  "C6665979": {
+   "name": "Tyranitar",
+   "number": "29/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "C6665979_3_VG_front.jpg"
+  },
+  "C6795219": {
+   "name": "Pachirisu",
+   "number": "18/95",
+   "set": "Megazone - Gustavo Wada",
+   "year": 2011,
+   "image": "C6795219_3_VG_front.jpg"
+  },
+  "C6997053": {
+   "name": "Duskull",
+   "number": "SH2",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "C6997053_5_EXCELLENT_front.jpg"
+  },
+  "C7421486": {
+   "name": "Cubone",
+   "number": "103/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "C7421486_7_NEAR_MINT_front.jpg"
+  },
+  "C7832282": {
+   "name": "Mew",
+   "number": "47",
+   "set": "June 2002 Pok\u00e9mon League",
+   "year": 2002,
+   "image": "C7832282_10_GEM_MINT_front.jpg"
+  },
+  "C8522239": {
+   "name": "Piplup",
+   "number": "042",
+   "set": "First Partner Illustration Collection Series 1",
+   "year": 2026,
+   "image": "C8522239_10_GEM_MINT_front.jpg"
+  },
+  "C8902878": {
+   "name": "Gengar",
+   "number": "SWSH241",
+   "set": "Lost Origin Build & Battle Box",
+   "year": 2022,
+   "image": "C8902878_7_5_NEAR_MINT__front.jpg"
+  },
+  "C9009046": {
+   "name": "Charmander",
+   "number": "101/100",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "C9009046_6_EX_MT_front.jpg"
+  },
+  "C9144298": {
+   "name": "Rayquaza",
+   "number": "20/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "C9144298_6_5_EX_MT__front.jpg"
+  },
+  "C9784175": {
+   "name": "Moltres",
+   "number": "012/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "C9784175_8_5_NM_MT__front.jpg"
+  },
+  "C9915267": {
+   "name": "Raikou",
+   "number": "SL9",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "C9915267_6_5_EX_MT__front.jpg"
+  },
+  "D1014167": {
+   "name": "Marnie's Grimmsnarl ex",
+   "number": "287/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "D1014167_8_NM_MT_front.jpg"
+  },
+  "D1098120": {
+   "name": "Mega Charizard X ex",
+   "number": "125/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "D1098120_4_VG_EX_front.jpg"
+  },
+  "D1374835": {
+   "name": "Blaziken V",
+   "number": "TG14",
+   "set": "Silver Tempest Trainer Gallery",
+   "year": 2022,
+   "image": "D1374835_10_PRISTINE_front.jpg"
+  },
+  "D2129858": {
+   "name": "Voltorb",
+   "number": "SH3",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "D2129858_4_VG_EX_front.jpg"
+  },
+  "D4014224": {
+   "name": "Lillie's Determination",
+   "number": "184/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "D4014224_10_GEM_MINT_front.jpg"
+  },
+  "D4482296": {
+   "name": "Palkia",
+   "number": "SL8",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "D4482296_1_POOR_front.jpg"
+  },
+  "D4720769": {
+   "name": "Landorus",
+   "number": "BW43",
+   "set": "Forces of Nature Collection",
+   "year": 2012,
+   "image": "D4720769_2_GOOD_front.jpg"
+  },
+  "D4728339": {
+   "name": "Cresselia LV.X",
+   "number": "103/106",
+   "set": "Great Encounters",
+   "year": 2008,
+   "image": "D4728339_5_EXCELLENT_front.jpg"
+  },
+  "D6012395": {
+   "name": "Victory Cup",
+   "number": "BW30",
+   "set": "Battle Road Spring 2012 Second Place",
+   "year": 2011,
+   "image": "D6012395_7_NEAR_MINT_front.jpg"
+  },
+  "D6271173": {
+   "name": "Ekans",
+   "number": "108/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "D6271173_7_NEAR_MINT_front.jpg"
+  },
+  "D6374625": {
+   "name": "Dialga EX",
+   "number": "122/119",
+   "set": "Phantom Forces",
+   "year": 2014,
+   "image": "D6374625_2_GOOD_front.jpg"
+  },
+  "D6441070": {
+   "name": "Pikachu",
+   "number": "25",
+   "set": "TV Animation Edition Series #1",
+   "year": 1999,
+   "image": "D6441070_8_5_NM_MT__front.jpg"
+  },
+  "D6690847": {
+   "name": "Dawn",
+   "number": "129/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "D6690847_4_VG_EX_front.jpg"
+  },
+  "D6805280": {
+   "name": "Serperior V",
+   "number": "170/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "D6805280_8_5_NM_MT__front.jpg"
+  },
+  "D6865557": {
+   "name": "Team Rocket's Mewtwo ex",
+   "number": "281/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "D6865557_8_5_NM_MT__front.jpg"
+  },
+  "D8408427": {
+   "name": "Arceus VSTAR",
+   "number": "XXX",
+   "set": "ADP - Ond\u0159ej \u0160kubal",
+   "year": 2022,
+   "image": "D8408427_2_GOOD_front.jpg"
+  },
+  "D8520551": {
+   "name": "Pikachu",
+   "number": "58/102",
+   "set": "Base Set - 1st Edition",
+   "year": 1999,
+   "image": "D8520551_1_POOR_front.jpg"
+  },
+  "D8520582": {
+   "name": "Charmeleon",
+   "number": "102/100",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "D8520582_2_GOOD_front.jpg"
+  },
+  "D8865388": {
+   "name": "Mega Gardevoir ex",
+   "number": "159/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "D8865388_10_GEM_MINT_front.jpg"
+  },
+  "E1156198": {
+   "name": "Regidrago V",
+   "number": "184/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "E1156198_10_PRISTINE_front.jpg"
+  },
+  "E1464155": {
+   "name": "Aerodactyl",
+   "number": "1/62",
+   "set": "Fossil - 1st Edition",
+   "year": 1999,
+   "image": "E1464155_6_5_EX_MT__front.jpg"
+  },
+  "E2621970": {
+   "name": "Professor Elm",
+   "number": "3",
+   "set": "Best of the Game Promo",
+   "year": 2002,
+   "image": "E2621970_8_NM_MT_front.jpg"
+  },
+  "E3034011": {
+   "name": "Mew VMAX",
+   "number": "TG30",
+   "set": "Lost Origin Trainer Gallery",
+   "year": 2022,
+   "image": "E3034011_6_5_EX_MT__front.jpg"
+  },
+  "E3089107": {
+   "name": "Ethan's Ho-Oh ex",
+   "number": "230/182",
+   "set": "Destined Rivals",
+   "year": 2025,
+   "image": "E3089107_10_PRISTINE_front.jpg"
+  },
+  "E4122942": {
+   "name": "Lugia ex",
+   "number": "105/115",
+   "set": "B-L-S - Hiroki Yano",
+   "year": 2008,
+   "image": "E4122942_1_POOR_front.jpg"
+  },
+  "E4187804": {
+   "name": "Machamp",
+   "number": "H15/H32",
+   "set": "Skyridge",
+   "year": 2003,
+   "image": "E4187804_10_PRISTINE_front.jpg"
+  },
+  "E4266699": {
+   "name": "Ho-oh",
+   "number": "52",
+   "set": "Pok\u00e9mon League",
+   "year": 2002,
+   "image": "E4266699_4_VG_EX_front.jpg"
+  },
+  "E4311670": {
+   "name": "Pineco",
+   "number": "68/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "E4311670_1_POOR_front.jpg"
+  },
+  "E4338816": {
+   "name": "Mega Manectric ex",
+   "number": "050/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "E4338816_8_NM_MT_front.jpg"
+  },
+  "E4799433": {
+   "name": "Mewtwo",
+   "number": "056/172",
+   "set": "Trick or Trade",
+   "year": 2022,
+   "image": "E4799433_1_POOR_front.jpg"
+  },
+  "E4955843": {
+   "name": "Looks Like Trouble...",
+   "number": "44",
+   "set": "The First Movie",
+   "year": 1999,
+   "image": "E4955843_7_5_NEAR_MINT__front.jpg"
+  },
+  "E5135368": {
+   "name": "Magikarp",
+   "number": "118/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "E5135368_7_5_NEAR_MINT__front.jpg"
+  },
+  "E5142267": {
+   "name": "Clawitzer",
+   "number": "24/111",
+   "set": "Furious Fists",
+   "year": 2014,
+   "image": "E5142267_9_MINT_front.jpg"
+  },
+  "E5409497": {
+   "name": "Squirtle",
+   "number": "132/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "E5409497_4_VG_EX_front.jpg"
+  },
+  "E5481456": {
+   "name": "Quilava",
+   "number": "49/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "E5481456_3_VG_front.jpg"
+  },
+  "E5628592": {
+   "name": "Chandelure",
+   "number": "60/101",
+   "set": "Noble Victories",
+   "year": 2011,
+   "image": "E5628592_9_MINT_front.jpg"
+  },
+  "E5656192": {
+   "name": "Giratina V",
+   "number": "186/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "E5656192_8_5_NM_MT__front.jpg"
+  },
+  "E5671977": {
+   "name": "Pikachu",
+   "number": "58/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "E5671977_6_5_EX_MT__front.jpg"
+  },
+  "E5688504": {
+   "name": "Electabuzz",
+   "number": "46",
+   "set": "May 2002 Pok\u00e9mon League",
+   "year": 2002,
+   "image": "E5688504_6_5_EX_MT__front.jpg"
+  },
+  "E6359418": {
+   "name": "Mega Gengar ex",
+   "number": "284/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "E6359418_7_NEAR_MINT_front.jpg"
+  },
+  "E6524976": {
+   "name": "Lillie's Determination",
+   "number": "184/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "E6524976_6_EX_MT_front.jpg"
+  },
+  "E6611704": {
+   "name": "Bidoof",
+   "number": "059/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "E6611704_8_5_NM_MT__front.jpg"
+  },
+  "E6703918": {
+   "name": "Pikachu",
+   "number": "214",
+   "set": "Illustration Contest 2024",
+   "year": 2025,
+   "image": "E6703918_10_PRISTINE_front.jpg"
+  },
+  "E6899567": {
+   "name": "Arceus VSTAR",
+   "number": "184/172",
+   "set": "Brilliant Stars",
+   "year": 2022,
+   "image": "E6899567_10_GEM_MINT_front.jpg"
+  },
+  "E7137187": {
+   "name": "Beedrill V",
+   "number": "161/189",
+   "set": "Astral Radiance",
+   "year": 2022,
+   "image": "E7137187_9_MINT_front.jpg"
+  },
+  "E7320886": {
+   "name": "Munna",
+   "number": "116/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "E7320886_8_5_NM_MT__front.jpg"
+  },
+  "E8314263": {
+   "name": "Hitmonlee",
+   "number": "7/62",
+   "set": "Fossil",
+   "year": 1999,
+   "image": "E8314263_9_MINT_front.jpg"
+  },
+  "E8457832": {
+   "name": "Charizard VSTAR",
+   "number": "SWSH262",
+   "set": "Ultra-Premium Collection",
+   "year": 2022,
+   "image": "E8457832_6_5_EX_MT__front.jpg"
+  },
+  "E8675124": {
+   "name": "Abra",
+   "number": "43/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "E8675124_6_5_EX_MT__front.jpg"
+  },
+  "E8802331": {
+   "name": "Psychic Energy",
+   "number": "92/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "E8802331_1_POOR_front.jpg"
+  },
+  "E9579583": {
+   "name": "Wyrdeer",
+   "number": "SWSH206",
+   "set": "Astral Radiance Build & Battle Box",
+   "year": 2022,
+   "image": "E9579583_8_NM_MT_front.jpg"
+  },
+  "E9602606": {
+   "name": "Shining Charizard",
+   "number": "107/105",
+   "set": "Neo Destiny",
+   "year": 2002,
+   "image": "E9602606_8_5_NM_MT__front.jpg"
+  },
+  "F1134471": {
+   "name": "Cresselia EX",
+   "number": "143/149",
+   "set": "Boundaries Crossed",
+   "year": 2012,
+   "image": "F1134471_6_5_EX_MT__front.jpg"
+  },
+  "F1211514": {
+   "name": "Giratina EX",
+   "number": "124/124",
+   "set": "Dragons Exalted",
+   "year": 2012,
+   "image": "F1211514_3_VG_front.jpg"
+  },
+  "F1555020": {
+   "name": "Mega Charizard X ex",
+   "number": "130/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "F1555020_9_MINT_front.jpg"
+  },
+  "F1581692": {
+   "name": "Fezandipiti ex",
+   "number": "288/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "F1581692_9_MINT_front.jpg"
+  },
+  "F1752666": {
+   "name": "Pikachu",
+   "number": "42/146",
+   "set": "The LEGO Movie Release Exclusive",
+   "year": 2014,
+   "image": "F1752666_6_EX_MT_front.jpg"
+  },
+  "F2332283": {
+   "name": "Meowth",
+   "number": "106/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "F2332283_10_PRISTINE_front.jpg"
+  },
+  "F2455096": {
+   "name": "Ho-Oh EX",
+   "number": "119/124",
+   "set": "Dragons Exalted",
+   "year": 2012,
+   "image": "F2455096_3_VG_front.jpg"
+  },
+  "F3701551": {
+   "name": "Magneton",
+   "number": "9/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "F3701551_1_POOR_front.jpg"
+  },
+  "F4026206": {
+   "name": "Pikachu",
+   "number": "214",
+   "set": "Illustration Contest 2024",
+   "year": 2025,
+   "image": "F4026206_7_NEAR_MINT_front.jpg"
+  },
+  "F4067237": {
+   "name": "Heatran",
+   "number": "30/146",
+   "set": "Legends Awakened",
+   "year": 2008,
+   "image": "F4067237_3_VG_front.jpg"
+  },
+  "F4368939": {
+   "name": "Gengar",
+   "number": "13/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "F4368939_6_5_EX_MT__front.jpg"
+  },
+  "F4452917": {
+   "name": "Clefairy",
+   "number": "101/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "F4452917_7_5_NEAR_MINT__front.jpg"
+  },
+  "F5260980": {
+   "name": "Mega Sharpedo ex",
+   "number": "127/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "F5260980_10_PRISTINE_front.jpg"
+  },
+  "F5978295": {
+   "name": "Feraligatr",
+   "number": "12/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "F5978295_10_GEM_MINT_front.jpg"
+  },
+  "F7595136": {
+   "name": "Sylveon V",
+   "number": "TG14",
+   "set": "Brilliant Stars Trainer Gallery",
+   "year": 2022,
+   "image": "F7595136_6_5_EX_MT__front.jpg"
+  },
+  "F7650319": {
+   "name": "Milotic",
+   "number": "28/124",
+   "set": "Dragons Exalted",
+   "year": 2012,
+   "image": "F7650319_8_NM_MT_front.jpg"
+  },
+  "F7694572": {
+   "name": "Mega Gengar ex",
+   "number": "056/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "F7694572_8_5_NM_MT__front.jpg"
+  },
+  "F8198742": {
+   "name": "Mega Manectric ex",
+   "number": "120/119",
+   "set": "Phantom Forces",
+   "year": 2014,
+   "image": "F8198742_6_5_EX_MT__front.jpg"
+  },
+  "F8349601": {
+   "name": "Moltres",
+   "number": "12/62",
+   "set": "Fossil - 1st Edition",
+   "year": 1999,
+   "image": "F8349601_6_5_EX_MT__front.jpg"
+  },
+  "F8653027": {
+   "name": "Entei",
+   "number": "025/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "F8653027_8_5_NM_MT__front.jpg"
+  },
+  "F8974792": {
+   "name": "Ninetales",
+   "number": "12/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "F8974792_10_GEM_MINT_front.jpg"
+  },
+  "F9326607": {
+   "name": "Pikachu",
+   "number": "124/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "F9326607_10_GEM_MINT_front.jpg"
+  },
+  "F9652912": {
+   "name": "Mega Blastoise EX",
+   "number": "30/146",
+   "set": "XY",
+   "year": 2014,
+   "image": "F9652912_5_EXCELLENT_front.jpg"
+  },
+  "F9701200": {
+   "name": "Koffing",
+   "number": "51/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "F9701200_8_5_NM_MT__front.jpg"
+  },
+  "F9773883": {
+   "name": "Charizard VMAX",
+   "number": "SWSH261",
+   "set": "Ultra-Premium Collection",
+   "year": 2022,
+   "image": "F9773883_2_GOOD_front.jpg"
+  },
+  "G1790411": {
+   "name": "Numel",
+   "number": "013/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "G1790411_8_5_NM_MT__front.jpg"
+  },
+  "G1837766": {
+   "name": "Charizard V",
+   "number": "154/172",
+   "set": "Brilliant Stars",
+   "year": 2022,
+   "image": "G1837766_3_VG_front.jpg"
+  },
+  "G1952001": {
+   "name": "Mega Latias ex",
+   "number": "011",
+   "set": "Mega Latias ex Box",
+   "year": 2025,
+   "image": "G1952001_6_5_EX_MT__front.jpg"
+  },
+  "G3499699": {
+   "name": "Poliwag",
+   "number": "125/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "G3499699_5_EXCELLENT_front.jpg"
+  },
+  "G3983629": {
+   "name": "Rayquaza EX",
+   "number": "123/124",
+   "set": "Dragons Exalted",
+   "year": 2012,
+   "image": "G3983629_1_POOR_front.jpg"
+  },
+  "G4400846": {
+   "name": "Eevee",
+   "number": "62/100",
+   "set": "Burger King Collection",
+   "year": 2008,
+   "image": "G4400846_2_GOOD_front.jpg"
+  },
+  "G4474550": {
+   "name": "Rayquaza VMAX",
+   "number": "TG29",
+   "set": "Silver Tempest Trainer Gallery",
+   "year": 2022,
+   "image": "G4474550_3_VG_front.jpg"
+  },
+  "G5780237": {
+   "name": "Mew",
+   "number": "19/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "G5780237_2_GOOD_front.jpg"
+  },
+  "G5960857": {
+   "name": "Victini",
+   "number": "012/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "G5960857_8_NM_MT_front.jpg"
+  },
+  "G6299360": {
+   "name": "Iono's Bellibolt ex",
+   "number": "279/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "G6299360_5_EXCELLENT_front.jpg"
+  },
+  "G6983385": {
+   "name": "Mega Clefable ex",
+   "number": "119/088",
+   "set": "Perfect Order",
+   "year": 2026,
+   "image": "G6983385_7_NEAR_MINT_front.jpg"
+  },
+  "G7535748": {
+   "name": "Mega Diancie ex",
+   "number": "041/094",
+   "set": "Mega Diancie ex Mega Battle Deck",
+   "year": 2025,
+   "image": "G7535748_8_NM_MT_front.jpg"
+  },
+  "G7774470": {
+   "name": "Drowzee",
+   "number": "49/102",
+   "set": "Base Set - 1st Edition",
+   "year": 1999,
+   "image": "G7774470_6_5_EX_MT__front.jpg"
+  },
+  "G8325776": {
+   "name": "Aerodactyl",
+   "number": "1/62",
+   "set": "Fossil",
+   "year": 1999,
+   "image": "G8325776_1_POOR_front.jpg"
+  },
+  "G8531125": {
+   "name": "Shadow Rider Calyrex VMAX",
+   "number": "TG30",
+   "set": "Astral Radiance Trainer Gallery",
+   "year": 2022,
+   "image": "G8531125_10_GEM_MINT_front.jpg"
+  },
+  "G9329289": {
+   "name": "Meowth",
+   "number": "121/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "G9329289_5_EXCELLENT_front.jpg"
+  },
+  "G9871996": {
+   "name": "Maintenance",
+   "number": "83/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "G9871996_8_NM_MT_front.jpg"
+  },
+  "G9954277": {
+   "name": "Pikachu",
+   "number": "028/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "G9954277_7_5_NEAR_MINT__front.jpg"
+  },
+  "G9979344": {
+   "name": "Archeops",
+   "number": "110/108",
+   "set": "Dark Explorers",
+   "year": 2012,
+   "image": "G9979344_8_NM_MT_front.jpg"
+  },
+  "H1494379": {
+   "name": "Larry's Komala",
+   "number": "175/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "H1494379_9_MINT_front.jpg"
+  },
+  "H1568582": {
+   "name": "Sandshrew",
+   "number": "62/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "H1568582_8_NM_MT_front.jpg"
+  },
+  "H1676203": {
+   "name": "Glaceon",
+   "number": "SWSH192",
+   "set": "Brilliant Stars Three Pack Blister",
+   "year": 2022,
+   "image": "H1676203_8_5_NM_MT__front.jpg"
+  },
+  "H1700117": {
+   "name": "Blastoise",
+   "number": "36/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "H1700117_7_5_NEAR_MINT__front.jpg"
+  },
+  "H1738741": {
+   "name": "Pikachu",
+   "number": "028/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "H1738741_7_NEAR_MINT_front.jpg"
+  },
+  "H2716563": {
+   "name": "Mega Greninja ex",
+   "number": "116/086",
+   "set": "Chaos Rising",
+   "year": 2026,
+   "image": "H2716563_8_NM_MT_front.jpg"
+  },
+  "H3262354": {
+   "name": "Pikachu",
+   "number": "4",
+   "set": "Pok\u00e9mon: The First Movie",
+   "year": 1999,
+   "image": "H3262354_7_NEAR_MINT_front.jpg"
+  },
+  "H4431013": {
+   "name": "Mega Starmie ex",
+   "number": "118/088",
+   "set": "Perfect Order",
+   "year": 2026,
+   "image": "H4431013_9_MINT_front.jpg"
+  },
+  "H4579250": {
+   "name": "Gengar",
+   "number": "TG06",
+   "set": "Lost Origin Trainer Gallery",
+   "year": 2022,
+   "image": "H4579250_8_5_NM_MT__front.jpg"
+  },
+  "H4810173": {
+   "name": "Collapsed Stadium",
+   "number": "215/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "H4810173_9_MINT_front.jpg"
+  },
+  "H5675516": {
+   "name": "Pikachu",
+   "number": "58/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "H5675516_1_POOR_front.jpg"
+  },
+  "H5768730": {
+   "name": "Radiant Blastoise",
+   "number": "018/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "H5768730_9_MINT_front.jpg"
+  },
+  "H5916347": {
+   "name": "Zubat",
+   "number": "57/62",
+   "set": "Fossil",
+   "year": 1999,
+   "image": "H5916347_10_GEM_MINT_front.jpg"
+  },
+  "H6130519": {
+   "name": "Machoke",
+   "number": "34/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "H6130519_2_GOOD_front.jpg"
+  },
+  "H6178233": {
+   "name": "Lillie's Determination",
+   "number": "169/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "H6178233_10_PRISTINE_front.jpg"
+  },
+  "H6654791": {
+   "name": "Magneton",
+   "number": "11/62",
+   "set": "Fossil - 1st Edition",
+   "year": 1999,
+   "image": "H6654791_10_GEM_MINT_front.jpg"
+  },
+  "H8554052": {
+   "name": "Fraxure",
+   "number": "14/20",
+   "set": "Dragon Vault",
+   "year": 2012,
+   "image": "H8554052_7_5_NEAR_MINT__front.jpg"
+  },
+  "H8807884": {
+   "name": "Golurk",
+   "number": "150/149",
+   "set": "Boundaries Crossed",
+   "year": 2012,
+   "image": "H8807884_3_VG_front.jpg"
+  },
+  "H9264607": {
+   "name": "Geodude",
+   "number": "TV6",
+   "set": "TV Animation Edition Series #1",
+   "year": 1999,
+   "image": "H9264607_8_NM_MT_front.jpg"
+  },
+  "H9342328": {
+   "name": "Pikachu VMAX",
+   "number": "TG17",
+   "set": "Lost Origin Trainer Gallery",
+   "year": 2022,
+   "image": "H9342328_9_MINT_front.jpg"
+  },
+  "H9479369": {
+   "name": "Glaceon",
+   "number": "20/100",
+   "set": "Majestic Dawn",
+   "year": 2008,
+   "image": "H9479369_1_POOR_front.jpg"
+  },
+  "H9724627": {
+   "name": "Incineroar",
+   "number": "032/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "H9724627_8_NM_MT_front.jpg"
+  },
+  "J1092902": {
+   "name": "Blastoise",
+   "number": "017/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "J1092902_6_EX_MT_front.jpg"
+  },
+  "J1610572": {
+   "name": "Mew",
+   "number": "19/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "J1610572_5_EXCELLENT_front.jpg"
+  },
+  "J2340051": {
+   "name": "Bulbasaur",
+   "number": "133/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "J2340051_2_GOOD_front.jpg"
+  },
+  "J3085282": {
+   "name": "Pikachu",
+   "number": "58/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "J3085282_4_VG_EX_front.jpg"
+  },
+  "J3850484": {
+   "name": "Glaceon LV.X",
+   "number": "98/100",
+   "set": "Majestic Dawn",
+   "year": 2008,
+   "image": "J3850484_1_POOR_front.jpg"
+  },
+  "J4029754": {
+   "name": "Mega Sharpedo ex",
+   "number": "127/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "J4029754_5_EXCELLENT_front.jpg"
+  },
+  "J4458635": {
+   "name": "Charmander",
+   "number": "038",
+   "set": "First Partner Illustration Collection Series 1",
+   "year": 2026,
+   "image": "J4458635_10_GEM_MINT_front.jpg"
+  },
+  "J4640987": {
+   "name": "Arceus V",
+   "number": "SWSH204",
+   "set": "Arceus V Figure Collection",
+   "year": 2022,
+   "image": "J4640987_8_NM_MT_front.jpg"
+  },
+  "J5306473": {
+   "name": "Acerola's Mischief",
+   "number": "183/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "J5306473_6_5_EX_MT__front.jpg"
+  },
+  "J5657753": {
+   "name": "Glaceon ex",
+   "number": "026/131",
+   "set": "Prize Pack Series Seven",
+   "year": 2025,
+   "image": "J5657753_7_5_NEAR_MINT__front.jpg"
+  },
+  "J5730156": {
+   "name": "Charizard VSTAR",
+   "number": "174/172",
+   "set": "Brilliant Stars",
+   "year": 2022,
+   "image": "J5730156_8_NM_MT_front.jpg"
+  },
+  "J5833664": {
+   "name": "Kyurem",
+   "number": "21/20",
+   "set": "Dragon Vault",
+   "year": 2012,
+   "image": "J5833664_7_5_NEAR_MINT__front.jpg"
+  },
+  "J5864289": {
+   "name": "Meowth",
+   "number": "106/149",
+   "set": "Boundaries Crossed",
+   "year": 2012,
+   "image": "J5864289_9_MINT_front.jpg"
+  },
+  "J6189037": {
+   "name": "Shining Celebi",
+   "number": "106/105",
+   "set": "Neo Destiny",
+   "year": 2002,
+   "image": "J6189037_8_NM_MT_front.jpg"
+  },
+  "J7184486": {
+   "name": "Heracross EX",
+   "number": "105/111",
+   "set": "Furious Fists",
+   "year": 2014,
+   "image": "J7184486_7_NEAR_MINT_front.jpg"
+  },
+  "J8545406": {
+   "name": "Gengar",
+   "number": "13/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "J8545406_8_5_NM_MT__front.jpg"
+  },
+  "J9042846": {
+   "name": "Special Delivery Charizard",
+   "number": "SWSH075",
+   "set": "UK Pok\u00e9mon Center",
+   "year": 2022,
+   "image": "J9042846_3_VG_front.jpg"
+  },
+  "J9152884": {
+   "name": "Zapdos",
+   "number": "15/62",
+   "set": "Fossil",
+   "year": 1999,
+   "image": "J9152884_8_NM_MT_front.jpg"
+  },
+  "J9457558": {
+   "name": "Tropical Beach",
+   "number": "BW28",
+   "set": "2011 World Championships",
+   "year": 2011,
+   "image": "J9457558_3_VG_front.jpg"
+  },
+  "J9727079": {
+   "name": "Team Rocket's Mimikyu",
+   "number": "097/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "J9727079_10_GEM_MINT_front.jpg"
+  },
+  "K1242351": {
+   "name": "Gardevoir",
+   "number": "109/108",
+   "set": "Dark Explorers",
+   "year": 2012,
+   "image": "K1242351_7_NEAR_MINT_front.jpg"
+  },
+  "K1283967": {
+   "name": "Lost Vacuum",
+   "number": "217/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "K1283967_9_MINT_front.jpg"
+  },
+  "K1720526": {
+   "name": "Cynthia's Feelings",
+   "number": "131/146",
+   "set": "Legends Awakened",
+   "year": 2008,
+   "image": "K1720526_4_VG_EX_front.jpg"
+  },
+  "K1916397": {
+   "name": "Umbreon VMAX",
+   "number": "TG23",
+   "set": "Brilliant Stars Trainer Gallery",
+   "year": 2022,
+   "image": "K1916397_6_5_EX_MT__front.jpg"
+  },
+  "K2188929": {
+   "name": "Gyarados",
+   "number": "6/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "K2188929_8_5_NM_MT__front.jpg"
+  },
+  "K2581343": {
+   "name": "Sandshrew",
+   "number": "62/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "K2581343_6_EX_MT_front.jpg"
+  },
+  "K2621159": {
+   "name": "Victini",
+   "number": "012/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "K2621159_10_GEM_MINT_front.jpg"
+  },
+  "K3008372": {
+   "name": "Mankey",
+   "number": "56",
+   "set": "TV Animation Edition Series #1",
+   "year": 1999,
+   "image": "K3008372_7_NEAR_MINT_front.jpg"
+  },
+  "K3514382": {
+   "name": "Charcadet",
+   "number": "022",
+   "set": "Phantasmal Flames Pok\u00e9mon Center Elite Trainer Box",
+   "year": 2025,
+   "image": "K3514382_8_NM_MT_front.jpg"
+  },
+  "K3751105": {
+   "name": "Umbreon",
+   "number": "22/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "K3751105_4_VG_EX_front.jpg"
+  },
+  "K5336487": {
+   "name": "Turtwig",
+   "number": "040",
+   "set": "First Partner Illustration Collection Series 1",
+   "year": 2026,
+   "image": "K5336487_9_MINT_front.jpg"
+  },
+  "K6227238": {
+   "name": "Snover",
+   "number": "101/123",
+   "set": "Pok\u00e9mon Countdown Calendar",
+   "year": 2008,
+   "image": "K6227238_4_VG_EX_front.jpg"
+  },
+  "K6367167": {
+   "name": "Squirtle",
+   "number": "039",
+   "set": "First Partner Illustration Collection Series 1",
+   "year": 2026,
+   "image": "K6367167_10_PRISTINE_front.jpg"
+  },
+  "K6402430": {
+   "name": "Dialga LV.X",
+   "number": "DP17",
+   "set": "Spring Collector's Tin",
+   "year": 2008,
+   "image": "K6402430_1_POOR_front.jpg"
+  },
+  "K6487106": {
+   "name": "Dialga",
+   "number": "16/106",
+   "set": "Great Encounters",
+   "year": 2008,
+   "image": "K6487106_1_POOR_front.jpg"
+  },
+  "K7405232": {
+   "name": "Mega Gardevoir ex",
+   "number": "178/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "K7405232_6_5_EX_MT__front.jpg"
+  },
+  "K8445473": {
+   "name": "N's Plan",
+   "number": "170/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "K8445473_8_NM_MT_front.jpg"
+  },
+  "K8842875": {
+   "name": "Mega Charizard X ex",
+   "number": "109/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "K8842875_10_GEM_MINT_front.jpg"
+  },
+  "K9464365": {
+   "name": "Rayquaza EX",
+   "number": "BW47",
+   "set": "Legendary EX Tins",
+   "year": 2012,
+   "image": "K9464365_5_EXCELLENT_front.jpg"
+  },
+  "K9902773": {
+   "name": "Mega Emboar ex",
+   "number": "273/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "K9902773_7_5_NEAR_MINT__front.jpg"
+  },
+  "L1404395": {
+   "name": "Magikarp",
+   "number": "65/100",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "L1404395_6_5_EX_MT__front.jpg"
+  },
+  "L1497539": {
+   "name": "Charizard",
+   "number": "010/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "L1497539_8_5_NM_MT__front.jpg"
+  },
+  "L3303892": {
+   "name": "Iono's Bellibolt ex",
+   "number": "194",
+   "set": "Iono's Bellibolt ex Premium Collection",
+   "year": 2025,
+   "image": "L3303892_8_NM_MT_front.jpg"
+  },
+  "L3900584": {
+   "name": "Electabuzz",
+   "number": "1",
+   "set": "BattleZone - Winner",
+   "year": 2002,
+   "image": "L3900584_2_GOOD_front.jpg"
+  },
+  "L4274738": {
+   "name": "Mega Venusaur EX",
+   "number": "2/146",
+   "set": "XY",
+   "year": 2014,
+   "image": "L4274738_2_GOOD_front.jpg"
+  },
+  "L4829727": {
+   "name": "Seismitoad",
+   "number": "105/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "L4829727_8_NM_MT_front.jpg"
+  },
+  "L5052465": {
+   "name": "Cyndaquil",
+   "number": "023/189",
+   "set": "Astral Radiance",
+   "year": 2022,
+   "image": "L5052465_6_5_EX_MT__front.jpg"
+  },
+  "L5423060": {
+   "name": "Mega Dragonite ex",
+   "number": "271/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "L5423060_9_MINT_front.jpg"
+  },
+  "L5724884": {
+   "name": "Charizard",
+   "number": "06",
+   "set": "TV Animation Edition Series #1",
+   "year": 1999,
+   "image": "L5724884_4_VG_EX_front.jpg"
+  },
+  "L6082859": {
+   "name": "Rapidash",
+   "number": "51",
+   "set": "Pok\u00e9mon Center New York",
+   "year": 2002,
+   "image": "L6082859_6_5_EX_MT__front.jpg"
+  },
+  "L6367074": {
+   "name": "Mega Gengar EX",
+   "number": "121/119",
+   "set": "Phantom Forces",
+   "year": 2014,
+   "image": "L6367074_1_POOR_front.jpg"
+  },
+  "L6666884": {
+   "name": "Brock's Vulpix",
+   "number": "37/132",
+   "set": "Top Deck Magazine",
+   "year": 2001,
+   "image": "L6666884_8_5_NM_MT__front.jpg"
+  },
+  "L6751523": {
+   "name": "Inkay",
+   "number": "75/146",
+   "set": "XY",
+   "year": 2014,
+   "image": "L6751523_6_EX_MT_front.jpg"
+  },
+  "L6891406": {
+   "name": "Gengar",
+   "number": "20/62",
+   "set": "Fossil",
+   "year": 1999,
+   "image": "L6891406_4_VG_EX_front.jpg"
+  },
+  "L7297267": {
+   "name": "Smeargle",
+   "number": "21/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "L7297267_6_5_EX_MT__front.jpg"
+  },
+  "L7478178": {
+   "name": "Jolteon \u2606",
+   "number": "101/108",
+   "set": "Psychic Lock - Jason Klaczynski",
+   "year": 2008,
+   "image": "L7478178_6_5_EX_MT__front.jpg"
+  },
+  "L7879755": {
+   "name": "Hoothoot",
+   "number": "TG12",
+   "set": "Astral Radiance Trainer Gallery",
+   "year": 2022,
+   "image": "L7879755_8_5_NM_MT__front.jpg"
+  },
+  "L8134880": {
+   "name": "Switch",
+   "number": "95/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "L8134880_8_5_NM_MT__front.jpg"
+  },
+  "L8186906": {
+   "name": "Mimikyu",
+   "number": "042/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "L8186906_9_MINT_front.jpg"
+  },
+  "L8958609": {
+   "name": "Greninja",
+   "number": "SWSH305",
+   "set": "Illustration Contest 2022",
+   "year": 2022,
+   "image": "L8958609_7_5_NEAR_MINT__front.jpg"
+  },
+  "L9325870": {
+   "name": "Wally's Compassion",
+   "number": "186/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "L9325870_6_EX_MT_front.jpg"
+  },
+  "L9453141": {
+   "name": "Feraligatr",
+   "number": "213",
+   "set": "Illustration Contest 2024",
+   "year": 2025,
+   "image": "L9453141_8_5_NM_MT__front.jpg"
+  },
+  "M1394075": {
+   "name": "Kabutops",
+   "number": "6/100",
+   "set": "Majestic Dawn",
+   "year": 2008,
+   "image": "M1394075_8_5_NM_MT__front.jpg"
+  },
+  "M1439525": {
+   "name": "Charizard",
+   "number": "TG03",
+   "set": "Lost Origin Trainer Gallery",
+   "year": 2022,
+   "image": "M1439525_7_NEAR_MINT_front.jpg"
+  },
+  "M1508407": {
+   "name": "N's Zoroark ex",
+   "number": "286/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "M1508407_10_GEM_MINT_front.jpg"
+  },
+  "M1609634": {
+   "name": "Thundurus",
+   "number": "209",
+   "set": "Black Bolt Pokemon Center Elite Trainer Box",
+   "year": 2025,
+   "image": "M1609634_3_VG_front.jpg"
+  },
+  "M2097651": {
+   "name": "Drowzee",
+   "number": "49/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "M2097651_5_EXCELLENT_front.jpg"
+  },
+  "M2347498": {
+   "name": "Kyogre EX",
+   "number": "104/108",
+   "set": "Dark Explorers",
+   "year": 2012,
+   "image": "M2347498_1_POOR_front.jpg"
+  },
+  "M2537851": {
+   "name": "Pikachu",
+   "number": "124/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "M2537851_4_VG_EX_front.jpg"
+  },
+  "M3351878": {
+   "name": "Haunter",
+   "number": "027",
+   "set": "Mega Gengar ex Mega Battle Deck",
+   "year": 2025,
+   "image": "M3351878_10_GEM_MINT_front.jpg"
+  },
+  "M4450900": {
+   "name": "Mimikyu VMAX",
+   "number": "TG17",
+   "set": "Brilliant Stars Trainer Gallery",
+   "year": 2022,
+   "image": "M4450900_4_VG_EX_front.jpg"
+  },
+  "M4489599": {
+   "name": "Kabuto",
+   "number": "50/62",
+   "set": "Fossil - 1st Edition",
+   "year": 1999,
+   "image": "M4489599_1_POOR_front.jpg"
+  },
+  "M4991383": {
+   "name": "Mightyena",
+   "number": "243/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "M4991383_5_EXCELLENT_front.jpg"
+  },
+  "M5457641": {
+   "name": "Thundurus",
+   "number": "209",
+   "set": "Black Bolt Elite Trainer Box",
+   "year": 2025,
+   "image": "M5457641_9_MINT_front.jpg"
+  },
+  "M5958169": {
+   "name": "Cyndaquil",
+   "number": "55/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "M5958169_3_VG_front.jpg"
+  },
+  "M6192817": {
+   "name": "Charizard",
+   "number": "4/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "M6192817_3_VG_front.jpg"
+  },
+  "M6594420": {
+   "name": "Dusknoir LV.X",
+   "number": "96/100",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "M6594420_1_POOR_front.jpg"
+  },
+  "M7023108": {
+   "name": "Radiant Alakazam",
+   "number": "059/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "M7023108_9_MINT_front.jpg"
+  },
+  "M8924021": {
+   "name": "Leafeon",
+   "number": "24/100",
+   "set": "Majestic Dawn Forest Force Theme Deck",
+   "year": 2008,
+   "image": "M8924021_2_GOOD_front.jpg"
+  },
+  "M9014367": {
+   "name": "Alakazam",
+   "number": "1/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "M9014367_8_5_NM_MT__front.jpg"
+  },
+  "M9313485": {
+   "name": "Mewtwo",
+   "number": "20/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "M9313485_5_EXCELLENT_front.jpg"
+  },
+  "M9379718": {
+   "name": "Ditto",
+   "number": "108/149",
+   "set": "Boundaries Crossed",
+   "year": 2012,
+   "image": "M9379718_3_VG_front.jpg"
+  },
+  "M9553752": {
+   "name": "Genesect ex",
+   "number": "169/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "M9553752_6_5_EX_MT__front.jpg"
+  },
+  "M9671322": {
+   "name": "Alakazam",
+   "number": "009",
+   "set": "Elite Trainer Box - Mega Gardevoir",
+   "year": 2025,
+   "image": "M9671322_5_EXCELLENT_front.jpg"
+  },
+  "M9711393": {
+   "name": "Trapped Charizard",
+   "number": "51",
+   "set": "The First Movie",
+   "year": 1999,
+   "image": "M9711393_9_MINT_front.jpg"
+  },
+  "M9757525": {
+   "name": "Spheal",
+   "number": "24/106",
+   "set": "Flashfire",
+   "year": 2014,
+   "image": "M9757525_6_5_EX_MT__front.jpg"
+  },
+  "N1371265": {
+   "name": "Charizard",
+   "number": "010/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "N1371265_7_5_NEAR_MINT__front.jpg"
+  },
+  "N1605065": {
+   "name": "Mega Lopunny ex",
+   "number": "128/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "N1605065_7_NEAR_MINT_front.jpg"
+  },
+  "N1776532": {
+   "name": "Jynx",
+   "number": "31/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "N1776532_3_VG_front.jpg"
+  },
+  "N2589521": {
+   "name": "Empoleon",
+   "number": "BW56",
+   "set": "Boundaries Crossed Three Pack Blisters",
+   "year": 2012,
+   "image": "N2589521_4_VG_EX_front.jpg"
+  },
+  "N2836540": {
+   "name": "Lugia V",
+   "number": "186/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "N2836540_4_VG_EX_front.jpg"
+  },
+  "N3010603": {
+   "name": "Serperior",
+   "number": "125/124",
+   "set": "Dragons Exalted",
+   "year": 2012,
+   "image": "N3010603_7_NEAR_MINT_front.jpg"
+  },
+  "N3253375": {
+   "name": "Giratina",
+   "number": "4/146",
+   "set": "Legends Awakened",
+   "year": 2008,
+   "image": "N3253375_4_VG_EX_front.jpg"
+  },
+  "N3414601": {
+   "name": "Magnezone LV.X",
+   "number": "142/146",
+   "set": "Legends Awakened",
+   "year": 2008,
+   "image": "N3414601_5_EXCELLENT_front.jpg"
+  },
+  "N3657297": {
+   "name": "Blastoise",
+   "number": "37/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "N3657297_6_5_EX_MT__front.jpg"
+  },
+  "N3691291": {
+   "name": "Ivysaur",
+   "number": "134/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "N3691291_6_5_EX_MT__front.jpg"
+  },
+  "N3723668": {
+   "name": "Lugia",
+   "number": "15/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "N3723668_5_EXCELLENT_front.jpg"
+  },
+  "N4308503": {
+   "name": "Meowth",
+   "number": "102/101",
+   "set": "Noble Victories",
+   "year": 2011,
+   "image": "N4308503_5_EXCELLENT_front.jpg"
+  },
+  "N4354510": {
+   "name": "Blastoise",
+   "number": "2/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "N4354510_4_VG_EX_front.jpg"
+  },
+  "N4621407": {
+   "name": "Lillie's Clefairy ex",
+   "number": "280/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "N4621407_8_5_NM_MT__front.jpg"
+  },
+  "N5113491": {
+   "name": "Rapidash",
+   "number": "51",
+   "set": "Pok\u00e9mon Center New York",
+   "year": 2002,
+   "image": "N5113491_8_5_NM_MT__front.jpg"
+  },
+  "N5446101": {
+   "name": "Zekrom",
+   "number": "114/114",
+   "set": "Black & White",
+   "year": 2011,
+   "image": "N5446101_2_GOOD_front.jpg"
+  },
+  "N5499411": {
+   "name": "Vulpix",
+   "number": "138/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "N5499411_4_VG_EX_front.jpg"
+  },
+  "N5501298": {
+   "name": "Steelix",
+   "number": "150/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "N5501298_10_PRISTINE_front.jpg"
+  },
+  "N5708455": {
+   "name": "Sandile",
+   "number": "135/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "N5708455_8_5_NM_MT__front.jpg"
+  },
+  "N5752191": {
+   "name": "Bulbasaur",
+   "number": "133/132",
+   "set": "Mega Evolution Enhanced Booster Display Box",
+   "year": 2025,
+   "image": "N5752191_5_EXCELLENT_front.jpg"
+  },
+  "N5982203": {
+   "name": "Machamp",
+   "number": "43",
+   "set": "February 2002 Pok\u00e9mon League",
+   "year": 2002,
+   "image": "N5982203_7_5_NEAR_MINT__front.jpg"
+  },
+  "N6067073": {
+   "name": "Reuniclus",
+   "number": "126/124",
+   "set": "Dragons Exalted",
+   "year": 2012,
+   "image": "N6067073_5_EXCELLENT_front.jpg"
+  },
+  "N6605457": {
+   "name": "Scyther",
+   "number": "45",
+   "set": "April 2002 Pok\u00e9mon League",
+   "year": 2002,
+   "image": "N6605457_8_NM_MT_front.jpg"
+  },
+  "N6632724": {
+   "name": "Giratina VSTAR",
+   "number": "212/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "N6632724_7_5_NEAR_MINT__front.jpg"
+  },
+  "N6930656": {
+   "name": "Radiant Tsareena",
+   "number": "016/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "N6930656_6_EX_MT_front.jpg"
+  },
+  "N7325831": {
+   "name": "Switch",
+   "number": "95/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "N7325831_10_GEM_MINT_front.jpg"
+  },
+  "N8121015": {
+   "name": "Mega Hawlucha ex",
+   "number": "283/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "N8121015_8_NM_MT_front.jpg"
+  },
+  "N8241348": {
+   "name": "Magmar",
+   "number": "39/62",
+   "set": "Fossil",
+   "year": 1999,
+   "image": "N8241348_1_POOR_front.jpg"
+  },
+  "N8262283": {
+   "name": "Machop",
+   "number": "44/111",
+   "set": "Furious Fists",
+   "year": 2014,
+   "image": "N8262283_5_EXCELLENT_front.jpg"
+  },
+  "N8290140": {
+   "name": "Rayquaza VMAX",
+   "number": "TG20",
+   "set": "Silver Tempest Trainer Gallery",
+   "year": 2022,
+   "image": "N8290140_8_NM_MT_front.jpg"
+  },
+  "N8809328": {
+   "name": "Pok\u00e9mon Tower",
+   "number": "42",
+   "set": "January 2002 Pok\u00e9mon League",
+   "year": 2002,
+   "image": "N8809328_6_EX_MT_front.jpg"
+  },
+  "N9728499": {
+   "name": "Charizard V",
+   "number": "SWSH260",
+   "set": "Ultra-Premium Collection",
+   "year": 2022,
+   "image": "N9728499_6_EX_MT_front.jpg"
+  },
+  "P1319389": {
+   "name": "Charcadet",
+   "number": "022",
+   "set": "Phantasmal Flames Elite Trainer Box",
+   "year": 2025,
+   "image": "P1319389_9_MINT_front.jpg"
+  },
+  "P1376552": {
+   "name": "Charizard V",
+   "number": "153/172",
+   "set": "Brilliant Stars",
+   "year": 2022,
+   "image": "P1376552_9_MINT_front.jpg"
+  },
+  "P1595119": {
+   "name": "Pikachu",
+   "number": "TG05",
+   "set": "Lost Origin Trainer Gallery",
+   "year": 2022,
+   "image": "P1595119_7_5_NEAR_MINT__front.jpg"
+  },
+  "P1891838": {
+   "name": "Zygarde",
+   "number": "134/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "P1891838_10_GEM_MINT_front.jpg"
+  },
+  "P2099737": {
+   "name": "Regieleki VMAX",
+   "number": "198/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "P2099737_7_NEAR_MINT_front.jpg"
+  },
+  "P2400174": {
+   "name": "Radiant Greninja",
+   "number": "046/189",
+   "set": "Astral Radiance",
+   "year": 2022,
+   "image": "P2400174_4_VG_EX_front.jpg"
+  },
+  "P3101594": {
+   "name": "Uxie",
+   "number": "43/146",
+   "set": "Legends Awakened",
+   "year": 2008,
+   "image": "P3101594_6_EX_MT_front.jpg"
+  },
+  "P4012731": {
+   "name": "Jesse",
+   "number": "TV9",
+   "set": "TV Animation Edition Series #1",
+   "year": 1999,
+   "image": "P4012731_7_NEAR_MINT_front.jpg"
+  },
+  "P4073209": {
+   "name": "Tyranitar",
+   "number": "29/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "P4073209_4_VG_EX_front.jpg"
+  },
+  "P4293778": {
+   "name": "Charizard",
+   "number": "20/149",
+   "set": "Boundaries Crossed",
+   "year": 2012,
+   "image": "P4293778_7_NEAR_MINT_front.jpg"
+  },
+  "P4971832": {
+   "name": "Pikachu",
+   "number": "7",
+   "set": "McDonald's Match Battle",
+   "year": 2022,
+   "image": "P4971832_6_EX_MT_front.jpg"
+  },
+  "P5388964": {
+   "name": "Tyranitar",
+   "number": "30/100",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "P5388964_4_VG_EX_front.jpg"
+  },
+  "P5579261": {
+   "name": "Professor Elm's Training Method",
+   "number": "148/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "P5579261_8_NM_MT_front.jpg"
+  },
+  "P5826828": {
+   "name": "Water Energy",
+   "number": "165/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "P5826828_8_NM_MT_front.jpg"
+  },
+  "P6972120": {
+   "name": "Mega Charizard X ex",
+   "number": "130/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "P6972120_2_GOOD_front.jpg"
+  },
+  "P7331007": {
+   "name": "Imposter Professor Oak",
+   "number": "73/102",
+   "set": "Base Set - 1st Edition",
+   "year": 1999,
+   "image": "P7331007_4_VG_EX_front.jpg"
+  },
+  "P8127132": {
+   "name": "Gumshoos",
+   "number": "153/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "P8127132_6_5_EX_MT__front.jpg"
+  },
+  "P8131593": {
+   "name": "Checklist Card",
+   "number": "NNO",
+   "set": "TV Animation Edition Series #1",
+   "year": 1999,
+   "image": "P8131593_6_EX_MT_front.jpg"
+  },
+  "P9046919": {
+   "name": "Darkrai LV.X",
+   "number": "DP19",
+   "set": "Spring Collector's Tin",
+   "year": 2008,
+   "image": "P9046919_6_EX_MT_front.jpg"
+  },
+  "Q1026519": {
+   "name": "Genesect ex",
+   "number": "067/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "Q1026519_3_VG_front.jpg"
+  },
+  "Q1040781": {
+   "name": "Excadrill ex",
+   "number": "168/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "Q1040781_8_5_NM_MT__front.jpg"
+  },
+  "Q1388958": {
+   "name": "Dusknoir",
+   "number": "TG06",
+   "set": "Brilliant Stars Trainer Gallery",
+   "year": 2022,
+   "image": "Q1388958_8_NM_MT_front.jpg"
+  },
+  "Q1549547": {
+   "name": "Venusaur",
+   "number": "30/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "Q1549547_3_VG_front.jpg"
+  },
+  "Q1778156": {
+   "name": "Blaziken V",
+   "number": "TG14",
+   "set": "Silver Tempest Trainer Gallery",
+   "year": 2022,
+   "image": "Q1778156_7_5_NEAR_MINT__front.jpg"
+  },
+  "Q1976874": {
+   "name": "Chandelure",
+   "number": "101/99",
+   "set": "Next Destinies",
+   "year": 2012,
+   "image": "Q1976874_6_EX_MT_front.jpg"
+  },
+  "Q2001091": {
+   "name": "Lillie's Clefairy ex",
+   "number": "184/159",
+   "set": "Journey Together",
+   "year": 2025,
+   "image": "Q2001091_10_PRISTINE_front.jpg"
+  },
+  "Q2956338": {
+   "name": "Regidrago V",
+   "number": "184/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "Q2956338_9_MINT_front.jpg"
+  },
+  "Q3600568": {
+   "name": "Drakloak",
+   "number": "248/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "Q3600568_6_EX_MT_front.jpg"
+  },
+  "Q3924307": {
+   "name": "Celebi",
+   "number": "50",
+   "set": "Pok\u00e9mon 4Ever",
+   "year": 2002,
+   "image": "Q3924307_9_MINT_front.jpg"
+  },
+  "Q4600112": {
+   "name": "Weavile",
+   "number": "40/132",
+   "set": "Pok\u00e9mon Countdown Calendar",
+   "year": 2008,
+   "image": "Q4600112_4_VG_EX_front.jpg"
+  },
+  "Q5350705": {
+   "name": "Bulbasaur",
+   "number": "SWSH303",
+   "set": "Illustration Contest 2022",
+   "year": 2022,
+   "image": "Q5350705_8_NM_MT_front.jpg"
+  },
+  "Q5591973": {
+   "name": "Mewtwo VSTAR",
+   "number": "079/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "Q5591973_7_5_NEAR_MINT__front.jpg"
+  },
+  "Q6239412": {
+   "name": "Blastoise",
+   "number": "2/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "Q6239412_5_EXCELLENT_front.jpg"
+  },
+  "Q6797435": {
+   "name": "Venusaur",
+   "number": "15/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "Q6797435_3_VG_front.jpg"
+  },
+  "Q6989794": {
+   "name": "Entei",
+   "number": "SL3",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "Q6989794_2_GOOD_front.jpg"
+  },
+  "Q7014870": {
+   "name": "Mega Latias ex",
+   "number": "181/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "Q7014870_5_EXCELLENT_front.jpg"
+  },
+  "Q7653924": {
+   "name": "Hitmonchan",
+   "number": "2",
+   "set": "Best of the Game Promo",
+   "year": 2002,
+   "image": "Q7653924_7_NEAR_MINT_front.jpg"
+  },
+  "Q7677801": {
+   "name": "Mew EX",
+   "number": "120/124",
+   "set": "Dragons Exalted",
+   "year": 2012,
+   "image": "Q7677801_2_GOOD_front.jpg"
+  },
+  "Q7984785": {
+   "name": "Mega Gengar ex",
+   "number": "269/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "Q7984785_9_MINT_front.jpg"
+  },
+  "Q8198927": {
+   "name": "Darkrai LV.X",
+   "number": "104/106",
+   "set": "Great Encounters",
+   "year": 2008,
+   "image": "Q8198927_1_POOR_front.jpg"
+  },
+  "Q8243735": {
+   "name": "Paldean Wooper",
+   "number": "102/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "Q8243735_7_5_NEAR_MINT__front.jpg"
+  },
+  "Q8628594": {
+   "name": "Mega Charizard X ex",
+   "number": "023",
+   "set": "Phantasmal Flames Ultra-Premium Collection",
+   "year": 2025,
+   "image": "Q8628594_1_POOR_front.jpg"
+  },
+  "Q9767734": {
+   "name": "Altaria",
+   "number": "152/149",
+   "set": "Boundaries Crossed",
+   "year": 2012,
+   "image": "Q9767734_5_EXCELLENT_front.jpg"
+  },
+  "R1173265": {
+   "name": "Misty's Psyduck",
+   "number": "193/182",
+   "set": "Destined Rivals",
+   "year": 2025,
+   "image": "R1173265_10_PRISTINE_front.jpg"
+  },
+  "R1219023": {
+   "name": "Flareon",
+   "number": "44/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "R1219023_7_NEAR_MINT_front.jpg"
+  },
+  "R1353770": {
+   "name": "Mega Latias ex",
+   "number": "163/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "R1353770_7_5_NEAR_MINT__front.jpg"
+  },
+  "R1739602": {
+   "name": "Hitmonchan",
+   "number": "7/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "R1739602_7_5_NEAR_MINT__front.jpg"
+  },
+  "R1768662": {
+   "name": "Slurpuff",
+   "number": "084/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "R1768662_10_GEM_MINT_front.jpg"
+  },
+  "R2462634": {
+   "name": "Stufful",
+   "number": "154/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "R2462634_10_PRISTINE_front.jpg"
+  },
+  "R2926658": {
+   "name": "Chandelure",
+   "number": "TG04",
+   "set": "Lost Origin Trainer Gallery",
+   "year": 2022,
+   "image": "R2926658_7_NEAR_MINT_front.jpg"
+  },
+  "R3163370": {
+   "name": "Blissey",
+   "number": "81/119",
+   "set": "Phantom Forces",
+   "year": 2014,
+   "image": "R3163370_8_5_NM_MT__front.jpg"
+  },
+  "R3577159": {
+   "name": "Meloetta ex",
+   "number": "167/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "R3577159_7_5_NEAR_MINT__front.jpg"
+  },
+  "R3631081": {
+   "name": "Litten",
+   "number": "044",
+   "set": "First Partner Illustration Collection Series 1",
+   "year": 2026,
+   "image": "R3631081_10_GEM_MINT_front.jpg"
+  },
+  "R3816077": {
+   "name": "Swampert",
+   "number": "9/106",
+   "set": "Great Encounters",
+   "year": 2008,
+   "image": "R3816077_6_EX_MT_front.jpg"
+  },
+  "R3966149": {
+   "name": "Reuniclus",
+   "number": "212",
+   "set": "Black Bolt Tech Sticker Collection",
+   "year": 2025,
+   "image": "R3966149_10_GEM_MINT_front.jpg"
+  },
+  "R4025544": {
+   "name": "Kyurem ex",
+   "number": "165/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "R4025544_5_EXCELLENT_front.jpg"
+  },
+  "R5023570": {
+   "name": "Squirtle",
+   "number": "131/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "R5023570_1_POOR_front.jpg"
+  },
+  "R5527974": {
+   "name": "Mewtwo",
+   "number": "10/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "R5527974_7_NEAR_MINT_front.jpg"
+  },
+  "R5568263": {
+   "name": "Espeon",
+   "number": "18/100",
+   "set": "Majestic Dawn",
+   "year": 2008,
+   "image": "R5568263_7_5_NEAR_MINT__front.jpg"
+  },
+  "R5805548": {
+   "name": "Arceus V",
+   "number": "122/172",
+   "set": "ADP - Ond\u0159ej \u0160kubal",
+   "year": 2022,
+   "image": "R5805548_8_NM_MT_front.jpg"
+  },
+  "R6037958": {
+   "name": "Black Kyurem EX",
+   "number": "145/149",
+   "set": "Boundaries Crossed",
+   "year": 2012,
+   "image": "R6037958_1_POOR_front.jpg"
+  },
+  "R6251088": {
+   "name": "Surfer",
+   "number": "293/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "R6251088_8_5_NM_MT__front.jpg"
+  },
+  "R6447886": {
+   "name": "Ho-Oh",
+   "number": "SL5",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "R6447886_2_GOOD_front.jpg"
+  },
+  "R6884777": {
+   "name": "Oricorio ex",
+   "number": "024",
+   "set": "Phantasmal Flames Ultra-Premium Collection",
+   "year": 2025,
+   "image": "R6884777_10_PRISTINE_front.jpg"
+  },
+  "R6905357": {
+   "name": "Vulpix",
+   "number": "136/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "R6905357_6_EX_MT_front.jpg"
+  },
+  "R6924435": {
+   "name": "Suicune",
+   "number": "SL11",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "R6924435_7_NEAR_MINT_front.jpg"
+  },
+  "R6977528": {
+   "name": "Mega Kangaskhan ex",
+   "number": "79/106",
+   "set": "Crazy Punch - Michikazu Tsuda",
+   "year": 2014,
+   "image": "R6977528_5_EXCELLENT_front.jpg"
+  },
+  "R7405082": {
+   "name": "Dawn",
+   "number": "118/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "R7405082_10_PRISTINE_front.jpg"
+  },
+  "R9010993": {
+   "name": "Bulbasaur",
+   "number": "037",
+   "set": "First Partner Illustration Collection Series 1",
+   "year": 2026,
+   "image": "R9010993_10_PRISTINE_front.jpg"
+  },
+  "R9512841": {
+   "name": "Water Energy",
+   "number": "NNO",
+   "set": "Empotech - Dylan Lefavour",
+   "year": 2008,
+   "image": "R9512841_4_VG_EX_front.jpg"
+  },
+  "R9753177": {
+   "name": "Haxorus",
+   "number": "147/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "R9753177_8_5_NM_MT__front.jpg"
+  },
+  "S1384279": {
+   "name": "Zekrom ex",
+   "number": "172/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "S1384279_6_EX_MT_front.jpg"
+  },
+  "S4258333": {
+   "name": "Clefairy",
+   "number": "101/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "S4258333_5_EXCELLENT_front.jpg"
+  },
+  "S4367019": {
+   "name": "Mewtwo",
+   "number": "20/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "S4367019_2_GOOD_front.jpg"
+  },
+  "S5264605": {
+   "name": "Hydreigon",
+   "number": "103/99",
+   "set": "Next Destinies",
+   "year": 2012,
+   "image": "S5264605_6_5_EX_MT__front.jpg"
+  },
+  "S5340038": {
+   "name": "Palkia",
+   "number": "19/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "S5340038_7_NEAR_MINT_front.jpg"
+  },
+  "S5424566": {
+   "name": "Krookodile",
+   "number": "127/124",
+   "set": "Dragons Exalted",
+   "year": 2012,
+   "image": "S5424566_8_NM_MT_front.jpg"
+  },
+  "S5529331": {
+   "name": "Metagross EX",
+   "number": "XY34",
+   "set": "Mega Metagross-EX Premium Collection",
+   "year": 2014,
+   "image": "S5529331_6_EX_MT_front.jpg"
+  },
+  "S5938694": {
+   "name": "Pidgeot",
+   "number": "18",
+   "set": "TV Animation Edition Series #1",
+   "year": 1999,
+   "image": "S5938694_7_5_NEAR_MINT__front.jpg"
+  },
+  "S6556992": {
+   "name": "Oddish",
+   "number": "122/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "S6556992_7_5_NEAR_MINT__front.jpg"
+  },
+  "S7255632": {
+   "name": "Toxtricity ex",
+   "number": "215",
+   "set": "Illustration Contest 2024",
+   "year": 2025,
+   "image": "S7255632_9_MINT_front.jpg"
+  },
+  "S7512963": {
+   "name": "Zapdos",
+   "number": "029/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "S7512963_9_MINT_front.jpg"
+  },
+  "S9152376": {
+   "name": "Hitmonchan",
+   "number": "2",
+   "set": "Best of the Game Promo",
+   "year": 2002,
+   "image": "S9152376_8_5_NM_MT__front.jpg"
+  },
+  "S9360272": {
+   "name": "Deoxys",
+   "number": "SL1",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "S9360272_1_POOR_front.jpg"
+  },
+  "S9679172": {
+   "name": "Pikachu VMAX",
+   "number": "044/185",
+   "set": "Prize Pack Series One",
+   "year": 2022,
+   "image": "S9679172_7_NEAR_MINT_front.jpg"
+  },
+  "T1075056": {
+   "name": "Butterfree",
+   "number": "38/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "T1075056_8_NM_MT_front.jpg"
+  },
+  "T1454958": {
+   "name": "Ho-Oh",
+   "number": "9/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "T1454958_6_5_EX_MT__front.jpg"
+  },
+  "T2445684": {
+   "name": "Radiant Charizard",
+   "number": "011/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "T2445684_7_NEAR_MINT_front.jpg"
+  },
+  "T2638029": {
+   "name": "Mega Venusaur ex",
+   "number": "177/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "T2638029_4_VG_EX_front.jpg"
+  },
+  "T2770447": {
+   "name": "Dewgong",
+   "number": "097/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "T2770447_7_5_NEAR_MINT__front.jpg"
+  },
+  "T3405124": {
+   "name": "Pikachu",
+   "number": "58/102",
+   "set": "Base Set - E3 Promo",
+   "year": 1999,
+   "image": "T3405124_5_EXCELLENT_front.jpg"
+  },
+  "T4610460": {
+   "name": "Zekrom ex",
+   "number": "166/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "T4610460_6_EX_MT_front.jpg"
+  },
+  "T5711052": {
+   "name": "Pichu",
+   "number": "45/100",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "T5711052_2_GOOD_front.jpg"
+  },
+  "T5851340": {
+   "name": "Fennel",
+   "number": "162/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "T5851340_8_NM_MT_front.jpg"
+  },
+  "T5879042": {
+   "name": "Raichu",
+   "number": "14/62",
+   "set": "Fossil",
+   "year": 1999,
+   "image": "T5879042_4_VG_EX_front.jpg"
+  },
+  "T6149043": {
+   "name": "Ancient Mew",
+   "number": "NNO",
+   "set": "",
+   "year": 2000,
+   "image": "T6149043_8_NM_MT_front.jpg"
+  },
+  "T6388455": {
+   "name": "Dratini",
+   "number": "107/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "T6388455_8_5_NM_MT__front.jpg"
+  },
+  "T8026856": {
+   "name": "Mega Diancie ex",
+   "number": "282/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "T8026856_9_MINT_front.jpg"
+  },
+  "T8095637": {
+   "name": "Charizard EX",
+   "number": "11/106",
+   "set": "Flashfire",
+   "year": 2014,
+   "image": "T8095637_4_VG_EX_front.jpg"
+  },
+  "T8314716": {
+   "name": "Emboar",
+   "number": "100/99",
+   "set": "Next Destinies",
+   "year": 2012,
+   "image": "T8314716_8_5_NM_MT__front.jpg"
+  },
+  "T8693570": {
+   "name": "Glaceon",
+   "number": "5/100",
+   "set": "Majestic Dawn",
+   "year": 2008,
+   "image": "T8693570_4_VG_EX_front.jpg"
+  },
+  "T9034468": {
+   "name": "Mewtwo LV.X",
+   "number": "144/146",
+   "set": "Legends Awakened",
+   "year": 2008,
+   "image": "T9034468_6_EX_MT_front.jpg"
+  },
+  "T9832640": {
+   "name": "Nidoking",
+   "number": "11/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "T9832640_8_NM_MT_front.jpg"
+  },
+  "U1239640": {
+   "name": "Psyduck",
+   "number": "226/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "U1239640_5_EXCELLENT_front.jpg"
+  },
+  "U1604079": {
+   "name": "Mega Zygarde ex",
+   "number": "120/088",
+   "set": "Perfect Order",
+   "year": 2026,
+   "image": "U1604079_9_MINT_front.jpg"
+  },
+  "U2263940": {
+   "name": "Xerneas EX",
+   "number": "146/146",
+   "set": "XY",
+   "year": 2014,
+   "image": "U2263940_7_5_NEAR_MINT__front.jpg"
+  },
+  "U2431391": {
+   "name": "Doduo",
+   "number": "48/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "U2431391_9_MINT_front.jpg"
+  },
+  "U2539139": {
+   "name": "Box of Disaster",
+   "number": "214/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "U2539139_7_5_NEAR_MINT__front.jpg"
+  },
+  "U3607978": {
+   "name": "Rayquaza",
+   "number": "SL10",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "U3607978_2_GOOD_front.jpg"
+  },
+  "U4019914": {
+   "name": "Mewtwo VSTAR",
+   "number": "031/078",
+   "set": "Pokemon GO",
+   "year": 2022,
+   "image": "U4019914_8_NM_MT_front.jpg"
+  },
+  "U4094059": {
+   "name": "Exeggutor",
+   "number": "135/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "U4094059_10_GEM_MINT_front.jpg"
+  },
+  "U5485906": {
+   "name": "Fearow",
+   "number": "11/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "U5485906_9_MINT_front.jpg"
+  },
+  "U6189744": {
+   "name": "Mega Lucario ex",
+   "number": "188/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "U6189744_1_POOR_front.jpg"
+  },
+  "U6744669": {
+   "name": "Flygon",
+   "number": "016",
+   "set": "Phantasmal Flames Build & Battle Box - Staff",
+   "year": 2025,
+   "image": "U6744669_9_MINT_front.jpg"
+  },
+  "U7215847": {
+   "name": "Machamp",
+   "number": "8/102",
+   "set": "Base Set - 1st Edition",
+   "year": 1999,
+   "image": "U7215847_2_GOOD_front.jpg"
+  },
+  "U7227503": {
+   "name": "Mega Eelektross ex",
+   "number": "278/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "U7227503_10_GEM_MINT_front.jpg"
+  },
+  "U7251916": {
+   "name": "Hisuian Zoroark VSTAR",
+   "number": "213/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "U7251916_6_5_EX_MT__front.jpg"
+  },
+  "U7507044": {
+   "name": "Serperior ex",
+   "number": "164/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "U7507044_8_5_NM_MT__front.jpg"
+  },
+  "U7976344": {
+   "name": "Jolteon",
+   "number": "37/108",
+   "set": "Dark Explorers",
+   "year": 2012,
+   "image": "U7976344_5_EXCELLENT_front.jpg"
+  },
+  "U8334097": {
+   "name": "Alakazam",
+   "number": "1/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "U8334097_8_NM_MT_front.jpg"
+  },
+  "U8792797": {
+   "name": "Mega Gardevoir ex",
+   "number": "187/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "U8792797_4_VG_EX_front.jpg"
+  },
+  "U9165916": {
+   "name": "Dialga LV.X",
+   "number": "105/106",
+   "set": "Great Encounters",
+   "year": 2008,
+   "image": "U9165916_3_VG_front.jpg"
+  },
+  "U9242086": {
+   "name": "Wartortle",
+   "number": "42/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "U9242086_6_EX_MT_front.jpg"
+  },
+  "U9396288": {
+   "name": "Rotom ex",
+   "number": "126/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "U9396288_6_EX_MT_front.jpg"
+  },
+  "V1189164": {
+   "name": "Feraligatr",
+   "number": "12/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "V1189164_2_GOOD_front.jpg"
+  },
+  "V1491665": {
+   "name": "Mega Absol ex",
+   "number": "180/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "V1491665_6_5_EX_MT__front.jpg"
+  },
+  "V1871177": {
+   "name": "Bidoof",
+   "number": "059/078",
+   "set": "Pok\u00e9mon Go",
+   "year": 2022,
+   "image": "V1871177_6_EX_MT_front.jpg"
+  },
+  "V1913576": {
+   "name": "Punk Helmet",
+   "number": "092/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "V1913576_7_5_NEAR_MINT__front.jpg"
+  },
+  "V2228829": {
+   "name": "Rayquaza VMAX",
+   "number": "TG20",
+   "set": "Silver Tempest Trainer Gallery",
+   "year": 2022,
+   "image": "V2228829_10_PRISTINE_front.jpg"
+  },
+  "V2392521": {
+   "name": "Meowth ex",
+   "number": "121/088",
+   "set": "Perfect Order",
+   "year": 2026,
+   "image": "V2392521_7_5_NEAR_MINT__front.jpg"
+  },
+  "V2556217": {
+   "name": "Mewtwo",
+   "number": "10/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "V2556217_5_EXCELLENT_front.jpg"
+  },
+  "V2798381": {
+   "name": "Ninetales",
+   "number": "12/102",
+   "set": "Base Set - 1st Edition",
+   "year": 1999,
+   "image": "V2798381_7_5_NEAR_MINT__front.jpg"
+  },
+  "V2954531": {
+   "name": "Pikachu",
+   "number": "115/114",
+   "set": "Black & White",
+   "year": 2011,
+   "image": "V2954531_5_EXCELLENT_front.jpg"
+  },
+  "V3011677": {
+   "name": "Pikachu",
+   "number": "58/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "V3011677_2_GOOD_front.jpg"
+  },
+  "V4063531": {
+   "name": "Lt. Surge's Bargain",
+   "number": "185/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "V4063531_8_NM_MT_front.jpg"
+  },
+  "V4709995": {
+   "name": "Dawn",
+   "number": "129/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "V4709995_10_PRISTINE_front.jpg"
+  },
+  "V5182438": {
+   "name": "Steelix",
+   "number": "150/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "V5182438_6_EX_MT_front.jpg"
+  },
+  "V5395864": {
+   "name": "Alakazam",
+   "number": "1/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "V5395864_7_NEAR_MINT_front.jpg"
+  },
+  "V6089872": {
+   "name": "Blastoise",
+   "number": "37/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "V6089872_4_VG_EX_front.jpg"
+  },
+  "V6177020": {
+   "name": "Dark Arbok",
+   "number": "19/82",
+   "set": "Hong Kong Pok\u00e9mon League",
+   "year": 2001,
+   "image": "V6177020_10_GEM_MINT_front.jpg"
+  },
+  "V6756678": {
+   "name": "Alakazam",
+   "number": "33/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "V6756678_1_POOR_front.jpg"
+  },
+  "V6940837": {
+   "name": "Kadabra",
+   "number": "32/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "V6940837_2_GOOD_front.jpg"
+  },
+  "V7179908": {
+   "name": "Togedemaru",
+   "number": "104/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "V7179908_7_5_NEAR_MINT__front.jpg"
+  },
+  "V7544071": {
+   "name": "Alolan Exeggutor V",
+   "number": "SWSH225",
+   "set": "Pok\u00e9mon GO Collection",
+   "year": 2022,
+   "image": "V7544071_7_NEAR_MINT_front.jpg"
+  },
+  "V8678236": {
+   "name": "Ambipom",
+   "number": "107/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "V8678236_10_GEM_MINT_front.jpg"
+  },
+  "V9439139": {
+   "name": "Piplup",
+   "number": "098/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "V9439139_7_NEAR_MINT_front.jpg"
+  },
+  "V9476985": {
+   "name": "Rayquaza",
+   "number": "128/124",
+   "set": "Dragons Exalted",
+   "year": 2012,
+   "image": "V9476985_6_5_EX_MT__front.jpg"
+  },
+  "V9646561": {
+   "name": "Bulbasaur",
+   "number": "1/108",
+   "set": "Dark Explorers",
+   "year": 2012,
+   "image": "V9646561_3_VG_front.jpg"
+  },
+  "V9973917": {
+   "name": "Team Rocket's Dugtrio",
+   "number": "101/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "V9973917_10_GEM_MINT_front.jpg"
+  },
+  "V9989726": {
+   "name": "Electabuzz",
+   "number": "2",
+   "set": "Pok\u00e9mon: The First Movie",
+   "year": 1999,
+   "image": "V9989726_7_5_NEAR_MINT__front.jpg"
+  },
+  "W1273220": {
+   "name": "Sylveon",
+   "number": "72/111",
+   "set": "Furious Fists",
+   "year": 2014,
+   "image": "W1273220_4_VG_EX_front.jpg"
+  },
+  "W1355410": {
+   "name": "Mega Scrafty ex",
+   "number": "285/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "W1355410_10_GEM_MINT_front.jpg"
+  },
+  "W1745781": {
+   "name": "Steelix",
+   "number": "28/100",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "W1745781_1_POOR_front.jpg"
+  },
+  "W1836216": {
+   "name": "Dugtrio",
+   "number": "10/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "W1836216_5_EXCELLENT_front.jpg"
+  },
+  "W1999507": {
+   "name": "Mega Charizard ex",
+   "number": "107/106",
+   "set": "Flashfire",
+   "year": 2014,
+   "image": "W1999507_5_EXCELLENT_front.jpg"
+  },
+  "W2377793": {
+   "name": "Conkeldurr",
+   "number": "127/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "W2377793_8_NM_MT_front.jpg"
+  },
+  "W2783822": {
+   "name": "Charizard",
+   "number": "010/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "W2783822_6_EX_MT_front.jpg"
+  },
+  "W2822724": {
+   "name": "Mega Dragonite ex",
+   "number": "152/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "W2822724_10_GEM_MINT_front.jpg"
+  },
+  "W3086368": {
+   "name": "Serperior ex",
+   "number": "156/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "W3086368_10_GEM_MINT_front.jpg"
+  },
+  "W3099881": {
+   "name": "Dratini",
+   "number": "107/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "W3099881_8_NM_MT_front.jpg"
+  },
+  "W3403188": {
+   "name": "Shuckle",
+   "number": "136/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "W3403188_10_GEM_MINT_front.jpg"
+  },
+  "W3684716": {
+   "name": "Victory Cup",
+   "number": "BW31",
+   "set": "Battle Road Autumn 2012 First Place",
+   "year": 2011,
+   "image": "W3684716_7_5_NEAR_MINT__front.jpg"
+  },
+  "W3778624": {
+   "name": "Eternatus VMAX",
+   "number": "TG22",
+   "set": "Lost Origin Trainer Gallery",
+   "year": 2022,
+   "image": "W3778624_6_EX_MT_front.jpg"
+  },
+  "W4269599": {
+   "name": "Dark Charmeleon",
+   "number": "32/82",
+   "set": "Australia Kraft Giveaway",
+   "year": 2001,
+   "image": "W4269599_9_MINT_front.jpg"
+  },
+  "W5275550": {
+   "name": "Stufful",
+   "number": "154/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "W5275550_4_VG_EX_front.jpg"
+  },
+  "W5672055": {
+   "name": "Groudon",
+   "number": "SL4",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "W5672055_5_EXCELLENT_front.jpg"
+  },
+  "W6481273": {
+   "name": "Simipour",
+   "number": "102/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "W6481273_9_MINT_front.jpg"
+  },
+  "W7116553": {
+   "name": "Arbok",
+   "number": "24",
+   "set": "TV Animation Edition Series #1",
+   "year": 1999,
+   "image": "W7116553_6_EX_MT_front.jpg"
+  },
+  "W8644540": {
+   "name": "Lillipup",
+   "number": "120/149",
+   "set": "Boundaries Crossed",
+   "year": 2012,
+   "image": "W8644540_6_EX_MT_front.jpg"
+  },
+  "W8943048": {
+   "name": "Ho-oh",
+   "number": "52",
+   "set": "Pok\u00e9mon Center New York",
+   "year": 2002,
+   "image": "W8943048_7_NEAR_MINT_front.jpg"
+  },
+  "W8953990": {
+   "name": "Gengar EX",
+   "number": "114/119",
+   "set": "Phantom Forces",
+   "year": 2014,
+   "image": "W8953990_1_POOR_front.jpg"
+  },
+  "W8986867": {
+   "name": "Radiant Gardevoir",
+   "number": "069/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "W8986867_8_5_NM_MT__front.jpg"
+  },
+  "W9284293": {
+   "name": "Arbok",
+   "number": "31/62",
+   "set": "Fossil - 1st Edition",
+   "year": 1999,
+   "image": "W9284293_3_VG_front.jpg"
+  },
+  "W9461128": {
+   "name": "Mega Dragonite ex",
+   "number": "290/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "W9461128_7_5_NEAR_MINT__front.jpg"
+  },
+  "W9907528": {
+   "name": "Lugia",
+   "number": "SL7",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "W9907528_7_5_NEAR_MINT__front.jpg"
+  },
+  "X1088276": {
+   "name": "Machamp",
+   "number": "8/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "X1088276_2_GOOD_front.jpg"
+  },
+  "X1787851": {
+   "name": "Serperior",
+   "number": "BW20",
+   "set": "Evolved Battle Action Tins",
+   "year": 2011,
+   "image": "X1787851_6_EX_MT_front.jpg"
+  },
+  "X2004214": {
+   "name": "Charizard",
+   "number": "103/100",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "X2004214_4_VG_EX_front.jpg"
+  },
+  "X3019898": {
+   "name": "Radiant Alakazam",
+   "number": "059/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "X3019898_10_PRISTINE_front.jpg"
+  },
+  "X3448548": {
+   "name": "Mew VMAX",
+   "number": "114/264",
+   "set": "The Shape of Mew - Andr\u00e9 Chiasson",
+   "year": 2022,
+   "image": "X3448548_10_GEM_MINT_front.jpg"
+  },
+  "X3581688": {
+   "name": "Dragonite EX",
+   "number": "74/111",
+   "set": "Furious Fists",
+   "year": 2014,
+   "image": "X3581688_2_GOOD_front.jpg"
+  },
+  "X3652777": {
+   "name": "Cubone",
+   "number": "103/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "X3652777_9_MINT_front.jpg"
+  },
+  "X3923374": {
+   "name": "Mega Kangaskhan ex",
+   "number": "182/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "X3923374_7_NEAR_MINT_front.jpg"
+  },
+  "X4175230": {
+   "name": "Poliwhirl",
+   "number": "031/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "X4175230_8_5_NM_MT__front.jpg"
+  },
+  "X4254705": {
+   "name": "Eevee",
+   "number": "SWSH190",
+   "set": "Brilliant Stars Single Pack Blisters",
+   "year": 2022,
+   "image": "X4254705_7_5_NEAR_MINT__front.jpg"
+  },
+  "X4504825": {
+   "name": "Gengar",
+   "number": "13/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "X4504825_2_GOOD_front.jpg"
+  },
+  "X4564447": {
+   "name": "Charizard",
+   "number": "4/102",
+   "set": "Base Set - Shadowless",
+   "year": 1999,
+   "image": "X4564447_6_EX_MT_front.jpg"
+  },
+  "X4569795": {
+   "name": "Gengar EX",
+   "number": "34/119",
+   "set": "Phantom Forces",
+   "year": 2014,
+   "image": "X4569795_2_GOOD_front.jpg"
+  },
+  "X5004970": {
+   "name": "Origin Forme Dialga V",
+   "number": "SWSH255",
+   "set": "Origin Forme Dialga VSTAR Premium Collection",
+   "year": 2022,
+   "image": "X5004970_10_GEM_MINT_front.jpg"
+  },
+  "X6301408": {
+   "name": "Meowth",
+   "number": "106/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "X6301408_4_VG_EX_front.jpg"
+  },
+  "X6381434": {
+   "name": "Meloetta",
+   "number": "026",
+   "set": "Mega Diancie ex Mega Battle Deck",
+   "year": 2025,
+   "image": "X6381434_6_5_EX_MT__front.jpg"
+  },
+  "X6473080": {
+   "name": "Bulbasaur",
+   "number": "037",
+   "set": "First Partner Illustration Collection Series 1",
+   "year": 2026,
+   "image": "X6473080_9_MINT_front.jpg"
+  },
+  "X6648503": {
+   "name": "The Nefarious Team Rocket",
+   "number": "12",
+   "set": "The First Movie",
+   "year": 1999,
+   "image": "X6648503_9_MINT_front.jpg"
+  },
+  "X6689097": {
+   "name": "Staryu",
+   "number": "TV5",
+   "set": "TV Animation Edition Series #1",
+   "year": 1999,
+   "image": "X6689097_6_5_EX_MT__front.jpg"
+  },
+  "X6704870": {
+   "name": "Ninjask",
+   "number": "67/146",
+   "set": "Legends Awakened",
+   "year": 2008,
+   "image": "X6704870_6_EX_MT_front.jpg"
+  },
+  "X7583393": {
+   "name": "Vaporeon",
+   "number": "52/95",
+   "set": "Call of Legends",
+   "year": 2011,
+   "image": "X7583393_1_POOR_front.jpg"
+  },
+  "X7660179": {
+   "name": "Aerodactyl V",
+   "number": "180/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "X7660179_5_EXCELLENT_front.jpg"
+  },
+  "X7747761": {
+   "name": "Swirlix",
+   "number": "9/12",
+   "set": "McDonald's Collection",
+   "year": 2014,
+   "image": "X7747761_3_VG_front.jpg"
+  },
+  "X8331919": {
+   "name": "Vaporeon",
+   "number": "H31/H32",
+   "set": "Skyridge",
+   "year": 2003,
+   "image": "X8331919_10_PRISTINE_front.jpg"
+  },
+  "X8801494": {
+   "name": "Canari",
+   "number": "291/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "X8801494_10_GEM_MINT_front.jpg"
+  },
+  "X9049960": {
+   "name": "Heatran LV.X",
+   "number": "97/100",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "X9049960_3_VG_front.jpg"
+  },
+  "X9254362": {
+   "name": "Team Rocket's Wobbuffet",
+   "number": "203",
+   "set": "Destined Rivals Elite Trainer Box",
+   "year": 2025,
+   "image": "X9254362_8_5_NM_MT__front.jpg"
+  },
+  "X9980148": {
+   "name": "Prism Energy",
+   "number": "086/086",
+   "set": "Black Bolt",
+   "year": 2025,
+   "image": "X9980148_9_MINT_front.jpg"
+  },
+  "Y2814578": {
+   "name": "Lass",
+   "number": "75/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "Y2814578_7_5_NEAR_MINT__front.jpg"
+  },
+  "Y3065366": {
+   "name": "Raichu LV.X",
+   "number": "99/100",
+   "set": "Stormfront",
+   "year": 2008,
+   "image": "Y3065366_2_GOOD_front.jpg"
+  },
+  "Y3285309": {
+   "name": "Darmanitan",
+   "number": "28/149",
+   "set": "Boundaries Crossed",
+   "year": 2012,
+   "image": "Y3285309_6_EX_MT_front.jpg"
+  },
+  "Y3582220": {
+   "name": "Raichu",
+   "number": "28/111",
+   "set": "Furious Fists",
+   "year": 2014,
+   "image": "Y3582220_3_VG_front.jpg"
+  },
+  "Y3600153": {
+   "name": "Galarian Articuno V",
+   "number": "TG16",
+   "set": "Astral Radiance Trainer Gallery",
+   "year": 2022,
+   "image": "Y3600153_7_NEAR_MINT_front.jpg"
+  },
+  "Y3625619": {
+   "name": "Steven's Metagross ex",
+   "number": "289/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "Y3625619_10_PRISTINE_front.jpg"
+  },
+  "Y3625719": {
+   "name": "Charizard",
+   "number": "39/165",
+   "set": "Expedition Base Set",
+   "year": 2002,
+   "image": "Y3625719_10_GEM_MINT_front.jpg"
+  },
+  "Y3688558": {
+   "name": "Suicune",
+   "number": "53",
+   "set": "Pok\u00e9mon 4Ever VHS/DVD",
+   "year": 2002,
+   "image": "Y3688558_8_NM_MT_front.jpg"
+  },
+  "Y4552123": {
+   "name": "Oricorio ex",
+   "number": "024",
+   "set": "Phantasmal Flames Ultra-Premium Collection",
+   "year": 2025,
+   "image": "Y4552123_7_NEAR_MINT_front.jpg"
+  },
+  "Y5052437": {
+   "name": "Shroodle",
+   "number": "149/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "Y5052437_5_EXCELLENT_front.jpg"
+  },
+  "Y5551489": {
+   "name": "Mega Charizard X ex",
+   "number": "013/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "Y5551489_6_5_EX_MT__front.jpg"
+  },
+  "Y5732731": {
+   "name": "Dragonite VSTAR",
+   "number": "050/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "Y5732731_9_MINT_front.jpg"
+  },
+  "Y6057315": {
+   "name": "Pikachu",
+   "number": "SWSH153",
+   "set": "Holiday Calendar",
+   "year": 2022,
+   "image": "Y6057315_5_EXCELLENT_front.jpg"
+  },
+  "Y6317216": {
+   "name": "Radiant Hisuian Sneasler",
+   "number": "123/196",
+   "set": "Lost Origin",
+   "year": 2022,
+   "image": "Y6317216_6_EX_MT_front.jpg"
+  },
+  "Y6587347": {
+   "name": "Pikachu ex",
+   "number": "277/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "Y6587347_10_GEM_MINT_front.jpg"
+  },
+  "Y7686378": {
+   "name": "Radiant Charizard",
+   "number": "011/078",
+   "set": "Pok\u00e9mon GO",
+   "year": 2022,
+   "image": "Y7686378_6_5_EX_MT__front.jpg"
+  },
+  "Y8042790": {
+   "name": "Cottonee",
+   "number": "018",
+   "set": "Phantasmal Flames Single Pack Blister",
+   "year": 2025,
+   "image": "Y8042790_9_MINT_front.jpg"
+  },
+  "Y8859090": {
+   "name": "Tepig",
+   "number": "BW02",
+   "set": "Sneak-Peek Tins",
+   "year": 2011,
+   "image": "Y8859090_8_5_NM_MT__front.jpg"
+  },
+  "Z1910611": {
+   "name": "Mega Gengar EX",
+   "number": "35/119",
+   "set": "Phantom Forces",
+   "year": 2014,
+   "image": "Z1910611_4_VG_EX_front.jpg"
+  },
+  "Z3009750": {
+   "name": "Origin Forme Dialga V",
+   "number": "177/189",
+   "set": "Astral Radiance",
+   "year": 2022,
+   "image": "Z3009750_4_VG_EX_front.jpg"
+  },
+  "Z3058395": {
+   "name": "Yamper",
+   "number": "099/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "Z3058395_7_NEAR_MINT_front.jpg"
+  },
+  "Z3484356": {
+   "name": "Mega Gardevoir ex",
+   "number": "032",
+   "set": "Ascended Heroes Premium Poster Collection",
+   "year": 2026,
+   "image": "Z3484356_10_GEM_MINT_front.jpg"
+  },
+  "Z3905086": {
+   "name": "Mew \u2606",
+   "number": "101/101",
+   "set": "Empotech - Dylan Lefavour",
+   "year": 2008,
+   "image": "Z3905086_5_EXCELLENT_front.jpg"
+  },
+  "Z4088641": {
+   "name": "Mega Lucario ex",
+   "number": "179/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "Z4088641_6_EX_MT_front.jpg"
+  },
+  "Z4289999": {
+   "name": "Sunflora",
+   "number": "SWSH269",
+   "set": "Silver Tempest Build & Battle Box - Staff",
+   "year": 2022,
+   "image": "Z4289999_8_5_NM_MT__front.jpg"
+  },
+  "Z4779268": {
+   "name": "Celebratory Fanfare",
+   "number": "028",
+   "set": "Play! Pok\u00e9mon Ace Trainer",
+   "year": 2026,
+   "image": "Z4779268_8_5_NM_MT__front.jpg"
+  },
+  "Z5523316": {
+   "name": "Ludicolo",
+   "number": "095/094",
+   "set": "Phantasmal Flames",
+   "year": 2025,
+   "image": "Z5523316_10_GEM_MINT_front.jpg"
+  },
+  "Z6021577": {
+   "name": "Reshiram",
+   "number": "113/114",
+   "set": "Black & White",
+   "year": 2011,
+   "image": "Z6021577_8_5_NM_MT__front.jpg"
+  },
+  "Z6293727": {
+   "name": "Rayquaza EX",
+   "number": "85/124",
+   "set": "Dragons Exalted",
+   "year": 2012,
+   "image": "Z6293727_6_EX_MT_front.jpg"
+  },
+  "Z6478868": {
+   "name": "Pikachu",
+   "number": "5/12",
+   "set": "McDonald's Collection",
+   "year": 2014,
+   "image": "Z6478868_6_5_EX_MT__front.jpg"
+  },
+  "Z6681370": {
+   "name": "Haunter",
+   "number": "6/62",
+   "set": "Fossil - 1st Edition",
+   "year": 1999,
+   "image": "Z6681370_9_MINT_front.jpg"
+  },
+  "Z7009101": {
+   "name": "Blaziken",
+   "number": "1/106",
+   "set": "Great Encounters",
+   "year": 2008,
+   "image": "Z7009101_6_5_EX_MT__front.jpg"
+  },
+  "Z7149058": {
+   "name": "Mega Charizard ex",
+   "number": "108/106",
+   "set": "Flashfire",
+   "year": 2014,
+   "image": "Z7149058_2_GOOD_front.jpg"
+  },
+  "Z7158681": {
+   "name": "Onix",
+   "number": "56/102",
+   "set": "Base Set",
+   "year": 1999,
+   "image": "Z7158681_9_MINT_front.jpg"
+  },
+  "Z7254982": {
+   "name": "Charizard EX",
+   "number": "XY29",
+   "set": "EX Power Trio Tins",
+   "year": 2014,
+   "image": "Z7254982_8_NM_MT_front.jpg"
+  },
+  "Z7298003": {
+   "name": "Moltres",
+   "number": "12/62",
+   "set": "Fossil",
+   "year": 1999,
+   "image": "Z7298003_2_GOOD_front.jpg"
+  },
+  "Z7314367": {
+   "name": "Worker",
+   "number": "209/195",
+   "set": "Silver Tempest",
+   "year": 2022,
+   "image": "Z7314367_7_5_NEAR_MINT__front.jpg"
+  },
+  "Z7332289": {
+   "name": "Magneton",
+   "number": "9/102",
+   "set": "Base Set - 1st Edition",
+   "year": 1999,
+   "image": "Z7332289_6_EX_MT_front.jpg"
+  },
+  "Z7370340": {
+   "name": "Steven's Metagross ex",
+   "number": "289/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "Z7370340_7_5_NEAR_MINT__front.jpg"
+  },
+  "Z7924793": {
+   "name": "Mega Lucario EX",
+   "number": "113/111",
+   "set": "Furious Fists",
+   "year": 2014,
+   "image": "Z7924793_6_EX_MT_front.jpg"
+  },
+  "Z8203513": {
+   "name": "Iris's Fighting Spirit",
+   "number": "292/217",
+   "set": "Ascended Heroes",
+   "year": 2026,
+   "image": "Z8203513_9_MINT_front.jpg"
+  },
+  "Z8422088": {
+   "name": "Steelix",
+   "number": "150/132",
+   "set": "MEGA Base Set",
+   "year": 2025,
+   "image": "Z8422088_6_EX_MT_front.jpg"
+  },
+  "Z9607962": {
+   "name": "Pikachu",
+   "number": "27/111",
+   "set": "Furious Fists",
+   "year": 2014,
+   "image": "Z9607962_7_NEAR_MINT_front.jpg"
+  },
+  "Z9877458": {
+   "name": "Charizard EX",
+   "number": "100/106",
+   "set": "Flashfire",
+   "year": 2014,
+   "image": "Z9877458_6_EX_MT_front.jpg"
+  }
+ }
+}

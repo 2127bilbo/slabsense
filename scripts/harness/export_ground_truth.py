@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -119,6 +120,21 @@ def main():
     n_dings = sum(len(v["dings"]) for v in out.values())
     n_cent = sum(1 for v in out.values() if v["centering"]["front"]["lrRatio"] is not None)
     print(f"wrote {OUT} — {len(out)} certs, {n_dings} dings, {n_cent} with front centering")
+
+    if "--names" in sys.argv:
+        # Identification truth for scripts/harness/identify.mjs
+        names = {}
+        for row in manifest.itertuples(index=False):
+            names[row.cert] = {
+                "name": row.card_name,
+                "number": row.card_number,
+                "set": row.set_name,
+                "year": int(row.year) if row.year is not None and not (isinstance(row.year, float) and math.isnan(row.year)) else None,
+                "image": images[row.cert]["front"],
+            }
+        ID_OUT = OUT.with_name("id-truth.json")
+        ID_OUT.write_text(json.dumps({"generated": payload["generated"], "count": len(names), "certs": dict(sorted(names.items()))}, indent=1), encoding="utf-8")
+        print(f"wrote {ID_OUT} — {len(names)} certs")
 
 
 if __name__ == "__main__":
