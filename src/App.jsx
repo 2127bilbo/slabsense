@@ -2136,8 +2136,27 @@ export default function SlabSense(){
     const src = side === 'front' ? fI : bI;
     if (!src) return;
 
-    // Run analysis with new bounds
-    const result = await analyzeCardFull(src, side, overrideBounds, overrideCentering);
+    // 1) Generate the new crop from the corrected outer bounds (F2: crop first, then analyze it)
+    let croppedImage = null;
+    try {
+      // Use corners if available (corner mode), otherwise build from bounds
+      const corners = overrideBounds.corners || {
+        tl: { x: overrideBounds.left, y: overrideBounds.top },
+        tr: { x: overrideBounds.right, y: overrideBounds.top },
+        bl: { x: overrideBounds.left, y: overrideBounds.bottom },
+        br: { x: overrideBounds.right, y: overrideBounds.bottom },
+      };
+      const rotation = overrideCentering.rotation || 0;
+      croppedImage = await cropToOuterBounds(src, corners, rotation, 1400);
+      if (side === 'front') setFrontCroppedImage(croppedImage); else setBackCroppedImage(croppedImage);
+    } catch (cropErr) {
+      console.error('[applyManualCorrection] Crop failed:', cropErr);
+    }
+
+    // 2) Analyze the crop with full-image bounds; fall back to original + bounds only if cropping failed
+    const result = croppedImage
+      ? await analyzeCardFull(croppedImage, side, null, overrideCentering)
+      : await analyzeCardFull(src, side, overrideBounds, overrideCentering);
     const newFR = side === 'front' ? result : fR;
     const newBR = side === 'back' ? result : bR;
     if (side === 'front') setFR(result); else setBR(result);
@@ -2164,27 +2183,6 @@ export default function SlabSense(){
       setFrontCenteringData(newCenteringData);
     } else {
       setBackCenteringData(newCenteringData);
-    }
-
-    // Generate new cropped image from the bounds
-    try {
-      // Use corners if available (corner mode), otherwise build from bounds
-      const corners = overrideBounds.corners || {
-        tl: { x: overrideBounds.left, y: overrideBounds.top },
-        tr: { x: overrideBounds.right, y: overrideBounds.top },
-        bl: { x: overrideBounds.left, y: overrideBounds.bottom },
-        br: { x: overrideBounds.right, y: overrideBounds.bottom },
-      };
-      const rotation = overrideCentering.rotation || 0;
-      const croppedImage = await cropToOuterBounds(src, corners, rotation, result.imgW || 1400);
-
-      if (side === 'front') {
-        setFrontCroppedImage(croppedImage);
-      } else {
-        setBackCroppedImage(croppedImage);
-      }
-    } catch (cropErr) {
-      console.error('[applyManualCorrection] Crop failed:', cropErr);
     }
 
     const effFront = ignoreCentering ? PERFECT_CENTER : newFR.centering;
@@ -2246,13 +2244,18 @@ export default function SlabSense(){
         };
       }
 
-      setProg(frontOverrideBounds ? "Analyzing with manual bounds (front)..." : "Detecting card bounds (front)...");
+      // F2: when the user cropped the card in the centering tool, analyze THAT image
+      // with no bounds override (findBounds on a card-filling crop returns the frame).
+      // The manual centering ratios still override analyzeCentering.
+      const frontSrc = frontCroppedImage || fI;
+      const backSrc  = backCroppedImage  || bI;
+      setProg(frontCroppedImage ? "Analyzing cropped card (front)..." : frontOverrideBounds ? "Analyzing with manual bounds (front)..." : "Detecting card bounds (front)...");
       await new Promise(r=>setTimeout(r,30));
-      const fr=await analyzeCardFull(fI,"front", frontOverrideBounds, frontOverrideCentering); setFR(fr);
+      const fr=await analyzeCardFull(frontSrc,"front", frontCroppedImage ? null : frontOverrideBounds, frontOverrideCentering); setFR(fr);
 
-      setProg(backOverrideBounds ? "Analyzing with manual bounds (back)..." : "Detecting card bounds (back)...");
+      setProg(backCroppedImage ? "Analyzing cropped card (back)..." : backOverrideBounds ? "Analyzing with manual bounds (back)..." : "Detecting card bounds (back)...");
       await new Promise(r=>setTimeout(r,30));
-      const br=await analyzeCardFull(bI,"back", backOverrideBounds, backOverrideCentering); setBR(br);
+      const br=await analyzeCardFull(backSrc,"back", backCroppedImage ? null : backOverrideBounds, backOverrideCentering); setBR(br);
 
       setProg(`Computing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
       const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
@@ -2275,7 +2278,7 @@ export default function SlabSense(){
       setFM(await genMaps(fI)); setBM(await genMaps(bI));
       setStep(2);
     }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);}
-  },[fI,bI,ignoreCentering,gradingCompany,frontCenteringData,backCenteringData,frontQuality,backQuality]);
+  },[fI,bI,frontCroppedImage,backCroppedImage,ignoreCentering,gradingCompany,frontCenteringData,backCenteringData,frontQuality,backQuality]);
 
   // Combine image quality for grading confidence calculation
   const combinedImageQuality = useCallback(() => {
