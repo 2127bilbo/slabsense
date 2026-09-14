@@ -18,6 +18,8 @@ _TYPE_MAP: dict[str, str] = {
 }
 CORNER_LOCATIONS = {"TL", "TR", "BL", "BR"}
 EDGE_LOCATIONS = {"T", "B", "L", "R"}
+_DING_CORNER_WORDS = {"TOP LEFT": "TL", "TOP RIGHT": "TR", "BOTTOM LEFT": "BL", "BOTTOM RIGHT": "BR"}
+_DING_EDGE_WORDS = {"TOP": "T", "BOTTOM": "B", "LEFT": "L", "RIGHT": "R"}
 
 
 def _num(v) -> float:
@@ -43,6 +45,21 @@ def map_engine_type(type_name: str | None, subtype_name: str | None, location: s
     if location in EDGE_LOCATIONS and f"{t}|edge" in _TYPE_MAP:
         return _TYPE_MAP[f"{t}|edge"]
     return _TYPE_MAP.get(t, "UNKNOWN")
+
+
+def ding_location_class(location: str | None) -> str | None:
+    """Reduce a ding's free-text Location (e.g. "TOP LEFT", "MIDDLE LEFT") to the same
+    corner/edge class map_engine_type expects ("TL".."BR", "T"/"B"/"L"/"R"), or None when
+    the location doesn't reduce to one of those exact words (interior locations like
+    "MIDDLE LEFT", edge-centers like "TOP CENTER", or corner variants missing the space)."""
+    if location is None:
+        return None
+    loc = location.upper()
+    if loc in _DING_CORNER_WORDS:
+        return _DING_CORNER_WORDS[loc]
+    if loc in _DING_EDGE_WORDS:
+        return _DING_EDGE_WORDS[loc]
+    return None
 
 
 # ── manifest ─────────────────────────────────────────────────────────────
@@ -151,13 +168,28 @@ def edge_rows(cert: str, score: dict) -> list[dict]:
 # ── surface markers ──────────────────────────────────────────────────────
 SURFACE_COLUMNS = [
     "cert", "side", "marker_id", "ordering", "type_name", "subtype_name", "family", "engine_type",
-    "location", "source", "is_rollup", "x", "y", "w", "h", "x1", "y1", "x2", "y2",
+    "location", "source", "is_rollup", "x", "y", "w", "h", "raw_w", "raw_h", "x1", "y1", "x2", "y2",
     "rotation_deg", "deduction", "deduction_raw", "deduction_override", "area", "depth", "white_scale",
 ]
 
 
-def _bbox(m: dict, W: float, H: float) -> tuple[float, float, float, float, float, float, float, float]:
-    """Return (x, y, w, h, x1, y1, x2, y2) as canvas fractions; NaN where absent."""
+def _rotated_aabb(left: float, top: float, width: float, height: float, angle_deg: float) -> tuple[float, float, float, float]:
+    """Axis-aligned bounding box (canvas pixels) of a width x height rectangle anchored at
+    its top-left corner (left, top) and rotated angle_deg degrees clockwise (screen, y down)
+    about that same corner — TAG's Fabric.js canvas convention."""
+    theta = math.radians(angle_deg)
+    c, s = math.cos(theta), math.sin(theta)
+    corners = ((0.0, 0.0), (width, 0.0), (width, height), (0.0, height))
+    xs = [left + dx * c - dy * s for dx, dy in corners]
+    ys = [top + dx * s + dy * c for dx, dy in corners]
+    x0, y0 = min(xs), min(ys)
+    return x0, y0, max(xs) - x0, max(ys) - y0
+
+
+def _bbox(m: dict, W: float, H: float) -> tuple[float, float, float, float, float, float, float, float, float, float]:
+    """Return (x, y, w, h, raw_w, raw_h, x1, y1, x2, y2) as canvas fractions; NaN where absent.
+    raw_w/raw_h are the un-rotated fractions (equal to w/h except for a rotated Frame/Ellipse
+    box, where w/h are expanded to the rotated rectangle's axis-aligned bounding box)."""
     if all(m.get(k) is not None for k in ("x1", "y1", "x2", "y2")):
         rx1, ry1, rx2, ry2 = _num(m["x1"]), _num(m["y1"]), _num(m["x2"]), _num(m["y2"])
         x1, y1, x2, y2 = rx1 / W, ry1 / H, rx2 / W, ry2 / H
@@ -173,11 +205,17 @@ def _bbox(m: dict, W: float, H: float) -> tuple[float, float, float, float, floa
             x = (x1 + x2) / 2 - w / 2
         if raw_h < LINE_MIN_FRAC:
             y = (y1 + y2) / 2 - h / 2
-        return x, y, w, h, x1, y1, x2, y2
+        return x, y, w, h, w, h, x1, y1, x2, y2
     if all(m.get(k) is not None for k in ("top", "left", "width", "height")):
-        return (_num(m["left"]) / W, _num(m["top"]) / H, _num(m["width"]) / W, _num(m["height"]) / H,
-                NAN, NAN, NAN, NAN)
-    return (NAN,) * 8
+        left, top, width, height = _num(m["left"]), _num(m["top"]), _num(m["width"]), _num(m["height"])
+        raw_w, raw_h = width / W, height / H
+        angle = m.get("rotationAngle")
+        angle_num = _num(angle) if angle is not None else 0.0
+        if angle_num != 0.0 and not math.isnan(angle_num):
+            px, py, pw, ph = _rotated_aabb(left, top, width, height, angle_num)
+            return px / W, py / H, pw / W, ph / H, raw_w, raw_h, NAN, NAN, NAN, NAN
+        return left / W, top / H, raw_w, raw_h, raw_w, raw_h, NAN, NAN, NAN, NAN
+    return (NAN,) * 10
 
 
 def _effective_deduction(m: dict) -> tuple[float, float, float]:
@@ -197,7 +235,7 @@ def surface_rows(cert: str, score: dict) -> list[dict]:
         for m in ann.get("markers") or []:
             t = m.get("typeName") or ""
             if math.isnan(W) or math.isnan(H) or W == 0 or H == 0:
-                geom = (NAN,) * 8
+                geom = (NAN,) * 10
             else:
                 geom = _bbox(m, W, H)
             ded, raw, ovr = _effective_deduction(m)
@@ -213,7 +251,8 @@ def surface_rows(cert: str, score: dict) -> list[dict]:
                 "location": m.get("location"), "source": m.get("Source"),
                 "is_rollup": bool(m.get("isRollup")),
                 "x": geom[0], "y": geom[1], "w": geom[2], "h": geom[3],
-                "x1": geom[4], "y1": geom[5], "x2": geom[6], "y2": geom[7],
+                "raw_w": geom[4], "raw_h": geom[5],
+                "x1": geom[6], "y1": geom[7], "x2": geom[8], "y2": geom[9],
                 "rotation_deg": _num(m.get("rotationAngle")) if m.get("rotationAngle") is not None else 0.0,
                 "deduction": ded, "deduction_raw": raw, "deduction_override": ovr,
                 "area": _num(m.get("Area")), "depth": _num(m.get("Depth")), "white_scale": _num(m.get("WhiteScale")),
@@ -238,7 +277,8 @@ def ding_rows(cert: str, detail: dict) -> list[dict]:
         out.append({
             "cert": cert, "side": (g.get("Side") or "?")[0].upper(),
             "ordering": ordering, "type_name": g.get("Type"),
-            "engine_type": map_engine_type(g.get("Type"), None, None), "location": g.get("Location"),
+            "engine_type": map_engine_type(g.get("Type"), None, ding_location_class(g.get("Location"))),
+            "location": g.get("Location"),
             "px_x": px, "px_y": py, "px_w": pw, "px_h": ph,
             "x": px / W if W else NAN, "y": py / H if H else NAN,
             "w": pw / W if W else NAN, "h": ph / H if H else NAN,

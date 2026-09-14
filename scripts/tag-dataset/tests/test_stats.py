@@ -77,3 +77,49 @@ def test_report_rotation_and_out_of_range_sections(tmp_path, detail_fixture, sco
     text = stats.report(str(out))
     assert "rotated markers: 1 {'Line': 1}" in text
     assert "boxes out of range: 1" in text
+
+
+# ── rotated-box expansion line (item 2) ───────────────────────────────────
+def test_report_rotation_expansion_line_counts_boxes_that_grew_more_than_1pct(tmp_path, detail_fixture, score_fixture):
+    ann = score_fixture["data"]["surfaceFrontData"]["annotations"]
+    W, H = ann["width"], ann["height"]
+    small_rotation = {"ID": 100, "typeName": "LineMarker_Roller", "top": 10, "left": 10, "width": 10, "height": 10,
+                       "rotationAngle": 15, "scoreDeduction": 5}
+    big_rotation = {"ID": 102, "typeName": "FrameMarker_ESW_CSW", "location": "TL", "top": 10, "left": 10,
+                     "width": 100, "height": 10, "rotationAngle": 90, "scoreDeduction": 5}
+    score = {"data": {**score_fixture["data"], "surfaceFrontData": {
+        "annotations": {**ann, "markers": ann["markers"] + [small_rotation, big_rotation]}}}}
+    s = Store(str(tmp_path / "t.sqlite"))
+    s.put_raw("C1240631", "7", detail_fixture, score, 200, None)
+    out = tmp_path / "out"
+    build.build(s, str(out), seed=1, splits_path=tmp_path / "s.parquet")
+    text = stats.report(str(out))
+    assert "rotated markers: 2 " in text
+    assert "expanded >1% of card: 1" in text
+
+
+# ── aspect-mismatch cert list (item 3) ────────────────────────────────────
+def test_report_lists_worst_aspect_mismatches_sorted(tmp_path, detail_fixture, score_fixture):
+    s = Store(str(tmp_path / "t.sqlite"))
+
+    def add(cert, front_w, front_h, image_w, image_h):
+        d = {"data": {**detail_fixture["data"], "uuid": cert, "imageWidth": image_w, "imageHeight": image_h}}
+        ann = score_fixture["data"]["surfaceFrontData"]["annotations"]
+        back_ann = score_fixture["data"]["surfaceBackData"]["annotations"]
+        # Keep the back side's canvas aspect matching the image exactly, so only the front
+        # side (under test) can show up as an offender.
+        sc = {"data": {**score_fixture["data"],
+                       "surfaceFrontData": {"annotations": {**ann, "width": front_w, "height": front_h}},
+                       "surfaceBackData": {"annotations": {**back_ann, "width": image_w, "height": image_h}}}}
+        s.put_raw(cert, "7", d, sc, 200, None)
+
+    add("OK1", 500, 500, 1000, 1000)          # ratio 1.0 -> not an offender
+    add("BAD_SMALL", 550, 500, 1000, 1000)    # |ratio-1| = 0.10
+    add("BAD_BIG", 700, 500, 1000, 1000)      # |ratio-1| = 0.40 (worst)
+    out = tmp_path / "out"
+    build.build(s, str(out), seed=1, splits_path=tmp_path / "s.parquet")
+    text = stats.report(str(out))
+    assert "offending certs (cert, side, ratio), worst first:" in text
+    tail = text.split("offending certs (cert, side, ratio), worst first:")[1]
+    assert "OK1" not in tail
+    assert tail.index("BAD_BIG") < tail.index("BAD_SMALL")

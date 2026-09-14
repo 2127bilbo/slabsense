@@ -85,13 +85,22 @@ def report(out_dir: str) -> str:
     lines.append(SECTIONS[7])
     lines.append("compares each side's canvas (ann_*_w/h) to the card's single image_w/h; "
                  "a training-time check must read the real sfx_* pixel dimensions instead.")
+    offenders: list[tuple[str, str, float]] = []
     if len(m):
         for side in ("front", "back"):
             sub = m[m[f"ann_{side}_w"].notna() & m.image_w.notna()]
             if len(sub):
                 ratio = (sub[f"ann_{side}_w"] / sub[f"ann_{side}_h"]) / (sub.image_w / sub.image_h)
-                bad = int(((ratio - 1).abs() > 0.01).sum())
-                lines.append(f"{side}: {len(sub)} sides with canvas; aspect mismatch > 1%: {bad}")
+                bad_mask = (ratio - 1).abs() > 0.01
+                lines.append(f"{side}: {len(sub)} sides with canvas; aspect mismatch > 1%: {int(bad_mask.sum())}")
+                offenders.extend(zip(sub.cert[bad_mask], [side] * int(bad_mask.sum()), ratio[bad_mask]))
+    # A training-time exclusion list can be built straight from this report: the worst
+    # offenders (by how far the ratio departs from 1), capped so the report stays readable.
+    if offenders:
+        offenders.sort(key=lambda row: abs(row[2] - 1), reverse=True)
+        lines.append("offending certs (cert, side, ratio), worst first:")
+        for cert, side, ratio in offenders[:20]:
+            lines.append(f"  {cert} {side} {ratio:.4f}")
 
     lines.append(SECTIONS[8])
     if len(m):
@@ -111,8 +120,17 @@ def report(out_dir: str) -> str:
         rot = s[s.rotation_deg != 0]
         lines.append(f"rotated markers: {len(rot)} " +
                      (rot.groupby("family").size().to_dict().__repr__() if len(rot) else ""))
+        # raw_w/raw_h are the un-rotated fractions; compare against the (possibly expanded)
+        # w/h to see how many rotated boxes actually grew by a meaningful amount.
+        if len(rot):
+            grew = (rot.w - rot.raw_w).abs() > 0.01
+            grew |= (rot.h - rot.raw_h).abs() > 0.01
+            lines.append(f"rotated markers with box expanded >1% of card: {int(grew.sum())}")
+        else:
+            lines.append("rotated markers with box expanded >1% of card: 0")
     else:
         lines.append("rotated markers: 0")
+        lines.append("rotated markers with box expanded >1% of card: 0")
 
     lines.append(SECTIONS[12])
     if len(s):
