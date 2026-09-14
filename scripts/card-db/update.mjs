@@ -58,7 +58,11 @@ for (const s of toInspect) {
   await sleep(250);
   if (!set || isPocketSet(set)) continue;
   setInfo[set.id] = set;
-  for (const c of set.cards) if (!known.has(c.id) && (RETRY || !pendingById[c.id])) newCards.push({ ...c, set: set.id });
+  for (const c of set.cards) {
+    if (known.has(c.id)) continue;
+    if (pendingById[c.id]) { if (RETRY && c.image) newCards.push({ ...c, set: set.id }); continue; } // retry only once TCGDex has an image
+    newCards.push({ ...c, set: set.id });
+  }
 }
 console.log(`new cards: ${newCards.length}${newCards.length > MAX ? ` (capped to ${MAX} this run)` : ''}`);
 const batch = newCards.slice(0, MAX);
