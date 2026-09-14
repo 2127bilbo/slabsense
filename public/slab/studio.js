@@ -266,7 +266,7 @@ qEl("modeManual").addEventListener("click",function(){setMode("manual");});
 function initAuth(){
   if(Q.testing){qEl("auth").hidden=true;setMode("queue");return Promise.resolve();}
   return fetch("/api/slabs/config").then(function(r){return r.json();}).then(function(c){
-    if(!c.supabaseUrl||!window.supabase){var msg="Studio config unavailable — manual mode only.";qEl("queueMsg").textContent=msg;qEl("authMsg").textContent=msg;qEl("auth").hidden=true;setMode("manual");return;}
+    if(!c.supabaseUrl||!window.supabase){var msg="Studio config unavailable — manual mode only.";qEl("queueMsg").textContent=msg;qEl("authMsg").textContent=msg;qEl("signin").hidden=true;qEl("signedIn").hidden=true;qEl("modes").hidden=true;setMode("manual");return;}
     Q.client=window.supabase.createClient(c.supabaseUrl,c.anonKey);
     var authApplied=false;
     function apply(session){
@@ -282,7 +282,7 @@ function initAuth(){
     Q.client.auth.onAuthStateChange(function(_e,session){apply(session);});
     qEl("signin").addEventListener("submit",function(e){e.preventDefault();Q.client.auth.signInWithPassword({email:qEl("authEmail").value,password:qEl("authPass").value}).then(function(r){if(r.error){var msg="Sign-in failed: "+r.error.message;qEl("queueMsg").textContent=msg;qEl("authMsg").textContent=msg;}});});
     qEl("signout").addEventListener("click",function(){Q.client.auth.signOut();});
-  }).catch(function(){var msg="Studio config unavailable — manual mode only.";qEl("queueMsg").textContent=msg;qEl("authMsg").textContent=msg;qEl("auth").hidden=true;setMode("manual");});
+  }).catch(function(){var msg="Studio config unavailable — manual mode only.";qEl("queueMsg").textContent=msg;qEl("authMsg").textContent=msg;qEl("signin").hidden=true;qEl("signedIn").hidden=true;qEl("modes").hidden=true;setMode("manual");});
 }
 
 /* small API for automation and the future app integration */
