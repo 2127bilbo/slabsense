@@ -13,4 +13,6 @@ Rules: shards are append-only and a card id lives in exactly one shard; the mani
 TCG Pocket (digital-only) sets are excluded; rows are L2-normalized so the client searches by dot product.
 `.github/workflows/card-db-update.yml` runs `cards:update` every Monday and on demand
 (secrets `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`). Locally the scripts read `.env.local`.
-Images that 404 on TCGDex land in `manifest.pending` and are retried with `--retry-pending`.
+Cards without an image on TCGDex (the `image` field is null; ~1,560 as of 2026-09-14, mostly trainer
+galleries, promos and older subsets) land in `manifest.pending` and are retried with `--retry-pending`,
+which the weekly workflow passes. Those cards cannot be identified by image matching until TCGDex adds scans.

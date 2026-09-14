@@ -25,7 +25,7 @@ jobs:
           path: models/transformers-cache
           key: clip-vit-base-patch32-v1
       - name: Update card DB
-        run: node scripts/card-db/update.mjs | tee update-summary.txt
+        run: node scripts/card-db/update.mjs --retry-pending | tee update-summary.txt
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

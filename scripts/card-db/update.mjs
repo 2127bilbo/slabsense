@@ -72,7 +72,7 @@ await new Promise((resolve) => {
       active++;
       const dest = SAVE ? path.join(process.cwd(), 'public', 'card-images', c.set, `${c.localId}.png`) : path.join(tmp, `${c.id}.png`);
       downloadImage(c.image, dest)
-        .then((r) => { if (r === 'ok') { ok.push({ ...c, path: dest }); delete pending[c.id]; } else pending[c.id] = { id: c.id, reason: 'image 404', since: pending[c.id]?.since || today() }; })
+        .then((r) => { if (r === 'ok') { ok.push({ ...c, path: dest }); delete pending[c.id]; } else pending[c.id] = { id: c.id, reason: c.image ? 'image 404' : 'no image on TCGDex', since: pending[c.id]?.since || today() }; })
         .catch((e) => { pending[c.id] = { id: c.id, reason: e.message, since: pending[c.id]?.since || today() }; })
         .finally(() => { active--; next(); });
     }
