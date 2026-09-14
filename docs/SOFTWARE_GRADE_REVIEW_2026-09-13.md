@@ -396,19 +396,27 @@ results in `scripts/harness/results/2026-09-14-identify*.md`):
 - 17 "wrong" answers are TAG-vs-TCGDex naming differences ("Mega X EX" vs "M X EX",
   "LV.X" suffixes); they understate every variant equally.
 
-Bake-off on 506 TAG photos (433 in the DB):
+Bake-off on 506 TAG photos (433 in the DB). Final numbers, unit-length queries (the first two
+runs had un-normalized queries; rankings held but boosts were tested at ~1/9 strength, and the
+pixel boost at its original 0.25 weight turned out harmful at true scale: 47 fixed / 61 broke):
 
 | variant | top-1 exact, in DB | in top-5, in DB | "high" but wrong | fixed / broke vs current |
 |---|---|---|---|---|
-| current (absolute similarity) | 263 (60.7%) | 340 (78.5%) | 243 | – |
-| margin label only | 263 (60.7%) | 340 (78.5%) | 173 | 0 / 0 |
-| OCR set-number re-rank | 278 (64.2%) | 344 (79.4%) | 161 | 15 / 0 |
-| pixel number-line re-rank | 280 (64.7%) | 355 (82.0%) | 161 | 23 / 6 |
-| **OCR + pixel** | **293 (67.7%)** | **357 (82.4%)** | **152** | **35 / 5** |
+| current (absolute similarity) | 263 (60.7%) | 340 (78.5%) | 184 | – |
+| margin label only | 263 (60.7%) | 340 (78.5%) | 13 | 0 / 0 |
+| OCR set-number re-rank (+0.15) | 286 (66.1%) | 345 (79.7%) | 18 | 24 / 1 |
+| pixel number-line re-rank (0.03 × NCC) | 283 (65.4%) | 357 (82.4%) | 16 | 26 / 6 |
+| **OCR + pixel** | **300 (69.3%)** | **359 (82.9%)** | **20** | **43 / 6** |
 
 Decision (owner, 2026-09-14): ship OCR + pixel with the margin label. Implemented in
-`src/lib/id-rerank.js` + `clip-matcher.js` (`DEFAULT_RERANK = 'both'`), with every
-identification logged to `card_identifications` (migration `20260914_card_identifications.sql`).
+`src/lib/id-rerank.js` + `clip-matcher.js` (`DEFAULT_RERANK = 'both'`, `OCR_WEIGHT = 0.15`,
+`PIXEL_WEIGHT = 0.03`), with every identification logged to `card_identifications`
+(migration `20260914_card_identifications.sql`).
+
+Lesson recorded: `@xenova/transformers` `normalize: true` does NOT produce unit vectors for
+this model (norm ≈ 9). The update job first published two un-normalized shards that won every
+search (a Fossil Magmar matched Cobalion ex at "high"); now every writer normalizes, the shard
+writer refuses non-unit rows, and the client normalizes defensively on load.
 OCR notes: tesseract's LSTM engine ignores `tessedit_char_whitelist`; read the native-resolution
 bottom 8% strip, thresholded, block mode first. It reads a number on ~24% of studio photos and
 was never wrong when it did. Pixel notes: template = lowest band of high-contrast ink in each end

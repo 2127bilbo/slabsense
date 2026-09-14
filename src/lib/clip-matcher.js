@@ -45,7 +45,7 @@ const CARD_DB_BASE = (() => {
  *   'both'  → both boosts
  * Set from the bake-off winner; override per call with matchCard(src, { rerank }).
  */
-export const DEFAULT_RERANK = 'ocr';
+export const DEFAULT_RERANK = 'both';
 /** Weight of the pixel number-line boost (× max(0, NCC)). 0.25 was harmful at production scale
  *  (bake-off 2026-09-14, normalized queries): use only what the harness validated. */
 export const PIXEL_WEIGHT = 0.03;
