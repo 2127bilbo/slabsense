@@ -7,7 +7,7 @@ var PLATE={w:987,h:1024};
 var q=new URLSearchParams(location.search);
 /* /v/<cert> is a server-side rewrite to slabview.html?cert=…, so the browser URL keeps the path form
    and location.search is empty there; read the path first, then the query (local tests use ?cert=). */
-var pathCert=(location.pathname.match(/^\/v\/([^\/?#]+)/)||[])[1]||"";
+var pathCert=(location.pathname.match(/^\/v\/([^\/?#]+)/i)||[])[1]||"";
 var cert=decodeURIComponent(pathCert||q.get("cert")||"").trim().toUpperCase();
 var DEV=location.protocol==="file:"||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 var api=(DEV&&q.get("src"))||("/api/slab?cert="+encodeURIComponent(cert));
