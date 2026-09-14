@@ -33,6 +33,7 @@ let bad=0;
 let r=await run('found','cert=SS26-00001&src='+encodeURIComponent(fix),1200);
 if(r.state!=='found'){console.log('FAIL found state',r.state);bad++;}
 if(r.label!=='drawn'){console.log('FAIL found label',r.label);bad++;}
+if(r.dom.indexOf('PIKACHU V (ENGRAVED)')===-1){console.log('FAIL found: engraved name not rendered');bad++;}
 
 r=await run('found-phone','cert=SS26-00001&src='+encodeURIComponent(fix),500);
 if(r.state!=='found'){console.log('FAIL found-phone state',r.state);bad++;}

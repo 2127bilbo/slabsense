@@ -7,5 +7,7 @@
   "front_centering": { "lrDisplay": "52/48", "tbDisplay": "51/49", "horizontal": 52, "vertical": 51 },
   "back_centering": { "horizontal": 55, "vertical": 50 },
   "dings": [ { "side": "FRONT", "type": "SURFACE", "location": "lower left", "severity": 1, "note": "faint print line" }, { "side": "BACK", "type": "EDGE WEAR", "location": "top edge", "severity": 2 } ],
-  "front_image_url": "/__ref/slabsence spongebob.jpg", "back_image_url": null
+  "front_image_url": "/__ref/slabsence spongebob.jpg", "back_image_url": null,
+  "label_text": {"name":"PIKACHU V (ENGRAVED)","l2":"2024 POKÉMON X SPONGEBOB","l3":"BIKINI BOTTOM PROMO #001","l4":"SPECIAL ILLUSTRATION RARE","cert":"SS26-00001","grade":"10","gradeWord":"PRISTINE"},
+  "label_settings": {"wordFont":"mi","gradeFont":"i3","logoPct":24,"useToken":false}
 } }

@@ -7,5 +7,6 @@
   "front_centering": { "lrDisplay": "52/48", "tbDisplay": "51/49", "horizontal": 52, "vertical": 51 },
   "back_centering": { "horizontal": 55, "vertical": 50 },
   "dings": [ { "side": "FRONT", "type": "SURFACE", "location": "lower left", "severity": 1, "note": "faint print line" }, { "side": "BACK", "type": "EDGE WEAR", "location": "top edge", "severity": 2 } ],
-  "front_image_url": null, "back_image_url": null
+  "front_image_url": null, "back_image_url": null,
+  "label_text": null, "label_settings": null
 } }

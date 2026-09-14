@@ -24,15 +24,20 @@ var STATUS={paid:"Paid — awaiting engraving",engraved:"Engraved — awaiting s
    the engine's 9-slice frame extends its rules and the columns reflow, exactly as for a taller or
    shorter slab, so the on-screen label fills the window edge to edge with nothing distorted.
    The engraved SVG is untouched — this only affects the picture on this page. */
-function labelSettings(){
-  var d=SlabLabel.defaults, aspect=(LABEL_WIN.w*PLATE.w)/(LABEL_WIN.h*PLATE.h), s={};
-  for(var k in d)s[k]=d[k];
-  s.H=Math.round(d.W/aspect*100)/100;
+function labelInput(row){
+  return row.label_text&&row.label_text.cert===row.cert?row.label_text:SlabLabel.fromScan(row,row.cert);
+}
+function labelSettings(row){
+  var s=Object.assign({},SlabLabel.defaults,row.label_settings||{});
+  delete s.secret;
+  s.useToken=false;
+  var aspect=(LABEL_WIN.w*PLATE.w)/(LABEL_WIN.h*PLATE.h);
+  s.H=Math.round(s.W/aspect*100)/100;
   return s;
 }
 
 function drawLabel(row){
-  var input=SlabLabel.fromScan(row,row.cert), s=labelSettings();
+  var input=labelInput(row), s=labelSettings(row);
   return SlabLabel.payload(input,s).then(function(p){
     var b=SlabLabel.build(input,s,p.url,p.alnum);
     if(!b){document.body.setAttribute("data-label","failed");return;}
@@ -121,7 +126,7 @@ function severityText(s){
 }
 function render(row){
   window.__row=row;
-  var input=SlabLabel.fromScan(row,row.cert);
+  var input=labelInput(row);
   document.title="SlabSense "+row.cert+" — "+input.name;
   $("hdrCert").textContent=row.cert; $("zCert").textContent=row.cert;
   $("gradeNum").textContent=input.grade;$("gradeWord").textContent=input.gradeWord;
