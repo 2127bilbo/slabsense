@@ -54,7 +54,9 @@ class ProxyPool:
         connector_kwargs = {"limit_per_host": 10, "force_close": False}
         for proxy in self.proxies:
             connector = aiohttp.TCPConnector(**connector_kwargs)
-            session = aiohttp.ClientSession(connector=connector)
+            # Use cookie jar to persist session cookies (may help with rate limiting)
+            cookie_jar = aiohttp.CookieJar()
+            session = aiohttp.ClientSession(connector=connector, cookie_jar=cookie_jar)
             self._sessions.append(session)
             self._clients.append(TagClient(session, proxy_url=proxy.url))
         return self

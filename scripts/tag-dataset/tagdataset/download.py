@@ -54,8 +54,8 @@ def pending_files(store: Store, only_certs: set[str] | None = None,
     return out
 
 
-async def _fetch_bytes(session, url: str) -> bytes:
-    async with session.get(url, timeout=DOWNLOAD_TIMEOUT) as r:
+async def _fetch_bytes(session, url: str, proxy_url: str | None = None) -> bytes:
+    async with session.get(url, timeout=DOWNLOAD_TIMEOUT, proxy=proxy_url) as r:
         body = await r.read()
         if r.status != 200:
             raise HttpStatusError(r.status, body)
@@ -63,7 +63,7 @@ async def _fetch_bytes(session, url: str) -> bytes:
 
 
 async def download_one(session, bucket, store: Store, cert: str, name: str, url: str,
-                       throttle: Throttle, sleep=asyncio.sleep) -> str:
+                       throttle: Throttle, sleep=asyncio.sleep, proxy_url: str | None = None) -> str:
     content_type = CONTENT_TYPES.get(os.path.splitext(name)[1].lower(), "application/octet-stream")
     last = "unknown"
     for delay in (0,) + BACKOFF:
@@ -71,7 +71,7 @@ async def download_one(session, bucket, store: Store, cert: str, name: str, url:
             await sleep(delay)
         try:
             await throttle.wait()
-            data = await _fetch_bytes(session, url)
+            data = await _fetch_bytes(session, url, proxy_url=proxy_url)
             await asyncio.to_thread(bucket.put, cert, name, data, content_type)
         except HttpStatusError as e:
             if e.status in GONE_STATUSES:
@@ -146,4 +146,104 @@ async def run_download(session, bucket, store: Store, items: list[tuple[str, str
                 progress(counts)
 
     await asyncio.gather(*(worker() for _ in range(max(1, concurrency))))
+    return counts
+
+
+async def run_download_proxied(
+    sessions: list[aiohttp.ClientSession],
+    proxy_urls: list[str],
+    bucket,
+    store: Store,
+    items: list[tuple[str, str, str]],
+    rate: float,
+    sleep=asyncio.sleep,
+    progress: Callable[[dict], None] | None = None,
+    cooldown_start: float = 300.0,
+    cooldown_max: float = 600.0,
+    clock=time.monotonic,
+) -> dict[str, int]:
+    """Download using smart proxy rotation that skips throttled proxies.
+
+    Similar to run_fetch_proxied - when a proxy hits 429/403-throttle, it's
+    marked as cooling down and skipped. Only healthy proxies are used.
+    """
+    num_proxies = len(sessions)
+
+    proxy_cooldown_until: list[float] = [0.0] * num_proxies
+    proxy_cooldown_duration: list[float] = [cooldown_start] * num_proxies
+    proxy_last_request: list[float] = [0.0] * num_proxies
+
+    min_spacing_per_proxy = 1.0 / rate * num_proxies if rate > 0 else 5.0
+
+    work_queue = list(items)
+    counts = {"ok": 0, "gone": 0, "failed": 0, "throttled": 0}
+    throttle_attempts: dict[tuple[str, str], int] = {}
+
+    dummy_throttle = Throttle(rate, cooldown_start=cooldown_start, cooldown_max=cooldown_max,
+                               sleep=sleep, clock=clock)
+
+    work_idx = 0
+    while work_idx < len(work_queue):
+        cert, name, url = work_queue[work_idx]
+        now = clock()
+
+        best_proxy = None
+        best_ready_time = float('inf')
+        healthy_count = 0
+
+        for idx in range(num_proxies):
+            if proxy_cooldown_until[idx] > now:
+                if proxy_cooldown_until[idx] < best_ready_time:
+                    best_ready_time = proxy_cooldown_until[idx]
+                continue
+
+            healthy_count += 1
+            ready_at = proxy_last_request[idx] + min_spacing_per_proxy
+            if best_proxy is None or ready_at < best_ready_time:
+                best_proxy = idx
+                best_ready_time = ready_at
+
+        if healthy_count == 0:
+            wait_time = best_ready_time - now
+            if wait_time > 0:
+                print(f"\n[All {num_proxies} proxies cooling down, waiting {wait_time:.0f}s]", flush=True)
+                await sleep(wait_time)
+            continue
+
+        wait_for_spacing = best_ready_time - now
+        if wait_for_spacing > 0:
+            await sleep(wait_for_spacing)
+
+        proxy_idx = best_proxy
+        session = sessions[proxy_idx]
+        proxy_url = proxy_urls[proxy_idx]
+        proxy_last_request[proxy_idx] = clock()
+
+        result = await download_one(session, bucket, store, cert, name, url,
+                                    dummy_throttle, sleep, proxy_url=proxy_url)
+
+        if result == "throttled":
+            counts["throttled"] += 1
+            proxy_cooldown_until[proxy_idx] = clock() + proxy_cooldown_duration[proxy_idx]
+            proxy_cooldown_duration[proxy_idx] = min(proxy_cooldown_duration[proxy_idx] * 2, cooldown_max)
+
+            key = (cert, name)
+            attempts = throttle_attempts.get(key, 0) + 1
+            throttle_attempts[key] = attempts
+            if attempts >= MAX_THROTTLE_ATTEMPTS:
+                status = getattr(dummy_throttle, "last_status", 429)
+                store.add_failure("download", cert, name, f"HTTP {status} x{MAX_THROTTLE_ATTEMPTS}")
+                counts["failed"] += 1
+                work_idx += 1
+            else:
+                work_queue.append((cert, name, url))
+                work_idx += 1
+        else:
+            counts[result] += 1
+            proxy_cooldown_duration[proxy_idx] = cooldown_start
+            work_idx += 1
+
+        if progress:
+            progress(counts)
+
     return counts

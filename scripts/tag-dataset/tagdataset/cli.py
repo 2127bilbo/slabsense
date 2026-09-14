@@ -10,10 +10,10 @@ from pathlib import Path
 import aiohttp
 import pandas as pd
 
+from . import build as bld
 from . import download as dl
 from . import sample as smp
 from . import verify as vf
-from . import build as bld
 from .bucket import Bucket
 from .config import load_config
 from .fetch import run_fetch, run_fetch_proxied
@@ -80,13 +80,13 @@ def cmd_fetch(args, cfg) -> int:
             print(f"No valid proxies found in {args.proxies}")
             return 1
 
-        # Conservative rate: TAG allows ~4-5 req/min per IP
-        # Target 80% of limit to avoid edge-case throttles
-        # 10 proxies × 4 req/min × 0.8 = 32 req/min = 0.53 req/s
-        safe_rate = len(proxies) * 4 * 0.8 / 60  # ~0.53 req/s for 10 proxies
-        proxy_rate = args.rate or safe_rate
-        print(f"Using {len(proxies)} proxies at {proxy_rate:.2f} req/s")
-        print(f"Each IP sees ~{60 / len(proxies) * proxy_rate:.1f} req/min (limit: ~5/min)")
+        # Sliding window rate limiting: 10 requests per 5-min window per proxy
+        # With 10 proxies: 10 proxies × 10 req/5min = 100 req/5min = 20 req/min = ~10 cards/min
+        # Rate param is now just a minimum spacing hint, window limiting does the real work
+        proxy_rate = args.rate or 2.0  # Fast baseline, window limiting controls actual rate
+        max_per_window = 15  # Sweet spot: fast + 0 throttles
+        print(f"Using {len(proxies)} proxies with sliding window limiting")
+        print(f"Each IP: max {max_per_window} requests per 5min (~{max_per_window * 12} cards/hr per proxy)")
 
         async def go_proxied():
             async with ProxyPool(proxies) as pool:
@@ -129,14 +129,48 @@ def cmd_download(args, cfg) -> int:
         items = dl.pending_files(store, only, include_gone=args.include_gone)
     print(f"{len(items)} files to download")
 
-    async def go():
-        async with aiohttp.ClientSession() as session:
-            return await dl.run_download(session, bucket, store, items, args.concurrency or cfg.concurrency,
-                                         args.rate or cfg.download_rate,
-                                         progress=_progress("download"),
-                                         cooldown_start=cfg.cooldown_start, cooldown_max=cfg.cooldown_max)
+    if args.proxies:
+        proxies = load_proxies(args.proxies)
+        if not proxies:
+            print(f"No valid proxies found in {args.proxies}")
+            return 1
 
-    counts = asyncio.run(go())
+        # CDN is typically less strict than API, but use similar conservative rate
+        safe_rate = len(proxies) * 8 * 0.8 / 60  # ~1.07 req/s for 10 proxies
+        proxy_rate = args.rate or safe_rate
+        print(f"Using {len(proxies)} proxies at {proxy_rate:.2f} req/s")
+
+        async def go_proxied():
+            connector = aiohttp.TCPConnector(limit_per_host=20)
+            sessions = []
+            proxy_urls = []
+            for p in proxies:
+                session = aiohttp.ClientSession(connector=connector)
+                sessions.append(session)
+                proxy_urls.append(p.url)
+            try:
+                return await dl.run_download_proxied(
+                    sessions, proxy_urls, bucket, store, items,
+                    rate=proxy_rate,
+                    progress=_progress("download"),
+                    cooldown_start=cfg.cooldown_start,
+                    cooldown_max=cfg.cooldown_max,
+                )
+            finally:
+                for s in sessions:
+                    await s.close()
+
+        counts = asyncio.run(go_proxied())
+    else:
+        async def go():
+            async with aiohttp.ClientSession() as session:
+                return await dl.run_download(session, bucket, store, items, args.concurrency or cfg.concurrency,
+                                             args.rate or cfg.download_rate,
+                                             progress=_progress("download"),
+                                             cooldown_start=cfg.cooldown_start, cooldown_max=cfg.cooldown_max)
+
+        counts = asyncio.run(go())
+
     print(f"\ndownload done: {counts}")
     print("store:", store.counts())
     store.close()
@@ -197,17 +231,18 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--retry-missing", help="missing.parquet from verify")
     d.add_argument("--include-gone", action="store_true",
                    help="also retry files previously marked unavailable upstream (HTTP 403/404)")
+    d.add_argument("--proxies", help="path to proxy list file (host:port:user:pass per line)")
     d.set_defaults(func=cmd_download)
 
     v = sub.add_parser("verify", help="report files that should exist but do not")
     v.add_argument("--out", default="data/missing.parquet")
     v.add_argument("--check-bucket", action="store_true", help="also list the bucket and compare")
     v.set_defaults(func=cmd_verify)
+
     b = sub.add_parser("build", help="write training parquet tables from the store")
     b.add_argument("--out", default="data/dataset")
     b.add_argument("--seed", type=int, default=42)
     b.set_defaults(func=cmd_build)
-
     return p
 
 

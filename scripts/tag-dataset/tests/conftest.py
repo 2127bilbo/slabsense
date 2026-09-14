@@ -78,7 +78,7 @@ class FakeSession:
         self.responses = {k: (list(v) if isinstance(v, list) else v) for k, v in responses.items()}
         self.calls: list[str] = []
 
-    def get(self, url, timeout=None):
+    def get(self, url, timeout=None, proxy=None):
         self.calls.append(url)
         outcome = self.responses[url]
         if isinstance(outcome, list):

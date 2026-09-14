@@ -144,83 +144,101 @@ async def run_fetch_proxied(
     sleep=asyncio.sleep,
     progress: Callable[[dict], None] | None = None,
     cooldown_start: float = 300.0,
-    cooldown_max: float = 900.0,
+    cooldown_max: float = 600.0,
     clock=time.monotonic,
+    # Sliding window params - proactive rate limiting
+    window_seconds: float = 300.0,  # 5-minute window
+    max_requests_per_window: int = 15,  # Sweet spot: fast + 0 throttles
 ) -> dict[str, int]:
-    """Fetch using smart proxy rotation that skips throttled proxies.
+    """Fetch using sliding window rate limiting per proxy.
 
-    When a proxy hits 429, it's marked as cooling down and skipped.
-    Only healthy proxies are used. If ALL proxies are throttled, we wait
-    for the shortest cooldown to expire.
+    Instead of reacting to 429s, proactively limits each proxy to
+    max_requests_per_window requests per window_seconds. This avoids
+    throttles entirely while maintaining steady throughput.
+
+    Falls back to cooldown-based recovery if 429s still occur.
     """
+    from collections import deque
+
     num_proxies = len(clients)
 
-    # Per-proxy cooldowns - must match TAG's ~5 min rate window
-    # Starting lower causes immediate re-throttle when proxy resumes
-    proxy_cooldown_start = 300.0  # 5 min to match TAG's window
-    proxy_cooldown_max = 600.0    # Max 10 min for repeated offenders
-    proxy_cooldown_until: list[float] = [0.0] * num_proxies
-    proxy_cooldown_duration: list[float] = [proxy_cooldown_start] * num_proxies
-    proxy_last_request: list[float] = [0.0] * num_proxies
+    # Per-proxy sliding window: deque of request timestamps
+    proxy_request_times: list[deque] = [deque() for _ in range(num_proxies)]
 
-    # Minimum spacing per proxy
-    min_spacing_per_proxy = 1.0 / rate * num_proxies if rate > 0 else 5.0
+    # Fallback cooldowns if we still hit 429s (shouldn't happen with proper limits)
+    proxy_cooldown_until: list[float] = [0.0] * num_proxies
+    proxy_cooldown_duration: list[float] = [cooldown_start] * num_proxies
 
     # Build work queue
     work_queue = [(cert, grade_key) for cert, grade_key in certs if not store.has_raw(cert)]
     counts = {"ok": 0, "gone": 0, "failed": 0, "skipped": len(certs) - len(work_queue), "throttled": 0}
     throttle_attempts: dict[str, int] = {}
 
+    def get_proxy_ready_time(idx: int, now: float) -> float | None:
+        """Return when proxy idx is ready, or None if in hard cooldown."""
+        # Check hard cooldown first (from 429s)
+        if proxy_cooldown_until[idx] > now:
+            return None
+
+        # Clean old requests from window
+        window_start = now - window_seconds
+        while proxy_request_times[idx] and proxy_request_times[idx][0] < window_start:
+            proxy_request_times[idx].popleft()
+
+        # If under limit, ready now
+        if len(proxy_request_times[idx]) < max_requests_per_window:
+            return now
+
+        # Otherwise, ready when oldest request ages out
+        oldest = proxy_request_times[idx][0]
+        return oldest + window_seconds
+
     work_idx = 0
     while work_idx < len(work_queue):
         cert, grade_key = work_queue[work_idx]
         now = clock()
 
-        # Find a healthy proxy (not in cooldown)
+        # Find the proxy that's ready soonest
         best_proxy = None
         best_ready_time = float('inf')
-        healthy_count = 0
 
         for idx in range(num_proxies):
-            if proxy_cooldown_until[idx] > now:
-                # This proxy is in cooldown
+            ready_time = get_proxy_ready_time(idx, now)
+            if ready_time is None:
+                # In hard cooldown - check when it ends
                 if proxy_cooldown_until[idx] < best_ready_time:
                     best_ready_time = proxy_cooldown_until[idx]
                 continue
-
-            healthy_count += 1
-            # Check per-proxy spacing
-            ready_at = proxy_last_request[idx] + min_spacing_per_proxy
-            if best_proxy is None or ready_at < best_ready_time:
+            if ready_time < best_ready_time:
+                best_ready_time = ready_time
                 best_proxy = idx
-                best_ready_time = ready_at
 
-        # If all proxies are in cooldown, wait for the shortest one
-        if healthy_count == 0:
-            wait_time = best_ready_time - now
-            if wait_time > 0:
-                print(f"\n[All {num_proxies} proxies cooling down, waiting {wait_time:.0f}s]", flush=True)
-                await sleep(wait_time)
-            continue  # Re-check proxy availability
-
-        # Wait for the best proxy to be ready (per-proxy spacing)
-        wait_for_spacing = best_ready_time - now
-        if wait_for_spacing > 0:
-            await sleep(wait_for_spacing)
+        # Wait if needed
+        wait_time = best_ready_time - now
+        if wait_time > 0:
+            if best_proxy is None:
+                print(f"\n[All {num_proxies} proxies in cooldown, waiting {wait_time:.0f}s]", flush=True)
+            elif wait_time > 5:
+                print(f"\n[Waiting {wait_time:.0f}s for rate window]", flush=True)
+            await sleep(wait_time)
+            continue  # Re-check after wait
 
         proxy_idx = best_proxy
         client = clients[proxy_idx]
-        proxy_last_request[proxy_idx] = clock()
+
+        # Record this request
+        proxy_request_times[proxy_idx].append(clock())
 
         # Make the request
         result = await _fetch_one_no_throttle(client, store, cert, grade_key, sleep)
 
         if result == "throttled":
             counts["throttled"] += 1
-            # Mark this proxy as in cooldown
+            # Shouldn't happen often with proactive limiting, but handle it
+            # Put proxy in hard cooldown
             proxy_cooldown_until[proxy_idx] = clock() + proxy_cooldown_duration[proxy_idx]
-            # Double cooldown for next time (up to max)
-            proxy_cooldown_duration[proxy_idx] = min(proxy_cooldown_duration[proxy_idx] * 2, proxy_cooldown_max)
+            proxy_cooldown_duration[proxy_idx] = min(proxy_cooldown_duration[proxy_idx] * 2, cooldown_max)
+            print(f"\n[Proxy {proxy_idx} hit 429, cooldown {proxy_cooldown_duration[proxy_idx]:.0f}s]", flush=True)
 
             attempts = throttle_attempts.get(cert, 0) + 1
             throttle_attempts[cert] = attempts
@@ -234,7 +252,7 @@ async def run_fetch_proxied(
         else:
             counts[result] += 1
             # Reset cooldown duration on success
-            proxy_cooldown_duration[proxy_idx] = proxy_cooldown_start
+            proxy_cooldown_duration[proxy_idx] = cooldown_start
             work_idx += 1
 
         if progress:
