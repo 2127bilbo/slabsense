@@ -2149,6 +2149,9 @@ export default function SlabSense(){
       const rotation = overrideCentering.rotation || 0;
       croppedImage = await cropToOuterBounds(src, corners, rotation, 1400);
       if (side === 'front') setFrontCroppedImage(croppedImage); else setBackCroppedImage(croppedImage);
+      // Keep the vision maps in sync with the new crop
+      const maps = await genMaps(croppedImage);
+      if (side === 'front') setFM(maps); else setBM(maps);
     } catch (cropErr) {
       console.error('[applyManualCorrection] Crop failed:', cropErr);
     }
@@ -2275,7 +2278,8 @@ export default function SlabSense(){
       const grade=computeGrade(fr.allDings,br.allDings,effFront,effBack,gradingCompany,imageQuality);
       setGradeResult({...grade, source: 'client'});
       setProg("Generating surface vision maps...");await new Promise(r=>setTimeout(r,30));
-      setFM(await genMaps(fI)); setBM(await genMaps(bI));
+      // Vision maps are generated from the same image the detectors saw (the crop when one exists)
+      setFM(await genMaps(frontSrc)); setBM(await genMaps(backSrc));
       setStep(2);
     }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);}
   },[fI,bI,frontCroppedImage,backCroppedImage,ignoreCentering,gradingCompany,frontCenteringData,backCenteringData,frontQuality,backQuality]);
@@ -3389,8 +3393,8 @@ export default function SlabSense(){
             <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
               {/* Base image - cropped preferred over original */}
               <img src={frontCroppedImage || fI} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
-              {/* Filtered overlay with intensity (only for uncropped) */}
-              {visionMode!=='normal'&&!frontCroppedImage&&fM?.[visionMode]&&(
+              {/* Filtered overlay with intensity (maps are built from the same image shown below) */}
+              {visionMode!=='normal'&&fM?.[visionMode]&&(
                 <img src={fM[visionMode]} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
               )}
               <div style={{position:"absolute",bottom:4,left:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>FRONT</div>
@@ -3398,8 +3402,8 @@ export default function SlabSense(){
             <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
               {/* Base image - cropped preferred over original */}
               <img src={backCroppedImage || bI} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
-              {/* Filtered overlay with intensity (only for uncropped) */}
-              {visionMode!=='normal'&&!backCroppedImage&&bM?.[visionMode]&&(
+              {/* Filtered overlay with intensity (maps are built from the same image shown below) */}
+              {visionMode!=='normal'&&bM?.[visionMode]&&(
                 <img src={bM[visionMode]} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
               )}
               <div style={{position:"absolute",bottom:4,right:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>BACK</div>
