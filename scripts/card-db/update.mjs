@@ -28,6 +28,14 @@ const MAX = Number(opt('--max-new', 5000));
 const today = () => new Date().toISOString().slice(0, 10);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Verify write credentials up front so a no-op run still proves the service key works.
+if (!DRY) {
+  const { getClient } = await import('./storage.mjs');
+  const { error } = await getClient().storage.from('card-db').list('shards', { limit: 1 });
+  if (error) throw new Error(`bucket access check failed (service role key?): ${error.message}`);
+  console.log('bucket access: ok (service role)');
+}
+
 const manifest = await fetchManifest();
 if (!manifest) throw new Error('no manifest in bucket; run build-initial first');
 const known = new Set();
