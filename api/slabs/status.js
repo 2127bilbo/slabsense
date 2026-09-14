@@ -24,6 +24,7 @@ export function makeHandler({ db, adminIds, now }) {
     if (to === 'engraved') {
       if (typeof body.svg !== 'string' || !body.svg.startsWith('<?xml')) return res.status(400).json({ error: 'svg_required' });
       if (!body.label_text || typeof body.label_text !== 'object') return res.status(400).json({ error: 'label_text_required' });
+      if (body.label_text.cert !== cert) return res.status(400).json({ error: 'label_text_mismatch' });
       const path = `${cert}.svg`;
       const up = await db.storage.from(SLAB_LABEL_BUCKET).upload(path, body.svg, { contentType: 'image/svg+xml', upsert: true });
       if (up.error) { console.error('[slabs/status] upload', up.error); return res.status(500).json({ error: 'upload_failed' }); }

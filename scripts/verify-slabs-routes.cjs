@@ -38,6 +38,9 @@ r=res();await mkQueue(deps(db))({method:'GET',headers:{authorization:'Bearer adm
 // status: engrave
 const svg='<?xml version="1.0"?><svg/>';const lt={name:'GLACEON',cert:'SS26-00001',grade:'9',gradeWord:'MINT'};
 r=res();await mkStatus(deps(db))({method:'POST',headers:{authorization:'Bearer adm'},body:{cert:'SS26-00001',status:'engraved'}},r);if(r.code!==400||r.body.error!=='svg_required')fail('svg required',r.code,r.body);
+r=res();await mkStatus(deps(db))({method:'POST',headers:{authorization:'Bearer adm'},body:{cert:'SS26-00001',status:'engraved',svg,label_text:Object.assign({},lt,{cert:'SS26-09999'}),label_settings:{}}},r);
+if(r.code!==400||r.body.error!=='label_text_mismatch')fail('label_text mismatch',r.code,r.body);
+if(db.st.uploads.length!==0)fail('label_text mismatch should not upload',db.st.uploads);
 r=res();await mkStatus(deps(db))({method:'POST',headers:{authorization:'Bearer adm'},body:{cert:'SS26-00001',status:'engraved',svg,label_text:lt,label_settings:{W:69,secret:'z',useToken:true}}},r);
 if(r.code!==200||r.body.slab.status!=='engraved'||!r.body.slab.engraved_at)fail('engrave',r.code,r.body);
 if(db.st.uploads.length!==1||db.st.uploads[0].bk!=='slab-labels'||db.st.uploads[0].p!=='SS26-00001.svg'||db.st.uploads[0].o.contentType!=='image/svg+xml')fail('svg upload',db.st.uploads);
