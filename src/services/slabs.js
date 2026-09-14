@@ -13,9 +13,11 @@ export const SLAB_STATUS_TEXT = {
 };
 
 export async function orderSlab(userId, scanId) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Please sign in again.');
   const response = await fetch(`${API_BASE}/api/stripe/create-checkout`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
     body: JSON.stringify({
       userId, scanId, priceKey: 'slab',
       successUrl: `${window.location.origin}/?slab_ordered=1`,
