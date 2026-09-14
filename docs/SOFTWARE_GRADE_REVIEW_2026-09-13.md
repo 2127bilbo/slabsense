@@ -230,6 +230,23 @@ those cards 1-2 grades lower than TAG would.
   under-detected (F10). On a typical worn card the two partly cancel, which is why the net
   impression is "lenient" rather than "harsh". Fixing F3 alone would make creased cards grade
   even higher relative to TAG.
+- **Classical line-detection spike (2026-09-14): not viable.** Probed a row/column
+  "valley support" feature (fraction of a line whose pixels are darker than both neighbours at
+  a 5 px gap = soft crease shading; at a 1 px gap = crisp printed rule) on all 507 cards at
+  1400 px, scored against the 178 TAG crease markers and the 897 crease-free sides:
+
+  | criteria | crease recall | crease-free sides with a false line |
+  |---|---|---|
+  | soft ≥ 0.30, sharp ≤ 0.45 | 52 / 178 (29%) | 786 / 897 (88%) |
+  | soft ≥ 0.50, sharp ≤ 0.20, reaches both borders | 3 / 178 (2%) | 237 / 897 (26%) |
+
+  Two reasons: (1) artwork and printed rules produce soft valleys everywhere, so no
+  line-support threshold separates them from creases; (2) most TAG crease markers are short
+  edge bends at the card boundary (marker x or y at 0–2%), which no full-length line test
+  can see. The Glaceon-style full fold (H9479369, row support 0.68) is the minority case.
+  Decision: do not build a classical crease detector; creases, dents and scratches go to the
+  learned surface model trained on the TAG dataset (spec
+  `docs/superpowers/specs/2026-09-12-tag-grading-models-design.md`), scored by this harness.
 
 ### Noted in passing — [AI ONLY], not part of this problem
 
