@@ -210,7 +210,7 @@ const extractor = await getExtractor();
 let gitCommit = 'unknown'; try { gitCommit = execSync('git rev-parse --short HEAD', { cwd: ROOT }).toString().trim(); } catch {}
 const VARIANTS = ['current', 'margin', ...(SKIP_OCR ? [] : ['ocr']), ...(SKIP_PIXEL ? [] : ['pixel'])];
 const stats = Object.fromEntries(VARIANTS.map((v) => [v, { top1Exact: 0, top1ExactInDb: 0, inTop5InDb: 0, wrongHigh: 0, unknownButInDb: 0, ms: 0 }]));
-const cards = []; const notInDb = []; let n = 0; const t0 = Date.now();
+const cards = []; const notInDb = []; let n = 0, errors = 0; const t0 = Date.now();
 
 for (const cert of certs) {
   const t = truth[cert];
@@ -221,9 +221,13 @@ for (const cert of certs) {
   if (!inDb) notInDb.push({ cert, name: t.name, number: t.number, set: t.set });
   const isMatch = (id) => norm(db.cards[id]?.name) === tName && numerator(db.cards[id]?.number || id.split('-').slice(1).join('-')) === tNum;
 
-  const q = Array.from((await extractor(src, { pooling: 'mean', normalize: true })).data);
+  let q;
+  try { q = Array.from((await extractor(src, { pooling: 'mean', normalize: true })).data); }
+  catch (e) { cards.push({ cert, truth: { name: t.name, number: t.number, set: t.set }, inDb, error: String(e?.message || e) }); errors++; continue; }
   const hits = topK(db, q, K);
-  const d = (VARIANTS.includes('ocr') || VARIANTS.includes('pixel')) ? await draw500x700(src, true, true) : null;
+  let d = null;
+  try { d = (VARIANTS.includes('ocr') || VARIANTS.includes('pixel')) ? await draw500x700(src, true, true) : null; }
+  catch (e) { cards.push({ cert, truth: { name: t.name, number: t.number, set: t.set }, inDb, error: String(e?.message || e) }); errors++; continue; }
   const rec = { cert, truth: { name: t.name, number: t.number, set: t.set }, inDb, top: hits.slice(0, 5).map((h) => ({ id: h.id, s: +h.s.toFixed(4) })), variants: {} };
 
   for (const v of VARIANTS) {
@@ -244,8 +248,8 @@ for (const cert of certs) {
 }
 if (worker) await worker.terminate();
 
-const N = cards.length, inDbN = cards.filter((c) => c.inDb).length;
-const summary = { cards: N, inDb: inDbN, notInDb: N - inDbN, variants: {} };
+const scored = cards.filter((c) => !c.error); const N = scored.length, inDbN = scored.filter((c) => c.inDb).length;
+const summary = { cards: N, errors, inDb: inDbN, notInDb: N - inDbN, variants: {} };
 for (const v of VARIANTS) { const s = stats[v]; summary.variants[v] = { top1Exact: s.top1Exact, top1ExactPct: +(100 * s.top1Exact / N).toFixed(1), top1ExactInDb: s.top1ExactInDb, top1ExactInDbPct: +(100 * s.top1ExactInDb / (inDbN || 1)).toFixed(1), inTop5InDb: s.inTop5InDb, inTop5InDbPct: +(100 * s.inTop5InDb / (inDbN || 1)).toFixed(1), wrongHigh: s.wrongHigh, unknownButInDb: s.unknownButInDb, msPerCard: +(s.ms / N).toFixed(0) }; }
 const bySet = {}; for (const c of notInDb) (bySet[c.set] ||= []).push(`${c.name} ${c.number}`);
 
@@ -253,7 +257,7 @@ const meta = { date: new Date().toISOString(), label: LABEL, gitCommit, db: db.m
 fs.mkdirSync(RESULTS, { recursive: true });
 const stem = `${meta.date.slice(0, 10)}-${LABEL}`;
 fs.writeFileSync(path.join(RESULTS, `${stem}.json`), JSON.stringify({ meta, summary, cards }, null, 1));
-const L = [`# Identification bake-off: ${LABEL} (${meta.date.slice(0, 10)})`, '', `commit ${gitCommit} · DB ${db.meta.source} v${db.meta.version} (${db.meta.count} cards) · ${N} photos · ${inDbN} in DB, ${N - inDbN} not in DB`, '',
+const L = [`# Identification bake-off: ${LABEL} (${meta.date.slice(0, 10)})`, '', `commit ${gitCommit} · DB ${db.meta.source} v${db.meta.version} (${db.meta.count} cards) · ${N} photos scored (${errors} unreadable) · ${inDbN} in DB, ${N - inDbN} not in DB`, '',
   '| variant | top-1 exact (all) | top-1 exact (in DB) | in top-5 (in DB) | high but wrong | unknown but in DB | ms/card |', '|---|---|---|---|---|---|---|'];
 for (const [v, s] of Object.entries(summary.variants)) L.push(`| ${v} | ${s.top1Exact} (${s.top1ExactPct}%) | ${s.top1ExactInDb} (${s.top1ExactInDbPct}%) | ${s.inTop5InDb} (${s.inTop5InDbPct}%) | ${s.wrongHigh} | ${s.unknownButInDb} | ${s.msPerCard} |`);
 L.push('', `## Not in DB (${N - inDbN}) by TAG set`, ''); for (const [set, list] of Object.entries(bySet).sort((a, b) => b[1].length - a[1].length)) L.push(`- **${set}** (${list.length}): ${list.slice(0, 6).join('; ')}${list.length > 6 ? '; …' : ''}`);
