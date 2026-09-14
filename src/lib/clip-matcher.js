@@ -13,6 +13,7 @@
  */
 
 import { detectAndCropCard } from './card-detector.js';
+import { loadCardDb, topK as dbTopK } from './card-db-client.js';
 
 // Transformers.js pipeline (lazy loaded)
 let clipPipeline = null;
@@ -20,11 +21,28 @@ let isLoadingModel = false;
 let modelLoadPromise = null;
 
 // Embeddings database
-let embeddingsDb = null;
 let embeddingsMeta = null;
 
-// Card info lookup (from card-hashes.json)
+// Card info lookup (from card-hashes.json; only used on the bundled-JSON fallback path)
 let cardInfoDb = null;
+
+// Unified DB: { matrix: Float32Array(count×dim, unit rows), ids: string[], cards: {id:{name,set,number}}, meta }
+let cardDb = null;
+let cardDbPromise = null;
+
+const CARD_DB_BASE = (() => {
+  try {
+    const u = import.meta.env?.VITE_SUPABASE_URL;
+    return u ? `${u}/storage/v1/object/public/card-db` : null;
+  } catch { return null; }
+})();
+
+function l2normalize(v) {
+  let n = 0; for (let i = 0; i < v.length; i++) n += v[i] * v[i];
+  n = Math.sqrt(n) || 1;
+  const out = new Float32Array(v.length); for (let i = 0; i < v.length; i++) out[i] = v[i] / n;
+  return out;
+}
 
 /**
  * Cosine similarity between two vectors
@@ -101,6 +119,7 @@ export async function loadModel(onProgress = null) {
  * Load card info from card-hashes.json (for name lookups)
  */
 async function loadCardInfo() {
+  if (cardDb?.cards) return cardDb.cards;
   if (cardInfoDb) return cardInfoDb;
 
   try {
@@ -133,76 +152,58 @@ async function loadCardInfo() {
  * Supports chunked loading for large databases
  */
 export async function loadEmbeddings(forceRefresh = false) {
-  if (embeddingsDb && !forceRefresh) {
-    return { embeddings: embeddingsDb, meta: embeddingsMeta };
-  }
+  if (cardDb && !forceRefresh) return { embeddings: cardDb, meta: cardDb.meta };
+  if (cardDbPromise && !forceRefresh) return cardDbPromise;
 
-  console.log('[CLIPMatcher] Loading embeddings database...');
-  const startTime = performance.now();
-
-  try {
-    // Try loading chunked embeddings first (for Vercel deployment)
-    let response = await fetch('/models/clip_embeddings_0.json');
-
-    if (response.ok) {
-      // Chunked format - load all chunks
-      const firstChunk = await response.json();
-      const totalChunks = firstChunk.totalChunks || 1;
-
-      console.log(`[CLIPMatcher] Loading ${totalChunks} embedding chunks...`);
-      embeddingsDb = { ...firstChunk.embeddings };
-
-      // Load remaining chunks in parallel
-      if (totalChunks > 1) {
-        const chunkPromises = [];
-        for (let i = 1; i < totalChunks; i++) {
-          chunkPromises.push(
-            fetch(`/models/clip_embeddings_${i}.json`).then(r => r.json())
-          );
-        }
-        const chunks = await Promise.all(chunkPromises);
-        for (const chunk of chunks) {
-          Object.assign(embeddingsDb, chunk.embeddings);
-        }
+  cardDbPromise = (async () => {
+    const startTime = performance.now();
+    // 1) Sharded DB from the public bucket (versioned, cached per shard in the browser)
+    if (CARD_DB_BASE) {
+      try {
+        const db = await loadCardDb({ baseUrl: CARD_DB_BASE });
+        cardDb = db;
+        embeddingsMeta = db.meta;
+        console.log(`[CLIPMatcher] Loaded ${db.meta.count} embeddings (bucket v${db.meta.version}) in ${(performance.now() - startTime).toFixed(0)}ms`);
+        return { embeddings: cardDb, meta: embeddingsMeta };
+      } catch (e) {
+        console.warn('[CLIPMatcher] bucket DB unavailable, using bundled JSON:', e?.message || e);
       }
-
-      embeddingsMeta = {
-        version: firstChunk.version,
-        model: firstChunk.model,
-        count: Object.keys(embeddingsDb).length,
-        chunked: true,
-      };
-    } else {
-      // Try single file format (local development)
-      console.log('[CLIPMatcher] Trying single-file embeddings...');
-      response = await fetch('/models/clip_embeddings_tfjs.json');
-      if (!response.ok) {
-        response = await fetch('/models/clip_embeddings.json');
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to load embeddings: ${response.status}`);
-      }
-
-      const data = await response.json();
-      embeddingsDb = data.embeddings;
-      embeddingsMeta = {
-        version: data.version,
-        model: data.model,
-        count: data.count,
-        generated: data.generated,
-      };
     }
+    // 2) Bundled JSON chunks (legacy). Converted into the same { matrix, ids, cards } shape.
+    const raw = await loadBundledJson();
+    const ids = Object.keys(raw.embeddings);
+    const dim = ids.length ? raw.embeddings[ids[0]].length : 512;
+    const matrix = new Float32Array(ids.length * dim);
+    ids.forEach((id, r) => matrix.set(l2normalize(raw.embeddings[id]), r * dim));
+    const info = await loadCardInfo();
+    const cards = {};
+    for (const id of ids) cards[id] = info?.[id] || { name: null, set: id.split('-')[0], number: id.split('-').slice(1).join('-') };
+    cardDb = { matrix, ids, cards, meta: { ...raw.meta, dim, count: ids.length, source: 'bundled' } };
+    embeddingsMeta = cardDb.meta;
+    console.log(`[CLIPMatcher] Loaded ${ids.length} embeddings (bundled JSON) in ${(performance.now() - startTime).toFixed(0)}ms`);
+    return { embeddings: cardDb, meta: embeddingsMeta };
+  })();
+  try { return await cardDbPromise; } finally { cardDbPromise = null; }
+}
 
-    const elapsed = performance.now() - startTime;
-    console.log(`[CLIPMatcher] Loaded ${embeddingsMeta.count} embeddings in ${elapsed.toFixed(0)}ms`);
-
-    return { embeddings: embeddingsDb, meta: embeddingsMeta };
-
-  } catch (error) {
-    console.error('[CLIPMatcher] Failed to load embeddings:', error);
-    throw error;
+/** Legacy loader for public/models/clip_embeddings_*.json (kept as a fallback for one release). */
+async function loadBundledJson() {
+  let response = await fetch('/models/clip_embeddings_0.json');
+  if (response.ok) {
+    const firstChunk = await response.json();
+    const totalChunks = firstChunk.totalChunks || 1;
+    const embeddings = { ...firstChunk.embeddings };
+    if (totalChunks > 1) {
+      const chunks = await Promise.all(Array.from({ length: totalChunks - 1 }, (_, i) => fetch(`/models/clip_embeddings_${i + 1}.json`).then((r) => r.json())));
+      for (const chunk of chunks) Object.assign(embeddings, chunk.embeddings);
+    }
+    return { embeddings, meta: { version: firstChunk.version, model: firstChunk.model, chunked: true } };
   }
+  response = await fetch('/models/clip_embeddings_tfjs.json');
+  if (!response.ok) response = await fetch('/models/clip_embeddings.json');
+  if (!response.ok) throw new Error(`Failed to load embeddings: ${response.status}`);
+  const data = await response.json();
+  return { embeddings: data.embeddings, meta: { version: data.version, model: data.model, generated: data.generated } };
 }
 
 /**
@@ -292,38 +293,27 @@ function getSeriesFromSetId(setId) {
  * Find best matching cards for an embedding
  */
 export function findMatches(queryEmbedding, cardInfo, topK = 10) {
-  if (!embeddingsDb) {
+  if (!cardDb) {
     throw new Error('Embeddings not loaded. Call loadEmbeddings() first.');
   }
-
-  const similarities = [];
-
-  for (const [cardId, embedding] of Object.entries(embeddingsDb)) {
-    const sim = cosineSimilarity(queryEmbedding, embedding);
-    const card = cardInfo?.[cardId] || {};
-    const setId = card.set || cardId.split('-')[0] || '';
-    const number = card.number || cardId.split('-')[1] || '';
+  const q = l2normalize(queryEmbedding);
+  const hits = dbTopK(cardDb, q, topK);
+  return hits.map(({ id, s }) => {
+    const card = cardDb.cards[id] || cardInfo?.[id] || {};
+    const setId = card.set || id.split('-')[0] || '';
+    const number = card.number || id.split('-')[1] || '';
     const series = getSeriesFromSetId(setId);
-
-    similarities.push({
-      id: cardId,
-      name: card.name || cardId.split('-').slice(1).join('-') || 'Unknown',
+    return {
+      id,
+      name: card.name || id.split('-').slice(1).join('-') || 'Unknown',
       number,
       set: setId,
       // TCGDex image URL: /en/{series}/{setId}/{localId}
       image: `https://assets.tcgdex.net/en/${series}/${setId}/${number}`,
-      similarity: sim,
-    });
-  }
-
-  // Sort by similarity descending
-  similarities.sort((a, b) => b.similarity - a.similarity);
-
-  // Add confidence levels
-  return similarities.slice(0, topK).map(match => ({
-    ...match,
-    confidence: getConfidence(match.similarity),
-  }));
+      similarity: s,
+      confidence: getConfidence(s),
+    };
+  });
 }
 
 /**
@@ -426,14 +416,14 @@ export function isModelLoaded() {
  * Check if embeddings are loaded
  */
 export function areEmbeddingsLoaded() {
-  return embeddingsDb !== null;
+  return cardDb !== null;
 }
 
 /**
  * Get embeddings metadata
  */
 export function getEmbeddingsMeta() {
-  return embeddingsMeta;
+  return cardDb?.meta || embeddingsMeta;
 }
 
 /**
