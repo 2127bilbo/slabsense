@@ -1,0 +1,28 @@
+/** Shard writer shared by build-initial.mjs and update.mjs. Shards are append-only. */
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { encodeF16 } from '../../src/lib/f16.js';
+
+export const DIM = 512;
+
+/**
+ * @param outDir   local directory for the files
+ * @param shardId  zero-padded id, e.g. '0006'
+ * @param ids      card ids in row order
+ * @param cards    { id: { name, set, number } }
+ * @param matrix   Float32Array(ids.length × DIM), rows L2-normalized
+ */
+export function writeShard(outDir, shardId, ids, cards, matrix) {
+  if (matrix.length !== ids.length * DIM) throw new Error(`matrix/ids length mismatch: ${matrix.length} vs ${ids.length}×${DIM}`);
+  fs.mkdirSync(outDir, { recursive: true });
+  const bytes = encodeF16(matrix);
+  const f16Path = path.join(outDir, `${shardId}.f16`);
+  const metaPath = path.join(outDir, `${shardId}.meta.json`);
+  fs.writeFileSync(f16Path, bytes);
+  const meta = { shard: shardId, dim: DIM, count: ids.length, ids, cards: Object.fromEntries(ids.map((id) => [id, cards[id]])) };
+  fs.writeFileSync(metaPath, JSON.stringify(meta));
+  return { f16Path, metaPath, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), count: ids.length };
+}
+
+export const nextShardId = (manifest) => String((manifest?.shards?.length || 0) + 1).padStart(4, '0');
