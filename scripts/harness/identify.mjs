@@ -208,7 +208,7 @@ const truth = JSON.parse(fs.readFileSync(path.join(here, 'id-truth.json'), 'utf8
 let certs = Object.keys(truth).sort(); if (ONLY) certs = certs.filter((c) => c === ONLY); if (LIMIT) certs = certs.slice(0, LIMIT);
 const extractor = await getExtractor();
 let gitCommit = 'unknown'; try { gitCommit = execSync('git rev-parse --short HEAD', { cwd: ROOT }).toString().trim(); } catch {}
-const VARIANTS = ['current', 'margin', ...(SKIP_OCR ? [] : ['ocr']), ...(SKIP_PIXEL ? [] : ['pixel'])];
+const VARIANTS = ['current', 'margin', ...(SKIP_OCR ? [] : ['ocr']), ...(SKIP_PIXEL ? [] : ['pixel']), ...(SKIP_OCR || SKIP_PIXEL ? [] : ['both'])];
 const stats = Object.fromEntries(VARIANTS.map((v) => [v, { top1Exact: 0, top1ExactInDb: 0, inTop5InDb: 0, wrongHigh: 0, unknownButInDb: 0, ms: 0 }]));
 const cards = []; const notInDb = []; let n = 0, errors = 0; const t0 = Date.now();
 
@@ -235,15 +235,21 @@ for (const cert of certs) {
     let ranked, status;
     if (v === 'current') { ranked = hits.map((h) => ({ ...h, s2: h.s })); status = statusCurrent(ranked[0].s2); }
     else if (v === 'margin') { ranked = hits.map((h) => ({ ...h, s2: h.s })); status = statusMargin(ranked[0].s2, ranked[1]?.s2 ?? 0); }
-    else if (v === 'ocr') { const read = await ocrNumerator(); ranked = rerank(hits, (h) => (read && numerator(db.cards[h.id]?.number || h.id.split('-').slice(1).join('-')) === read ? 0.15 : 0)); status = statusMargin(ranked[0].s2, ranked[1]?.s2 ?? 0); rec.ocrRead = read; }
-    else if (v === 'pixel') { const qf = stripFeature(d); const boosts = {}; let found = 0; for (const h of hits) { const rf = await refFeature(h.id); if (rf) found++; boosts[h.id] = rf ? 0.25 * Math.max(0, ncc(qf, rf)) : 0; } ranked = rerank(hits, (h) => boosts[h.id]); status = statusMargin(ranked[0].s2, ranked[1]?.s2 ?? 0); rec.pixel = { refFound: found, boosts: hits.slice(0, 5).map((h) => ({ id: h.id, boost: +boosts[h.id].toFixed(3), match: isMatch(h.id) })) }; }
+    else if (v === 'ocr') { if (rec.ocrRead === undefined) rec.ocrRead = await ocrNumerator(); const read = rec.ocrRead; ranked = rerank(hits, (h) => (read && numerator(db.cards[h.id]?.number || h.id.split('-').slice(1).join('-')) === read ? 0.15 : 0)); status = statusMargin(ranked[0].s2, ranked[1]?.s2 ?? 0); }
+    else if (v === 'pixel' || v === 'both') {
+      if (!rec._boosts) { const qf = stripFeature(d); const boosts = {}; let found = 0; for (const h of hits) { const rf = await refFeature(h.id); if (rf) found++; boosts[h.id] = rf ? 0.25 * Math.max(0, ncc(qf, rf)) : 0; } rec._boosts = boosts; rec.pixel = { refFound: found, boosts: hits.slice(0, 5).map((h) => ({ id: h.id, boost: +boosts[h.id].toFixed(3), match: isMatch(h.id) })) }; }
+      if (v === 'both' && rec.ocrRead === undefined) rec.ocrRead = await ocrNumerator();
+      const read = v === 'both' ? rec.ocrRead : null;
+      ranked = rerank(hits, (h) => rec._boosts[h.id] + (read && numerator(db.cards[h.id]?.number || h.id.split('-').slice(1).join('-')) === read ? 0.15 : 0));
+      status = statusMargin(ranked[0].s2, ranked[1]?.s2 ?? 0);
+    }
     const top1 = ranked[0].id; const ok = isMatch(top1); const top5 = ranked.slice(0, 5).some((h) => isMatch(h.id));
     const s = stats[v]; s.ms += Date.now() - tv;
     if (ok) s.top1Exact++; if (ok && inDb) s.top1ExactInDb++; if (top5 && inDb) s.inTop5InDb++;
     if (status === 'high' && !ok) s.wrongHigh++; if (status === 'unknown' && inDb) s.unknownButInDb++;
     rec.variants[v] = { top1, status, ok, top5 };
   }
-  cards.push(rec);
+  delete rec._boosts; cards.push(rec);
   if (++n % 25 === 0 || n === certs.length) console.log(`  ${n}/${certs.length} (${Math.round((Date.now() - t0) / 1000)}s)`);
 }
 if (worker) await worker.terminate();

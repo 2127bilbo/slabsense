@@ -12,6 +12,7 @@
 import { useState, useEffect } from 'react';
 import { identifyCard, selectCard } from '../../lib/identify-card.js';
 import { smartSearch, getFullCardData } from '../../services/tcgdex.js';
+import { logIdentification } from '../../services/scans.js';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
@@ -98,9 +99,24 @@ export function CardIdentifier({
     }
   };
 
+  // Record what the matcher proposed vs what the user picked (fire-and-forget).
+  const logPick = (chosenId) => {
+    const r = identifyResult;
+    const fromMatcher = r && (r.rawMatches || r.matches || []).some((m) => m.id === chosenId);
+    logIdentification({
+      dbVersion: r?.dbMeta?.version ?? null,
+      variant: r?.variant || 'current',
+      status: fromMatcher ? (r.status === 'matched' ? 'high' : r.status === 'ambiguous' ? 'medium' : 'unknown') : 'manual',
+      top5: (r?.rawMatches || r?.matches || []).slice(0, 5),
+      chosenId,
+      ocrRead: r?.ocrRead ?? null,
+    });
+  };
+
   const handleSelectCard = async (card) => {
     setSelectedCard(card);
     setStatus('loading');
+    logPick(card.id);
 
     try {
       const fullData = await getFullCardData(card.id);

@@ -287,3 +287,28 @@ export async function logMissingImage(tcgdexId, cardName, setName, cardNumber) {
     console.warn('[MissingImage] Failed to log:', err.message);
   }
 }
+
+/**
+ * Log an identification outcome (what the matcher suggested vs what the user chose).
+ * Fire-and-forget: never throws, never blocks the UI. Requires a signed-in user (RLS).
+ * @param {{ dbVersion?: number, variant: string, status: string, top5: Array<{id:string, similarity:number}>, chosenId?: string|null, ocrRead?: string|null }} o
+ */
+export async function logIdentification({ dbVersion = null, variant, status, top5, chosenId = null, ocrRead = null }) {
+  try {
+    if (!isSupabaseConfigured()) return;
+    const { data: { user } = {} } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from('card_identifications').insert({
+      user_id: user.id,
+      db_version: dbVersion,
+      variant,
+      status,
+      top5: (top5 || []).slice(0, 5).map((m) => ({ id: m.id, similarity: Math.round((m.similarity ?? 0) * 1000) / 1000 })),
+      chosen_id: chosenId,
+      ocr_read: ocrRead,
+    });
+    if (error) console.warn('[logIdentification]', error.message);
+  } catch (e) {
+    console.warn('[logIdentification]', e?.message || e);
+  }
+}

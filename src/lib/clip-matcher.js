@@ -37,6 +37,16 @@ const CARD_DB_BASE = (() => {
   } catch { return null; }
 })();
 
+/**
+ * Re-ranking of the CLIP top-K (bake-off 2026-09-14, scripts/harness/results/*-identify*.md):
+ *   'none'  → cosine order only
+ *   'pixel' → + number-line template match against each candidate's TCGDex image
+ *   'ocr'   → + set number read from the crop
+ *   'both'  → both boosts
+ * Set from the bake-off winner; override per call with matchCard(src, { rerank }).
+ */
+export const DEFAULT_RERANK = 'both';
+
 function l2normalize(v) {
   let n = 0; for (let i = 0; i < v.length; i++) n += v[i] * v[i];
   n = Math.sqrt(n) || 1;
@@ -319,6 +329,13 @@ export function findMatches(queryEmbedding, cardInfo, topK = 10) {
 /**
  * Get confidence level from similarity score
  */
+/** Margin rule: 'matched' | 'ambiguous' | 'unknown' from the top two scores. */
+export function statusFromScores(top, second) {
+  if (top >= 0.80 && top - second >= 0.03) return 'matched';
+  if (top >= 0.75) return 'ambiguous';
+  return 'unknown';
+}
+
 function getConfidence(similarity) {
   if (similarity >= 0.85) return 'high';
   if (similarity >= 0.75) return 'medium';
@@ -370,29 +387,49 @@ export async function matchCard(imageSource, options = {}) {
     if (onProgress) onProgress({ step: 'match', message: 'Finding matches...' });
     const matches = findMatches(embedding, cardInfoDb, topK);
 
+    // Step 5b: optional re-ranking on the number line (see DEFAULT_RERANK)
+    const rerank = options.rerank ?? DEFAULT_RERANK;
+    let ocrRead = null;
+    if (rerank !== 'none' && matches.length > 1) {
+      if (onProgress) onProgress({ step: 'rerank', message: 'Checking card number...' });
+      try {
+        const { pixelBoosts, ocrNumber, numerator } = await import('./id-rerank.js');
+        const cropSrc = processedImage instanceof HTMLCanvasElement ? processedImage.toDataURL('image/jpeg', 0.92) : processedImage;
+        const boosts = rerank === 'pixel' || rerank === 'both' ? await pixelBoosts(cropSrc, matches) : {};
+        if (rerank === 'ocr' || rerank === 'both') ocrRead = await ocrNumber(cropSrc);
+        for (const m of matches) {
+          m.baseSimilarity = m.similarity;
+          m.similarity = m.similarity + (boosts[m.id] || 0) + (ocrRead && numerator(m.number) === ocrRead ? 0.15 : 0);
+        }
+        matches.sort((a, b) => b.similarity - a.similarity);
+        for (const m of matches) m.confidence = getConfidence(m.similarity);
+      } catch (e) {
+        console.warn('[CLIPMatcher] re-rank skipped:', e?.message || e);
+      }
+    }
+
     const elapsed = performance.now() - startTime;
 
-    // Determine overall status
+    // Determine overall status (margin rule, bake-off 2026-09-14): a confident match needs
+    // both a high top score AND a clear gap to the runner-up. Absolute similarity alone
+    // labeled 243/506 wrong answers "high" because reprints score within 0.02 of each other.
     const topMatch = matches[0];
-    let status;
-    if (topMatch.confidence === 'high') {
-      status = 'matched';
-    } else if (topMatch.confidence === 'medium') {
-      status = 'ambiguous';
-    } else {
-      status = 'unknown';
-    }
+    const second = matches[1];
+    const status = statusFromScores(topMatch?.similarity ?? 0, second?.similarity ?? 0);
+    if (topMatch) topMatch.confidence = status === 'matched' ? 'high' : status === 'ambiguous' ? 'medium' : getConfidence(topMatch.similarity);
 
     if (onProgress) onProgress({ step: 'done', message: 'Complete!' });
 
     return {
       status,
-      confidence: topMatch.confidence,
+      confidence: topMatch?.confidence ?? 'none',
       topMatch,
       matches,
       cropInfo,
       elapsed,
       embeddingsMeta,
+      variant: rerank === 'none' ? 'margin' : rerank,
+      ocrRead,
     };
 
   } catch (error) {

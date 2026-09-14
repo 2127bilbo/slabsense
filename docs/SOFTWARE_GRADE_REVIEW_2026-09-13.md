@@ -376,7 +376,51 @@ After F1/F2 (`scripts/harness/results/2026-09-14-after-f1-f2.md`): identical num
 expected. The next round (crease / dent / scratch detection, then corner recall) is where
 this table should move.
 
-## 9. Files touched by this review (read only)
+## 10. Card identification (reviewed 2026-09-14)
+
+Path: front crop → CLIP ViT-B/32 embedding in the browser → cosine vs TCGDex reference
+embeddings → candidates shown to the user. OCR (`services/ocr.js`) was tried earlier on the
+NAME region and made things worse, so it was unused.
+
+Findings (100-card probe, then a 507-card bake-off in `scripts/harness/identify.mjs`,
+results in `scripts/harness/results/2026-09-14-identify*.md`):
+
+- Confidence used absolute similarity, but reprints score within ~0.02 of each other and the
+  median card's nearest *other* card scores 0.885 inside the DB, so 243 of 506 answers were
+  labeled "high" while wrong.
+- 2,321 digital-only TCG Pocket entries (ids `A1…`, `B1…`, `P-A-…`) shared artwork with
+  physical cards and stole top spots.
+- The DB (generated 2026-04-16, five 45 MB JSON files in the repo) was 70 sets / ~2,100 cards
+  behind TCGDex: not just me03–me05 but trainer galleries, shiny vaults, energies, McDonald's
+  and most promo sets. Coverage explained roughly a fifth of the misses; the matcher the rest.
+- 17 "wrong" answers are TAG-vs-TCGDex naming differences ("Mega X EX" vs "M X EX",
+  "LV.X" suffixes); they understate every variant equally.
+
+Bake-off on 506 TAG photos (433 in the DB):
+
+| variant | top-1 exact, in DB | in top-5, in DB | "high" but wrong | fixed / broke vs current |
+|---|---|---|---|---|
+| current (absolute similarity) | 263 (60.7%) | 340 (78.5%) | 243 | – |
+| margin label only | 263 (60.7%) | 340 (78.5%) | 173 | 0 / 0 |
+| OCR set-number re-rank | 278 (64.2%) | 344 (79.4%) | 161 | 15 / 0 |
+| pixel number-line re-rank | 280 (64.7%) | 355 (82.0%) | 161 | 23 / 6 |
+| **OCR + pixel** | **293 (67.7%)** | **357 (82.4%)** | **152** | **35 / 5** |
+
+Decision (owner, 2026-09-14): ship OCR + pixel with the margin label. Implemented in
+`src/lib/id-rerank.js` + `clip-matcher.js` (`DEFAULT_RERANK = 'both'`), with every
+identification logged to `card_identifications` (migration `20260914_card_identifications.sql`).
+OCR notes: tesseract's LSTM engine ignores `tessedit_char_whitelist`; read the native-resolution
+bottom 8% strip, thresholded, block mode first. It reads a number on ~24% of studio photos and
+was never wrong when it did. Pixel notes: template = lowest band of high-contrast ink in each end
+of the bottom strip of the candidate's TCGDex image; NCC with ±24/±12 px shift; the user's crop
+must be tight (on TAG photos the harness crops by the orange margin because `findBounds` miscuts).
+
+Database: now float16 shards in the public Supabase bucket `card-db` (19,578 cards, ~20 MB),
+weekly incremental update via `.github/workflows/card-db-update.yml`; see
+`scripts/card-db/README.md`. Still to do after the bake-off: phone-photo validation (none exists),
+and a card-specific embedding model once `card_identifications` has data.
+
+## 11. Files touched by this review (read only)
 
 `src/App.jsx`, `src/lib/gradingEngine.js`, `src/lib/gradingEngine.test.js`,
 `src/lib/masterweights.js`, `src/lib/tag-calibration.js`, `src/utils/gradingScales.js`,
