@@ -30,7 +30,7 @@ import { getGyroInput } from "./lib/gyro-input.js";
 import { loadImg, genMaps, LUM } from "./lib/image-utils.js";
 import { cropToOuterBounds, getBoundsFromCorners } from "./lib/centering-utils.js";
 import { getGrade, computeGrade } from "./lib/softwareGrade.js";
-import { analyzePixels } from "./lib/detectors.js";
+import { analyzePixels, findBounds, PX } from "./lib/detectors.js";
 import holoConfig from "../config/holo-config.json";
 
 /* ═══════════════════════════════════════════
