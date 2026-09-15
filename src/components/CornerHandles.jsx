@@ -231,9 +231,9 @@ export function CornerHandles({
   // Line weight: thin on screen when zoomed so the exact edge is visible (floor scales with zoom too)
   const lw = Math.max(1.5, cW * 0.004 * (z > 1 ? 0.5 : 1)) / z;
   const pad = 50 / z;   // Touch target padding
-  const hw = lw * 2.2;    // halo band width (sits on the far side of the line, never over the edge you align to)
+  const hw = lw * 4.5;    // halo band width (sits on the far side of the line, never over the edge you align to)
   // Pull handles further from the corner as zoom rises so they never sit on top of the line
-  const handleOffset = handleSize * (1.2 + 2.2 * Math.min(1, (z - 1) / 3));
+  const handleOffset = handleSize * (2.2 + 3 * Math.min(1, (z - 1) / 3));
 
   // Get sample points for visualization (only if both corners exist)
   const samplePoints = innerCorners ? getSamplePoints(outerCorners, innerCorners) : {};
@@ -301,7 +301,7 @@ export function CornerHandles({
       {showInner && (() => {
         const ilw = Math.max(1.5 / z, lw * 0.8);
         const q = offsetQuad(innerCorners, -ilw / 2);
-        const hq = offsetQuad(innerCorners, -(ilw + hw / 2));
+        const hq = offsetQuad(innerCorners, hw / 2);   // halo OUTSIDE the measured coordinate (in the border)
         return (<>
           {halo && (
             <polygon

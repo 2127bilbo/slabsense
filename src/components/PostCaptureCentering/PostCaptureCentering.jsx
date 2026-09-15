@@ -95,6 +95,7 @@ export function PostCaptureCentering({
 
   const svgRef = useRef(null);
   const dragging = useRef(null);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });   // edge mode: line position minus finger position at pointerdown
   const outerRef = useRef(outer);
   const innerRef = useRef(inner);
 
@@ -595,12 +596,12 @@ export function PostCaptureCentering({
   // Line weight thins on screen when zoomed so the exact edge stays visible
   const lw = Math.max(1.5, cW * 0.005 * (view.z > 1 ? 0.5 : 1)) / view.z;
   // Edge-mode handles sit inside the line; push them further in as zoom rises so they clear it
-  const handleInset = handleSize * (1 + 2.2 * Math.min(1, (view.z - 1) / 3));
+  const handleInset = handleSize * (2 + 3 * Math.min(1, (view.z - 1) / 3));
   const pad = 40 / view.z;
   const outerColor = lineStyle.auto && autoColors.outer ? autoColors.outer : lineStyle.outer;
   const innerColor = lineStyle.auto && autoColors.inner ? autoColors.inner : lineStyle.inner;
   const ilw = Math.max(1.5 / view.z, lw * 0.8);   // inner (artwork) line width
-  const hw = lw * 2.2;                            // halo band width
+  const hw = lw * 4.5;                            // halo band width
   const stageTransform = step === 1 ? `perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${rotation}deg)` : 'none';
   const activeMapSrc = step === 1 ? image : croppedPreview;
   const activeMap = viewMode !== 'original' ? maps[activeMapSrc]?.[viewMode] : null;
@@ -1017,8 +1018,8 @@ export function PostCaptureCentering({
                       key={which}
                       data-handle={which}
                       style={{ cursor: isHoriz ? 'ns-resize' : 'ew-resize', touchAction: 'none' }}
-                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; onHandleDrag(edgeHandlePoint(which), e); }}
-                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const { x, y } = getCoords(e); moveOuterHandle(which, x, y); const o = outerRef.current; onHandleDrag(isHoriz ? { x: (o.left + o.right) / 2, y } : { x, y: (o.top + o.bottom) / 2 }, e); } }}
+                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; const c = getCoords(e); const hp = edgeHandlePoint(which) || c; dragOffsetRef.current = { x: hp.x - c.x, y: hp.y - c.y }; onHandleDrag(hp, e); }}
+                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const c = getCoords(e); const x = c.x + dragOffsetRef.current.x, y = c.y + dragOffsetRef.current.y; moveOuterHandle(which, x, y); const o = outerRef.current; onHandleDrag(isHoriz ? { x: (o.left + o.right) / 2, y } : { x, y: (o.top + o.bottom) / 2 }, e); } }}
                       onPointerUp={e => { dragging.current = null; onHandleDrag(null, e); }}
                       onPointerCancel={e => { dragging.current = null; onHandleDrag(null, e); }}
                     >
@@ -1071,12 +1072,13 @@ export function PostCaptureCentering({
                 />
                 {/* Draggable inner boundary */}
                 {/* Stroke drawn INSIDE the coordinate: its outside edge is the measured art line */}
+                {/* Art-line halo sits OUTSIDE the measured coordinate (in the border), so the seam between line and halo is the boundary */}
                 {lineStyle.halo && (
                   <rect
-                    x={inner.left + ilw + hw / 2}
-                    y={inner.top + ilw + hw / 2}
-                    width={Math.max(0, inner.right - inner.left - 2 * ilw - hw)}
-                    height={Math.max(0, inner.bottom - inner.top - 2 * ilw - hw)}
+                    x={inner.left - hw / 2}
+                    y={inner.top - hw / 2}
+                    width={inner.right - inner.left + hw}
+                    height={inner.bottom - inner.top + hw}
                     fill="none"
                     stroke={haloFor(innerColor)}
                     strokeWidth={hw}
@@ -1101,8 +1103,8 @@ export function PostCaptureCentering({
                       key={which}
                       data-handle={which}
                       style={{ cursor: isHoriz ? 'ns-resize' : 'ew-resize', touchAction: 'none' }}
-                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; onHandleDrag(edgeHandlePoint(which), e); }}
-                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const { x, y } = getCoords(e); moveInnerHandle(which, x, y); const i = innerRef.current; onHandleDrag(isHoriz ? { x: (i.left + i.right) / 2, y } : { x, y: (i.top + i.bottom) / 2 }, e); } }}
+                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; const c = getCoords(e); const hp = edgeHandlePoint(which) || c; dragOffsetRef.current = { x: hp.x - c.x, y: hp.y - c.y }; onHandleDrag(hp, e); }}
+                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const c = getCoords(e); const x = c.x + dragOffsetRef.current.x, y = c.y + dragOffsetRef.current.y; moveInnerHandle(which, x, y); const i = innerRef.current; onHandleDrag(isHoriz ? { x: (i.left + i.right) / 2, y } : { x, y: (i.top + i.bottom) / 2 }, e); } }}
                       onPointerUp={e => { dragging.current = null; onHandleDrag(null, e); }}
                       onPointerCancel={e => { dragging.current = null; onHandleDrag(null, e); }}
                     >
