@@ -280,7 +280,7 @@ export function CornerHandles({
           crop line. Radius grows by half the stroke so the inside edge keeps the card radius. */}
       {showOuter && halo && (
         <path
-          d={getRoundedQuadPath(offsetQuad(outerCorners, lw + hw / 2), cW * 0.048 + lw + hw / 2)}
+          d={getRoundedQuadPath(offsetQuad(outerCorners, -hw / 2), Math.max(0, cW * 0.048 - hw / 2))}   /* halo INSIDE the crop coordinate (on the card) */
           fill="none"
           stroke={haloFor(outerColor)}
           strokeWidth={hw}

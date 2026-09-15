@@ -985,14 +985,15 @@ export function PostCaptureCentering({
             {step === 1 && measureMode === 'edge' && (
               <>
                 {/* Stroke drawn OUTSIDE the coordinate: its inside edge is the crop line; radius keeps the card radius on that inside edge */}
+                {/* Card-edge halo sits INSIDE the crop coordinate (on the card), so the seam between halo and line is the crop boundary */}
                 {lineStyle.halo && (
                   <rect
-                    x={outer.left - lw - hw / 2}
-                    y={outer.top - lw - hw / 2}
-                    width={cW + 2 * lw + hw}
-                    height={cH + 2 * lw + hw}
-                    rx={cW * 0.048 + lw + hw / 2}
-                    ry={cW * 0.048 + lw + hw / 2}
+                    x={outer.left + hw / 2}
+                    y={outer.top + hw / 2}
+                    width={Math.max(0, cW - hw)}
+                    height={Math.max(0, cH - hw)}
+                    rx={Math.max(0, cW * 0.048 - hw / 2)}
+                    ry={Math.max(0, cW * 0.048 - hw / 2)}
                     fill="none"
                     stroke={haloFor(outerColor)}
                     strokeWidth={hw}
