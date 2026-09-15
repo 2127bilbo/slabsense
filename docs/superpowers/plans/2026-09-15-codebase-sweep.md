@@ -30,3 +30,13 @@ These stay on the list because a learned model replaces the detectors, not the p
 - App.jsx (~3,500 lines after this week) still holds the capture flow, grade tab, centering tab and analysis helpers. Split by tab before the model work touches the grade tab.
 
 Items that the model work does absorb: F3 (severity mismatch), F4 (light backgrounds / holo allowances), F5 (5-defect cliff), F10 (creases, dents, scratches invisible to the software path).
+
+## To do: fill pending card-DB entries from TAG images (agreed 2026-09-15, not started)
+
+Wait until the owner's TAG pull is finished (do not add API load to TAG meanwhile).
+
+- Registry = the manifest `pending` list (TCGDex ids with no image; 1,248 on 2026-09-15). TCGDex has fronts only, so fronts only.
+- `scripts/card-db/fill-pending.mjs` (run on the PC first, later in the weekly Action): for each pending id fetch name/number/set from TCGDex; look the card up in the TAG index in R2 by name + number numerator + year, set name as fuzzy tiebreaker; cards without a number (e.g. Ancient Mew `miscp-001`) match on name + year and are flagged for review. Grade preference 10P → 10 → 9.5 → 9. Download the TAG front, auto-crop (studio background, easy), upload to `card-db/supplemental/{id}.jpg`. Write a review file listing every match with both set names before anything is embedded.
+- Display naming follows TAG's wording (owner's call; users see TAG names on slabs anyway).
+- `update.mjs`: a pending id with a supplemental file is embedded from that file (same path as a TCGDex image), appended to a shard, removed from pending. Supplemental files stay in the bucket as provenance for future re-embeds.
+- Expect trainer-kit cards (475 pending) to stay pending; promos / subset cards should mostly resolve. Run the intersection first and report the count.
