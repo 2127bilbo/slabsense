@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { GRADING_COMPANIES, getGradeFromScore, getCompanyOptions, DEFAULT_GRADING_COMPANY } from "./utils/gradingScales.js";
+import { shapeAiResult, shapeDeepResult } from "./services/api.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { AuthModal } from "./components/Auth/AuthModal.jsx";
 import { UserMenu } from "./components/Auth/UserMenu.jsx";
@@ -17,7 +18,8 @@ import { HoloLogo } from "./components/HoloLogo/HoloLogo.jsx";
 import { GradeResultDisplay } from "./components/Grading/GradeResultDisplay.jsx";
 import { DamageReportModal } from "./components/DamageReport";
 import { CreditBalance, PricingPage } from "./components/Billing";
-import { spendCredits, refundCredits } from "./services/credits.js";
+import { getGradeJob } from "./services/credits.js";
+import { GRADE_TIERS, creditsLabel } from "./lib/grade-tiers.js";
 import {
   TAG_CENTERING_THRESHOLDS,
   GRADE_CEILINGS,
@@ -156,6 +158,17 @@ function cropReg(src,rg,mx=300){return new Promise(r=>{const img=new Image();img
 /* ═══════════════════════════════════════════
    FULL ANALYSIS PIPELINE
    ═══════════════════════════════════════════ */
+/** "CREASE_CAP_6" → "crease ≤ 6", for the Limited-by line under a grade. */
+function formatCaps(caps) {
+  return (caps || []).map((c) => c
+    .replace('MIN_SUBGRADE_CLAMP', 'min subgrade')
+    .replace('PRISTINE_GATE', 'pristine gate')
+    .replace('PRISTINE_BLOCK', 'pristine block')
+    .replace(/_CAP_/, ' ≤ ')
+    .replace(/_/g, ' ')
+    .toLowerCase()).join(', ');
+}
+
 async function analyzeCardFull(src, side, overrideBounds = null, overrideCentering = null) {
   const { w, h, data, canvas } = await loadImg(src);
   const scaledImgUrl = canvas.toDataURL('image/jpeg', 0.92);
@@ -1033,9 +1046,8 @@ function CameraViewfinder({ side, onCapture, onClose }) {
         };
         img.onload = () => {
           try {
-            // Use full resolution - no resize
-            // Compression happens at API call time for standard AI grade
-            // Deep grade uses full resolution via Supabase URLs
+            // Use full resolution - no resize. AI grades upload the photo to the Supabase
+            // bucket and send the URL, so the model always sees full resolution.
             const c = document.createElement('canvas');
             c.width = img.width; c.height = img.height;
             c.getContext('2d').drawImage(img, 0, 0);
@@ -1425,6 +1437,11 @@ export default function SlabSense(){
   const[enhancingStatus,setEnhancingStatus]=useState(null); // 'enhancing' | 'done' | 'error' | null
   const[deepGradeStatus,setDeepGradeStatus]=useState(null); // 'grading' | 'done' | 'error' | null
   const[deepGradeResult,setDeepGradeResult]=useState(null); // Deep AI grade result
+  const[aiDefects,setAiDefects]=useState(null); // AI (standard) defects { counts, items }
+  const[resumeJob,setResumeJob]=useState(null); // a finished AI grade job whose card is not loaded (offer to restore)
+  const cardKeyRef=useRef(null);   // sha-256 of the two photos: ties AI grade jobs to this card
+  const gradeRunRef=useRef(0);     // bumps on every new card; late AI results for an older card are not applied
+  const pendingApplyRef=useRef(null); // { gradeType, result, jobId, cardKey } to apply once a restored card is analyzed
   const[show3DViewer,setShow3DViewer]=useState(false); // 3D viewer modal visibility
   const[cardInfo,setCardInfo]=useState(null); // Card info: { name, cardNumber, setName, etc. }
   // AI grade results (unified schema - GRADING_OUTPUT_SCHEMA.md)
@@ -1675,6 +1692,39 @@ export default function SlabSense(){
     }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);}
   },[fI,bI,frontCroppedImage,backCroppedImage,ignoreCentering,gradingCompany,frontCenteringData,backCenteringData,frontQuality,backQuality]);
 
+  // Restore step 1: once the restored photos are in state, run the software analysis
+  useEffect(() => {
+    if (!pendingApplyRef.current || !fI || !bI || step !== 0) return;
+    run();
+  }, [fI, bI]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Restore step 2: once the software grade exists, apply the stored AI result and show the Grade tab
+  useEffect(() => {
+    const pa = pendingApplyRef.current;
+    if (!pa || step !== 2 || !gradeResult) return;
+    pendingApplyRef.current = null;
+    cardKeyRef.current = pa.cardKey;
+    forgetJob(pa.jobId);
+    applyGradeResult(pa.gradeType, pa.result);
+    setTab('grade');
+  }, [step, gradeResult]); // eslint-disable-line react-hooks/exhaustive-deps
+  // On sign-in / load: pick up jobs this browser started earlier (finished → offer, running → poll)
+  useEffect(() => {
+    if (!auth.user?.id) return;
+    let cancelled = false;
+    (async () => {
+      for (const j of readJobs()) {
+        if (Date.now() - (j.startedAt || 0) > 24 * 3600 * 1000) { forgetJob(j.jobId); continue; }
+        const job = await getGradeJob(j.jobId);
+        if (cancelled) return;
+        if (!job) continue;
+        if (job.status === 'error') { forgetJob(j.jobId); continue; }
+        if (job.status === 'done') { setResumeJob({ jobId: j.jobId, gradeType: job.grade_type, job }); continue; }
+        pollJob(j.jobId, job.grade_type, gradeRunRef.current);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [auth.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Combine image quality for grading confidence calculation
   const combinedImageQuality = useCallback(() => {
     // Take the worse metrics from front/back
@@ -1722,7 +1772,11 @@ export default function SlabSense(){
     }
   },[ignoreCentering, gradingCompany, fR, bR, useAiCentering, aiCentering, frontCenteringData, backCenteringData, combinedImageQuality]);
 
-  const reset=()=>{setStep(0);setFI(null);setBI(null);setFR(null);setBR(null);setFM(null);setBM(null);setGradeResult(null);setTab("scan");setIgnoreCentering(false);setSavingStatus(null);setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setEnhancingStatus(null);setShow3DViewer(false);setCardInfo(null);setAiSubgrades(null);setAiOverall(null);setAiGrades(null);setAiConfidence(null);setAiGradingNotes(null);setAiSummary(null);setDeepAiSubgrades(null);setDeepAiOverall(null);setDeepAiGrades(null);setDeepAiConfidence(null);setDeepAiCentering(null);setDeepAiSummary(null);setExtractingInfo(false);setCroppingFor3D(false);setCenteringConfirmed(false);setGradeMode('software');setUseAiCentering(false);setAiCentering(null);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
+  // Everything the Grade tab derives from a card: software, AI and Deep AI results and their statuses.
+  // Used by "New", "Scan New Card" and job restore, so no path can leave a stale status behind
+  // (the Deep button used to stay disabled for the whole session after one Deep grade).
+  const resetGradingState=()=>{setGradeResult(null);setFR(null);setBR(null);setFM(null);setBM(null);setCardInfo(null);setAiSubgrades(null);setAiOverall(null);setAiGrades(null);setAiConfidence(null);setAiGradingNotes(null);setAiSummary(null);setAiCentering(null);setAiDefects(null);setDeepAiSubgrades(null);setDeepAiOverall(null);setDeepAiGrades(null);setDeepAiConfidence(null);setDeepAiCentering(null);setDeepAiSummary(null);setDeepGradeStatus(null);setDeepGradeResult(null);setEnhancingStatus(null);setExtractingInfo(false);setGradeMode('software');setUseAiCentering(false);setCenteringConfirmed(false);setIgnoreCentering(false);setSavingStatus(null);gradeRunRef.current+=1;};
+  const reset=()=>{setStep(0);setFI(null);setBI(null);resetGradingState();setTab("scan");setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setShow3DViewer(false);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -1814,7 +1868,8 @@ export default function SlabSense(){
 
   // Build save data object (used by both direct save and crop flow)
   const buildSaveData = (userCardImage = null) => {
-    const aiGradeForCompany = aiGrades?.[gradingCompany];
+    // Save the grade the user is looking at (Deep or AI when selected, else software)
+    const aiGradeForCompany = gradeMode === 'deep' ? deepAiGrades?.[gradingCompany] : gradeMode === 'ai' ? aiGrades?.[gradingCompany] : null;
     const gradeValue = aiGradeForCompany?.grade ?? gradeResult.grade.grade;
     const gradeLabel = aiGradeForCompany?.label ?? gradeResult.grade.label;
 
@@ -1982,326 +2037,195 @@ export default function SlabSense(){
 
   // AI Grade - Claude analyzes card and returns grades (no SAM, no 3D)
   // Cost: 1 credit
-  const handleEnhanceCards = async () => {
-    if (!fI || !bI) return;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AI / DEEP AI GRADES — durable, one-shot jobs
+  //   The endpoint authenticates, spends the credit, records an ai_grade_jobs row for this
+  //   user + card, runs, and refunds server-side on failure. The client just starts the job,
+  //   applies the result, and polls the job row if the connection is lost (timeout, page
+  //   change, second tab). A job started for a card that is no longer loaded is offered back
+  //   via the "resume" banner. Buttons are disabled while a job runs (server refuses dupes too).
+  // ═══════════════════════════════════════════════════════════════════════════
+  const JOBS_KEY = 'slabsense_aiJobs';
+  const readJobs = () => { try { return JSON.parse(localStorage.getItem(JOBS_KEY) || '[]'); } catch { return []; } };
+  const writeJobs = (jobs) => { try { localStorage.setItem(JOBS_KEY, JSON.stringify(jobs)); } catch { /* ignore */ } };
+  const rememberJob = (job) => writeJobs([...readJobs().filter((j) => j.jobId !== job.jobId), job]);
+  const forgetJob = (jobId) => writeJobs(readJobs().filter((j) => j.jobId !== jobId));
 
-    // Check credits before proceeding
-    if (auth.user?.id) {
-      const spendResult = await spendCredits(auth.user.id, 'ai');
-      if (!spendResult.success) {
-        console.log('[AI Grade] Insufficient credits:', spendResult);
-        setInsufficientCredits({ type: 'ai', needed: spendResult.creditsRequired || 1 });
-        setShowPricing(true);
+  /** Stable id for "this card" = hash of both photos. */
+  const cardKeyFor = async (front, back) => {
+    const data = new TextEncoder().encode(`${front}|${back}`);
+    const buf = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  };
+  useEffect(() => {
+    let alive = true;
+    cardKeyRef.current = null;
+    if (fI && bI) cardKeyFor(fI, bI).then((k) => { if (alive) cardKeyRef.current = k; });
+    return () => { alive = false; };
+  }, [fI, bI]);
+
+  const softwareCenteringFor = (side) => {
+    const data = side === 'front' ? frontCenteringData : backCenteringData;
+    const r = side === 'front' ? fR : bR;
+    if (data?.didManualCenter) return { lrRatio: data.lrRatio, tbRatio: data.tbRatio };
+    if (r?.centering) return { lrRatio: r.centering.lrRatio, tbRatio: r.centering.tbRatio };
+    return null;
+  };
+  const centeringDisplay = (c) => {
+    const one = (v) => v ? {
+      lrRatio: v.lrRatio ?? 50, tbRatio: v.tbRatio ?? 50,
+      lrDisplay: `${(v.lrRatio ?? 50).toFixed(1)}/${(100 - (v.lrRatio ?? 50)).toFixed(1)}`,
+      tbDisplay: `${(v.tbRatio ?? 50).toFixed(1)}/${(100 - (v.tbRatio ?? 50)).toFixed(1)}`,
+    } : null;
+    return { front: one(c.front), back: one(c.back) };
+  };
+
+  /** Write an AI or Deep AI result (client-shaped) into state and show it. */
+  const applyGradeResult = (gradeType, result) => {
+    const isDeep = gradeType === 'deep';
+    if (result.cardInfo) setCardInfo(prev => prev ? { ...prev, ...result.cardInfo, pricing: prev.pricing } : result.cardInfo);
+    const centering = result.centering ? centeringDisplay(result.centering) : null;
+    if (isDeep) {
+      setDeepGradeResult(result);
+      if (result.subgrades) setDeepAiSubgrades(result.subgrades);
+      if (result.overall) setDeepAiOverall(result.overall);
+      if (result.grades) setDeepAiGrades(result.grades); else console.warn('Deep AI result.grades is missing! keys:', Object.keys(result));
+      if (result.confidence) setDeepAiConfidence(result.confidence);
+      if (result.summary) setDeepAiSummary(result.summary);
+      if (centering) setDeepAiCentering(centering);
+      setGradeMode('deep');                      // the higher tier takes the view
+      setDeepGradeStatus('done');
+    } else {
+      if (result.subgrades) setAiSubgrades(result.subgrades);
+      if (result.overall) setAiOverall(result.overall);
+      if (result.grades) setAiGrades(result.grades); else console.warn('AI result.grades is missing! keys:', Object.keys(result));
+      if (result.confidence) setAiConfidence(result.confidence);
+      if (result.defects) setAiDefects(result.defects);
+      if (result.summary) {
+        setAiSummary(result.summary);
+        setAiGradingNotes({ positives: result.summary.positives || [], concerns: result.summary.concerns || [], estimatedGrade: result.overall?.grade || result.grades?.tag?.grade, recommendation: result.summary.recommendation });
+      }
+      if (centering) setAiCentering(centering);
+      setGradeMode((m) => (m === 'deep' ? m : 'ai'));  // never pull the view away from a Deep result
+      setEnhancingStatus('done');
+      setExtractingInfo(false);
+    }
+    setProg('');
+    if (window.refreshCreditBalance) window.refreshCreditBalance();
+    console.log(`[${gradeType}] grade applied:`, result.cardInfo?.name, result.grades?.tag?.grade);
+  };
+  const resultFromJob = (job) => (job.grade_type === 'deep' ? shapeDeepResult(job.result, { jobId: job.id }) : shapeAiResult(job.result, { jobId: job.id }));
+
+  /** Poll a job row until it finishes (connection lost, 409 duplicate, or restored session). */
+  const pollJob = async (jobId, gradeType, run) => {
+    const isDeep = gradeType === 'deep';
+    const setStatus = isDeep ? setDeepGradeStatus : setEnhancingStatus;
+    const deadline = Date.now() + 10 * 60 * 1000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 5000));
+      const job = await getGradeJob(jobId);
+      if (!job) continue;
+      if (job.status === 'done') {
+        if (run !== gradeRunRef.current || cardKeyRef.current !== job.card_key) {
+          setStatus(null); setProg('');
+          setResumeJob({ jobId, gradeType, job });   // belongs to a card that is no longer loaded
+          return;
+        }
+        forgetJob(jobId);
+        applyGradeResult(gradeType, resultFromJob(job));
         return;
       }
-      console.log('[AI Grade] Credits spent:', spendResult.creditsSpent, 'Remaining:', spendResult.creditsRemaining);
-      window._lastAiTransactionId = spendResult.transactionId;
-      // Refresh credit balance display
-      if (window.refreshCreditBalance) window.refreshCreditBalance();
+      if (job.status === 'error') {
+        forgetJob(jobId); setStatus('error'); setProg('');
+        setTimeout(() => setStatus(null), 3000);
+        return;
+      }
     }
+    setStatus(null); setProg('');
+  };
 
-    setEnhancingStatus('enhancing');
-    setExtractingInfo(true);
+  const startGradeJob = async (gradeType) => {
+    if (!fI || !bI) return;
+    const isDeep = gradeType === 'deep';
+    const setStatus = isDeep ? setDeepGradeStatus : setEnhancingStatus;
+    if (!auth.user?.id) { setShowAuthModal(true); return; }
+
+    const run = gradeRunRef.current;
+    const cardKey = cardKeyRef.current || await cardKeyFor(fI, bI);
+    const jobId = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    setStatus(isDeep ? 'grading' : 'enhancing');
+    if (!isDeep) setExtractingInfo(true);
+    setProg(isDeep ? 'Deep analyzing (full-res)...' : 'AI grading card...');
+    rememberJob({ jobId, cardKey, gradeType, startedAt: Date.now() });
+
+    const frontC = softwareCenteringFor('front'), backC = softwareCenteringFor('back');
     try {
-      console.log('Starting Claude grading analysis...');
-      setProg('AI grading card...');
-
-      // Prepare software centering if available (more accurate than AI estimation)
-      const softwareFrontCentering = frontCenteringData?.didManualCenter
-        ? { lrRatio: frontCenteringData.lrRatio, tbRatio: frontCenteringData.tbRatio }
-        : fR?.centering
-        ? { lrRatio: fR.centering.lrRatio, tbRatio: fR.centering.tbRatio }
-        : null;
-
-      const softwareBackCentering = backCenteringData?.didManualCenter
-        ? { lrRatio: backCenteringData.lrRatio, tbRatio: backCenteringData.tbRatio }
-        : bR?.centering
-        ? { lrRatio: bR.centering.lrRatio, tbRatio: bR.centering.tbRatio }
-        : null;
-
-      const result = await claudeGradingAnalysis(
-        fI,
-        bI,
-        'pokemon',
-        auth.user?.id,
-        softwareFrontCentering,
-        softwareBackCentering
-      );
-
-      if (result.success) {
-        // Card info from OCR - merge with existing cardInfo to preserve TCGDex pricing
-        if (result.cardInfo) {
-          setCardInfo(prev => prev ? { ...prev, ...result.cardInfo, pricing: prev.pricing } : result.cardInfo);
-        }
-
-        // Condition assessment
-        // Unified schema fields (GRADING_OUTPUT_SCHEMA.md)
-        // Subgrades: 8 keys, 0-100 scale
-        if (result.subgrades) {
-          setAiSubgrades(result.subgrades);
-          console.log('AI subgrades (0-100):', result.subgrades);
-        }
-
-        // Overall: score, grade, label, displayGrade, capsApplied, minSubgrade
-        if (result.overall) {
-          setAiOverall(result.overall);
-          console.log('AI overall:', result.overall);
-        }
-
-        // Company grades: { psa, bgs, sgc, cgc, tag }
-        if (result.grades) {
-          setAiGrades(result.grades);
-          console.log('AI company grades:', result.grades);
-        } else {
-          console.warn('AI result.grades is missing! result keys:', Object.keys(result));
-        }
-
-        // Confidence: { value: 0-1, factors: [] }
-        if (result.confidence) {
-          setAiConfidence(result.confidence);
-          console.log('AI confidence:', result.confidence);
-        }
-
-        // Defects: { counts, items }
-        if (result.defects) {
-          console.log('AI defects:', result.defects);
-        }
-
-        // Summary: { positives, concerns, recommendation }
-        if (result.summary) {
-          setAiSummary(result.summary);
-          setAiGradingNotes({
-            positives: result.summary.positives || [],
-            concerns: result.summary.concerns || [],
-            estimatedGrade: result.overall?.grade || result.grades?.tag?.grade,
-            recommendation: result.summary.recommendation,
-          });
-        }
-
-        // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
-        if (result.centering) {
-          console.log('AI Centering (numeric):', result.centering);
-          // New schema has numeric values directly, convert to display format
-          const front = result.centering.front;
-          const back = result.centering.back;
-          setAiCentering({
-            front: front ? {
-              lrRatio: front.lrRatio ?? 50,
-              tbRatio: front.tbRatio ?? 50,
-              lrDisplay: `${(front.lrRatio ?? 50).toFixed(1)}/${(100 - (front.lrRatio ?? 50)).toFixed(1)}`,
-              tbDisplay: `${(front.tbRatio ?? 50).toFixed(1)}/${(100 - (front.tbRatio ?? 50)).toFixed(1)}`,
-            } : null,
-            back: back ? {
-              lrRatio: back.lrRatio ?? 50,
-              tbRatio: back.tbRatio ?? 50,
-              lrDisplay: `${(back.lrRatio ?? 50).toFixed(1)}/${(100 - (back.lrRatio ?? 50)).toFixed(1)}`,
-              tbDisplay: `${(back.tbRatio ?? 50).toFixed(1)}/${(100 - (back.tbRatio ?? 50)).toFixed(1)}`,
-            } : null,
-          });
-        }
-
-        setEnhancingStatus('done');
-        setExtractingInfo(false);
-        setProg('');
-        console.log('Claude analysis complete:', result.cardInfo?.name);
-
-      } else {
-        console.error('AI analysis failed:', result.error);
-        setEnhancingStatus('error');
-        setExtractingInfo(false);
-        setProg('');
-        setTimeout(() => setEnhancingStatus(null), 3000);
+      const result = isDeep
+        ? await deepGradingAnalysisV2(fI, bI, frontCroppedImage || fI, backCroppedImage || bI, 'pokemon', 'modern_holo', auth.user.id, frontC, backC, { jobId, cardKey })
+        : await claudeGradingAnalysis(fI, bI, 'pokemon', auth.user.id, frontC, backC, { jobId, cardKey });
+      if (run !== gradeRunRef.current) {
+        // Card changed while the grade ran: the result is stored on the job; offer it back
+        setStatus(null); setProg('');
+        setResumeJob({ jobId: result.jobId || jobId, gradeType, job: null });
+        return;
       }
+      forgetJob(jobId);
+      applyGradeResult(gradeType, result);
     } catch (err) {
-      console.error('Error in AI analysis:', err);
-      // Refund credits on failure
-      if (auth.user?.id && window._lastAiTransactionId) {
-        try {
-          await refundCredits(auth.user.id, window._lastAiTransactionId, null, 'AI grading failed');
-          console.log('[AI Grade] Credits refunded due to error');
-          if (window.refreshCreditBalance) window.refreshCreditBalance();
-        } catch (refundErr) {
-          console.error('[AI Grade] Failed to refund credits:', refundErr);
-        }
+      console.error(`[${gradeType}] grade failed:`, err);
+      if (err.status === 402) {
+        forgetJob(jobId);
+        setInsufficientCredits({ type: gradeType, needed: err.data?.creditsRequired || GRADE_TIERS[gradeType].credits });
+        setShowPricing(true);
+        setStatus(null); setProg('');
+      } else if (err.status === 401) {
+        forgetJob(jobId); setStatus(null); setProg(''); setShowAuthModal(true);
+      } else if (err.status === 409 && err.data?.jobId) {
+        // Already running for this card (another tab or a retry): follow that job instead
+        forgetJob(jobId); rememberJob({ jobId: err.data.jobId, cardKey, gradeType, startedAt: Date.now() });
+        setProg('Grade already running — waiting for it...');
+        await pollJob(err.data.jobId, gradeType, run);
+      } else if (err.timeout || err.name === 'TypeError') {
+        // Timeout or network drop: the server keeps going; pick the result up from the job row
+        setProg('Still working — waiting for the result...');
+        await pollJob(jobId, gradeType, run);
+      } else {
+        forgetJob(jobId); setStatus('error'); setProg('');
+        setTimeout(() => setStatus(null), 3000);
       }
-      setEnhancingStatus('error');
-      setExtractingInfo(false);
-      setProg('');
-      setTimeout(() => setEnhancingStatus(null), 3000);
+    } finally {
+      if (!isDeep) setExtractingInfo(false);
     }
   };
 
-  // DEEP AI Grade - Full resolution analysis via Anthropic API
-  // Cost: 2 credits
-  const handleDeepGrade = async () => {
-    if (!fI || !bI) return;
-    if (!auth.user?.id) {
-      console.error('[Deep AI] User must be logged in for Deep Grade');
-      return;
-    }
-
-    // Check credits before proceeding (2 credits for deep grade)
-    const spendResult = await spendCredits(auth.user.id, 'deep');
-    if (!spendResult.success) {
-      console.log('[Deep AI] Insufficient credits:', spendResult);
-      setInsufficientCredits({ type: 'deep', needed: spendResult.creditsRequired || 2 });
-      setShowPricing(true);
-      return;
-    }
-    console.log('[Deep AI] Credits spent:', spendResult.creditsSpent, 'Remaining:', spendResult.creditsRemaining);
-    window._lastDeepTransactionId = spendResult.transactionId;
-    // Refresh credit balance display
-    if (window.refreshCreditBalance) window.refreshCreditBalance();
-
-    setDeepGradeStatus('grading');
+  /** Bring a finished job's card back: photos from the bucket, centering from the request, then the stored result. */
+  const restoreJob = async (rj) => {
+    let job = rj.job || await getGradeJob(rj.jobId);
+    if (!job || job.status !== 'done') { forgetJob(rj.jobId); setResumeJob(null); return; }
+    const rq = job.request || {};
+    const frontUrl = rq.frontOriginalUrl || rq.frontUrl, backUrl = rq.backOriginalUrl || rq.backUrl;
+    if (!frontUrl || !backUrl) { forgetJob(job.id); setResumeJob(null); return; }
+    const toDataUrl = async (url) => {
+      const blob = await (await fetch(url)).blob();
+      return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+    };
     try {
-      console.log('Starting Deep AI grading analysis...');
-      setProg('Deep analyzing (full-res)...');
-
-      // 4-image approach: originals for centering, cropped for defect detection
-      const originalFront = fI; // Original with background visible
-      const originalBack = bI;  // Original with background visible
-      const croppedFront = frontCroppedImage || fI; // Cropped or fallback to original
-      const croppedBack = backCroppedImage || bI;   // Cropped or fallback to original
-
-      // Prepare software centering if available (more accurate than AI estimation)
-      const softwareFrontCentering = frontCenteringData?.didManualCenter
-        ? { lrRatio: frontCenteringData.lrRatio, tbRatio: frontCenteringData.tbRatio }
-        : fR?.centering
-        ? { lrRatio: fR.centering.lrRatio, tbRatio: fR.centering.tbRatio }
-        : null;
-
-      const softwareBackCentering = backCenteringData?.didManualCenter
-        ? { lrRatio: backCenteringData.lrRatio, tbRatio: backCenteringData.tbRatio }
-        : bR?.centering
-        ? { lrRatio: bR.centering.lrRatio, tbRatio: bR.centering.tbRatio }
-        : null;
-
-      const currentUserId = auth.user?.id;
-      console.log('[Deep AI] Using 4-image mode:', {
-        hasOriginals: !!fI && !!bI,
-        hasCropped: !!frontCroppedImage && !!backCroppedImage,
-        hasSoftwareCentering: !!softwareFrontCentering && !!softwareBackCentering,
-        userId: currentUserId,
-      });
-
-      if (!currentUserId) {
-        console.error('[Deep AI] No user ID at call time!');
-        setDeepGradeStatus(null);
-        setProg('');
-        return;
-      }
-
-      const result = await deepGradingAnalysisV2(
-        originalFront,
-        originalBack,
-        croppedFront,
-        croppedBack,
-        'pokemon',
-        'modern_holo',  // TODO: detect vintage vs modern from card info
-        currentUserId,
-        softwareFrontCentering,  // Pass software centering (optional)
-        softwareBackCentering    // Pass software centering (optional)
-      );
-
-      if (result.success) {
-        setDeepGradeResult(result);
-
-        // Update card info from deep analysis (shared)
-        if (result.cardInfo) {
-          setCardInfo(prev => prev ? { ...prev, ...result.cardInfo, pricing: prev.pricing } : result.cardInfo);
-        }
-
-        // Unified schema fields (GRADING_OUTPUT_SCHEMA.md)
-        // Subgrades: 8 keys, 0-100 scale
-        if (result.subgrades) {
-          setDeepAiSubgrades(result.subgrades);
-          console.log('Deep AI subgrades (0-100):', result.subgrades);
-        }
-
-        // Overall: score, grade, label, displayGrade, capsApplied, minSubgrade
-        if (result.overall) {
-          setDeepAiOverall(result.overall);
-          console.log('Deep AI overall:', result.overall);
-        }
-
-        // Company grades: { psa, bgs, sgc, cgc, tag }
-        if (result.grades) {
-          setDeepAiGrades(result.grades);
-          console.log('Deep AI company grades:', result.grades);
-        } else {
-          console.warn('Deep AI result.grades is missing! result keys:', Object.keys(result));
-        }
-
-        // Confidence: { value: 0-1, factors: [] }
-        if (result.confidence) {
-          setDeepAiConfidence(result.confidence);
-          console.log('Deep AI confidence:', result.confidence);
-        }
-
-        // Summary: { positives, concerns, recommendation }
-        if (result.summary) {
-          setDeepAiSummary(result.summary);
-        }
-
-        // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
-        if (result.centering) {
-          console.log('Deep AI Centering (numeric):', result.centering);
-          const front = result.centering.front;
-          const back = result.centering.back;
-          setDeepAiCentering({
-            front: front ? {
-              lrRatio: front.lrRatio ?? 50,
-              tbRatio: front.tbRatio ?? 50,
-              lrDisplay: `${(front.lrRatio ?? 50).toFixed(1)}/${(100 - (front.lrRatio ?? 50)).toFixed(1)}`,
-              tbDisplay: `${(front.tbRatio ?? 50).toFixed(1)}/${(100 - (front.tbRatio ?? 50)).toFixed(1)}`,
-            } : null,
-            back: back ? {
-              lrRatio: back.lrRatio ?? 50,
-              tbRatio: back.tbRatio ?? 50,
-              lrDisplay: `${(back.lrRatio ?? 50).toFixed(1)}/${(100 - (back.lrRatio ?? 50)).toFixed(1)}`,
-              tbDisplay: `${(back.tbRatio ?? 50).toFixed(1)}/${(100 - (back.tbRatio ?? 50)).toFixed(1)}`,
-            } : null,
-          });
-        }
-
-        // Switch to deep grade display mode
-        setGradeMode('deep');
-        setDeepGradeStatus('done');
-        setProg('');
-        console.log('Deep AI analysis complete:', result.cardInfo?.name, 'defects:', result.defects?.length);
-
-      } else {
-        console.error('Deep AI analysis failed:', result.error);
-        // Refund credits on failure
-        if (auth.user?.id && window._lastDeepTransactionId) {
-          try {
-            await refundCredits(auth.user.id, window._lastDeepTransactionId, null, 'Deep AI analysis failed');
-            console.log('[Deep AI] Credits refunded due to error');
-            if (window.refreshCreditBalance) window.refreshCreditBalance();
-          } catch (refundErr) {
-            console.error('[Deep AI] Failed to refund credits:', refundErr);
-          }
-        }
-        setDeepGradeStatus('error');
-        setProg('');
-        setTimeout(() => setDeepGradeStatus(null), 3000);
-      }
-    } catch (err) {
-      console.error('Error in Deep AI analysis:', err);
-      // Refund credits on failure
-      if (auth.user?.id && window._lastDeepTransactionId) {
-        try {
-          await refundCredits(auth.user.id, window._lastDeepTransactionId, null, 'Deep AI analysis error');
-          console.log('[Deep AI] Credits refunded due to error');
-          if (window.refreshCreditBalance) window.refreshCreditBalance();
-        } catch (refundErr) {
-          console.error('[Deep AI] Failed to refund credits:', refundErr);
-        }
-      }
-      setDeepGradeStatus('error');
+      setProg('Restoring card...');
+      const [f, b, fc, bc] = await Promise.all([
+        toDataUrl(frontUrl), toDataUrl(backUrl),
+        rq.frontCroppedUrl ? toDataUrl(rq.frontCroppedUrl) : null, rq.backCroppedUrl ? toDataUrl(rq.backCroppedUrl) : null,
+      ]);
+      resetGradingState();
+      setStep(0); setTab('scan');
+      setFrontCenteringData(rq.frontCentering ? { didManualCenter: true, lrRatio: rq.frontCentering.lrRatio, tbRatio: rq.frontCentering.tbRatio } : null);
+      setBackCenteringData(rq.backCentering ? { didManualCenter: true, lrRatio: rq.backCentering.lrRatio, tbRatio: rq.backCentering.tbRatio } : null);
+      setFrontCroppedImage(fc); setBackCroppedImage(bc);
+      pendingApplyRef.current = { gradeType: job.grade_type, result: resultFromJob(job), jobId: job.id, cardKey: job.card_key };
+      setFI(f); setBI(b);
+      setResumeJob(null);
+    } catch (e) {
+      console.error('[resume] failed to restore card:', e);
       setProg('');
-      setTimeout(() => setDeepGradeStatus(null), 3000);
     }
   };
 
@@ -2333,6 +2257,13 @@ export default function SlabSense(){
 
   return(<div style={{minHeight:"100vh",maxWidth:480,margin:"0 auto",background:"#0a0b0e",color:"#e0e0e0",fontFamily:sans,display:"flex",flexDirection:"column"}}>
     {/* Auth Modal */}
+    {resumeJob && (
+      <div style={{position:"fixed",left:12,right:12,bottom:76,zIndex:1050,padding:"10px 12px",background:"#12141a",border:"1px solid #f9731666",borderRadius:10,display:"flex",alignItems:"center",gap:10,boxShadow:"0 6px 24px rgba(0,0,0,.5)"}}>
+        <div style={{flex:1,fontFamily:mono,fontSize:10,color:"#ddd",lineHeight:1.4}}>Your {resumeJob.gradeType==='deep'?'Deep AI':'AI'} grade from earlier is ready.</div>
+        <button onClick={()=>restoreJob(resumeJob)} style={{padding:"7px 10px",borderRadius:6,border:"none",background:"#f97316",color:"#000",fontFamily:mono,fontSize:10,fontWeight:700,cursor:"pointer"}}>Load it</button>
+        <button onClick={()=>{forgetJob(resumeJob.jobId);setResumeJob(null);}} aria-label="Dismiss" style={{padding:"7px 9px",borderRadius:6,border:"1px solid #333",background:"transparent",color:"#888",fontFamily:mono,fontSize:10,cursor:"pointer"}}>✕</button>
+      </div>
+    )}
     {showAuthModal && (
       <AuthModal
         isOpen={showAuthModal}
@@ -2370,7 +2301,7 @@ export default function SlabSense(){
         frontResult={fR}
         backResult={bR}
         gradeResult={gradeResult}
-        tagDefects={gradeMode === 'deep' && deepGradeResult?.defects?.details ? deepGradeResult.defects.details : null}
+        tagDefects={gradeMode === 'deep' ? (deepGradeResult?.defects?.items || null) : gradeMode === 'ai' ? (aiDefects?.items || null) : null}
       />
     )}
     {/* Card Crop Modal (for missing TCGDex images) */}
@@ -2631,7 +2562,7 @@ export default function SlabSense(){
         <div style={{fontFamily:sans,fontSize:18,fontWeight:600,color:"#00ff88",marginBottom:4}}>Analysis Complete</div>
         <div style={{fontFamily:mono,fontSize:12,color:"#666"}}>View results in Grade tab</div>
       </div>
-      <button onClick={()=>{setStep(0);setFI(null);setBI(null);setGradeResult(null);setFR(null);setBR(null);setCardInfo(null);setAiSubgrades(null);setAiOverall(null);setAiGrades(null);setAiConfidence(null);setAiGradingNotes(null);setAiSummary(null);setAiCentering(null);setDeepAiSubgrades(null);setDeepAiOverall(null);setDeepAiGrades(null);setDeepAiConfidence(null);setDeepAiCentering(null);setDeepAiSummary(null);setDeepGradeStatus(null);setDeepGradeResult(null);setGradeMode('software');setUseAiCentering(false);setEnhancingStatus('idle');setSavingStatus('idle');}} style={{
+      <button onClick={()=>{setStep(0);setFI(null);setBI(null);resetGradingState();}} style={{
         padding:"14px 32px",borderRadius:10,border:"none",
         background:"linear-gradient(135deg,#6366f1,#8b5cf6)",
         color:"#fff",fontFamily:mono,fontSize:13,fontWeight:700,cursor:"pointer",
@@ -2743,6 +2674,9 @@ export default function SlabSense(){
                     {Math.round(aiConfidence.value * 100)}% confident
                   </div>
                 )}
+                {aiOverall?.capsApplied?.length > 0 && (
+                  <div style={{fontFamily:mono,fontSize:9,color:'#888',marginTop:4}}>Limited by: {formatCaps(aiOverall.capsApplied)}</div>
+                )}
               </div>
               {/* Company Badge with AI indicator */}
               <div style={{padding:"8px 12px",background:"rgba(139,92,246,0.15)",borderRadius:8,border:"1px solid rgba(139,92,246,0.3)"}}>
@@ -2769,6 +2703,9 @@ export default function SlabSense(){
                   <div style={{fontFamily:mono,fontSize:10,color:deepAiConfidence.value >= 0.8 ? '#00ff88' : deepAiConfidence.value >= 0.6 ? '#ffcc00' : '#ff6633',marginTop:4}}>
                     {Math.round(deepAiConfidence.value * 100)}% confident
                   </div>
+                )}
+                {deepAiOverall?.capsApplied?.length > 0 && (
+                  <div style={{fontFamily:mono,fontSize:9,color:'#888',marginTop:4}}>Limited by: {formatCaps(deepAiOverall.capsApplied)}</div>
                 )}
               </div>
               {/* Company Badge with Deep AI indicator */}
@@ -2835,7 +2772,7 @@ export default function SlabSense(){
                 <path d="M4 16v4h16v-4"/><path d="M12 4v12"/><path d="M8 8l4-4 4 4"/>
               </svg>
             </button>
-            <button onClick={handleEnhanceCards} disabled={enhancingStatus==='enhancing'||enhancingStatus==='done'} title="AI Grade ($0.03)" style={{
+            <button onClick={()=>startGradeJob('ai')} disabled={enhancingStatus==='enhancing'||enhancingStatus==='done'} title={`AI Grade (${creditsLabel(GRADE_TIERS.ai.credits)})`} style={{
               background:"transparent",border:"none",cursor:enhancingStatus==='enhancing'?"wait":"pointer",padding:4,transition:"opacity .2s",opacity:enhancingStatus==='done'?0.5:1
             }}>
               {enhancingStatus==='enhancing'?<span style={{fontSize:18,color:"#666"}}>⏳</span>:enhancingStatus==='done'?<span style={{fontSize:18,color:"#00ff88"}}>✓</span>:(
@@ -2845,7 +2782,7 @@ export default function SlabSense(){
                 </div>
               )}
             </button>
-            <button onClick={handleDeepGrade} disabled={deepGradeStatus==='grading'||deepGradeStatus==='done'} title="Deep AI Grade - Full Resolution ($0.05)" style={{
+            <button onClick={()=>startGradeJob('deep')} disabled={deepGradeStatus==='grading'||deepGradeStatus==='done'} title={`Deep AI Grade - Full Resolution (${creditsLabel(GRADE_TIERS.deep.credits)})`} style={{
               background:"transparent",border:"none",cursor:deepGradeStatus==='grading'?"wait":"pointer",padding:4,transition:"opacity .2s",opacity:deepGradeStatus==='done'?0.5:1
             }}>
               {deepGradeStatus==='grading'?<span style={{fontSize:18,color:"#666"}}>⏳</span>:deepGradeStatus==='done'?<span style={{fontSize:18,color:"#00ff88"}}>✓</span>:(
@@ -2906,18 +2843,24 @@ export default function SlabSense(){
             );
           })()}
 
-          {/* Total Dings */}
-          {gr?.totalDings !== undefined && (
-            <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>Total DINGS</span>
-                <span style={{fontFamily:mono,fontSize:20,fontWeight:800,color:(gr?.totalDings||0)===0?"#00ff88":(gr?.totalDings||0)<=2?"#66dd44":(gr?.totalDings||0)<=4?"#ffcc00":"#ff6633"}}>{gr?.totalDings ?? 0}</span>
+          {/* Total Dings / defects — from whichever grade is being viewed */}
+          {(() => {
+            const count = gradeMode === 'deep' ? deepGradeResult?.defects?.counts?.total
+              : gradeMode === 'ai' ? aiDefects?.counts?.total
+              : gr?.totalDings;
+            if (count === undefined || count === null) return null;
+            return (
+              <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>{gradeMode === 'software' ? 'Total DINGS' : `Defects found (${gradeMode === 'deep' ? 'Deep AI' : 'AI'})`}</span>
+                  <span style={{fontFamily:mono,fontSize:20,fontWeight:800,color:count===0?"#00ff88":count<=2?"#66dd44":count<=4?"#ffcc00":"#ff6633"}}>{count}</span>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
-          {/* Grade Analysis */}
-          {gr?.rawScore !== undefined && (
+          {/* Grade Analysis (software tips; AI modes show the model's notes below) */}
+          {gradeMode === 'software' && gr?.rawScore !== undefined && (
             <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
               <div style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",marginBottom:8}}>Grade Analysis</div>
               {(getNextGradeInfo(gr)||[]).map((tip,i,arr)=>(
@@ -2932,21 +2875,17 @@ export default function SlabSense(){
           {/* Confidence Notes - Different for each mode */}
           {(()=>{
             try {
-              // AI mode: show AI notes
-              if (gradeMode === 'ai' && aiGrades?.[gradingCompany]?.notes) {
+              // AI / Deep AI: the model's observations (concerns, positives, recommendation)
+              if (gradeMode === 'ai' || gradeMode === 'deep') {
+                const summary = gradeMode === 'deep' ? deepAiSummary : aiSummary;
+                if (!summary) return null;
+                const accent = gradeMode === 'deep' ? '#f97316' : '#8b5cf6';
                 return (
-                  <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #8b5cf633",marginBottom:12}}>
-                    <div style={{fontFamily:mono,fontSize:10,color:"#8b5cf6",textTransform:"uppercase",marginBottom:8}}>AI Grade Notes</div>
-                    <div style={{fontFamily:sans,fontSize:11,color:"#888",lineHeight:1.5}}>{aiGrades[gradingCompany].notes}</div>
-                  </div>
-                );
-              }
-              // Deep AI mode: show deep AI notes
-              if (gradeMode === 'deep' && deepAiGrades?.[gradingCompany]?.notes) {
-                return (
-                  <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #f9731633",marginBottom:12}}>
-                    <div style={{fontFamily:mono,fontSize:10,color:"#f97316",textTransform:"uppercase",marginBottom:8}}>Deep AI Grade Notes</div>
-                    <div style={{fontFamily:sans,fontSize:11,color:"#888",lineHeight:1.5}}>{deepAiGrades[gradingCompany].notes}</div>
+                  <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${accent}33`,marginBottom:12}}>
+                    <div style={{fontFamily:mono,fontSize:10,color:accent,textTransform:"uppercase",marginBottom:8}}>{gradeMode === 'deep' ? 'Deep AI' : 'AI'} Notes</div>
+                    {(summary.concerns||[]).map((c,i)=>(<div key={`c${i}`} style={{fontFamily:sans,fontSize:11,color:"#ff9944",marginBottom:4}}>⚠ {c}</div>))}
+                    {(summary.positives||[]).map((p,i)=>(<div key={`p${i}`} style={{fontFamily:sans,fontSize:11,color:"#888",marginBottom:4}}>• {p}</div>))}
+                    {summary.recommendation && <div style={{fontFamily:sans,fontSize:11,color:"#aaa",marginTop:6,lineHeight:1.5}}>{summary.recommendation}</div>}
                   </div>
                 );
               }
@@ -2983,7 +2922,7 @@ export default function SlabSense(){
                 ].map(({k,l})=>{
                   const val = gr?.subgrades?.[k];
                   if(val==null)return null;
-                  const color = val>=120?"#00ff88":val>=100?"#66dd44":val>=80?"#ffcc00":"#ff6633";
+                  const color = val>=95?"#00ff88":val>=90?"#66dd44":val>=80?"#ffcc00":"#ff6633"; // subgrades are 0-100
                   return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
                     <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>{l}</span>
                     <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color}}>{val}</span>

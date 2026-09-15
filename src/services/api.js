@@ -93,6 +93,108 @@ export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
   };
 }
 
+
+/**
+ * Shape a raw /api/ai-analyze-unified response into the client result (unified schema).
+ * Also used to resume a stored ai_grade_jobs.result.
+ */
+export function shapeAiResult(claudeResult, { jobId = null } = {}) {
+  const analysis = claudeResult?.analysis || {};
+  return {
+    success: true,
+    // Card identification
+    cardInfo: analysis.cardInfo || null,
+    // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
+    centering: analysis.centering || null,
+    // 8 subgrades (0-100 scale) - UI subgrade panel reads this
+    subgrades: analysis.subgrades || null,
+    // Overall grade info (score, grade, label, displayGrade, capsApplied, minSubgrade)
+    overall: analysis.overall || null,
+    // Company-specific grades (tag, psa, bgs, cgc, sgc)
+    grades: analysis.companyGrades || null,
+    // Defects list with counts and items
+    defects: analysis.defects || null,
+    // Summary (positives, concerns, recommendation)
+    summary: analysis.summary || null,
+    // Confidence (value 0-1, factors array)
+    confidence: analysis.confidence || null,
+    // Full analysis for debugging
+    rawAnalysis: analysis,
+    // Metadata
+    model: claudeResult.model,
+    jobId: claudeResult.jobId || jobId,
+    creditsRemaining: claudeResult.creditsRemaining,
+  };
+}
+
+/**
+ * Shape a raw /api/deep-analyze-v2 response into the client result (unified schema).
+ * Also used to resume a stored ai_grade_jobs.result.
+ */
+export function shapeDeepResult(result, { jobId = null } = {}) {
+  const analysis = result?.analysis || {};
+  return {
+    success: true,
+    version: 'v2',
+    // Two-pass metadata
+    passes: result.passes,
+    // Card identification
+    cardInfo: result.cardInfo || analysis.cardInfo || null,
+    // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
+    centering: result.centering || analysis.centering || null,
+    // 8 subgrades (0-100 scale) - UI subgrade panel reads this
+    subgrades: analysis.subgrades || null,
+    // Overall grade info (score, grade, label, displayGrade, capsApplied, minSubgrade)
+    overall: analysis.overall || null,
+    // Company-specific grades (tag, psa, bgs, cgc, sgc)
+    grades: result.grades || analysis.companyGrades || null,
+    // Defects list with counts and items
+    defects: result.defects || analysis.defects || null,
+    // Summary (positives, concerns, recommendation)
+    summary: result.summary || analysis.summary || null,
+    // Confidence (value 0-1, factors array)
+    confidence: analysis.confidence || null,
+    // Full analysis for debugging
+    rawAnalysis: analysis,
+    // Analysis metadata
+    analysisType: 'deep-v2',
+    meta: result.meta || analysis.meta || null,
+    jobId: result.jobId || jobId,
+    creditsRemaining: result.creditsRemaining,
+    // Multi-provider results (if parallel/sequential/synthesize mode)
+    multiProviderResults: result.multiProviderResults || null,
+  };
+}
+
+/**
+ * POST to a grade endpoint with the user's Supabase JWT, a hard timeout, and typed errors.
+ * Throws an Error with .status (HTTP) and .data (JSON body) so callers can react to
+ * 401 (sign in), 402 (credits), 409 (already running: data.jobId), or a timeout (.timeout).
+ */
+async function postGrade(url, body, { timeoutMs }) {
+  if (!supabase) throw Object.assign(new Error('Please sign in again.'), { status: 401 });
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw Object.assign(new Error('Please sign in again.'), { status: 401 });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if (e?.name === 'AbortError') throw Object.assign(new Error('The grade is taking longer than expected. It keeps running on the server; the result will appear when it finishes.'), { timeout: true });
+    throw e;
+  } finally { clearTimeout(timer); }
+  const data = await response.json().catch(() => ({ error: 'Unknown error' }));
+  if (!response.ok) throw Object.assign(new Error(data.message || data.error || `API error: ${response.status}`), { status: response.status, data });
+  if (!data.success) throw Object.assign(new Error(data.error || 'Analysis failed'), { status: 500, data });
+  return data;
+}
+
 /**
  * Upload image to Supabase for Standard AI analysis (Direct Anthropic path)
  * Returns public URL that Claude can fetch directly
@@ -167,9 +269,11 @@ export async function claudeGradingAnalysis(
   cardType = 'pokemon',
   userId = null,
   frontCentering = null,
-  backCentering = null
+  backCentering = null,
+  { jobId = null, cardKey = null } = {}
 ) {
-  const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
+  // The endpoint needs front centering; back is optional (front-only grading when no back image)
+  const hasSoftwareCentering = frontCentering?.lrRatio != null && (backImageDataUrl == null || backCentering?.lrRatio != null);
   console.log('[Claude AI] Starting grading analysis...');
   console.log('[Claude AI] Has back image:', !!backImageDataUrl);
   console.log('[Claude AI] Has software centering:', hasSoftwareCentering);
@@ -192,71 +296,27 @@ export async function claudeGradingAnalysis(
 
     console.log('[Claude AI] Images uploaded, calling unified AI endpoint...');
 
-    // Build request body
-    const requestBody = {
-      frontUrl,
-      backUrl,
-      cardType,
-    };
+    // Build request body (jobId/cardKey tie the result to this card for the durable job row)
+    const requestBody = { frontUrl, backUrl, cardType, jobId, cardKey };
 
     // Include software centering if available (more accurate than AI estimation)
     if (hasSoftwareCentering) {
       requestBody.frontCentering = frontCentering;
-      requestBody.backCentering = backCentering;
+      if (backCentering?.lrRatio != null) requestBody.backCentering = backCentering;
       console.log('[Claude AI] Using software centering:', {
         front: `${frontCentering.lrRatio.toFixed(1)}/${frontCentering.tbRatio.toFixed(1)}`,
-        back: `${backCentering.lrRatio.toFixed(1)}/${backCentering.tbRatio.toFixed(1)}`
+        back: backCentering?.lrRatio != null ? `${backCentering.lrRatio.toFixed(1)}/${backCentering.tbRatio.toFixed(1)}` : 'none'
       });
     }
 
-    const response = await fetch(ENDPOINTS.AI_ANALYZE_UNIFIED, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('[Claude AI] API error:', errorData);
-      throw new Error(errorData.error || `API error: ${response.status}`);
-    }
-
-    const claudeResult = await response.json();
-
-    if (!claudeResult.success) {
-      throw new Error(claudeResult.error || 'Analysis failed');
-    }
+    const claudeResult = await postGrade(ENDPOINTS.AI_ANALYZE_UNIFIED, requestBody, { timeoutMs: 150000 });
 
     const analysis = claudeResult.analysis;
     console.log('[Claude AI] Card identified:', analysis.cardInfo?.name);
     console.log('[Claude AI] subgrades:', analysis.subgrades);
     console.log('[Claude AI] overall:', analysis.overall);
 
-    // Return unified schema shape (GRADING_OUTPUT_SCHEMA.md)
-    return {
-      success: true,
-      // Card identification
-      cardInfo: analysis.cardInfo || null,
-      // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
-      centering: analysis.centering || null,
-      // 8 subgrades (0-100 scale) - UI subgrade panel reads this
-      subgrades: analysis.subgrades || null,
-      // Overall grade info (score, grade, label, displayGrade, capsApplied, minSubgrade)
-      overall: analysis.overall || null,
-      // Company-specific grades (tag, psa, bgs, cgc, sgc)
-      grades: analysis.companyGrades || null,
-      // Defects list with counts and items
-      defects: analysis.defects || null,
-      // Summary (positives, concerns, recommendation)
-      summary: analysis.summary || null,
-      // Confidence (value 0-1, factors array)
-      confidence: analysis.confidence || null,
-      // Full analysis for debugging
-      rawAnalysis: analysis,
-      // Metadata
-      model: claudeResult.model,
-      cost: 0.02,
-    };
+    return shapeAiResult(claudeResult, { jobId });
 
   } catch (error) {
     console.error('[Claude AI] Error:', error);
@@ -315,117 +375,6 @@ async function uploadImageForDeepAnalysis(dataUrl, side, userId) {
   } catch (err) {
     console.error(`[Deep AI] Upload ${side} error:`, err);
     throw err;
-  }
-}
-
-/**
- * DEEP AI GRADING ANALYSIS - Full resolution via Anthropic API
- *
- * Uses direct Anthropic Claude API with image URLs for maximum quality analysis.
- * Bypasses Vercel's 4.5MB payload limit by uploading images to Supabase
- * and passing URLs to Claude instead of base64 data.
- *
- * 4-IMAGE APPROACH:
- * - Original front/back: Used for CENTERING measurement (shows card edge vs background)
- * - Cropped front/back: Used for DEFECT detection (high detail on card surface)
- *
- * Returns detailed grades for ALL companies, defect list, precise centering.
- *
- * Cost: ~$0.08-0.10 per analysis (4 images for maximum accuracy)
- *
- * @param {string} originalFrontImage - Original photo with background (for centering)
- * @param {string} originalBackImage - Original photo with background (for centering)
- * @param {string} croppedFrontImage - Cropped card image (for defect detection)
- * @param {string} croppedBackImage - Cropped card image (for defect detection)
- * @param {string} cardGame - 'pokemon' | 'sports' | 'tcg'
- * @param {string} userId - User ID for storage path (required for RLS)
- * @returns {Promise<object>} Detailed analysis result
- */
-export async function deepGradingAnalysis(originalFrontImage, originalBackImage, croppedFrontImage = null, croppedBackImage = null, cardGame = 'pokemon', userId = null) {
-  console.log('[Deep AI] Starting 4-image full-resolution analysis...');
-
-  // Support legacy 2-image calls: if cropped images not provided, use originals for both
-  const frontOriginal = originalFrontImage;
-  const backOriginal = originalBackImage;
-  const frontCropped = croppedFrontImage || originalFrontImage;
-  const backCropped = croppedBackImage || originalBackImage;
-
-  if (!frontOriginal || !backOriginal) {
-    throw new Error('Both front and back images required for Deep AI Grade');
-  }
-
-  if (!userId) {
-    throw new Error('User ID required for Deep AI Grade');
-  }
-
-  try {
-    // Step 1: Upload all images to Supabase to get public URLs
-    console.log('[Deep AI] Uploading 4 images to storage...');
-    const [frontOriginalUrl, backOriginalUrl, frontCroppedUrl, backCroppedUrl] = await Promise.all([
-      uploadImageForDeepAnalysis(frontOriginal, 'front-original', userId),
-      uploadImageForDeepAnalysis(backOriginal, 'back-original', userId),
-      uploadImageForDeepAnalysis(frontCropped, 'front-cropped', userId),
-      uploadImageForDeepAnalysis(backCropped, 'back-cropped', userId),
-    ]);
-
-    console.log('[Deep AI] Images uploaded, calling Anthropic API with 4 images...');
-
-    // Step 2: Call our deep-analyze endpoint with all 4 URLs
-    const response = await fetch('/api/deep-analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        frontOriginalUrl,
-        backOriginalUrl,
-        frontCroppedUrl,
-        backCroppedUrl,
-        // Legacy support
-        frontUrl: frontCroppedUrl,
-        backUrl: backCroppedUrl,
-        cardGame,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('[Deep AI] API error:', errorData);
-      throw new Error(errorData.error || `API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error || 'Deep analysis failed');
-    }
-
-    console.log('[Deep AI] Analysis complete:', {
-      card: result.cardInfo?.name,
-      psa: result.grades?.psa?.grade,
-      defects: result.defects?.length || 0,
-    });
-
-    return {
-      success: true,
-      // Card identification
-      cardInfo: result.cardInfo,
-      // Precise centering measurements
-      centering: result.centering,
-      // Condition scores (1-10)
-      condition: result.condition,
-      // Detailed defect list
-      defects: result.defects,
-      // Grades for all companies (PSA, BGS, CGC, SGC, TAG)
-      grades: result.grades,
-      // Summary with recommendations
-      summary: result.summary,
-      // Analysis metadata
-      analysisType: 'deep',
-      cost: 0.05,
-    };
-
-  } catch (error) {
-    console.error('[Deep AI] Error:', error);
-    throw error;
   }
 }
 
@@ -1008,7 +957,7 @@ async function processCardFromMask(originalImg, maskData, targetWidth, targetHei
  * 3. Compare against real TAG-graded examples for final grade
  *
  * MULTI-PROVIDER SUPPORT:
- * - Provider selection is controlled by ai-config.json (admin only)
+ * - Provider selection is server-side (deep-analyze-v2.js DEFAULT_CONFIG)
  * - Supports modes: single, parallel, sequential, synthesize
  * - Fallback to Claude if other providers fail
  *
@@ -1033,7 +982,8 @@ export async function deepGradingAnalysisV2(
   userId = null,
   // Optional software-calculated centering (from calculateCenteringFromBounds)
   frontCentering = null,  // { lrRatio, tbRatio }
-  backCentering = null    // { lrRatio, tbRatio }
+  backCentering = null,   // { lrRatio, tbRatio }
+  { jobId = null, cardKey = null } = {}
 ) {
   const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
   console.log('[Deep AI V2] Starting two-pass reference comparison analysis...', hasSoftwareCentering ? '(with software centering)' : '');
@@ -1086,8 +1036,9 @@ export async function deepGradingAnalysisV2(
       backUrl: backCroppedUrl,
       cardGame,
       cardType,
-      // Provider selection is handled server-side via ai-config.json
-      // Frontend does NOT specify providers
+      jobId,
+      cardKey,
+      // Provider selection is server-side (deep-analyze-v2.js DEFAULT_CONFIG); the client never picks one
     };
 
     // Include software centering if available (more accurate than AI estimation)
@@ -1100,23 +1051,7 @@ export async function deepGradingAnalysisV2(
       });
     }
 
-    const response = await fetch(ENDPOINTS.DEEP_ANALYZE_V2, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('[Deep AI V2] API error:', errorData);
-      throw new Error(errorData.error || `API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(result.error || 'Deep analysis V2 failed');
-    }
+    const result = await postGrade(ENDPOINTS.DEEP_ANALYZE_V2, requestBody, { timeoutMs: 320000 });
 
     // Extract from unified schema (result.analysis contains full GRADING_OUTPUT_SCHEMA)
     const analysis = result.analysis || {};
@@ -1133,37 +1068,7 @@ export async function deepGradingAnalysisV2(
     console.log('[Deep AI V2] subgrades:', analysis.subgrades);
     console.log('[Deep AI V2] overall:', analysis.overall);
 
-    // Return unified schema shape (GRADING_OUTPUT_SCHEMA.md)
-    return {
-      success: true,
-      version: 'v2',
-      // Two-pass metadata
-      passes: result.passes,
-      // Card identification
-      cardInfo: result.cardInfo || analysis.cardInfo || null,
-      // Centering: numeric shape (lrRatio/tbRatio/devLR/devTB/maxDev)
-      centering: result.centering || analysis.centering || null,
-      // 8 subgrades (0-100 scale) - UI subgrade panel reads this
-      subgrades: analysis.subgrades || null,
-      // Overall grade info (score, grade, label, displayGrade, capsApplied, minSubgrade)
-      overall: analysis.overall || null,
-      // Company-specific grades (tag, psa, bgs, cgc, sgc)
-      grades: result.grades || analysis.companyGrades || null,
-      // Defects list with counts and items
-      defects: result.defects || analysis.defects || null,
-      // Summary (positives, concerns, recommendation)
-      summary: result.summary || analysis.summary || null,
-      // Confidence (value 0-1, factors array)
-      confidence: analysis.confidence || null,
-      // Full analysis for debugging
-      rawAnalysis: analysis,
-      // Analysis metadata
-      analysisType: 'deep-v2',
-      meta: result.meta || analysis.meta || null,
-      cost: 0.05,
-      // Multi-provider results (if parallel/sequential/synthesize mode)
-      multiProviderResults: result.multiProviderResults || null,
-    };
+    return shapeDeepResult(result, { jobId });
 
   } catch (error) {
     console.error('[Deep AI V2] Error:', error);
