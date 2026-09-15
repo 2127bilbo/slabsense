@@ -48,12 +48,18 @@ check('diminish index 1 ≈ 0.8696', diminishFactor(1), 0.8696);
 section('Centering (GRADING_SCALE.md §2)');
 check('55/45 deviation = 5', centeringDeviation(55), 5.0);
 check('45/55 deviation = 5 (symmetric)', centeringDeviation(45), 5.0);
-check('front dev 1.7 → 99.5', centeringScore(1.7, 'FRONT'), 99.5);
+check('front dev 0.9 (51/49) → 99.5 Pristine band', centeringScore(0.9, 'FRONT'), 99.5);
+check('front dev 1.7 → 97 (10P needs ~51/49 per rubric + DIG)', centeringScore(1.7, 'FRONT'), 97.0);
 check('front dev 6.2 → 92', centeringScore(6.2, 'FRONT'), 92.0);
+check('front dev 9.5 (59.5/40.5) → 92 Mint band (rubric: 9 = ~60/40)', centeringScore(9.5, 'FRONT'), 92.0);
 check('front dev 12.0 → 86', centeringScore(12.0, 'FRONT'), 86.0);
-check('front dev 31 → 40', centeringScore(31, 'FRONT'), 40.0);
+check('front dev 27 → 57.5 (5.5 band, was 5)', centeringScore(27, 'FRONT'), 57.5);
+check('front dev 31 → 47.5 (4.5 band, was flat 40)', centeringScore(31, 'FRONT'), 47.5);
+check('front dev 44 → 22.5 (2 band)', centeringScore(44, 'FRONT'), 22.5);
 check('back dev 13.6 → 97', centeringScore(13.6, 'BACK'), 97.0);
-check('back dev 36 → 70', centeringScore(36, 'BACK'), 70.0);
+check('back dev 24 (74/26) → 92 Mint band (rubric TCG back 9 = ~75/25)', centeringScore(24, 'BACK'), 92.0);
+check('back dev 36 → 82.5 (8 band, TCG back 8 = ~95/5)', centeringScore(36, 'BACK'), 82.5);
+check('back dev 47 → 77.5 (past 95/5: sliver allowed, 7.5 band)', centeringScore(47, 'BACK'), 77.5);
 
 /* ------------------------------------------------------------------ */
 section('snapDown + grade table');
@@ -150,7 +156,7 @@ const minorCrease = gradeCard({
 });
 check('Minor crease still caps at 6 (structural, label-independent)', minorCrease.overall.grade <= 6, true);
 check('Minor crease → CREASE_CAP_6 recorded', minorCrease.overall.capsApplied.includes('CREASE_CAP_6'), true);
-check('Minor crease → SGC ≤ 6', minorCrease.companyGrades.sgc.grade <= 6, true);
+check('Minor crease → SGC ≤ 5 (one very slight "spider" crease first appears at 5)', minorCrease.companyGrades.sgc.grade <= 5, true);
 check('Minor crease → PSA ≤ 4 (psacard.com: light crease first appears at 4)', minorCrease.companyGrades.psa.grade <= 4, true);
 const oneCorner = gradeCard({
   centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
@@ -179,8 +185,14 @@ const severeCrease = gradeCard({
 check('Severe crease caps at 5', severeCrease.overall.grade <= 5 && severeCrease.overall.capsApplied.includes('CREASE_CAP_5'), true);
 check('Severe front crease → CGC ≤ 2.5 (heavier creasing)', severeCrease.companyGrades.cgc.grade <= 2.5, true);
 check('Minor crease → CGC ≤ 4.5 (one light crease first appears at 4.5)', minorCrease.companyGrades.cgc.grade <= 4.5, true);
-check('Minor crease → BGS ≤ 6 (was uncapped)', minorCrease.companyGrades.bgs.grade <= 6, true);
-check('Severe crease → BGS ≤ 4', severeCrease.companyGrades.bgs.grade <= 4, true);
+check('Minor crease → BGS ≤ 4 (hairline creases first appear at 4)', minorCrease.companyGrades.bgs.grade <= 4, true);
+check('Severe crease → BGS 1 (heavy creases)', severeCrease.companyGrades.bgs.grade <= 1, true);
+check('Severe crease → SGC ≤ 2 (heavy crease)', severeCrease.companyGrades.sgc.grade <= 2, true);
+check('One minor corner → BGS ≤ 9 (Mint allows slight wear)', oneCorner.companyGrades.bgs.grade <= 9, true);
+check('Three minor corners → BGS ≤ 7', threeCorners.companyGrades.bgs.grade <= 7, true);
+check('One dinged corner → BGS ≤ 5 (6 is free of dings)', dingedCorner.companyGrades.bgs.grade <= 5, true);
+check('Three minor corners → SGC ≤ 7', threeCorners.companyGrades.sgc.grade <= 7, true);
+check('One dinged corner → SGC ≤ 5', dingedCorner.companyGrades.sgc.grade <= 5, true);
 check('Severe crease → PSA ≤ 2 (several/heavy creases)', severeCrease.companyGrades.psa.grade <= 2, true);
 check('Every company caps a creased card at 7 or below', Object.values(minorCrease.companyGrades).every((g) => g.grade <= 7), true);
 const torn = gradeCard({
@@ -210,7 +222,7 @@ const gem = gradeCard({
 check('TAG: Gem Mint 10', gem.companyGrades.tag.displayGrade, '10');
 check('TAG: 1000-pt score present', gem.companyGrades.tag.score > 900, true);
 check('PSA: 8 (one frayed corner — 9 allows no corner wear per psacard.com)', gem.companyGrades.psa.grade, 8);
-check('BGS: 9.5 (0.5 rule)', gem.companyGrades.bgs.grade, 9.5);
+check('BGS: 9 (one visible corner touch — 9.5 allows imperfections only under magnification)', gem.companyGrades.bgs.grade, 9);
 check('BGS subgrades object exists', typeof gem.companyGrades.bgs.subgrades.corners, 'number');
 check('All company grades ∈ allowed lists',
   ['psa', 'bgs', 'cgc', 'sgc'].every((c) =>
@@ -219,10 +231,14 @@ check('All company grades ∈ allowed lists',
 section('Company centering thresholds');
 check('PSA centering: 5/10 dev → 10', centeringSubgrade(5.0, 10.0, 'psa'), 10);
 check('PSA centering: 6 front dev → 9', centeringSubgrade(6.0, 10.0, 'psa'), 9);
-check('BGS centering: 50/50 only for 10', centeringSubgrade(0, 0, 'bgs'), 10);
+check('BGS centering: 50/50 front + 55/45 back → 10', centeringSubgrade(0, 5.0, 'bgs'), 10);
+check('BGS centering: 50/50 front but 60/40 back → 9.5 (Pristine needs 55/45 back)', centeringSubgrade(0, 10.0, 'bgs'), 9.5);
 check('BGS centering: 5/10 dev → 9.5', centeringSubgrade(5.0, 10.0, 'bgs'), 9.5);
-check('SGC quirk: F5/B18 → Gem 10 band', centeringSubgrade(5.0, 18.0, 'sgc'), 10);
-check('SGC: F5/B5 → 10 (passes Gem row first)', centeringSubgrade(5.0, 5.0, 'sgc'), 10);
+check('BGS centering: 55/45 front with 70/30 back → 9', centeringSubgrade(5.0, 20.0, 'bgs'), 9);
+check('BGS centering: 60/40 front → 8', centeringSubgrade(10.0, 20.0, 'bgs'), 8);
+check('SGC: 55/45 front → 10 band regardless of back (no back tolerance published)', centeringSubgrade(5.0, 18.0, 'sgc'), 10);
+check('SGC: 65/35 front → 8.5 band', centeringSubgrade(15.0, 5.0, 'sgc'), 8.5);
+check('SGC: 78/22 front → 5 band', centeringSubgrade(28.0, 5.0, 'sgc'), 5);
 check('CGC: F12/B12 → 8', centeringSubgrade(12.0, 12.0, 'cgc'), 8);
 
 section('mergeSubgrades');

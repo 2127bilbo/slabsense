@@ -80,25 +80,38 @@ export const GRADE_TABLE = [
 /** TCG centering deviation → score (GRADING_SCALE.md §2). deviation = |ratio − 50|. */
 export const CENTERING_SCORE_TABLE = {
   FRONT: [
-    { maxDev: 2.0, score: 99.5 },
+    // TAG rubric, TCG column (docs/grading-research/sources/TAG_scale_and_rubric_verbatim.md, 2026-09-15):
+    // 10P ~51/49 · 10 ~55/45 · 9 ~60/40 · 8.5 ~62.5 · 8 ~65 · 7.5 ~67.5 · 7 ~70 · 6.5 ~72.5 · 6 ~75 · 5.5 ~77.5
+    // 5 ~80 · 4.5 ~82.5 · 4 ~85 · 3.5 ~87.5 · 3 ~90 · 2.5 ~92.5 · 2 ~95 · 1.5 ~98.33. DIG reports confirm 51/49 for 10P.
+    { maxDev: 1.0, score: 99.5 },
     { maxDev: 5.0, score: 97.0 },
-    { maxDev: 7.0, score: 92.0 },
+    { maxDev: 10.0, score: 92.0 },
     { maxDev: 12.5, score: 86.0 },
     { maxDev: 15.0, score: 82.5 },
     { maxDev: 17.5, score: 77.5 },
     { maxDev: 20.0, score: 72.5 },
     { maxDev: 22.5, score: 67.5 },
     { maxDev: 25.0, score: 62.5 },
+    { maxDev: 27.5, score: 57.5 },
     { maxDev: 30.0, score: 52.5 },
-    { maxDev: Infinity, score: 40.0 },
+    { maxDev: 32.5, score: 47.5 },
+    { maxDev: 35.0, score: 42.5 },
+    { maxDev: 37.5, score: 37.5 },
+    { maxDev: 40.0, score: 32.5 },
+    { maxDev: 42.5, score: 27.5 },
+    { maxDev: 45.0, score: 22.5 },
+    { maxDev: 48.33, score: 17.5 },
+    { maxDev: Infinity, score: 10.0 },
   ],
   BACK: [
+    // TCG backs: 10P ~52/48 · 10 ~65/35 · 9 ~75/25 · 8.5 ~85/15 · 8 ~95/5; below 8 "a tiny sliver of border" is
+    // allowed but not a miscut, so anything past 95/5 sits in the 7.5 band.
     { maxDev: 2.0, score: 99.5 },
     { maxDev: 15.0, score: 97.0 },
-    { maxDev: 20.0, score: 92.0 },
-    { maxDev: 25.0, score: 86.0 },
-    { maxDev: 35.0, score: 82.5 },
-    { maxDev: Infinity, score: 70.0 },
+    { maxDev: 25.0, score: 92.0 },
+    { maxDev: 35.0, score: 86.0 },
+    { maxDev: 45.0, score: 82.5 },
+    { maxDev: Infinity, score: 77.5 },
   ],
 };
 
@@ -345,17 +358,21 @@ const COMPANY_CENTERING = {
     [6, 30.0, 40.0], [5, 35.0, 40.0], [4, 35.0, 40.0], [3, 40.0, 40.0], [2, 40.0, 40.0],
     [1.5, 40.0, 40.0], [1, Infinity, Infinity],
   ],
+  // beckett.com/grading-standards (docs/grading-research/sources/BGS_gradingstandards_verbatim.md)
   bgs: [
-    [10, 0.0, 0.0], [9.5, 5.0, 10.0], [9, 10.0, 15.0], [8.5, 12.0, 20.0],
-    [8, 15.0, 25.0], [7, 20.0, 30.0], [6, 25.0, 35.0], [5, Infinity, Infinity],
+    [10, 0.0, 5.0], [9.5, 5.0, 10.0], [9, 5.0, 20.0], [8, 10.0, 30.0], [7, 15.0, 40.0],
+    [6, 20.0, 45.0], [5, 25.0, 45.0], [4, 30.0, 50.0], [3, 35.0, 50.0], [1, Infinity, Infinity],
   ],
   cgc: [
     [10, 5.0, 25.0], [9, 10.0, 40.0], [8, 15.0, 40.0], [7.5, 15.0, 40.0], [7, 20.0, 40.0],
     [6, 25.0, 40.0], [4.5, 35.0, 40.0], [3.5, 40.0, 40.0], [3, Infinity, Infinity],
   ],
+  // gosgc.com/card-grading/scale (docs/grading-research/sources/SGC_gradingscale_verbatim.md). SGC publishes
+  // one "X/Y or better" figure per grade with no separate back tolerance, so only the front is constrained.
   sgc: [
-    [10, 5.0, 20.0], [9.5, 5.0, 5.0], [9, 10.0, 10.0], [8, 15.0, 15.0],
-    [7, 20.0, 20.0], [6, Infinity, Infinity],
+    [10, 5.0, Infinity], [9, 10.0, Infinity], [8.5, 15.0, Infinity], [8, 15.0, Infinity],
+    [7.5, 20.0, Infinity], [7, 20.0, Infinity], [6, 25.0, Infinity], [5, 30.0, Infinity],
+    [4, 35.0, Infinity], [3, 40.0, Infinity], [2, 40.0, Infinity], [1.5, 40.0, Infinity], [1, Infinity, Infinity],
   ],
 };
 
@@ -431,11 +448,33 @@ function convertBGS(merged, centering, defects) {
   } else {
     grade = Math.min(lowest + 0.5, secondLowest, lowest + 2);
   }
-  // Structural damage: BGS does not let strong corners/edges carry a creased card
-  const creaseSev = Math.max(-1, ...defects.filter((d) => d.type === 'CREASE').map((d) => sevRank[d.severity]));
-  if (creaseSev >= 0) grade = Math.min(grade, 6);
-  if (creaseSev >= 2) grade = Math.min(grade, 4);
-  if (defects.some((d) => d.type === 'TEAR')) grade = Math.min(grade, 4);
+  // Caps from the published chart (docs/grading-research/sources/BGS_gradingstandards_verbatim.md)
+  const sevOf = (type) => Math.max(-1, ...defects.filter((d) => d.type === type).map((d) => sevRank[d.severity]));
+  const countOf = (type, minSev = 0) => defects.filter((d) => d.type === type && sevRank[d.severity] >= minSev).length;
+  if (defects.length >= 1) grade = Math.min(grade, 9.5);             // Pristine: perfect corners/edges, no print spots
+  if (countOf('CORNER') >= 1) grade = Math.min(grade, 9);              // 9: slight corner wear under normal scrutiny
+  if (countOf('CORNER') >= 2) grade = Math.min(grade, 7);              // 7: very minor wear on two or three corners
+  if (countOf('CORNER', 1) >= 1) grade = Math.min(grade, 5);           // 5: a minor ding (6 is "free of dings")
+  if (countOf('CORNER', 1) >= 2) grade = Math.min(grade, 4);           // 4: moderate dings
+  if (sevOf('CORNER') >= 2) grade = Math.min(grade, 3);                // 3: slightly rounded / noticeably notched
+  if (sevOf('EDGE') >= 1) grade = Math.min(grade, 6);                  // 6: moderate roughness or chipping
+  if (sevOf('EDGE') >= 2) grade = Math.min(grade, 3);                  // 3: heavy notching / heavy chipping
+  if (sevOf('PRINT_DEFECT') >= 1) grade = Math.min(grade, 7);          // 7: a few noticeable print spots
+  if (sevOf('PRINT_DEFECT') >= 2) grade = Math.min(grade, 4);          // 4: heavy print spots
+  if (sevOf('SCRATCH') >= 1 || sevOf('DENT') >= 1 || sevOf('PIT') >= 1) grade = Math.min(grade, 5);
+  if (sevOf('PLAY_WEAR') >= 0) grade = Math.min(grade, 4);             // 4: very minor scuffing (6/5 are "devoid of scuffing")
+  if (sevOf('PLAY_WEAR') >= 1) grade = Math.min(grade, 3);             // 3: minor scuffing
+  if (sevOf('STAIN') >= 0) grade = Math.min(grade, 7);                 // 7: a very minor wax stain on back
+  if (sevOf('STAIN') >= 1) grade = Math.min(grade, 4);                 // 4: moderate wax stains
+  const creaseSev = sevOf('CREASE');
+  if (creaseSev >= 0) grade = Math.min(grade, 4);                      // 4: hairline creases
+  if (creaseSev >= 1) grade = Math.min(grade, 3);                      // 3: very minor creases (nothing published for 2)
+  if (creaseSev >= 2) grade = Math.min(grade, 1);                      // 1: heavy creases
+  const tearSev = sevOf('TEAR');
+  if (tearSev >= 0) grade = Math.min(grade, 4);                        // 4: extremely subtle tear
+  if (tearSev >= 1) grade = Math.min(grade, 3);                        // 3: very minor tear
+  if (tearSev >= 2) grade = Math.min(grade, 1);                        // 1: severe tear
+  if (defects.some((d) => d.severity === 'extreme')) grade = Math.min(grade, 1);
   grade = snapDown(grade, ALLOWED_SUBGRADES.bgs);
   const all10 = vals.every((v) => v === 10);
   const goldLabel = !all10 && vals.filter((v) => v === 10).length === 3 && vals.includes(9.5);
@@ -503,10 +542,37 @@ function convertSGC(merged, centering, defects) {
     surface: toCompanySubgrade(merged.surface, 'sgc'),
   };
   let grade = Math.min(subs.centering, subs.corners, subs.edges, subs.surface);
-  const catsHit = new Set(defects.map((d) => categoryForType(d.type)));
-  if (catsHit.size >= 3) grade -= 0.5;
-  if (defects.some((d) => d.type === 'CREASE')) grade = Math.min(grade, 6);
-  if (defects.some((d) => d.type === 'TEAR')) grade = Math.min(grade, 4);
+  // Caps from the published scale (docs/grading-research/sources/SGC_gradingscale_verbatim.md)
+  const sevOf = (type) => Math.max(-1, ...defects.filter((d) => d.type === type).map((d) => sevRank[d.severity]));
+  const countOf = (type, minSev = 0) => defects.filter((d) => d.type === type && sevRank[d.severity] >= minSev).length;
+  const onlySlightPrintSpot = defects.length === 1 && defects[0].type === 'PRINT_DEFECT' && defects[0].severity === 'minor';
+  if (defects.length >= 1 && !onlySlightPrintSpot) grade = Math.min(grade, 9.5); // GM 10 allows one slight print spot only
+  if (defects.length >= 2) grade = Math.min(grade, 8.5);              // 9: "a minor flaw"; 8.5: "a few minor flaws"
+  if (countOf('CORNER') >= 2) grade = Math.min(grade, 7);              // 7: slight wear on some corners (8: one corner)
+  if (countOf('CORNER', 1) >= 1) grade = Math.min(grade, 5);           // 5: minor rounding or fuzzing
+  if (sevOf('CORNER') >= 2) grade = Math.min(grade, 4);                // 4: slightly rounded
+  if (sevOf('CORNER') >= 3) grade = Math.min(grade, 3);                // 3: more rounded
+  if (sevOf('EDGE') >= 1) grade = Math.min(grade, 6);                  // 6: slight notching of edges
+  if (sevOf('EDGE') >= 2) grade = Math.min(grade, 5);                  // 5: roughness or chipping along edge
+  if (sevOf('PRINT_DEFECT') >= 1) grade = Math.min(grade, 7);          // 7: some print spots or speckling
+  if (sevOf('PRINT_DEFECT') >= 2) grade = Math.min(grade, 2);          // 2: heavy print spots
+  if (sevOf('SCRATCH') >= 1 || sevOf('DENT') >= 1 || sevOf('PIT') >= 1) grade = Math.min(grade, 5); // 5: some scratching
+  if (sevOf('SCRATCH') >= 2) grade = Math.min(grade, 3);
+  if (sevOf('PLAY_WEAR') >= 1) grade = Math.min(grade, 5);             // 5: gloss may be lost from surface
+  if (sevOf('PLAY_WEAR') >= 2) grade = Math.min(grade, 2);             // 2: surface scuffing
+  if (sevOf('STAIN') >= 0) grade = Math.min(grade, 7);                 // 10/GM/9 are "free of stains"
+  if (sevOf('STAIN') >= 1) grade = Math.min(grade, 3);                 // 3: staining more noticeable
+  const creaseSev = sevOf('CREASE');
+  if (creaseSev >= 0) grade = Math.min(grade, 5);                      // 5: one very slight surface or "spider" crease
+  if (countOf('CREASE') >= 2) grade = Math.min(grade, 4);              // 4: hairline crease on one or both sides
+  if (creaseSev >= 1) grade = Math.min(grade, 3);                      // 3: stronger creasing
+  if (creaseSev >= 2) grade = Math.min(grade, 2);                      // 2: heavy crease(s)
+  if (creaseSev >= 3) grade = Math.min(grade, 1);
+  const tearSev = sevOf('TEAR');
+  if (tearSev >= 0) grade = Math.min(grade, 4);                        // 4: a light tear or surface break
+  if (tearSev >= 1) grade = Math.min(grade, 2);                        // 2: tear
+  if (tearSev >= 3) grade = Math.min(grade, 1);
+  if (defects.some((d) => d.severity === 'extreme')) grade = Math.min(grade, 1.5);
   grade = snapDown(Math.max(1, grade), ALLOWED_SUBGRADES.sgc);
   let label = SGC_LABELS[grade] ?? '';
   if (grade === 10) {
