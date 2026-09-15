@@ -1,0 +1,13 @@
+# Normalize text files to LF in the repo; checkout follows core.autocrlf on each machine.
+* text=auto
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.parquet binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
