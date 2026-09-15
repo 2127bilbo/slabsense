@@ -144,6 +144,20 @@ const creased = gradeCard({
 });
 check('Moderate crease → grade ≤ 6', creased.overall.grade <= 6, true);
 check('CREASE_CAP_6 recorded', creased.overall.capsApplied.includes('CREASE_CAP_6'), true);
+const minorCrease = gradeCard({
+  centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
+  defects: [{ side: 'BACK', type: 'CREASE', severity: 'minor' }],
+});
+check('Minor crease still caps at 6 (structural, label-independent)', minorCrease.overall.grade <= 6, true);
+check('Minor crease → CREASE_CAP_6 recorded', minorCrease.overall.capsApplied.includes('CREASE_CAP_6'), true);
+check('Minor crease → SGC ≤ 6', minorCrease.companyGrades.sgc.grade <= 6, true);
+check('Minor crease → PSA ≤ 6', minorCrease.companyGrades.psa.grade <= 6, true);
+const severeCrease = gradeCard({
+  centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
+  defects: [{ side: 'FRONT', type: 'CREASE', severity: 'severe' }],
+});
+check('Severe crease caps at 5', severeCrease.overall.grade <= 5 && severeCrease.overall.capsApplied.includes('CREASE_CAP_5'), true);
+check('Severe front crease → CGC ≤ 5', severeCrease.companyGrades.cgc.grade <= 5, true);
 const torn = gradeCard({
   centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
   defects: [{ side: 'BACK', type: 'TEAR', severity: 'minor' }],

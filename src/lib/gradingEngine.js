@@ -20,7 +20,7 @@
  * ============================================================================
  */
 
-export const ENGINE_VERSION = '1.0';
+export const ENGINE_VERSION = '1.1';
 
 /* ============================================================================
  * SECTION 1 — CONSTANTS (GRADING_SCALE.md §3)
@@ -273,7 +273,10 @@ export function applyCaps(rawScore, defects, subgradeMin, centering, subgrades) 
   const has = (pred) => defects.some(pred);
   const sevRank = { minor: 0, moderate: 1, severe: 2, extreme: 3 };
 
-  if (has((d) => d.type === 'CREASE' && sevRank[d.severity] >= 1)) cap(60, 'CREASE_CAP_6');
+  // Any crease is structural damage: cap at 6 whatever the severity label (PSA already did).
+  // Pass 2 of the deep grade used to erase this cap by relabelling a crease "minor".
+  if (has((d) => d.type === 'CREASE')) cap(60, 'CREASE_CAP_6');
+  if (has((d) => d.type === 'CREASE' && sevRank[d.severity] >= 2)) cap(50, 'CREASE_CAP_5');
   if (has((d) => d.type === 'TEAR')) cap(40, 'TEAR_CAP_4');
   if (has((d) => d.type === 'STAIN' && sevRank[d.severity] >= 2)) cap(50, 'STAIN_CAP_5');
   if (has((d) => d.severity === 'extreme')) cap(50, 'EXTREME_CAP_5');
@@ -442,7 +445,7 @@ function convertCGC(merged, centering, defects) {
   const aboveMinor = defects.some((d) => sevRank[d.severity] >= 1);
   if (grade >= 9.5 && (aboveMinor || minors > 1)) grade = 9;
   const frontCrease = defects.find((d) => d.type === 'CREASE' && d.side === 'FRONT');
-  if (frontCrease && sevRank[frontCrease.severity] >= 1) grade = Math.min(grade, 7);
+  if (frontCrease) grade = Math.min(grade, 7);
   if (frontCrease && sevRank[frontCrease.severity] >= 2) grade = Math.min(grade, 5);
   if (defects.some((d) => d.type === 'TEAR')) grade = Math.min(grade, 4);
   grade = snapDown(grade, ALLOWED_SUBGRADES.cgc);
@@ -466,7 +469,7 @@ function convertSGC(merged, centering, defects) {
   let grade = Math.min(subs.centering, subs.corners, subs.edges, subs.surface);
   const catsHit = new Set(defects.map((d) => categoryForType(d.type)));
   if (catsHit.size >= 3) grade -= 0.5;
-  if (defects.some((d) => d.type === 'CREASE' && sevRank[d.severity] >= 1)) grade = Math.min(grade, 6);
+  if (defects.some((d) => d.type === 'CREASE')) grade = Math.min(grade, 6);
   if (defects.some((d) => d.type === 'TEAR')) grade = Math.min(grade, 4);
   grade = snapDown(Math.max(1, grade), ALLOWED_SUBGRADES.sgc);
   let label = SGC_LABELS[grade] ?? '';

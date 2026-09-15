@@ -252,17 +252,21 @@ center area → x≈30-70, y≈30-70`);
     sections.push(`## PRIOR SCAN FINDINGS (verify, refine, and complete — do not blindly copy)
 A first-pass scan reported these defects:
 ${JSON.stringify(priorFindings, null, 2)}
-Re-inspect every reported item: confirm it is real (not glare), correct its
-severity against the definitions, and add anything the first pass missed.
-Removing a false positive is as valuable as finding a missed defect.`);
+Re-inspect every reported item and add anything the first pass missed.
+Cosmetic findings (CORNER, EDGE, SCRATCH, PLAY_WEAR, PRINT_DEFECT) may be
+removed ONLY if you can name the glare or print feature that explains them.
+Structural findings (CREASE, TEAR, DENT, STAIN, PIT) are NEVER removed and
+their severity is NEVER lowered — you may raise it or refine its location.`);
   }
 
   if (referencesText) {
     sections.push(`## TAG-GRADED REFERENCE CARDS (severity calibration)
 These real TAG-graded cards show what defect counts and severities look like
-at each grade level. Use them ONLY to calibrate your severity judgments
-(e.g. what TAG considers "minor" corner wear vs "moderate"). Do NOT copy
-their defects and do NOT derive a grade from them.
+at each grade level. Use them ONLY to calibrate your severity judgments for
+COSMETIC wear (e.g. what TAG considers "minor" corner wear vs "moderate").
+Structural damage is scored by rule, not by comparison — never soften a
+crease, tear, dent, stain or pit because a reference card looked similar.
+Do NOT copy their defects and do NOT derive a grade from them.
 ${referencesText}`);
   }
 
@@ -360,17 +364,41 @@ export function parseDetection(text) {
     }
   }
   if (start === -1) return null;
+  const valid = (obj) => (obj && typeof obj === 'object' && Array.isArray(obj.defects) ? obj : null);
   try {
-    return JSON.parse(t.slice(start, lastClose + 1));
+    return valid(JSON.parse(t.slice(start, lastClose + 1)));
   } catch {
     // Fallback: greedy first-to-last (handles odd nesting in reasoning)
     try {
       const m = t.match(/\{[\s\S]*\}/);
-      return m ? JSON.parse(m[0]) : null;
+      return m ? valid(JSON.parse(m[0])) : null;
     } catch {
       return null;
     }
   }
+}
+
+/** Defect types that are structural damage (never dropped or softened between passes). */
+export const STRUCTURAL_TYPES = ['CREASE', 'TEAR', 'DENT', 'STAIN', 'PIT'];
+const SEV_RANK = { minor: 0, moderate: 1, severe: 2, extreme: 3 };
+
+/**
+ * Merge pass-1 structural findings into a pass-2 defect list: every pass-1 CREASE/TEAR/
+ * DENT/STAIN/PIT survives (matched by side + type), and pass 2 may only raise its severity.
+ * Both inputs are sanitized defect lists; returns a new list (inputs are not mutated).
+ */
+export function mergeStructural(pass1Defects, pass2Defects) {
+  const out = (pass2Defects || []).map((d) => ({ ...d }));
+  for (const d of pass1Defects || []) {
+    if (!STRUCTURAL_TYPES.includes(d.type)) continue;
+    const match = out.find((e) => e.type === d.type && e.side === d.side);
+    if (!match) {
+      out.push({ ...d, description: `[kept from pass 1] ${d.description || ''}`.trim() });
+    } else if ((SEV_RANK[match.severity] ?? 0) < (SEV_RANK[d.severity] ?? 0)) {
+      match.severity = d.severity;
+    }
+  }
+  return out;
 }
 
 const TYPE_FALLBACKS = [
