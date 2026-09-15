@@ -7,6 +7,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { getSamplePoints, calculateCornerCentering } from '../lib/corner-measurement.js';
+import { haloFor } from '../lib/line-color.js';
 
 const mono = '"SF Mono", Monaco, "Fira Code", monospace';
 
@@ -89,6 +90,9 @@ export function CornerHandles({
   activeHandles = 'all',  // 'all', 'outer', or 'inner'
   zoom = 1,               // stage zoom; handle sizes shrink by it so they stay finger-sized
   onHandleDrag = null,    // (pointOrNull, event) → loupe hook: corner position while dragging
+  outerColor = '#00bcd4', // card-edge line colour
+  innerColor = '#e91e63', // artwork line colour
+  halo = false,           // contrasting band on the far side of each line
 }) {
   const dragging = useRef(null);
   const dragOffset = useRef({ x: 0, y: 0 }); // Offset from touch point to actual corner
@@ -226,7 +230,8 @@ export function CornerHandles({
   const handleSize = Math.max(32, Math.min(cW, cH) * 0.04) / z;
   // Line weight: thin on screen when zoomed so the exact edge is visible (floor scales with zoom too)
   const lw = Math.max(1.5, cW * 0.004 * (z > 1 ? 0.5 : 1)) / z;
-  const pad = 50 / z; // Touch target padding
+  const pad = 50 / z;   // Touch target padding
+  const hw = lw * 2.2;    // halo band width (sits on the far side of the line, never over the edge you align to)
   // Pull handles further from the corner as zoom rises so they never sit on top of the line
   const handleOffset = handleSize * (1.2 + 2.2 * Math.min(1, (z - 1) / 3));
 
@@ -273,11 +278,20 @@ export function CornerHandles({
       {/* Outer boundary - rounded corners (~4.8% of width) */}
       {/* Outer (card edge): the stroke sits OUTSIDE the coordinate, so its INSIDE edge is the
           crop line. Radius grows by half the stroke so the inside edge keeps the card radius. */}
+      {showOuter && halo && (
+        <path
+          d={getRoundedQuadPath(offsetQuad(outerCorners, lw + hw / 2), cW * 0.048 + lw + hw / 2)}
+          fill="none"
+          stroke={haloFor(outerColor)}
+          strokeWidth={hw}
+          opacity={activeHandles === 'inner' ? 0.3 : 1}
+        />
+      )}
       {showOuter && (
         <path
           d={getRoundedQuadPath(offsetQuad(outerCorners, lw / 2), cW * 0.048 + lw / 2)}
           fill="none"
-          stroke="#00bcd4"
+          stroke={outerColor}
           strokeWidth={lw}
           opacity={activeHandles === 'inner' ? 0.3 : 0.85}
         />
@@ -287,18 +301,26 @@ export function CornerHandles({
       {showInner && (() => {
         const ilw = Math.max(1.5 / z, lw * 0.8);
         const q = offsetQuad(innerCorners, -ilw / 2);
-        return (
+        const hq = offsetQuad(innerCorners, -(ilw + hw / 2));
+        return (<>
+          {halo && (
+            <polygon
+              points={`${hq.tl.x},${hq.tl.y} ${hq.tr.x},${hq.tr.y} ${hq.br.x},${hq.br.y} ${hq.bl.x},${hq.bl.y}`}
+              fill="none"
+              stroke={haloFor(innerColor)}
+              strokeWidth={hw}
+            />
+          )}
           <polygon
             points={`${q.tl.x},${q.tl.y} ${q.tr.x},${q.tr.y} ${q.br.x},${q.br.y} ${q.bl.x},${q.bl.y}`}
             fill="none"
-            stroke="#e91e63"
+            stroke={innerColor}
             strokeWidth={ilw}
             strokeDasharray={`${cW * 0.02 / z},${cW * 0.01 / z}`}
             opacity={0.85}
           />
-        );
+        </>);
       })()}
-      )}
 
       {/* Sample point indicators along each edge */}
       {showSamples && Object.entries(samplePoints).map(([edge, points]) =>
@@ -320,7 +342,7 @@ export function CornerHandles({
               cx={pt.outer.x}
               cy={pt.outer.y}
               r={4}
-              fill="#00bcd4"
+              fill={outerColor}
               opacity={0.7}
             />
             {/* Inner sample dot */}
@@ -328,7 +350,7 @@ export function CornerHandles({
               cx={pt.inner.x}
               cy={pt.inner.y}
               r={4}
-              fill="#e91e63"
+              fill={innerColor}
               opacity={0.7}
             />
           </g>
@@ -337,7 +359,7 @@ export function CornerHandles({
 
       {/* 8 corner drag handles */}
       {handles.map(({ x, y, which, isOuter, label }) => {
-        const color = isOuter ? '#00bcd4' : '#e91e63';
+        const color = isOuter ? outerColor : innerColor;
         const bgColor = '#111';
         const sz = handleSize;
         const fontSize = sz * 0.55;

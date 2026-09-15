@@ -16,7 +16,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { CornerHandles, EdgeBreakdownPanel } from '../CornerHandles.jsx';
 import { calculateCornerCentering } from '../../lib/corner-measurement.js';
 import { fit as fitView, zoomAt, zoomToImagePoint, pan as panView, imageToViewport, CORNER_Z } from '../../lib/stage-view.js';
-import { genMaps } from '../../lib/image-utils.js';
+import { genMaps, loadImg } from '../../lib/image-utils.js';
+import { LINE_PALETTE, loadLineStyle, saveLineStyle, haloFor, sampleSegments, pickLineColor, rectSegments, quadSegments } from '../../lib/line-color.js';
 import { Loupe } from './Loupe.jsx';
 import {
   initializeCorners,
@@ -78,6 +79,13 @@ export function PostCaptureCentering({
   const [dragPoint, setDragPoint] = useState(null);                // { x, y } in display coords while a handle is held
   const [dragAnchor, setDragAnchor] = useState(null);              // finger position in viewport px
   const [undoCount, setUndoCount] = useState(0);
+  // Guide-line style: manual swatch / halo / automatic colour from the card (see src/lib/line-color.js)
+  const [lineStyle, setLineStyle] = useState(loadLineStyle);
+  const [showLineSettings, setShowLineSettings] = useState(false);
+  const [autoColors, setAutoColors] = useState({});                // { outer?, inner? } picked from the image
+  const [sampleTick, setSampleTick] = useState(0);                 // bumps on handle release -> re-sample
+  const pixelsRef = useRef({});                                    // { [src]: ImageData (small) }
+  const updateLineStyle = (patch) => setLineStyle((prev) => { const next = { ...prev, ...patch }; saveLineStyle(next); return next; });
   const viewportRef = useRef(null);
   const actionBarRef = useRef(null);
   const pointersRef = useRef(new Map());
@@ -262,6 +270,7 @@ export function PostCaptureCentering({
       setDragPoint(point);
       if (e && viewportRef.current) { const r = viewportRef.current.getBoundingClientRect(); setDragAnchor({ x: e.clientX - r.left, y: e.clientY - r.top }); }
     } else {
+      if (dragActiveRef.current) setSampleTick((t) => t + 1);
       dragActiveRef.current = false;
       setDragPoint(null);
     }
@@ -291,6 +300,33 @@ export function PostCaptureCentering({
     genMaps(src).then((m) => { if (!cancelled && m) setMaps((prev) => ({ ...prev, [src]: m })); }).finally(() => { if (!cancelled) setMapsBusy(false); });
     return () => { cancelled = true; };
   }, [viewMode, step, image, croppedPreview]);
+
+  // Automatic line colour: sample the image along the line's current position (on open and on
+  // handle release, never mid-drag) and pick the palette colour with the best worst-case contrast.
+  const autoSrc = step === 1 ? image : croppedPreview;
+  const autoSizeW = step === 1 ? imgSize.w : croppedImgSize.w;
+  const hasOuterGeom = !!(outer || outerCorners), hasInnerGeom = !!(inner || innerCorners);
+  useEffect(() => {
+    if (!lineStyle.auto || !autoSrc || !autoSizeW) return;
+    let cancelled = false;
+    (async () => {
+      let px = pixelsRef.current[autoSrc];
+      if (!px) { const r = await loadImg(autoSrc, 500); if (!r) return; px = r.data; pixelsRef.current = { [autoSrc]: px }; }
+      if (cancelled) return;
+      const k = px.width / autoSizeW;
+      const scaled = (segs) => segs.map((g) => ({ x1: g.x1 * k, y1: g.y1 * k, x2: g.x2 * k, y2: g.y2 * k }));
+      const pick = (segs) => pickLineColor(sampleSegments(px, scaled(segs), Math.max(2, px.width * 0.015), 2));
+      const o = outerRef.current, i = innerRef.current;
+      if (step === 1) {
+        const segs = measureMode === 'corner' ? (outerCorners && quadSegments(outerCorners)) : (o && rectSegments(o));
+        if (segs) setAutoColors((c) => ({ ...c, outer: pick(segs) }));
+      } else if (step === 2) {
+        const segs = measureMode === 'corner' ? (innerCorners && quadSegments(innerCorners)) : (i && rectSegments(i));
+        if (segs) setAutoColors((c) => ({ ...c, inner: pick(segs) }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [lineStyle.auto, autoSrc, autoSizeW, step, measureMode, sampleTick, hasOuterGeom, hasInnerGeom]);
 
   // ═══════════════════════════════════════════
   // STEP 1: Edge drag handlers (outer only)
@@ -561,6 +597,10 @@ export function PostCaptureCentering({
   // Edge-mode handles sit inside the line; push them further in as zoom rises so they clear it
   const handleInset = handleSize * (1 + 2.2 * Math.min(1, (view.z - 1) / 3));
   const pad = 40 / view.z;
+  const outerColor = lineStyle.auto && autoColors.outer ? autoColors.outer : lineStyle.outer;
+  const innerColor = lineStyle.auto && autoColors.inner ? autoColors.inner : lineStyle.inner;
+  const ilw = Math.max(1.5 / view.z, lw * 0.8);   // inner (artwork) line width
+  const hw = lw * 2.2;                            // halo band width
   const stageTransform = step === 1 ? `perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${rotation}deg)` : 'none';
   const activeMapSrc = step === 1 ? image : croppedPreview;
   const activeMap = viewMode !== 'original' ? maps[activeMapSrc]?.[viewMode] : null;
@@ -815,13 +855,13 @@ export function PostCaptureCentering({
         <div style={{ padding: '6px 12px', display: 'flex', gap: 12, borderBottom: '1px solid #0d0f13', flexWrap: 'wrap' }}>
           {step === 1 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#ff9944" strokeWidth={2} /></svg>
+              <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke={outerColor} strokeWidth={2} /></svg>
               <span style={{ fontFamily: mono, fontSize: 9, color: '#ff9944' }}>Card edge</span>
               <span style={{ fontFamily: mono, fontSize: 8, color: '#555' }}>(drag to align)</span>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#00ff88" strokeWidth={2} strokeDasharray="3,2" /></svg>
+              <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke={innerColor} strokeWidth={2} strokeDasharray="3,2" /></svg>
               <span style={{ fontFamily: mono, fontSize: 9, color: '#00ff88' }}>Artwork border</span>
               <span style={{ fontFamily: mono, fontSize: 8, color: '#555' }}>(drag to align)</span>
             </div>
@@ -850,7 +890,35 @@ export function PostCaptureCentering({
             style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #2a2d35', background: '#1a1c22', color: view.z > 1 ? '#ccc' : '#444', fontFamily: mono, fontSize: 9, cursor: view.z > 1 ? 'pointer' : 'default' }}>
             Fit
           </button>
+          <button type="button" onClick={() => setShowLineSettings((v) => !v)} aria-label="Line settings" aria-expanded={showLineSettings}
+            style={{ padding: '7px 9px', borderRadius: 6, border: `1px solid ${showLineSettings ? '#00ff88' : '#2a2d35'}`, background: showLineSettings ? '#00ff8822' : '#1a1c22', color: showLineSettings ? '#00ff88' : '#ccc', fontSize: 13, lineHeight: 1, cursor: 'pointer' }}>
+            ⚙
+          </button>
         </div>
+
+        {/* Line settings: halo · auto colour · swatches (remembered on this device) */}
+        {showLineSettings && (
+          <div style={{ padding: '6px 12px 8px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #0d0f13', flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: mono, fontSize: 8, color: '#666', textTransform: 'uppercase' }}>{step === 1 ? 'Card line' : 'Art line'}</span>
+            {[['halo', 'Halo'], ['auto', 'Auto color']].map(([key, label]) => (
+              <button key={key} type="button" onClick={() => updateLineStyle({ [key]: !lineStyle[key] })} aria-pressed={lineStyle[key]}
+                style={{ padding: '5px 9px', borderRadius: 6, border: `1px solid ${lineStyle[key] ? '#00ff88' : '#2a2d35'}`, background: lineStyle[key] ? '#00ff8822' : '#1a1c22', color: lineStyle[key] ? '#00ff88' : '#777', fontFamily: mono, fontSize: 9, cursor: 'pointer' }}>
+                {lineStyle[key] ? '● ' : '○ '}{label}
+              </button>
+            ))}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', opacity: lineStyle.auto ? 0.35 : 1 }}>
+              {LINE_PALETTE.map((c) => {
+                const key = step === 1 ? 'outer' : 'inner';
+                const on = lineStyle[key] === c.hex;
+                return (
+                  <button key={c.id} type="button" disabled={lineStyle.auto} onClick={() => updateLineStyle({ [key]: c.hex })} aria-label={`${c.id} line`} aria-pressed={on}
+                    style={{ width: 22, height: 22, borderRadius: 11, background: c.hex, border: on ? '2px solid #fff' : '2px solid #2a2d35', boxShadow: on ? '0 0 0 1px #000 inset' : 'none', cursor: lineStyle.auto ? 'default' : 'pointer', padding: 0 }} />
+                );
+              })}
+            </div>
+            {lineStyle.auto && <span style={{ fontFamily: mono, fontSize: 8, color: '#666' }}>picked from the card: <span style={{ color: step === 1 ? outerColor : innerColor }}>■</span></span>}
+          </div>
+        )}
 
         {/* Vision views + intensity */}
         <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #0d0f13', flexWrap: 'wrap' }}>
@@ -916,6 +984,19 @@ export function PostCaptureCentering({
             {step === 1 && measureMode === 'edge' && (
               <>
                 {/* Stroke drawn OUTSIDE the coordinate: its inside edge is the crop line; radius keeps the card radius on that inside edge */}
+                {lineStyle.halo && (
+                  <rect
+                    x={outer.left - lw - hw / 2}
+                    y={outer.top - lw - hw / 2}
+                    width={cW + 2 * lw + hw}
+                    height={cH + 2 * lw + hw}
+                    rx={cW * 0.048 + lw + hw / 2}
+                    ry={cW * 0.048 + lw + hw / 2}
+                    fill="none"
+                    stroke={haloFor(outerColor)}
+                    strokeWidth={hw}
+                  />
+                )}
                 <rect
                   x={outer.left - lw / 2}
                   y={outer.top - lw / 2}
@@ -924,7 +1005,7 @@ export function PostCaptureCentering({
                   rx={cW * 0.048 + lw / 2}
                   ry={cW * 0.048 + lw / 2}
                   fill="none"
-                  stroke="#ff9944"
+                  stroke={outerColor}
                   strokeWidth={lw}
                   opacity={0.85}
                 />
@@ -942,8 +1023,8 @@ export function PostCaptureCentering({
                       onPointerCancel={e => { dragging.current = null; onHandleDrag(null, e); }}
                     >
                       <rect x={hx - sz / 2 - pad} y={hy - sz / 2 - pad} width={sz + pad * 2} height={sz + pad * 2} fill="transparent" />
-                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke="#ff9944" strokeWidth={Math.max(1.5 / view.z, lw * 0.6)} />
-                      <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central" fill="#ff9944" fontSize={sz * 0.6} fontWeight="bold" style={{ pointerEvents: 'none' }}>
+                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke={outerColor} strokeWidth={Math.max(1.5 / view.z, lw * 0.6)} />
+                      <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central" fill={outerColor} fontSize={sz * 0.6} fontWeight="bold" style={{ pointerEvents: 'none' }}>
                         {arrow}
                       </text>
                     </g>
@@ -966,6 +1047,9 @@ export function PostCaptureCentering({
                 activeHandles="outer"
                 zoom={view.z}
                 onHandleDrag={onHandleDrag}
+                outerColor={outerColor}
+                innerColor={innerColor}
+                halo={lineStyle.halo}
               />
             )}
 
@@ -981,20 +1065,31 @@ export function PostCaptureCentering({
                   rx={croppedImgSize.w * 0.048}
                   ry={croppedImgSize.w * 0.048}
                   fill="none"
-                  stroke="#ff9944"
+                  stroke={outerColor}
                   strokeWidth={lw * 0.5}
                   opacity={0.3}
                 />
                 {/* Draggable inner boundary */}
                 {/* Stroke drawn INSIDE the coordinate: its outside edge is the measured art line */}
+                {lineStyle.halo && (
+                  <rect
+                    x={inner.left + ilw + hw / 2}
+                    y={inner.top + ilw + hw / 2}
+                    width={Math.max(0, inner.right - inner.left - 2 * ilw - hw)}
+                    height={Math.max(0, inner.bottom - inner.top - 2 * ilw - hw)}
+                    fill="none"
+                    stroke={haloFor(innerColor)}
+                    strokeWidth={hw}
+                  />
+                )}
                 <rect
-                  x={inner.left + Math.max(1.5 / view.z, lw * 0.8) / 2}
-                  y={inner.top + Math.max(1.5 / view.z, lw * 0.8) / 2}
-                  width={inner.right - inner.left - Math.max(1.5 / view.z, lw * 0.8)}
-                  height={inner.bottom - inner.top - Math.max(1.5 / view.z, lw * 0.8)}
+                  x={inner.left + ilw / 2}
+                  y={inner.top + ilw / 2}
+                  width={inner.right - inner.left - ilw}
+                  height={inner.bottom - inner.top - ilw}
                   fill="none"
-                  stroke="#00ff88"
-                  strokeWidth={Math.max(1.5 / view.z, lw * 0.8)}
+                  stroke={innerColor}
+                  strokeWidth={ilw}
                   strokeDasharray={`${croppedImgSize.w * 0.025 / view.z},${croppedImgSize.w * 0.012 / view.z}`}
                   opacity={0.9}
                 />
@@ -1012,8 +1107,8 @@ export function PostCaptureCentering({
                       onPointerCancel={e => { dragging.current = null; onHandleDrag(null, e); }}
                     >
                       <rect x={hx - sz / 2 - pad} y={hy - sz / 2 - pad} width={sz + pad * 2} height={sz + pad * 2} fill="transparent" />
-                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke="#00ff88" strokeWidth={Math.max(1.5 / view.z, lw * 0.6)} />
-                      <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central" fill="#00ff88" fontSize={sz * 0.6} fontWeight="bold" style={{ pointerEvents: 'none' }}>
+                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke={innerColor} strokeWidth={Math.max(1.5 / view.z, lw * 0.6)} />
+                      <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central" fill={innerColor} fontSize={sz * 0.6} fontWeight="bold" style={{ pointerEvents: 'none' }}>
                         {arrow}
                       </text>
                     </g>
@@ -1036,6 +1131,9 @@ export function PostCaptureCentering({
                 activeHandles="inner"
                 zoom={view.z}
                 onHandleDrag={onHandleDrag}
+                outerColor={outerColor}
+                innerColor={innerColor}
+                halo={lineStyle.halo}
               />
             )}
           </svg>
