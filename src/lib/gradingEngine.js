@@ -342,7 +342,8 @@ export function toCompanySubgrade(score100, company) {
 const COMPANY_CENTERING = {
   psa: [
     [10, 5.0, 25.0], [9, 10.0, 40.0], [8, 15.0, 40.0], [7, 20.0, 40.0],
-    [6, 30.0, 40.0], [5, 35.0, 40.0], [4, Infinity, Infinity],
+    [6, 30.0, 40.0], [5, 35.0, 40.0], [4, 35.0, 40.0], [3, 40.0, 40.0], [2, 40.0, 40.0],
+    [1.5, 40.0, 40.0], [1, Infinity, Infinity],
   ],
   bgs: [
     [10, 0.0, 0.0], [9.5, 5.0, 10.0], [9, 10.0, 15.0], [8.5, 12.0, 20.0],
@@ -388,11 +389,18 @@ function convertPSA(merged, centering, defects) {
     surface: toCompanySubgrade(merged.surface, 'psa'),
   };
   let grade = Math.min(subs.centering, subs.corners, subs.edges, subs.surface);
-  if (defects.length >= 1) grade = Math.min(grade, 9);
-  if (defects.length >= 3) grade = Math.min(grade, 8);
+  // Source: docs/grading-research/sources/PSA_gradingstandards_verbatim.md (psacard.com, captured 2026-09-15)
+  if (defects.length >= 1) grade = Math.min(grade, 9);            // 10 = virtually perfect
+  if (defects.length >= 3) grade = Math.min(grade, 8);            // 9 = "only one" minor flaw
+  const cornerCount = defects.filter((d) => d.type === 'CORNER').length;
+  if (cornerCount >= 1) grade = Math.min(grade, 8);               // 9 allows no corner wear; 8 = slightest fraying, 1-2 corners
+  if (cornerCount >= 3) grade = Math.min(grade, 7);               // 7 = slight fraying on some corners
   const creaseSev = Math.max(-1, ...defects.filter((d) => d.type === 'CREASE').map((d) => sevRank[d.severity]));
-  if (creaseSev >= 0) grade = Math.min(grade, 6);
-  if (creaseSev >= 2) grade = Math.min(grade, 4);
+  if (creaseSev >= 0) grade = Math.min(grade, 4);                 // 4 = "a light crease may be visible"
+  if (creaseSev >= 2) grade = Math.min(grade, 2);                 // 2 = "several creases"; 1.5 = "heavy creases"
+  const tearSev = Math.max(-1, ...defects.filter((d) => d.type === 'TEAR').map((d) => sevRank[d.severity]));
+  if (tearSev >= 0) grade = Math.min(grade, 4);
+  if (tearSev >= 2) grade = Math.min(grade, 1);                   // missing pieces / major tear cannot reach 1.5
   if (defects.some((d) => d.severity === 'extreme')) grade = Math.min(grade, 5);
   grade = snapDown(grade, ALLOWED_SUBGRADES.psa);
   return { grade, label: PSA_LABELS[grade] ?? '', displayGrade: String(grade), subgrades: subs };

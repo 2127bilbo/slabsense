@@ -151,7 +151,18 @@ const minorCrease = gradeCard({
 check('Minor crease still caps at 6 (structural, label-independent)', minorCrease.overall.grade <= 6, true);
 check('Minor crease → CREASE_CAP_6 recorded', minorCrease.overall.capsApplied.includes('CREASE_CAP_6'), true);
 check('Minor crease → SGC ≤ 6', minorCrease.companyGrades.sgc.grade <= 6, true);
-check('Minor crease → PSA ≤ 6', minorCrease.companyGrades.psa.grade <= 6, true);
+check('Minor crease → PSA ≤ 4 (psacard.com: light crease first appears at 4)', minorCrease.companyGrades.psa.grade <= 4, true);
+const oneCorner = gradeCard({
+  centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
+  defects: [{ side: 'FRONT', type: 'CORNER', severity: 'minor' }],
+});
+check('One frayed corner → PSA ≤ 8 (9 allows no corner wear)', oneCorner.companyGrades.psa.grade <= 8, true);
+const threeCorners = gradeCard({
+  centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
+  defects: [{ side: 'FRONT', type: 'CORNER', severity: 'minor' }, { side: 'FRONT', type: 'CORNER', severity: 'minor' }, { side: 'BACK', type: 'CORNER', severity: 'minor' }],
+});
+check('Three frayed corners → PSA ≤ 7', threeCorners.companyGrades.psa.grade <= 7, true);
+check('PSA centering: 88/12 front (dev 38) → subgrade 3 band, not 4', centeringSubgrade(38, 10, 'psa') === 3, true);
 const severeCrease = gradeCard({
   centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
   defects: [{ side: 'FRONT', type: 'CREASE', severity: 'severe' }],
@@ -160,6 +171,7 @@ check('Severe crease caps at 5', severeCrease.overall.grade <= 5 && severeCrease
 check('Severe front crease → CGC ≤ 5', severeCrease.companyGrades.cgc.grade <= 5, true);
 check('Minor crease → BGS ≤ 6 (was uncapped)', minorCrease.companyGrades.bgs.grade <= 6, true);
 check('Severe crease → BGS ≤ 4', severeCrease.companyGrades.bgs.grade <= 4, true);
+check('Severe crease → PSA ≤ 2 (several/heavy creases)', severeCrease.companyGrades.psa.grade <= 2, true);
 check('Every company caps a creased card at 7 or below', Object.values(minorCrease.companyGrades).every((g) => g.grade <= 7), true);
 const torn = gradeCard({
   centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
@@ -187,7 +199,7 @@ const gem = gradeCard({
 });
 check('TAG: Gem Mint 10', gem.companyGrades.tag.displayGrade, '10');
 check('TAG: 1000-pt score present', gem.companyGrades.tag.score > 900, true);
-check('PSA: 9 (1 defect ceiling + corner)', gem.companyGrades.psa.grade, 9);
+check('PSA: 8 (one frayed corner — 9 allows no corner wear per psacard.com)', gem.companyGrades.psa.grade, 8);
 check('BGS: 9.5 (0.5 rule)', gem.companyGrades.bgs.grade, 9.5);
 check('BGS subgrades object exists', typeof gem.companyGrades.bgs.subgrades.corners, 'number');
 check('All company grades ∈ allowed lists',
