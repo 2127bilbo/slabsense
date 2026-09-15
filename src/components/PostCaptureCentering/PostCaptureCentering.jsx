@@ -556,7 +556,10 @@ export function PostCaptureCentering({
 
   // Handle dimensions (shrink with stage zoom so they stay finger-sized on screen)
   const handleSize = Math.max(28, Math.min(cW, cH) * 0.035) / view.z;
-  const lw = Math.max(3, cW * 0.005) / view.z;
+  // Line weight thins on screen when zoomed so the exact edge stays visible
+  const lw = Math.max(1.5, cW * 0.005 * (view.z > 1 ? 0.5 : 1)) / view.z;
+  // Edge-mode handles sit inside the line; push them further in as zoom rises so they clear it
+  const handleInset = handleSize * (1 + 2.2 * Math.min(1, (view.z - 1) / 3));
   const pad = 40 / view.z;
   const stageTransform = step === 1 ? `perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${rotation}deg)` : 'none';
   const activeMapSrc = step === 1 ? image : croppedPreview;
@@ -584,20 +587,20 @@ export function PostCaptureCentering({
   // STEP 1: Outer handles (on INNER side of line for easier reach)
   // ═══════════════════════════════════════════
   const outerHandles = [
-    [(outer.left + outer.right) / 2, outer.top + handleSize, 'OT', '↑'],     // Inside top edge
-    [(outer.left + outer.right) / 2, outer.bottom - handleSize, 'OB', '↓'], // Inside bottom edge
-    [outer.left + handleSize, (outer.top + outer.bottom) / 2, 'OL', '←'],   // Inside left edge
-    [outer.right - handleSize, (outer.top + outer.bottom) / 2, 'OR', '→'],  // Inside right edge
+    [(outer.left + outer.right) / 2, outer.top + handleInset, 'OT', '↑'],     // Inside top edge
+    [(outer.left + outer.right) / 2, outer.bottom - handleInset, 'OB', '↓'], // Inside bottom edge
+    [outer.left + handleInset, (outer.top + outer.bottom) / 2, 'OL', '←'],   // Inside left edge
+    [outer.right - handleInset, (outer.top + outer.bottom) / 2, 'OR', '→'],  // Inside right edge
   ];
 
   // ═══════════════════════════════════════════
   // STEP 2: Inner handles (on INSIDE of line - toward artwork center)
   // ═══════════════════════════════════════════
   const innerHandles = inner ? [
-    [(inner.left + inner.right) / 2, inner.top + handleSize, 'IT', '↑'],     // Inside top edge
-    [(inner.left + inner.right) / 2, inner.bottom - handleSize, 'IB', '↓'], // Inside bottom edge
-    [inner.left + handleSize, (inner.top + inner.bottom) / 2, 'IL', '←'],   // Inside left edge
-    [inner.right - handleSize, (inner.top + inner.bottom) / 2, 'IR', '→'],  // Inside right edge
+    [(inner.left + inner.right) / 2, inner.top + handleInset, 'IT', '↑'],     // Inside top edge
+    [(inner.left + inner.right) / 2, inner.bottom - handleInset, 'IB', '↓'], // Inside bottom edge
+    [inner.left + handleInset, (inner.top + inner.bottom) / 2, 'IL', '←'],   // Inside left edge
+    [inner.right - handleInset, (inner.top + inner.bottom) / 2, 'IR', '→'],  // Inside right edge
   ] : [];
 
   // ═══════════════════════════════════════════
@@ -938,7 +941,7 @@ export function PostCaptureCentering({
                       onPointerCancel={e => { dragging.current = null; onHandleDrag(null, e); }}
                     >
                       <rect x={hx - sz / 2 - pad} y={hy - sz / 2 - pad} width={sz + pad * 2} height={sz + pad * 2} fill="transparent" />
-                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke="#ff9944" strokeWidth={Math.max(2, lw * 0.6)} />
+                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke="#ff9944" strokeWidth={Math.max(1.5 / view.z, lw * 0.6)} />
                       <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central" fill="#ff9944" fontSize={sz * 0.6} fontWeight="bold" style={{ pointerEvents: 'none' }}>
                         {arrow}
                       </text>
@@ -989,7 +992,7 @@ export function PostCaptureCentering({
                   height={inner.bottom - inner.top}
                   fill="none"
                   stroke="#00ff88"
-                  strokeWidth={Math.max(2, lw * 0.8)}
+                  strokeWidth={Math.max(1.5 / view.z, lw * 0.8)}
                   strokeDasharray={`${croppedImgSize.w * 0.025 / view.z},${croppedImgSize.w * 0.012 / view.z}`}
                   opacity={0.9}
                 />
@@ -1007,7 +1010,7 @@ export function PostCaptureCentering({
                       onPointerCancel={e => { dragging.current = null; onHandleDrag(null, e); }}
                     >
                       <rect x={hx - sz / 2 - pad} y={hy - sz / 2 - pad} width={sz + pad * 2} height={sz + pad * 2} fill="transparent" />
-                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke="#00ff88" strokeWidth={Math.max(2, lw * 0.6)} />
+                      <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke="#00ff88" strokeWidth={Math.max(1.5 / view.z, lw * 0.6)} />
                       <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central" fill="#00ff88" fontSize={sz * 0.6} fontWeight="bold" style={{ pointerEvents: 'none' }}>
                         {arrow}
                       </text>
