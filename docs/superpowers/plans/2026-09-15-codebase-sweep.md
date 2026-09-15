@@ -56,4 +56,27 @@ Triggered by: AI + Deep tapped back to back → both charged, one shown; Deep 6.
 
 **Migrations to apply (Supabase SQL editor, in order):** `20260915_credits_atomic.sql`, `20260915_ai_grade_jobs.sql`. The app works before they are applied (legacy credit path, job tracking skipped) but one-shot/durable jobs need the second one.
 
+## To do: one shared grading rule set + per-company differences table (session with the owner, at the PC)
+
+Owner's view (2026-09-15): the TAG rules are the grounded ones (DIG reports); the other companies were
+over-complicated, and some of the research docs were AI-fetched from forums rather than the companies'
+own pages. Main real difference between companies is centering strictness (BGS harshest at 10 / Black Label).
+
+Inventory for that session:
+- Engine: `src/lib/gradingEngine.js` §5 — `convertPSA/BGS/CGC/SGC` each has its own combination
+  method (lowest-wins, four-subgrade 0.5 rule, holistic +1.0 centering compensation, lowest + 3-category
+  penalty) plus its own caps; `COMPANY_CENTERING` table (per grade: max front dev, max back dev);
+  `ALLOWED_SUBGRADES`, labels. Rationale doc: `docs/COMPANY_OFFSETS.md`. Crease/tear caps were
+  inconsistent until 2026-09-15 (now every company ≤ 7 on any crease).
+- Research: `docs/grading-research/{PSA,BGS,CGC,SGC,TAG}_STANDARDS.md`, `*_DEFECT_WEIGHTS.md`,
+  `ALL_GRADING_COMPANIES_REFERENCE.md`, `TAG_DIG_CALIBRATION_DATA.md`. None of the standards docs cite a
+  source URL; `BGS_DEFECT_WEIGHTS.md` mentions forums. Treat all non-TAG numbers as unverified until
+  checked against the company's own published standard.
+- Proposed shape: (1) shared rules = defect deductions + structural caps (crease/tear/stain/extreme) +
+  defect-count caps, applied once; (2) per-company table = centering thresholds by grade (incl. the 10 /
+  Black Label rule), allowed grade steps, labels, and the one combination method that company actually
+  documents; (3) tests that assert the same defect list orders the companies as expected.
+- Steps: owner pulls the official standard pages for each company → we fill the table together →
+  replace the four convert functions with one table-driven function → keep TAG untouched.
+
 Not done (noted): `GradeResultDisplay.jsx` is still imported but unrendered while the Grade tab hand-rolls three blocks; `cardType: 'modern_holo'` is still hard-coded for the Deep reference pool; a worker-based queue (and a "rush" credit tier) can sit on `ai_grade_jobs.status = 'queued'` later.
