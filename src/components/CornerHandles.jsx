@@ -211,9 +211,11 @@ export function CornerHandles({
   const cH = outerCorners.br.y - outerCorners.tl.y;
   const z = Math.max(1, zoom);
   const handleSize = Math.max(32, Math.min(cW, cH) * 0.04) / z;
-  const lw = Math.max(2, cW * 0.004) / z;
+  // Line weight: thin on screen when zoomed so the exact edge is visible (floor scales with zoom too)
+  const lw = Math.max(1.5, cW * 0.004 * (z > 1 ? 0.5 : 1)) / z;
   const pad = 50 / z; // Touch target padding
-  const handleOffset = handleSize * 1.2; // Offset handles away from corners so lines are visible
+  // Pull handles further from the corner as zoom rises so they never sit on top of the line
+  const handleOffset = handleSize * (1.2 + 2.2 * Math.min(1, (z - 1) / 3));
 
   // Get sample points for visualization (only if both corners exist)
   const samplePoints = innerCorners ? getSamplePoints(outerCorners, innerCorners) : {};
@@ -272,7 +274,7 @@ export function CornerHandles({
           points={`${innerCorners.tl.x},${innerCorners.tl.y} ${innerCorners.tr.x},${innerCorners.tr.y} ${innerCorners.br.x},${innerCorners.br.y} ${innerCorners.bl.x},${innerCorners.bl.y}`}
           fill="none"
           stroke="#e91e63"
-          strokeWidth={Math.max(2, lw * 0.8)}
+          strokeWidth={Math.max(1.5 / z, lw * 0.8)}
           strokeDasharray={`${cW * 0.02 / z},${cW * 0.01 / z}`}
           opacity={0.85}
         />
@@ -365,7 +367,7 @@ export function CornerHandles({
               r={sz / 2}
               fill={bgColor}
               stroke={color}
-              strokeWidth={Math.max(2, lw * 0.8)}
+              strokeWidth={Math.max(1.5 / z, lw * 0.8)}
             />
             {/* Arrow indicator */}
             <text
