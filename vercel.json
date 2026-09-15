@@ -1,9 +1,36 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/v/:cert", "destination": "/slabview.html?cert=:cert" },
-    { "source": "/studio", "destination": "/studio.html" },
-    { "source": "/queue", "destination": "/studio.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/slabs/:action",
+      "destination": "/api/slabs?action=:action"
+    },
+    {
+      "source": "/api/slab",
+      "destination": "/api/slabs?action=get"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/v/:cert",
+      "destination": "/slabview.html?cert=:cert"
+    },
+    {
+      "source": "/V/:cert",
+      "destination": "/slabview.html?cert=:cert"
+    },
+    {
+      "source": "/studio",
+      "destination": "/studio.html"
+    },
+    {
+      "source": "/queue",
+      "destination": "/studio.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }

@@ -6,6 +6,7 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { SLAB_PRICE_KEY, slabSessionParams } from '../_lib/slabs.js';
+import { requireUser, sendAuthError } from '../_lib/auth.js';
 
 export const config = {
   api: {
@@ -64,6 +65,13 @@ export default async function handler(req, res) {
     }
 
     const priceId = PRICES[priceKey];
+
+    // Slab orders must come from the signed-in owner; verify before any side effect.
+    if (priceKey === SLAB_PRICE_KEY) {
+      let payer;
+      try { payer = await requireUser({ db: supabase }, req); } catch (e) { return sendAuthError(res, e); }
+      if (payer.id !== userId) return res.status(403).json({ error: 'user_mismatch' });
+    }
 
     // Get user profile
     const { data: profile, error: profileError } = await supabase

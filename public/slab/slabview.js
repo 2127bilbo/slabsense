@@ -4,7 +4,11 @@
 var LABEL_WIN={x:0.2847,y:0.1143,w:0.4458,h:0.1201};   // from scripts/plate-windows.json
 var CARD_WIN ={x:0.2999,y:0.3018,w:0.4174,h:0.5586};
 var PLATE={w:987,h:1024};
-var q=new URLSearchParams(location.search), cert=(q.get("cert")||"").trim().toUpperCase();
+var q=new URLSearchParams(location.search);
+/* /v/<cert> is a server-side rewrite to slabview.html?cert=…, so the browser URL keeps the path form
+   and location.search is empty there; read the path first, then the query (local tests use ?cert=). */
+var pathCert=(location.pathname.match(/^\/v\/([^\/?#]+)/i)||[])[1]||"";
+var cert=decodeURIComponent(pathCert||q.get("cert")||"").trim().toUpperCase();
 var DEV=location.protocol==="file:"||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 var api=(DEV&&q.get("src"))||("/api/slab?cert="+encodeURIComponent(cert));
 var $=function(id){return document.getElementById(id);};
@@ -15,24 +19,31 @@ function place(el,r){var p=pct(r);el.style.left=p.left;el.style.top=p.top;el.sty
 function fmtDate(s){return s?new Date(s).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}):"—";}
 var STATUS={paid:"Paid — awaiting engraving",engraved:"Engraved — awaiting shipping",shipped:"Shipped"};
 
-// The plate is an AI-generated photo whose label window is 3.58:1, while the real label is
-// S.W/S.H = 69/21.4 ≈ 3.22:1. Don't stretch the canvas to LABEL_WIN — keep the label's true
-// aspect, sized to the window's height, centred horizontally inside the window.
-function labelRect(){
-  var s=SlabLabel.defaults;
-  var h=LABEL_WIN.h;
-  var w=h*(s.W/s.H)*(PLATE.h/PLATE.w);
-  var x=LABEL_WIN.x+(LABEL_WIN.w-w)/2;
-  return {x:x,y:LABEL_WIN.y,w:w,h:h};
+/* The plate is an AI-generated photo whose label window is ~3.58:1, while the physical label is
+   69 × 21.4 (3.22:1). Rather than stretch the artwork, lay the label OUT at the window's proportions:
+   the engine's 9-slice frame extends its rules and the columns reflow, exactly as for a taller or
+   shorter slab, so the on-screen label fills the window edge to edge with nothing distorted.
+   The engraved SVG is untouched — this only affects the picture on this page. */
+function labelInput(row){
+  return row.label_text&&row.label_text.cert===row.cert?row.label_text:SlabLabel.fromScan(row,row.cert);
+}
+function labelSettings(row){
+  var s=Object.assign({},SlabLabel.defaults,row.label_settings||{});
+  delete s.secret;
+  s.useToken=false;
+  var aspect=(LABEL_WIN.w*PLATE.w)/(LABEL_WIN.h*PLATE.h);
+  s.H=Math.round(s.W/aspect*100)/100;
+  return s;
 }
 
 function drawLabel(row){
-  var input=SlabLabel.fromScan(row,row.cert), s=SlabLabel.defaults;
+  var input=labelInput(row), s=labelSettings(row);
   return SlabLabel.payload(input,s).then(function(p){
     var b=SlabLabel.build(input,s,p.url,p.alnum);
     if(!b){document.body.setAttribute("data-label","failed");return;}
-    var cv=$("label"), slab=$("slab"), rect=labelRect();
-    var pxW=Math.round(slab.clientWidth*rect.w*3);  // 3× for crisp downscale
+    var cv=$("label"), slab=$("slab"), rect=LABEL_WIN;
+    var over=3*Math.max(1,Math.min(3,window.devicePixelRatio||1));   // 3× oversample × device pixels (zoom view stays crisp on phones)
+    var pxW=Math.min(4096,Math.round(slab.clientWidth*rect.w*over));
     cv.width=pxW; cv.height=Math.round(pxW*s.H/s.W); place(cv,rect);
     SlabLabel.drawCanvas(cv,b.shapes,b.cfg,"#ffffff");
     document.body.setAttribute("data-label","drawn");
@@ -41,8 +52,42 @@ function drawLabel(row){
 function showSide(row,side){
   var src=side==="front"?row.front_image_url:row.back_image_url;
   var img=$("card"); img.hidden=!src; if(src)img.src=src; place(img,CARD_WIN); place($("well"),CARD_WIN);
-  $("label").hidden=side!=="front";
-  $("btnFront").setAttribute("aria-pressed",side==="front");$("btnBack").setAttribute("aria-pressed",side==="back");
+  /* Clear acrylic: from the back the engraving reads mirrored through the slab. */
+  $("label").style.transform=side==="front"?"":"scaleX(-1)";
+  ["btnFront","zFront"].forEach(function(id){$(id).setAttribute("aria-pressed",side==="front");});
+  ["btnBack","zBack"].forEach(function(id){$(id).setAttribute("aria-pressed",side==="back");});
+  currentSide=side;
+}
+var currentSide="front";
+
+/* ---- full-screen view: the same slab element is moved into the overlay (moving keeps the canvas
+   contents), redrawn at the larger size, and moved back on close. Click to zoom 2.5× on the spot,
+   click again to reset; Esc, ✕ or the backdrop closes. Native pinch-zoom still works on phones. */
+var zoomOpen=false, slabHome=null;
+function openZoom(){
+  if(zoomOpen||!window.__row)return;
+  var slab=$("slab"); slabHome=slab.parentNode;
+  $("zstage").appendChild(slab); $("zoom").hidden=false; document.body.classList.add("zooming"); zoomOpen=true;
+  unzoom();
+  drawLabel(window.__row);
+}
+function closeZoom(){
+  if(!zoomOpen)return;
+  var slab=$("slab"); unzoom();
+  slabHome.insertBefore(slab,slabHome.firstChild); $("zoom").hidden=true; document.body.classList.remove("zooming"); zoomOpen=false;
+  drawLabel(window.__row);
+}
+function unzoom(){var st=$("zstage");st.classList.remove("zoomed");$("slab").style.width="";st.scrollLeft=0;st.scrollTop=0;}
+function onSlabClick(e){
+  var slab=$("slab"), st=$("zstage");
+  if(!zoomOpen){openZoom();return;}
+  if(st.classList.contains("zoomed")){unzoom();return;}
+  /* remember where on the slab the tap landed, zoom by real size, then scroll that spot to the middle */
+  var r=slab.getBoundingClientRect(), fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
+  st.classList.add("zoomed"); slab.style.width=Math.round(r.width*2.5)+"px";
+  var r2=slab.getBoundingClientRect(), sr=st.getBoundingClientRect();
+  st.scrollLeft+= (r2.left+fx*r2.width)-(sr.left+st.clientWidth/2);
+  st.scrollTop += (r2.top+fy*r2.height)-(sr.top+st.clientHeight/2);
 }
 function labelOf(k){return k.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/^./,function(c){return c.toUpperCase();});}
 function kv(el,obj,fmt){el.innerHTML=Object.keys(obj||{}).map(function(k){var v=obj[k];if(v&&typeof v==="object")v=Object.values(v).join(" / ");return '<div><b>'+esc(fmt?fmt(v):v)+'</b><span>'+esc(labelOf(k))+'</span></div>';}).join("")||'<div><span>Not recorded</span></div>';}
@@ -86,9 +131,9 @@ function severityText(s){
 }
 function render(row){
   window.__row=row;
-  var input=SlabLabel.fromScan(row,row.cert);
+  var input=labelInput(row);
   document.title="SlabSense "+row.cert+" — "+input.name;
-  $("hdrCert").textContent=row.cert;
+  $("hdrCert").textContent=row.cert; $("zCert").textContent=row.cert;
   $("gradeNum").textContent=input.grade;$("gradeWord").textContent=input.gradeWord;
   $("name").textContent=input.name;$("setline").textContent=[input.l2,input.l3,input.l4].filter(Boolean).join(" · ");
   var st=$("status");st.textContent=STATUS[row.status]||row.status;st.className="status "+(STATUS[row.status]?row.status:"unknown");
@@ -102,6 +147,11 @@ function render(row){
   kv($("dates"),{paid:row.paid_at,engraved:row.engraved_at,shipped:row.shipped_at},fmtDate);
   showSide(row,"front");
   $("btnFront").onclick=function(){showSide(row,"front");};$("btnBack").onclick=function(){showSide(row,"back");};
+  $("zFront").onclick=function(){showSide(row,"front");};$("zBack").onclick=function(){showSide(row,"back");};
+  $("slab").onclick=onSlabClick;
+  $("zClose").onclick=closeZoom;
+  $("zstage").onclick=function(e){if(e.target===$("zstage"))closeZoom();};
+  document.addEventListener("keydown",function(e){if(e.key==="Escape")closeZoom();});
   setState("found");
   return SlabLabel.ready.then(function(){return drawLabel(row);});
 }

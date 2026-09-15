@@ -25,6 +25,7 @@
     --ok-bg:#12251a;--ok-fg:#7fd3a1;--ok-line:#204533;
     --field:#10131a;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);}
   *{box-sizing:border-box}html,body{margin:0;padding:0}
+  [hidden]{display:none!important}
   body{background:var(--bg);color:var(--fg);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.5}
   .wrap{max-width:1300px;margin:0 auto;padding:20px 16px 64px}
   .top{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
@@ -77,6 +78,7 @@
   dialog#settings .dhead{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--panel);border-bottom:1px solid var(--line2)}
   dialog#settings .dhead h2{font-size:14px;font-weight:600;margin:0}
   dialog#settings .dfoot{display:flex;gap:8px;justify-content:space-between;padding:12px 14px;border-top:1px solid var(--line2)}
+  .auth{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.signin{display:flex;gap:6px}.signin input{width:150px}.modes button[aria-pressed=true]{border-color:var(--accent)}.qlist{max-height:260px;overflow:auto;border:1px solid var(--line2);border-radius:8px}.qrow{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 10px;border-bottom:1px solid var(--line2);cursor:pointer;font-size:13px}.qrow:hover,.qrow[aria-selected=true]{background:var(--panel2)}.qrow b{font-weight:600}.qrow span{color:var(--muted);font-size:11.5px}.ship{margin:6px 0 0;padding:8px 10px;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;font:12px ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -84,13 +86,34 @@
   <div class="top">
     <div>
       <h1>SlabSense Slab Engraving Studio</h1>
-      <p class="sub">Manual mode — for test tiles and one-offs. Paid orders arrive in the queue (coming next).</p>
+      <p class="sub">Queue mode: sign in to see paid slabs, render each label from the record, and mark them engraved and shipped. Manual mode is for test tiles (TEST- certs).</p>
+    </div>
+    <div class="auth" id="auth">
+      <form id="signin" class="signin"><input type="email" id="authEmail" placeholder="admin email" autocomplete="username"><input type="password" id="authPass" placeholder="password" autocomplete="current-password"><button type="submit" class="sm">Sign in</button></form>
+      <div id="signedIn" hidden><span id="authWho"></span> <button type="button" class="sm" id="signout">Sign out</button></div>
+      <div class="modes" id="modes" hidden><button type="button" class="sm" id="modeQueue" aria-pressed="true">Queue</button><button type="button" class="sm" id="modeManual" aria-pressed="false">Manual</button></div>
+      <span id="authMsg" class="hint"></span>
     </div>
     <button type="button" id="openSettings" title="Slab profile, header, layout, QR, cert counter, export">⚙ Settings</button>
   </div>
 
   <div class="grid">
     <section class="panel">
+
+      <details class="grp" open id="queuePanel" hidden>
+        <summary>Queue</summary>
+        <div class="body">
+          <div class="presets"><button type="button" data-qstatus="paid" aria-pressed="true">To engrave</button><button type="button" data-qstatus="engraved" aria-pressed="false">To ship</button><button type="button" data-qstatus="shipped" aria-pressed="false">Done</button></div>
+          <label class="f"><span>Search</span><input type="text" id="queueSearch" placeholder="cert or card name" autocomplete="off"></label>
+          <div id="queueList" class="qlist"></div>
+          <div id="queueDetail" hidden>
+            <p class="hint" id="queueMeta"></p>
+            <pre id="queueShip" class="ship"></pre>
+            <div class="btns" style="margin-top:8px"><button type="button" class="sm" id="copyShip">Copy address</button><button type="button" class="sm primary" id="markShipped" hidden>Mark shipped</button></div>
+          </div>
+          <p class="hint" id="queueMsg"></p>
+        </div>
+      </details>
 
       <details class="grp" open>
         <summary>Card</summary>
@@ -285,6 +308,7 @@
 <script src="slab/fonts.js"></script>
 <script src="slab/frame.js"></script>
 <script src="slab/label.js"></script>
+<script src="slab/vendor/supabase.js"></script>
 <script src="slab/studio.js"></script>
 </body></html>
 

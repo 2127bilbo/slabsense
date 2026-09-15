@@ -39,3 +39,21 @@ order from being placed before the bucket/columns from step 2 exist.
 
 ## Cleaning up test orders
 `delete from slabs where cert = 'SS26-0000N';` then, if you want the numbering to restart, `alter sequence slab_cert_seq restart with 1;` and remove the test files from the `slab-images` bucket.
+
+## Admin access to the studio queue
+- Apply `supabase/migrations/20260914_slab_label.sql`.
+- Find your user id: Supabase → Authentication → Users → your email → copy the UUID.
+- Vercel env `ADMIN_USER_IDS` = that UUID (comma-separate more later). Redeploy.
+- Open https://www.slabsenseai.com/studio → sign in with your app email/password → **Queue**.
+
+Order matters: the queue selects the new `label_text`/`label_settings` columns, so a deploy before the migration shows `Queue failed: query_failed` until it is applied.
+
+## Working the queue
+1. **To engrave**: click a row → the label renders from the record (edit the four text lines if the scan's name is missing or wrong — the edited text is what gets stored and shown on the cert page). **Download SVG** saves the file for LightBurn and marks the slab *engraved*.
+2. **To ship**: the shipping address is shown with a copy button. After it's in the mail, **Mark shipped**.
+3. **Done**: searchable history. The cert page shows the same status the whole way.
+If "Could not mark engraved" appears, the SVG still downloaded — fix the cause (usually signed out) and click the row again; it stays in To engrave until the server confirms.
+The studio shares the app's sign-in (same domain): signing in or out of one signs you in or out of the other.
+
+## Going live (after testing)
+Change together in Vercel, then redeploy: `STRIPE_SECRET_KEY` → live key; `STRIPE_PRICE_SLAB` → the live-mode price id; `STRIPE_WEBHOOK_SECRET` → the **live** endpoint's secret, and make sure that endpoint's URL is `https://www.slabsenseai.com/api/stripe/webhook` (the apex domain redirects and Stripe won't follow) and that it subscribes to `checkout.session.completed`. Then clean up test data: `delete from slabs where cert like 'SS26-%';` `alter sequence slab_cert_seq restart with 1;` and empty the `slab-images` and `slab-labels` buckets.

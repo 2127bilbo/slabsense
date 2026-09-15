@@ -90,3 +90,29 @@ export async function mintSlab({ db, storage, fetchImpl, log = console.error }, 
   if (upd.error) log(`[slabs] ${slab.cert}: image url update failed: ${upd.error.message || upd.error}`);
   return { slab: { ...slab, ...urls }, created: true };
 }
+
+/* ---- queue / status (Plan C) ---- */
+export const QUEUE_SELECT = 'cert,status,paid_at,engraved_at,shipped_at,shipping,front_image_url,back_image_url,label_svg_path,label_text,label_settings,scans(id,card_name,card_set,card_number,card_game,card_info,grade_value,grade_label)';
+export const SLAB_LABEL_BUCKET = 'slab-labels';
+const TRANSITIONS = { paid: 'engraved', engraved: 'shipped' };
+
+export function assertTransition(from, to) {
+  if (TRANSITIONS[from] !== to) throw new Error('bad_transition');
+}
+export function statusPatch(to, now = new Date()) {
+  const p = { status: to };
+  if (to === 'engraved') p.engraved_at = now.toISOString();
+  if (to === 'shipped') p.shipped_at = now.toISOString();
+  return p;
+}
+/** Settings stored with the slab: never the signing secret, never a token in the public URL. */
+export function sanitizeSettings(s) {
+  const out = {};
+  for (const k in (s || {})) if (k !== 'secret') out[k] = s[k];
+  out.useToken = false;
+  return out;
+}
+export function flattenQueueRow(raw) {
+  const { scans, ...rest } = raw;
+  return { ...rest, scan: scans || null };
+}
