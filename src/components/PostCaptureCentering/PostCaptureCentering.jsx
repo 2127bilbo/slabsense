@@ -33,6 +33,9 @@ export function PostCaptureCentering({
   side = 'front',
   onConfirm,
   onSkip,
+  initial = null,             // centeringData from a previous confirm → reopen with the saved points
+  initialCroppedImage = null, // the crop that went with `initial` (reopens straight at step 2)
+  onCancel = null,            // when given, a Cancel button closes the tool without changes
 }) {
   // ═══════════════════════════════════════════
   // STEP STATE
@@ -46,6 +49,7 @@ export function PostCaptureCentering({
 
   // Measurement mode toggle - corner mode is default (handles tilted cards better)
   const [measureMode, setMeasureMode] = useState(() => {
+    if (initial?.measureMode) return initial.measureMode;
     try { return localStorage.getItem('slabsense_measureMode') || 'corner'; }
     catch { return 'corner'; }
   });
@@ -64,9 +68,9 @@ export function PostCaptureCentering({
   const [cornerCenteringResult, setCornerCenteringResult] = useState(null);
 
   // Transform state (Step 1 only)
-  const [rotation, setRotation] = useState(0);
-  const [tiltX, setTiltX] = useState(0);
-  const [tiltY, setTiltY] = useState(0);
+  const [rotation, setRotation] = useState(initial?.rotation || 0);
+  const [tiltX, setTiltX] = useState(initial?.tiltX || 0);
+  const [tiltY, setTiltY] = useState(initial?.tiltY || 0);
   const [activeAxis, setActiveAxis] = useState('Z');
 
   // Stage zoom/pan, corner zoom, vision views, loupe, undo (see docs/superpowers/specs/2026-09-15-centering-tool-zoom-loupe-design.md)
@@ -98,6 +102,11 @@ export function PostCaptureCentering({
   const dragOffsetRef = useRef({ x: 0, y: 0 });   // edge mode: line position minus finger position at pointerdown
   const outerRef = useRef(outer);
   const innerRef = useRef(inner);
+  // Step-1 geometry (card edge on the ORIGINAL photo, display coords). Kept across the crop so
+  // Back restores it and Confirm saves it, which is what lets the tool reopen with the same points.
+  const sourceRef = useRef(null);
+  // Art points from the last visit to step 2, so Back → Next keeps them (scaled to the new crop)
+  const prevInnerRef = useRef(null);
 
   useEffect(() => { outerRef.current = outer; }, [outer]);
   useEffect(() => { innerRef.current = inner; }, [inner]);
@@ -120,23 +129,39 @@ export function PostCaptureCentering({
       }
       setImgSize({ w, h });
 
-      // Initialize outer bounds (card edge) with small margin (2%)
-      const margin = 0.02;
-      const initOuter = {
-        left: Math.round(w * margin),
-        right: Math.round(w * (1 - margin)),
-        top: Math.round(h * margin),
-        bottom: Math.round(h * (1 - margin)),
-      };
-      setOuter(initOuter);
-
-      // Initialize corner mode for outer only (Step 1)
-      setOuterCorners({
-        tl: { x: initOuter.left, y: initOuter.top },
-        tr: { x: initOuter.right, y: initOuter.top },
-        bl: { x: initOuter.left, y: initOuter.bottom },
-        br: { x: initOuter.right, y: initOuter.bottom },
-      });
+      const src = initial?.source;
+      if (src?.outer && src.imgW) {
+        // Reopen with the card-edge points saved last time (scaled if the display size changed)
+        const k = w / src.imgW;
+        const sc = (pt) => ({ x: pt.x * k, y: pt.y * k });
+        const o = { left: src.outer.left * k, right: src.outer.right * k, top: src.outer.top * k, bottom: src.outer.bottom * k };
+        const oc = src.outerCorners
+          ? { tl: sc(src.outerCorners.tl), tr: sc(src.outerCorners.tr), bl: sc(src.outerCorners.bl), br: sc(src.outerCorners.br) }
+          : { tl: { x: o.left, y: o.top }, tr: { x: o.right, y: o.top }, bl: { x: o.left, y: o.bottom }, br: { x: o.right, y: o.bottom } };
+        setOuter(o);
+        setOuterCorners(oc);
+        sourceRef.current = { outer: o, outerCorners: src.outerCorners ? oc : null, imgW: w, imgH: h };
+        if (initialCroppedImage && (initial.inner || initial.innerCorners)) {
+          enterStep2(initialCroppedImage, initial);   // straight to the artwork step with the saved art points
+          return;
+        }
+      } else {
+        // Initialize outer bounds (card edge) with small margin (2%)
+        const margin = 0.02;
+        const initOuter = {
+          left: Math.round(w * margin),
+          right: Math.round(w * (1 - margin)),
+          top: Math.round(h * margin),
+          bottom: Math.round(h * (1 - margin)),
+        };
+        setOuter(initOuter);
+        setOuterCorners({
+          tl: { x: initOuter.left, y: initOuter.top },
+          tr: { x: initOuter.right, y: initOuter.top },
+          bl: { x: initOuter.left, y: initOuter.bottom },
+          br: { x: initOuter.right, y: initOuter.bottom },
+        });
+      }
 
       // Inner will be initialized in Step 2 after crop
       setInner(null);
@@ -377,79 +402,98 @@ export function PostCaptureCentering({
 
       // Crop and straighten the card
       const cropped = await cropToOuterBounds(image, cropCorners, rotation, imgSize.w);
-      setCroppedPreview(cropped);
-
-      // Load cropped image to get its dimensions and initialize inner bounds
-      const croppedImg = new Image();
-      croppedImg.onload = () => {
-        const MAX_DIM = 1400;
-        let w = croppedImg.width;
-        let h = croppedImg.height;
-        if (Math.max(w, h) > MAX_DIM) {
-          const scale = MAX_DIM / Math.max(w, h);
-          w = Math.round(w * scale);
-          h = Math.round(h * scale);
-        }
-        setCroppedImgSize({ w, h });
-
-        // Initialize inner bounds for the cropped card (8% inset)
-        const offsetPct = 0.08;
-        const initInner = {
-          left: Math.round(w * offsetPct),
-          right: Math.round(w * (1 - offsetPct)),
-          top: Math.round(h * offsetPct),
-          bottom: Math.round(h * (1 - offsetPct)),
-        };
-        setInner(initInner);
-
-        // For corner mode, set up inner corners
-        setInnerCorners({
-          tl: { x: initInner.left, y: initInner.top },
-          tr: { x: initInner.right, y: initInner.top },
-          bl: { x: initInner.left, y: initInner.bottom },
-          br: { x: initInner.right, y: initInner.bottom },
-        });
-
-        // Outer corners now represent the full cropped image bounds
-        setOuterCorners({
-          tl: { x: 0, y: 0 },
-          tr: { x: w, y: 0 },
-          bl: { x: 0, y: h },
-          br: { x: w, y: h },
-        });
-        setOuter({
-          left: 0,
-          right: w,
-          top: 0,
-          bottom: h,
-        });
-
-        setStep(2);
-        setIsProcessing(false);
-      };
-      croppedImg.onerror = () => {
-        console.error('[PostCaptureCentering] Failed to load cropped image');
-        setIsProcessing(false);
-      };
-      croppedImg.src = cropped;
+      // Keep the step-1 geometry: Back restores it, Confirm saves it for reopening later
+      sourceRef.current = { outer: { ...outer }, outerCorners: measureMode === 'corner' ? outerCorners : null, imgW: imgSize.w, imgH: imgSize.h };
+      await enterStep2(cropped);
     } catch (err) {
       console.error('[PostCaptureCentering] Next failed:', err);
       setIsProcessing(false);
     }
   };
 
+  /**
+   * Load a cropped card, initialise the artwork bounds (from `seed` = saved centeringData when
+   * reopening, else an 8% inset) and switch to step 2.
+   */
+  const enterStep2 = (cropped, seed = null) => new Promise((resolve) => {
+    if (!seed && prevInnerRef.current) seed = prevInnerRef.current;
+    setCroppedPreview(cropped);
+    const croppedImg = new Image();
+    croppedImg.onload = () => {
+      const MAX_DIM = 1400;
+      let w = croppedImg.width;
+      let h = croppedImg.height;
+      if (Math.max(w, h) > MAX_DIM) {
+        const scale = MAX_DIM / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      setCroppedImgSize({ w, h });
+
+      const offsetPct = 0.08;
+      let initInner = {
+        left: Math.round(w * offsetPct),
+        right: Math.round(w * (1 - offsetPct)),
+        top: Math.round(h * offsetPct),
+        bottom: Math.round(h * (1 - offsetPct)),
+      };
+      let initInnerCorners = null;
+      const kx = seed?.w ? w / seed.w : 1, ky = seed?.h ? h / seed.h : 1;
+      if (seed?.innerCorners) {
+        const sc = (pt) => ({ x: pt.x * kx, y: pt.y * ky });
+        initInnerCorners = { tl: sc(seed.innerCorners.tl), tr: sc(seed.innerCorners.tr), bl: sc(seed.innerCorners.bl), br: sc(seed.innerCorners.br) };
+        const b = getBoundsFromCorners(initInnerCorners);
+        initInner = { left: b.x, top: b.y, right: b.x + b.width, bottom: b.y + b.height };
+      } else if (seed?.inner) {
+        initInner = { left: seed.inner.left * kx, right: seed.inner.right * kx, top: seed.inner.top * ky, bottom: seed.inner.bottom * ky };
+      }
+      if (!initInnerCorners) {
+        initInnerCorners = {
+          tl: { x: initInner.left, y: initInner.top },
+          tr: { x: initInner.right, y: initInner.top },
+          bl: { x: initInner.left, y: initInner.bottom },
+          br: { x: initInner.right, y: initInner.bottom },
+        };
+      }
+      setInner(initInner);
+      setInnerCorners(initInnerCorners);
+
+      // Outer corners now represent the full cropped image bounds
+      setOuterCorners({ tl: { x: 0, y: 0 }, tr: { x: w, y: 0 }, bl: { x: 0, y: h }, br: { x: w, y: h } });
+      setOuter({ left: 0, right: w, top: 0, bottom: h });
+
+      setStep(2);
+      setIsProcessing(false);
+      resolve(true);
+    };
+    croppedImg.onerror = () => {
+      console.error('[PostCaptureCentering] Failed to load cropped image');
+      setIsProcessing(false);
+      resolve(false);
+    };
+    croppedImg.src = cropped;
+  });
+
   // ═══════════════════════════════════════════
   // STEP 2 → STEP 1: Back button
   // ═══════════════════════════════════════════
   const handleBack = () => {
+    if (innerRef.current) prevInnerRef.current = { inner: innerRef.current, innerCorners, w: croppedImgSize.w, h: croppedImgSize.h };
     setCroppedPreview(null);
     setCroppedImgSize({ w: 0, h: 0 });
     setInner(null);
     setInnerCorners(null);
     setCornerCenteringResult(null);
+    // Restore the card-edge points from before the crop
+    const src = sourceRef.current;
+    if (src) {
+      setOuter(src.outer);
+      setOuterCorners(src.outerCorners || {
+        tl: { x: src.outer.left, y: src.outer.top }, tr: { x: src.outer.right, y: src.outer.top },
+        bl: { x: src.outer.left, y: src.outer.bottom }, br: { x: src.outer.right, y: src.outer.bottom },
+      });
+    }
     setStep(1);
-
-    // Re-initialize outer from original image (preserves user's adjustments via existing state)
   };
 
   // ═══════════════════════════════════════════
@@ -502,6 +546,7 @@ export function PostCaptureCentering({
           rotation,
           tiltX,
           tiltY,
+          source: sourceRef.current ? { ...sourceRef.current, rotation, tiltX, tiltY } : null,
           croppedBounds: getBoundsFromCorners(outerCorners),
           borderL: edges.left.median,
           borderR: edges.right.median,
@@ -527,6 +572,7 @@ export function PostCaptureCentering({
           rotation,
           tiltX,
           tiltY,
+          source: sourceRef.current ? { ...sourceRef.current, rotation, tiltX, tiltY } : null,
           croppedBounds: { x: 0, y: 0, width: croppedImgSize.w, height: croppedImgSize.h },
           borderL: bL,
           borderR: bR,
@@ -668,14 +714,25 @@ export function PostCaptureCentering({
               2. Artwork
             </span>
           </div>
-          {step === 1 && (
-            <button
-              onClick={handleReset}
-              style={{ fontFamily: mono, fontSize: 9, color: '#555', background: 'transparent', border: '1px solid #333', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
-            >
-              Reset
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 6 }}>
+            {step === 1 && (
+              <button
+                onClick={handleReset}
+                style={{ fontFamily: mono, fontSize: 9, color: '#555', background: 'transparent', border: '1px solid #333', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
+              >
+                Reset
+              </button>
+            )}
+            {onCancel && (
+              <button
+                onClick={onCancel}
+                aria-label="Cancel centering changes"
+                style={{ fontFamily: mono, fontSize: 9, color: '#aaa', background: 'transparent', border: '1px solid #444', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
+              >
+                ✕ Cancel
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Side label */}

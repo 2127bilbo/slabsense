@@ -876,555 +876,6 @@ function DingsPreview({frontResult,backResult,frontMaps,backMaps,frontImg,backIm
    inner (artwork border) boundaries.
    Corrects centering + re-runs analysis.
    ═══════════════════════════════════════════ */
-function ManualBoundaryEditor({ image, result, side, onApply, manualCenteringData = null }) {
-  const imgW = result.imgW || 1400;
-  const imgH = result.imgH || 1960;
-  const bn = result.bounds;
-  const c = result.centering;
-
-  // Try to seed from localStorage training data first
-  const trained = loadTrainingBounds(result.surface?.isHolo, imgW, imgH);
-
-  // If manual centering data from post-capture exists, use that first
-  let initOuter, initInner;
-  if (manualCenteringData?.didManualCenter) {
-    if (manualCenteringData.measureMode === 'corner' && manualCenteringData.outerCorners) {
-      // Corner mode data
-      const oc = manualCenteringData.outerCorners;
-      const ic = manualCenteringData.innerCorners;
-      initOuter = { left: oc.tl.x, right: oc.tr.x, top: oc.tl.y, bottom: oc.bl.y };
-      initInner = ic ? { left: ic.tl.x, right: ic.tr.x, top: ic.tl.y, bottom: ic.bl.y } : {
-        left: initOuter.left + 50, right: initOuter.right - 50,
-        top: initOuter.top + 50, bottom: initOuter.bottom - 50,
-      };
-    } else if (manualCenteringData.outer) {
-      // Edge mode data
-      initOuter = manualCenteringData.outer;
-      initInner = manualCenteringData.inner || {
-        left: initOuter.left + 50, right: initOuter.right - 50,
-        top: initOuter.top + 50, bottom: initOuter.bottom - 50,
-      };
-    } else {
-      // Fallback to result
-      initOuter = trained?.outer || { left: bn.left, right: bn.right, top: bn.top, bottom: bn.bottom };
-      initInner = trained?.inner || {
-        left: Math.min(bn.left + c.borderL, (bn.left + bn.right) / 2 - 10),
-        right: Math.max(bn.right - c.borderR, (bn.left + bn.right) / 2 + 10),
-        top: Math.min(bn.top + c.borderT, (bn.top + bn.bottom) / 2 - 10),
-        bottom: Math.max(bn.bottom - c.borderB, (bn.top + bn.bottom) / 2 + 10),
-      };
-    }
-  } else {
-    initOuter = trained?.outer || { left: bn.left, right: bn.right, top: bn.top, bottom: bn.bottom };
-    initInner = trained?.inner || {
-      left: Math.min(bn.left + c.borderL, (bn.left + bn.right) / 2 - 10),
-      right: Math.max(bn.right - c.borderR, (bn.left + bn.right) / 2 + 10),
-      top: Math.min(bn.top + c.borderT, (bn.top + bn.bottom) / 2 - 10),
-      bottom: Math.max(bn.bottom - c.borderB, (bn.top + bn.bottom) / 2 + 10),
-    };
-  }
-
-  // Measurement mode toggle: 'edge' (v1) or 'corner' (beta)
-  const [measureMode, setMeasureMode] = useState(() => {
-    try { return localStorage.getItem('slabsense_measureMode') || 'edge'; }
-    catch { return 'edge'; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem('slabsense_measureMode', measureMode); }
-    catch {}
-  }, [measureMode]);
-
-  const [outer, setOuter] = useState(initOuter);
-  const [inner, setInner] = useState(initInner);
-
-  // Corner-anchored mode state (8 corners)
-  const initOuterCorners = {
-    tl: { x: initOuter.left, y: initOuter.top },
-    tr: { x: initOuter.right, y: initOuter.top },
-    bl: { x: initOuter.left, y: initOuter.bottom },
-    br: { x: initOuter.right, y: initOuter.bottom }
-  };
-  const initInnerCorners = {
-    tl: { x: initInner.left, y: initInner.top },
-    tr: { x: initInner.right, y: initInner.top },
-    bl: { x: initInner.left, y: initInner.bottom },
-    br: { x: initInner.right, y: initInner.bottom }
-  };
-  const [outerCorners, setOuterCorners] = useState(initOuterCorners);
-  const [innerCorners, setInnerCorners] = useState(initInnerCorners);
-  const [cornerCenteringResult, setCornerCenteringResult] = useState(null);
-
-  // Initialize rotation/tilt from manualCenteringData if available, otherwise 0
-  const initRotation = manualCenteringData?.didManualCenter ? (manualCenteringData.rotation || 0) : 0;
-  const initTiltX = manualCenteringData?.didManualCenter ? (manualCenteringData.tiltX || 0) : 0;
-  const initTiltY = manualCenteringData?.didManualCenter ? (manualCenteringData.tiltY || 0) : 0;
-
-  const [rotation, setRotation] = useState(initRotation); // Z-axis rotation in degrees
-  const [tiltX, setTiltX] = useState(initTiltX); // X-axis tilt (pitch - forward/back)
-  const [tiltY, setTiltY] = useState(initTiltY); // Y-axis tilt (roll - left/right)
-  const [activeAxis, setActiveAxis] = useState('Z'); // Which axis the rotation controls affect
-  const [applying, setApplying] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const svgRef = useRef(null);
-  const dragging = useRef(null);
-  // Refs to avoid stale closures during drag
-  const outerRef = useRef(outer);
-  const innerRef = useRef(inner);
-  useEffect(() => { outerRef.current = outer; }, [outer]);
-  useEffect(() => { innerRef.current = inner; }, [inner]);
-
-  // Live centering numbers from current handle positions
-  const cW = outer.right - outer.left, cH = outer.bottom - outer.top;
-  const bL = inner.left - outer.left, bR = outer.right - inner.right;
-  const bT = inner.top - outer.top, bB = outer.bottom - inner.bottom;
-  const lrR = Math.round(((bL+bR)>0 ? bL/(bL+bR)*100 : 50)*10)/10;
-  const tbR = Math.round(((bT+bB)>0 ? bT/(bT+bB)*100 : 50)*10)/10;
-  const lrOff = Math.max(lrR, 100-lrR);
-  const tbOff = Math.max(tbR, 100-tbR);
-
-  const getCoords = (e) => {
-    const svg = svgRef.current;
-    if (!svg) return {x:0,y:0};
-    const rect = svg.getBoundingClientRect();
-    return {
-      x: Math.round((e.clientX - rect.left) / rect.width * imgW),
-      y: Math.round((e.clientY - rect.top) / rect.height * imgH),
-    };
-  };
-
-  const moveHandle = (which, x, y) => {
-    const o = outerRef.current, inn = innerRef.current;
-    if (which==='OL') setOuter(p=>({...p, left:Math.max(0,Math.min(inn.left-20,x))}));
-    else if (which==='OR') setOuter(p=>({...p, right:Math.min(imgW,Math.max(inn.right+20,x))}));
-    else if (which==='OT') setOuter(p=>({...p, top:Math.max(0,Math.min(inn.top-20,y))}));
-    else if (which==='OB') setOuter(p=>({...p, bottom:Math.min(imgH,Math.max(inn.bottom+20,y))}));
-    else if (which==='IL') setInner(p=>({...p, left:Math.max(o.left+8,Math.min(p.right-30,x))}));
-    else if (which==='IR') setInner(p=>({...p, right:Math.min(o.right-8,Math.max(p.left+30,x))}));
-    else if (which==='IT') setInner(p=>({...p, top:Math.max(o.top+8,Math.min(p.bottom-30,y))}));
-    else if (which==='IB') setInner(p=>({...p, bottom:Math.min(o.bottom-8,Math.max(p.top+30,y))}));
-  };
-
-  const handleApply = async () => {
-    setApplying(true);
-    let overrideBounds, overrideCentering;
-
-    if (measureMode === 'corner' && cornerCenteringResult) {
-      // Corner-anchored mode: use median-based measurements
-      const { edges, centering } = cornerCenteringResult;
-      overrideBounds = {
-        left: outerCorners.tl.x,
-        right: outerCorners.tr.x,
-        top: outerCorners.tl.y,
-        bottom: outerCorners.bl.y,
-        // Include corners for better cropping
-        corners: outerCorners,
-      };
-      overrideCentering = {
-        borderL: edges.left.median,
-        borderR: edges.right.median,
-        borderT: edges.top.median,
-        borderB: edges.bottom.median,
-        lrRatio: centering.horizontal,
-        tbRatio: centering.vertical,
-        // Include transform data for cropping
-        rotation,
-        tiltX,
-        tiltY,
-        measureMode: 'corner',
-      };
-    } else {
-      // Edge-drag mode: use existing calculation
-      overrideBounds = { left:outer.left, right:outer.right, top:outer.top, bottom:outer.bottom };
-      const tLR=bL+bR, tTB=bT+bB;
-      overrideCentering = {
-        borderL:bL, borderR:bR, borderT:bT, borderB:bB,
-        lrRatio:Math.round((tLR>0?bL/tLR*100:50)*10)/10,
-        tbRatio:Math.round((tTB>0?bT/tTB*100:50)*10)/10,
-        // Include transform data for cropping
-        rotation,
-        tiltX,
-        tiltY,
-        measureMode: 'edge',
-      };
-    }
-
-    await onApply(overrideBounds, overrideCentering);
-    setApplying(false);
-  };
-
-  const handleSave = () => {
-    const didSave = saveTrainingBounds(result, outer, inner);
-    if (didSave) { setSaved(true); setTimeout(()=>setSaved(false), 2000); }
-  };
-
-  const handleReset = () => {
-    const autoInner = {
-      left: Math.min(bn.left+c.borderL, (bn.left+bn.right)/2-10),
-      right: Math.max(bn.right-c.borderR, (bn.left+bn.right)/2+10),
-      top: Math.min(bn.top+c.borderT, (bn.top+bn.bottom)/2-10),
-      bottom: Math.max(bn.bottom-c.borderB, (bn.top+bn.bottom)/2+10),
-    };
-    setOuter({left:bn.left,right:bn.right,top:bn.top,bottom:bn.bottom});
-    setInner(autoInner);
-    // Reset corner-anchored corners too
-    setOuterCorners({
-      tl: { x: bn.left, y: bn.top },
-      tr: { x: bn.right, y: bn.top },
-      bl: { x: bn.left, y: bn.bottom },
-      br: { x: bn.right, y: bn.bottom }
-    });
-    setInnerCorners({
-      tl: { x: autoInner.left, y: autoInner.top },
-      tr: { x: autoInner.right, y: autoInner.top },
-      bl: { x: autoInner.left, y: autoInner.bottom },
-      br: { x: autoInner.right, y: autoInner.bottom }
-    });
-    setCornerCenteringResult(null);
-  };
-
-  // Handle dimensions - small squares
-  const handleSize = Math.max(28, Math.min(cW, cH) * 0.035);
-  const lw = Math.max(3, cW * 0.005);
-  const pad = 40; // Touch target padding
-
-  // Offset for handle placement
-  const handleOffset = handleSize * 0.8;
-
-  // [x, y, which, isOuter, isHoriz, arrowDir]
-  // Orange (outer) handles: OUTSIDE the orange boundary, arrows point IN toward center
-  // Green (inner) handles: INSIDE the green boundary, arrows point OUT away from center
-  const handles = [
-    // Outer handles - positioned OUTSIDE orange boundary, arrows point inward
-    [(outer.left+outer.right)/2, outer.top - handleOffset,      'OT', true,  true,  '↓'],
-    [(outer.left+outer.right)/2, outer.bottom + handleOffset,   'OB', true,  true,  '↑'],
-    [outer.left - handleOffset,  (outer.top+outer.bottom)/2,    'OL', true,  false, '→'],
-    [outer.right + handleOffset, (outer.top+outer.bottom)/2,    'OR', true,  false, '←'],
-    // Inner handles - positioned INSIDE green boundary, arrows point outward
-    [(inner.left+inner.right)/2, inner.top + handleOffset,      'IT', false, true,  '↑'],
-    [(inner.left+inner.right)/2, inner.bottom - handleOffset,   'IB', false, true,  '↓'],
-    [inner.left + handleOffset,  (inner.top+inner.bottom)/2,    'IL', false, false, '←'],
-    [inner.right - handleOffset, (inner.top+inner.bottom)/2,    'IR', false, false, '→'],
-  ];
-
-  return (
-    <div style={{background:'#0d0f13',borderRadius:10,border:'1px solid #ff994433',overflow:'hidden',marginBottom:16}}>
-      {/* Header */}
-      <div style={{padding:'10px 12px',borderBottom:'1px solid #1a1c22',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <span style={{fontFamily:mono,fontSize:11,color:'#ff9944',textTransform:'uppercase',letterSpacing:'.06em'}}>Manual Adjust — {side}</span>
-        <button onClick={()=>{handleReset();setRotation(0);setTiltX(0);setTiltY(0);}} style={{fontFamily:mono,fontSize:9,color:'#555',background:'transparent',border:'1px solid #333',borderRadius:4,padding:'3px 8px',cursor:'pointer'}}>Reset All</button>
-      </div>
-
-      {/* Measurement Mode Toggle */}
-      <div style={{padding:'8px 12px',background:'rgba(0,0,0,.4)',borderBottom:'1px solid #1a1c22',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-        <span style={{fontFamily:mono,fontSize:9,color:'#666',textTransform:'uppercase'}}>Mode:</span>
-        <div style={{display:'flex',borderRadius:6,overflow:'hidden',border:'1px solid #2a2d35'}}>
-          <button
-            onClick={() => setMeasureMode('edge')}
-            style={{
-              padding:'6px 12px',
-              background:measureMode==='edge'?'#ff994422':'#0a0b0e',
-              border:'none',
-              color:measureMode==='edge'?'#ff9944':'#555',
-              fontFamily:mono,
-              fontSize:9,
-              cursor:'pointer',
-              borderRight:'1px solid #2a2d35',
-            }}
-          >
-            Edge Drag (v1)
-          </button>
-          <button
-            onClick={() => setMeasureMode('corner')}
-            style={{
-              padding:'6px 12px',
-              background:measureMode==='corner'?'#00bcd422':'#0a0b0e',
-              border:'none',
-              color:measureMode==='corner'?'#00bcd4':'#555',
-              fontFamily:mono,
-              fontSize:9,
-              cursor:'pointer',
-            }}
-          >
-            Corner Anchored (β)
-          </button>
-        </div>
-      </div>
-
-      {/* Rotation & Tilt Controls */}
-      <div style={{padding:'10px 12px',background:'rgba(0,0,0,.3)',borderBottom:'1px solid #1a1c22'}}>
-        <div style={{fontFamily:mono,fontSize:9,color:'#666',marginBottom:8,textTransform:'uppercase'}}>Step 1: Straighten & Correct Perspective</div>
-
-        {/* Axis Selector */}
-        <div style={{display:'flex',justifyContent:'center',gap:4,marginBottom:10}}>
-          {[
-            { id: 'X', label: 'Pitch', desc: '↕ tilt', color: '#ff6b6b' },
-            { id: 'Y', label: 'Roll', desc: '↔ tilt', color: '#4ecdc4' },
-            { id: 'Z', label: 'Rotate', desc: '↻ spin', color: '#ff9944' },
-          ].map(axis => (
-            <button
-              key={axis.id}
-              onClick={() => setActiveAxis(axis.id)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 6,
-                border: `1px solid ${activeAxis === axis.id ? axis.color : '#2a2d35'}`,
-                background: activeAxis === axis.id ? `${axis.color}22` : '#1a1c22',
-                color: activeAxis === axis.id ? axis.color : '#555',
-                fontFamily: mono,
-                fontSize: 10,
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 2,
-                minWidth: 60,
-              }}
-            >
-              <span>{axis.label}</span>
-              <span style={{ fontSize: 8, opacity: 0.7 }}>{axis.desc}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Adjustment Controls */}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-          {/* Coarse left -1° */}
-          <button onClick={() => {
-            if (activeAxis === 'X') setTiltX(v => Math.round((v - 1) * 100) / 100);
-            else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 1) * 100) / 100);
-            else setRotation(r => Math.round((r - 1) * 100) / 100);
-          }}
-            style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#888',fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            ‹‹
-          </button>
-          {/* Fine left -0.05° */}
-          <button onClick={() => {
-            if (activeAxis === 'X') setTiltX(v => Math.round((v - 0.05) * 100) / 100);
-            else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 0.05) * 100) / 100);
-            else setRotation(r => Math.round((r - 0.05) * 100) / 100);
-          }}
-            style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#555',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            ‹
-          </button>
-          {/* Current value display */}
-          <div style={{minWidth:70,textAlign:'center',padding:'6px 10px',background:'#0a0b0e',borderRadius:6}}>
-            <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:
-              activeAxis === 'X' ? (tiltX === 0 ? '#00ff88' : '#ff6b6b') :
-              activeAxis === 'Y' ? (tiltY === 0 ? '#00ff88' : '#4ecdc4') :
-              (rotation === 0 ? '#00ff88' : '#ff9944')
-            }}>
-              {activeAxis === 'X' ? tiltX.toFixed(2) : activeAxis === 'Y' ? tiltY.toFixed(2) : rotation.toFixed(2)}°
-            </div>
-          </div>
-          {/* Fine right +0.05° */}
-          <button onClick={() => {
-            if (activeAxis === 'X') setTiltX(v => Math.round((v + 0.05) * 100) / 100);
-            else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 0.05) * 100) / 100);
-            else setRotation(r => Math.round((r + 0.05) * 100) / 100);
-          }}
-            style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#555',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            ›
-          </button>
-          {/* Coarse right +1° */}
-          <button onClick={() => {
-            if (activeAxis === 'X') setTiltX(v => Math.round((v + 1) * 100) / 100);
-            else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 1) * 100) / 100);
-            else setRotation(r => Math.round((r + 1) * 100) / 100);
-          }}
-            style={{width:32,height:32,borderRadius:6,background:'#1a1c22',border:'1px solid #2a2d35',color:'#888',fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            ››
-          </button>
-        </div>
-
-        {/* All axes summary */}
-        <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:8}}>
-          <span style={{fontFamily:mono,fontSize:9,color:tiltX===0?'#444':'#ff6b6b'}}>X:{tiltX}°</span>
-          <span style={{fontFamily:mono,fontSize:9,color:tiltY===0?'#444':'#4ecdc4'}}>Y:{tiltY}°</span>
-          <span style={{fontFamily:mono,fontSize:9,color:rotation===0?'#444':'#ff9944'}}>Z:{rotation}°</span>
-        </div>
-        <div style={{textAlign:'center',fontFamily:mono,fontSize:8,color:'#444',marginTop:4}}>‹‹/›› = 1° · ‹/› = 0.05°</div>
-      </div>
-
-      {/* Live centering readout */}
-      {(() => {
-        // Use corner-anchored values when in corner mode
-        const displayLR = measureMode === 'corner' && cornerCenteringResult
-          ? cornerCenteringResult.centering.horizontal
-          : lrR;
-        const displayTB = measureMode === 'corner' && cornerCenteringResult
-          ? cornerCenteringResult.centering.vertical
-          : tbR;
-        const displayLROff = Math.max(displayLR, 100 - displayLR);
-        const displayTBOff = Math.max(displayTB, 100 - displayTB);
-
-        return (
-          <div style={{padding:'8px 12px',background:'rgba(0,0,0,.4)',display:'flex',justifyContent:'space-around',borderBottom:'1px solid #1a1c22'}}>
-            <div style={{textAlign:'center'}}>
-              <div style={{fontFamily:mono,fontSize:8,color:'#555',textTransform:'uppercase',marginBottom:2}}>L / R</div>
-              <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:displayLROff>55?'#ff6633':displayLROff>53?'#ffcc00':'#00ff88'}}>{displayLR}<span style={{color:'#444'}}>/</span>{Math.round((100-displayLR)*10)/10}</div>
-            </div>
-            <div style={{width:1,background:'#1a1c22'}}/>
-            <div style={{textAlign:'center'}}>
-              <div style={{fontFamily:mono,fontSize:8,color:'#555',textTransform:'uppercase',marginBottom:2}}>T / B</div>
-              <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:displayTBOff>55?'#ff6633':displayTBOff>53?'#ffcc00':'#00ff88'}}>{displayTB}<span style={{color:'#444'}}>/</span>{Math.round((100-displayTB)*10)/10}</div>
-            </div>
-            <div style={{width:1,background:'#1a1c22'}}/>
-            <div style={{textAlign:'center'}}>
-              <div style={{fontFamily:mono,fontSize:8,color:'#555',textTransform:'uppercase',marginBottom:2}}>Status</div>
-              <div style={{fontFamily:mono,fontSize:11,fontWeight:600,color:Math.max(displayLROff,displayTBOff)>55?'#ff6633':'#00ff88'}}>{Math.max(displayLROff,displayTBOff)>55?'⚠ DING':'✓ Clean'}</div>
-            </div>
-          </div>
-        );
-      })()}
-      {/* Legend */}
-      <div style={{padding:'6px 12px',display:'flex',gap:12,borderBottom:'1px solid #0d0f13',flexWrap:'wrap'}}>
-        {measureMode === 'edge' ? (
-          <>
-            <div style={{display:'flex',alignItems:'center',gap:4}}>
-              <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#ff9944" strokeWidth={2}/></svg>
-              <span style={{fontFamily:mono,fontSize:9,color:'#ff9944'}}>Card edge</span>
-              <span style={{fontFamily:mono,fontSize:8,color:'#555'}}>(outside→in)</span>
-            </div>
-            <div style={{display:'flex',alignItems:'center',gap:4}}>
-              <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke="#00ff88" strokeWidth={2}/></svg>
-              <span style={{fontFamily:mono,fontSize:9,color:'#00ff88'}}>Artwork</span>
-              <span style={{fontFamily:mono,fontSize:8,color:'#555'}}>(inside→out)</span>
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{display:'flex',alignItems:'center',gap:4}}>
-              <svg width={16} height={16}><circle cx={8} cy={8} r={6} fill="#111" stroke="#00bcd4" strokeWidth={2}/></svg>
-              <span style={{fontFamily:mono,fontSize:9,color:'#00bcd4'}}>Outer corners</span>
-              <span style={{fontFamily:mono,fontSize:8,color:'#555'}}>(card edge)</span>
-            </div>
-            <div style={{display:'flex',alignItems:'center',gap:4}}>
-              <svg width={16} height={16}><circle cx={8} cy={8} r={6} fill="#111" stroke="#e91e63" strokeWidth={2}/></svg>
-              <span style={{fontFamily:mono,fontSize:9,color:'#e91e63'}}>Inner corners</span>
-              <span style={{fontFamily:mono,fontSize:8,color:'#555'}}>(artwork)</span>
-            </div>
-          </>
-        )}
-      </div>
-      {/* Step 2 label */}
-      <div style={{padding:'8px 12px',background:'rgba(0,0,0,.2)',borderBottom:'1px solid #0d0f13'}}>
-        <div style={{fontFamily:mono,fontSize:9,color:'#666',textTransform:'uppercase'}}>Step 2: Adjust Borders</div>
-      </div>
-
-      {/* Image + drag canvas — touch-action:none prevents iOS scroll hijack during drag */}
-      <div style={{position:'relative',lineHeight:0,touchAction:'none',overflow:'hidden'}}
-           onTouchMove={e=>{if(dragging.current)e.preventDefault();}}
-           onTouchStart={e=>{if(dragging.current)e.preventDefault();}}>
-        <img src={image} style={{width:'100%',display:'block',transform:`perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${rotation}deg)`,transformOrigin:'center center',transition:'transform 0.15s ease'}} draggable={false}/>
-        {/* Crosshair overlay for alignment */}
-        <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
-          <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'rgba(0,255,136,0.2)'}}/>
-          <div style={{position:'absolute',top:'50%',left:0,right:0,height:1,background:'rgba(0,255,136,0.2)'}}/>
-        </div>
-        <svg ref={svgRef} viewBox={`0 0 ${imgW} ${imgH}`}
-             style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',overflow:'visible',touchAction:'none'}}>
-          {measureMode === 'edge' ? (
-            <>
-              {/* Edge Drag Mode (v1) */}
-              {/* Outer boundary */}
-              <rect x={outer.left} y={outer.top} width={cW} height={cH}
-                fill="none" stroke="#ff9944" strokeWidth={lw} opacity={0.85}/>
-              {/* Corner brackets on outer */}
-              {[[outer.left,outer.top,1,1],[outer.right,outer.top,-1,1],[outer.left,outer.bottom,1,-1],[outer.right,outer.bottom,-1,-1]].map(([x,y,sx,sy],i)=>(
-                <g key={i}>
-                  <line x1={x} y1={y} x2={x+sx*cW*0.06} y2={y} stroke="#ff9944" strokeWidth={lw*1.5}/>
-                  <line x1={x} y1={y} x2={x} y2={y+sy*cH*0.04} stroke="#ff9944" strokeWidth={lw*1.5}/>
-                </g>
-              ))}
-              {/* Inner boundary */}
-              <rect x={inner.left} y={inner.top} width={inner.right-inner.left} height={inner.bottom-inner.top}
-                fill="none" stroke="#00ff88" strokeWidth={Math.max(2,lw*0.8)}
-                strokeDasharray={`${cW*0.025},${cW*0.012}`} opacity={0.8}/>
-              {/* 8 drag handles - small squares with directional arrows */}
-              {handles.map(([hx, hy, which, isOuter, isHoriz, arrow]) => {
-                const color = isOuter ? '#ff9944' : '#00ff88';
-                const bgColor = '#111';
-                const sz = handleSize;
-                const fontSize = sz * 0.6;
-                return (
-                  <g key={which} style={{cursor: isHoriz ? 'ns-resize' : 'ew-resize', touchAction: 'none'}}
-                     onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; }}
-                     onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const {x, y} = getCoords(e); moveHandle(which, x, y); }}}
-                     onPointerUp={() => { dragging.current = null; }}>
-                    {/* Invisible large touch target */}
-                    <rect x={hx - sz/2 - pad} y={hy - sz/2 - pad} width={sz + pad*2} height={sz + pad*2} fill="transparent"/>
-                    {/* Square body with colored border */}
-                    <rect x={hx - sz/2} y={hy - sz/2} width={sz} height={sz} rx={4}
-                      fill={bgColor} stroke={color} strokeWidth={Math.max(2, lw * 0.6)}/>
-                    {/* Arrow indicator */}
-                    <text x={hx} y={hy} textAnchor="middle" dominantBaseline="central"
-                      fill={color} fontSize={fontSize} fontWeight="bold" style={{pointerEvents: 'none'}}>
-                      {arrow}
-                    </text>
-                  </g>
-                );
-              })}
-            </>
-          ) : (
-            /* Corner Anchored Mode (beta) */
-            <CornerHandles
-              imgW={imgW}
-              imgH={imgH}
-              outerCorners={outerCorners}
-              innerCorners={innerCorners}
-              setOuterCorners={setOuterCorners}
-              setInnerCorners={setInnerCorners}
-              svgRef={svgRef}
-              onCenteringUpdate={setCornerCenteringResult}
-            />
-          )}
-        </svg>
-      </div>
-      {/* Edge breakdown panel for corner mode */}
-      {measureMode === 'corner' && cornerCenteringResult && (
-        <div style={{padding:'0 12px'}}>
-          <EdgeBreakdownPanel centeringResult={cornerCenteringResult} />
-        </div>
-      )}
-
-      {/* Comparison readout when both modes have data */}
-      {measureMode === 'corner' && cornerCenteringResult && (
-        <div style={{padding:'8px 12px',background:'rgba(0,0,0,.3)',borderTop:'1px solid #1a1c22'}}>
-          <div style={{fontFamily:mono,fontSize:8,color:'#666',textTransform:'uppercase',marginBottom:6}}>Mode Comparison</div>
-          <div style={{display:'flex',justifyContent:'space-around',gap:8}}>
-            <div style={{flex:1,padding:'6px 8px',background:'#1a1c22',borderRadius:4,textAlign:'center'}}>
-              <div style={{fontFamily:mono,fontSize:8,color:'#ff9944',marginBottom:2}}>Edge Drag (v1)</div>
-              <div style={{fontFamily:mono,fontSize:12,color:'#888'}}>{lrR}/{Math.round((100-lrR)*10)/10} · {tbR}/{Math.round((100-tbR)*10)/10}</div>
-            </div>
-            <div style={{flex:1,padding:'6px 8px',background:'#00bcd411',border:'1px solid #00bcd433',borderRadius:4,textAlign:'center'}}>
-              <div style={{fontFamily:mono,fontSize:8,color:'#00bcd4',marginBottom:2}}>Corner (β)</div>
-              <div style={{fontFamily:mono,fontSize:12,color:'#fff'}}>{cornerCenteringResult.centering.lrDisplay} · {cornerCenteringResult.centering.tbDisplay}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div style={{padding:'10px 12px',display:'flex',gap:8}}>
-        <button onClick={handleApply} disabled={applying}
-          style={{flex:2,padding:'11px 0',borderRadius:7,border:'none',
-            background:applying?'#1a1c22':'linear-gradient(135deg,#ff9944,#ff6633)',
-            color:applying?'#444':'#000',fontFamily:mono,fontSize:11,fontWeight:700,cursor:applying?'default':'pointer',textTransform:'uppercase',letterSpacing:'.06em'}}>
-          {applying?'Re-analyzing...':'▶ Apply Correction'}
-        </button>
-        <button onClick={handleSave}
-          style={{flex:1,padding:'11px 0',borderRadius:7,border:`1px solid ${saved?'#00ff8844':'#333'}`,
-            background:saved?'rgba(0,255,136,.08)':'transparent',
-            color:saved?'#00ff88':'#888',fontFamily:mono,fontSize:9,cursor:'pointer',textTransform:'uppercase'}}>
-          {saved?'✓ Saved':'Save & Train'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-
 
 /* Lightweight card detection for live preview (runs on small canvas) */
 function detectCardLive(video, scanW=320) {
@@ -2132,13 +1583,18 @@ export default function SlabSense(){
   }, [auth.profile]);
 
   // Re-runs analysis with manual boundary overrides, updates grade, cropped image, and centering data
-  const applyManualCorrection = useCallback(async (side, overrideBounds, overrideCentering) => {
+  const applyManualCorrection = useCallback(async (side, overrideBounds, overrideCentering, pre = null) => {
     const src = side === 'front' ? fI : bI;
     if (!src) return;
 
-    // 1) Generate the new crop from the corrected outer bounds (F2: crop first, then analyze it)
-    let croppedImage = null;
-    try {
+    // 1) Generate the new crop from the corrected outer bounds (F2: crop first, then analyze it).
+    //    `pre` = { croppedImage, centeringData } from the centering tool, which already cropped.
+    let croppedImage = pre?.croppedImage || null;
+    if (croppedImage) {
+      if (side === 'front') setFrontCroppedImage(croppedImage); else setBackCroppedImage(croppedImage);
+      try { const maps = await genMaps(croppedImage); if (side === 'front') setFM(maps); else setBM(maps); }
+      catch (mapErr) { console.error('[applyManualCorrection] Maps failed:', mapErr); }
+    } else try {
       // Use corners if available (corner mode), otherwise build from bounds
       const corners = overrideBounds.corners || {
         tl: { x: overrideBounds.left, y: overrideBounds.top },
@@ -2164,8 +1620,8 @@ export default function SlabSense(){
     const newBR = side === 'back' ? result : bR;
     if (side === 'front') setFR(result); else setBR(result);
 
-    // Update centering data with new manual values
-    const newCenteringData = {
+    // Update centering data with new manual values (the tool's own data is kept whole so it can reopen)
+    const newCenteringData = pre?.centeringData ? { ...pre.centeringData, didManualCenter: true } : {
       didManualCenter: true,
       measureMode: overrideCentering.measureMode || 'edge',
       outer: overrideBounds,
@@ -2204,6 +1660,16 @@ export default function SlabSense(){
     const grade = computeGrade(newFR.allDings, newBR.allDings, effFront, effBack, gradingCompany, imageQuality);
     setGradeResult(grade);
   }, [fI, bI, fR, bR, ignoreCentering, gradingCompany, frontQuality, backQuality]);
+
+  // Centering tab: the same tool as capture time, reopened with the saved points. It has already
+  // cropped, so apply just re-analyzes that crop and refreshes the grade.
+  const handleTabCenteringConfirm = useCallback(async (side, result) => {
+    setManualMode(null);
+    const cd = result.centeringData;
+    const so = cd.source?.outer || { left: 0, top: 0, right: 0, bottom: 0 };
+    await applyManualCorrection(side, { ...so, corners: cd.source?.outerCorners || null }, cd, { croppedImage: result.croppedImage, centeringData: cd });
+    setCenteringConfirmed(true);
+  }, [applyManualCorrection]);
 
   const run=useCallback(async()=>{
     if(!fI||!bI)return; setStep(1);
@@ -3810,27 +3276,29 @@ export default function SlabSense(){
           {/* Manual Adjust toggle buttons */}
           <div style={{display:"flex",gap:8,marginBottom:14}}>
             {[["front","Front",fR,fI],["back","Back",bR,bI]].map(([s,sl,r,img])=>(
-              <button key={s} onClick={()=>setManualMode(manualMode===s?null:s)}
+              <button key={s} onClick={()=>setManualMode(s)}
                 style={{flex:1,padding:"9px 0",borderRadius:7,
                   border:`1px solid ${manualMode===s?"#ff9944":"#333"}`,
                   background:manualMode===s?"rgba(255,153,68,.1)":"transparent",
                   color:manualMode===s?"#ff9944":"#666",
                   fontFamily:mono,fontSize:10,cursor:"pointer",textTransform:"uppercase",letterSpacing:".06em"}}>
-                {manualMode===s?"✕ Close":"✦ Adjust Borders"} {sl}
+                ✦ Adjust Borders {sl}
               </button>
             ))}
           </div>
 
-          {/* Manual editors */}
-          {manualMode==="front"&&fR&&fI&&(
-            <ManualBoundaryEditor image={fI} result={fR} side="Front"
-              manualCenteringData={frontCenteringData}
-              onApply={(bounds,centering)=>{applyManualCorrection("front",bounds,centering);setCenteringConfirmed(true);}}/>
+          {/* Manual editors: the capture-time centering tool, reopened with the saved points */}
+          {manualMode==="front"&&fI&&(
+            <PostCaptureCentering image={fI} side="front"
+              initial={frontCenteringData} initialCroppedImage={frontCroppedImage}
+              onConfirm={(result)=>handleTabCenteringConfirm("front",result)}
+              onSkip={()=>setManualMode(null)} onCancel={()=>setManualMode(null)}/>
           )}
-          {manualMode==="back"&&bR&&bI&&(
-            <ManualBoundaryEditor image={bI} result={bR} side="Back"
-              manualCenteringData={backCenteringData}
-              onApply={(bounds,centering)=>{applyManualCorrection("back",bounds,centering);setCenteringConfirmed(true);}}/>
+          {manualMode==="back"&&bI&&(
+            <PostCaptureCentering image={bI} side="back"
+              initial={backCenteringData} initialCroppedImage={backCroppedImage}
+              onConfirm={(result)=>handleTabCenteringConfirm("back",result)}
+              onSkip={()=>setManualMode(null)} onCancel={()=>setManualMode(null)}/>
           )}
 
           {/* Confirm Alignment Button */}
