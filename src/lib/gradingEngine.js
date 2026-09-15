@@ -5,7 +5,8 @@
  * THE single source of truth for all grading math.
  *
  * Implements: /docs/GRADING_SCALE.md  (deductions, subgrades, compounding, caps)
- *             /docs/COMPANY_OFFSETS.md (PSA/BGS/CGC/SGC conversion)
+ *             /docs/grading-research/sources/*_verbatim.md (PSA/BGS/CGC/SGC/TAG published standards;
+ *             combination methods described in /docs/COMPANY_OFFSETS.md, which is otherwise superseded)
  *
  * Consumers:  src/App.jsx computeGrade()  → import { gradeCard }
  *             api/ai-analyze-unified.js   → import { gradeCard }

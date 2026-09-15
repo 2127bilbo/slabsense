@@ -1,3 +1,7 @@
+> **Provenance note (2026-09-15).** This is an earlier scrape of taggrading.com kept because `docs/GRADING_SCALE.md`
+> cites it for the compounding formula and the half-grade table. Its centering tables are SUPERSEDED by
+> `docs/grading-research/sources/TAG_scale_and_rubric_verbatim.md` (the current rubric, captured verbatim).
+
 # TAG Card Grading - Defect Weights & 1000-Point Scoring System
 
 ## Overview

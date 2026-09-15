@@ -1,3 +1,8 @@
+> **SUPERSEDED (2026-09-15).** Every per-company number in this file came from AI-gathered research that has since been
+> deleted. The grading engine now takes PSA / CGC / SGC / BGS / TAG rules ONLY from the verbatim captures in
+> `docs/grading-research/sources/`. This file is kept for the description of each company's combination method;
+> where it conflicts with `src/lib/gradingEngine.js` or a `sources/*` doc, the engine and the sources win.
+
 # SLABSENSE COMPANY CONVERSION LAYER — CANONICAL REFERENCE
 **Version 1.0 | How TAG-baseline scores become PSA / BGS / CGC / SGC grades.**
 

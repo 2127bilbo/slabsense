@@ -86,9 +86,20 @@ Inventory for that session:
   2026-09-15). Engine aligned the same day: creases 4.5 / 4 / 3.5 / 2.5 / 1 by severity and count; corner,
   edge, print, scratch and stain severities mapped to the grades that name them; centering rows per the page.
   BGS and SGC next.
-- **Owner's instruction (2026-09-15):** once all four are lined out, DELETE every other data source for the
-  grading services (`docs/grading-research/*_STANDARDS.md`, `*_DEFECT_WEIGHTS.md`,
-  `ALL_GRADING_COMPANIES_REFERENCE.md`, `Grading Standards/`, the AI-fetched/forum material) and keep only the
-  verified `docs/grading-research/sources/*` captures. TAG DIG data stays (owner's own reports).
+- **TAG captured verbatim** → `docs/grading-research/sources/TAG_scale_and_rubric_verbatim.md` (taggrading.com
+  scale + rubric, 2026-09-15). Score→grade table matched the engine exactly. Centering did NOT: the engine's
+  front table was one band harsh between 57/43 and 60/40 (rubric: Mint 9 = ~60/40), had no steps for 5.5 → 1.5,
+  and the TCG back table dropped 9 and 8.5 one band early; 10P is ~51/49 (DIG reports agree). Fixed 2026-09-15.
+- **SGC captured verbatim** → `docs/grading-research/sources/SGC_gradingscale_verbatim.md` (gosgc.com grade
+  selector, 2026-09-15). SGC publishes one "X/Y or better" figure per grade and no back tolerance; engine now
+  constrains the front only. Creases 5 / 4 / 3 / 2 by severity; corner/edge/print/scratch/stain caps per the text;
+  the old unverified "three categories hit → −0.5" rule removed.
+- **BGS captured verbatim** → `docs/grading-research/sources/BGS_gradingstandards_verbatim.md` (beckett.com chart
+  via Wayback 2025-12-10; live site was on a maintenance page). Centering per grade incl. Pristine 50/50 front +
+  55/45 back; creases 4 / 3 / 1; corners, edges, print, scuffing, stains, tears per the chart. Beckett does NOT
+  publish the four-subgrade combination formula; the engine's "lowest + 0.5" rule stays but is marked unverified.
+- **Purge done 2026-09-15 (owner's instruction):** all unverified grading-service research deleted; only
+  `docs/grading-research/sources/*` (verbatim captures) and the owner's TAG DIG calibration data remain.
+  `docs/COMPANY_OFFSETS.md` carries a SUPERSEDED banner (it still documents the combination methods).
 
 Not done (noted): `GradeResultDisplay.jsx` is still imported but unrendered while the Grade tab hand-rolls three blocks; `cardType: 'modern_holo'` is still hard-coded for the Deep reference pool; a worker-based queue (and a "rush" credit tier) can sit on `ai_grade_jobs.status = 'queued'` later.
