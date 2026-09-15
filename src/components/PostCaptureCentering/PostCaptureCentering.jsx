@@ -15,6 +15,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CornerHandles, EdgeBreakdownPanel } from '../CornerHandles.jsx';
 import { calculateCornerCentering } from '../../lib/corner-measurement.js';
+import { fit as fitView, zoomAt, zoomToImagePoint, pan as panView, imageToViewport, CORNER_Z } from '../../lib/stage-view.js';
+import { genMaps } from '../../lib/image-utils.js';
+import { Loupe } from './Loupe.jsx';
 import {
   initializeCorners,
   initializeInnerCorners,
@@ -64,6 +67,22 @@ export function PostCaptureCentering({
   const [tiltX, setTiltX] = useState(0);
   const [tiltY, setTiltY] = useState(0);
   const [activeAxis, setActiveAxis] = useState('Z');
+
+  // Stage zoom/pan, corner zoom, vision views, loupe, undo (see docs/superpowers/specs/2026-09-15-centering-tool-zoom-loupe-design.md)
+  const [view, setView] = useState(fitView());
+  const [activeCorner, setActiveCorner] = useState(null);          // 'tl' | 'tr' | 'bl' | 'br' | null
+  const [viewMode, setViewMode] = useState('original');            // 'original' | 'emboss' | 'highpass' | 'edges'
+  const [viewIntensity, setViewIntensity] = useState(70);
+  const [maps, setMaps] = useState({});                            // { [imageSrc]: genMaps() result }
+  const [mapsBusy, setMapsBusy] = useState(false);
+  const [dragPoint, setDragPoint] = useState(null);                // { x, y } in display coords while a handle is held
+  const [dragAnchor, setDragAnchor] = useState(null);              // finger position in viewport px
+  const [undoCount, setUndoCount] = useState(0);
+  const viewportRef = useRef(null);
+  const pointersRef = useRef(new Map());
+  const gestureRef = useRef(null);
+  const historyRef = useRef([]);
+  const dragActiveRef = useRef(false);
 
   const svgRef = useRef(null);
   const dragging = useRef(null);
@@ -130,6 +149,147 @@ export function PostCaptureCentering({
       y: Math.round((e.clientY - rect.top) / rect.height * currentImgSize.h),
     };
   };
+
+  // ═══════════════════════════════════════════
+  // STAGE VIEW: zoom / pan / corner buttons
+  // ═══════════════════════════════════════════
+  const viewportSize = () => {
+    const r = viewportRef.current?.getBoundingClientRect();
+    return r ? { w: r.width, h: r.height } : { w: 0, h: 0 };
+  };
+
+  /** Display-space point of a corner's handle for the current step/mode. */
+  const cornerPoint = (c) => {
+    if (step === 1) {
+      if (measureMode === 'corner' && outerCorners) return outerCorners[c];
+      if (outer) return { x: c.endsWith('l') ? outer.left : outer.right, y: c.startsWith('t') ? outer.top : outer.bottom };
+    } else {
+      if (measureMode === 'corner' && innerCorners) return innerCorners[c];
+      if (inner) return { x: c.endsWith('l') ? inner.left : inner.right, y: c.startsWith('t') ? inner.top : inner.bottom };
+    }
+    return null;
+  };
+
+  const zoomToCorner = (c) => {
+    if (activeCorner === c) { setActiveCorner(null); setView(fitView()); return; }
+    const p = cornerPoint(c); const { w, h } = viewportSize();
+    if (!p || !w) return;
+    setActiveCorner(c);
+    setView(v => zoomToImagePoint(v, CORNER_Z, p.x, p.y, currentImgSize.w, currentImgSize.h, w, h));
+  };
+  const resetView = () => { setActiveCorner(null); setView(fitView()); };
+
+  // Reset zoom, view mode and history whenever the step changes (new image)
+  useEffect(() => { resetView(); setViewMode('original'); historyRef.current = []; setUndoCount(0); }, [step]);
+
+  // Viewport gestures: pinch to zoom, one-finger pan when zoomed. Handles stop propagation on
+  // pointerdown so they never reach here; the loupe does the same.
+  const onViewportPointerDown = (e) => {
+    if (e.target.closest?.('[data-handle]') || e.target.closest?.('[data-loupe]')) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    const pts = [...pointersRef.current.values()];
+    if (pts.length === 2) {
+      gestureRef.current = { mode: 'pinch', dist: Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y), mid: { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 } };
+    } else if (pts.length === 1) {
+      gestureRef.current = { mode: 'pan', last: { x: e.clientX, y: e.clientY } };
+    }
+  };
+  const onViewportPointerMove = (e) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = gestureRef.current; if (!g) return;
+    const rect = viewportRef.current.getBoundingClientRect();
+    const pts = [...pointersRef.current.values()];
+    if (g.mode === 'pinch' && pts.length === 2) {
+      e.preventDefault();
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      const k = g.dist > 0 ? dist / g.dist : 1;
+      setView(v => panView(zoomAt(v, v.z * k, mid.x - rect.left, mid.y - rect.top, rect.width, rect.height), mid.x - g.mid.x, mid.y - g.mid.y, rect.width, rect.height));
+      setActiveCorner(null);
+      g.dist = dist; g.mid = mid;
+    } else if (g.mode === 'pan' && pts.length === 1) {
+      const dx = e.clientX - g.last.x, dy = e.clientY - g.last.y;
+      g.last = { x: e.clientX, y: e.clientY };
+      setView(v => (v.z > 1 ? panView(v, dx, dy, rect.width, rect.height) : v));
+    }
+  };
+  const onViewportPointerUp = (e) => {
+    pointersRef.current.delete(e.pointerId);
+    const pts = [...pointersRef.current.entries()];
+    gestureRef.current = pts.length === 1 ? { mode: 'pan', last: { x: pts[0][1].x, y: pts[0][1].y } } : null;
+  };
+
+  // Wheel zoom (desktop) and Safari page-zoom suppression need non-passive listeners.
+  useEffect(() => {
+    const el = viewportRef.current; if (!el) return;
+    const onWheel = (e) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const k = Math.exp(-e.deltaY * 0.0025);
+      setView(v => zoomAt(v, v.z * k, e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height));
+      setActiveCorner(null);
+    };
+    const block = (e) => e.preventDefault();
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('gesturestart', block, { passive: false });
+    el.addEventListener('gesturechange', block, { passive: false });
+    return () => { el.removeEventListener('wheel', onWheel); el.removeEventListener('gesturestart', block); el.removeEventListener('gesturechange', block); };
+  }, [step]);
+
+  // ═══════════════════════════════════════════
+  // UNDO + LOUPE hooks
+  // ═══════════════════════════════════════════
+  const pushHistory = () => {
+    historyRef.current.push({ outer, outerCorners, inner, innerCorners, rotation, tiltX, tiltY });
+    if (historyRef.current.length > 50) historyRef.current.shift();
+    setUndoCount(historyRef.current.length);
+  };
+  const undo = () => {
+    const h = historyRef.current.pop(); if (!h) return;
+    setOuter(h.outer); setOuterCorners(h.outerCorners); setInner(h.inner); setInnerCorners(h.innerCorners);
+    setRotation(h.rotation); setTiltX(h.tiltX); setTiltY(h.tiltY);
+    setUndoCount(historyRef.current.length);
+  };
+  const withHistory = (fn) => { pushHistory(); fn(); };
+
+  /** Called by every handle on pointerdown/move (point) and pointerup (null). */
+  const onHandleDrag = (point, e) => {
+    if (point) {
+      if (!dragActiveRef.current) { dragActiveRef.current = true; pushHistory(); }
+      setDragPoint(point);
+      if (e && viewportRef.current) { const r = viewportRef.current.getBoundingClientRect(); setDragAnchor({ x: e.clientX - r.left, y: e.clientY - r.top }); }
+    } else {
+      dragActiveRef.current = false;
+      setDragPoint(null);
+    }
+  };
+  /** Display-space point for an edge-mode handle, from the latest bounds. */
+  const edgeHandlePoint = (which) => {
+    const o = outerRef.current, i = innerRef.current;
+    switch (which) {
+      case 'OL': return o && { x: o.left, y: (o.top + o.bottom) / 2 };
+      case 'OR': return o && { x: o.right, y: (o.top + o.bottom) / 2 };
+      case 'OT': return o && { x: (o.left + o.right) / 2, y: o.top };
+      case 'OB': return o && { x: (o.left + o.right) / 2, y: o.bottom };
+      case 'IL': return i && { x: i.left, y: (i.top + i.bottom) / 2 };
+      case 'IR': return i && { x: i.right, y: (i.top + i.bottom) / 2 };
+      case 'IT': return i && { x: (i.left + i.right) / 2, y: i.top };
+      case 'IB': return i && { x: (i.left + i.right) / 2, y: i.bottom };
+      default: return null;
+    }
+  };
+
+  // Vision maps (emboss / hi-pass / edges) for the current image, computed lazily
+  useEffect(() => {
+    const src = step === 1 ? image : croppedPreview;
+    if (viewMode === 'original' || !src || maps[src] || mapsBusy) return;
+    let cancelled = false;
+    setMapsBusy(true);
+    genMaps(src).then((m) => { if (!cancelled && m) setMaps((prev) => ({ ...prev, [src]: m })); }).finally(() => { if (!cancelled) setMapsBusy(false); });
+    return () => { cancelled = true; };
+  }, [viewMode, step, image, croppedPreview]);
 
   // ═══════════════════════════════════════════
   // STEP 1: Edge drag handlers (outer only)
@@ -279,6 +439,9 @@ export function PostCaptureCentering({
     setRotation(0);
     setTiltX(0);
     setTiltY(0);
+    resetView();
+    historyRef.current = [];
+    setUndoCount(0);
   };
 
   // ═══════════════════════════════════════════
@@ -390,10 +553,13 @@ export function PostCaptureCentering({
   const cW = outer ? outer.right - outer.left : 0;
   const cH = outer ? outer.bottom - outer.top : 0;
 
-  // Handle dimensions
-  const handleSize = Math.max(28, Math.min(cW, cH) * 0.035);
-  const lw = Math.max(3, cW * 0.005);
-  const pad = 40;
+  // Handle dimensions (shrink with stage zoom so they stay finger-sized on screen)
+  const handleSize = Math.max(28, Math.min(cW, cH) * 0.035) / view.z;
+  const lw = Math.max(3, cW * 0.005) / view.z;
+  const pad = 40 / view.z;
+  const stageTransform = step === 1 ? `perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${rotation}deg)` : 'none';
+  const activeMapSrc = step === 1 ? image : croppedPreview;
+  const activeMap = viewMode !== 'original' ? maps[activeMapSrc]?.[viewMode] : null;
 
   // Step 2: Calculate live centering for display
   let displayLR = 50, displayTB = 50;
@@ -553,21 +719,21 @@ export function PostCaptureCentering({
             {/* Adjustment Controls */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <button
-                onClick={() => {
+                onClick={() => withHistory(() => {
                   if (activeAxis === 'X') setTiltX(v => Math.round((v - 1) * 100) / 100);
                   else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 1) * 100) / 100);
                   else setRotation(r => Math.round((r - 1) * 100) / 100);
-                }}
+                })}
                 style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#888', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 ‹‹
               </button>
               <button
-                onClick={() => {
+                onClick={() => withHistory(() => {
                   if (activeAxis === 'X') setTiltX(v => Math.round((v - 0.05) * 100) / 100);
                   else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 0.05) * 100) / 100);
                   else setRotation(r => Math.round((r - 0.05) * 100) / 100);
-                }}
+                })}
                 style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#555', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 ‹
@@ -585,21 +751,21 @@ export function PostCaptureCentering({
                 </div>
               </div>
               <button
-                onClick={() => {
+                onClick={() => withHistory(() => {
                   if (activeAxis === 'X') setTiltX(v => Math.round((v + 0.05) * 100) / 100);
                   else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 0.05) * 100) / 100);
                   else setRotation(r => Math.round((r + 0.05) * 100) / 100);
-                }}
+                })}
                 style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#555', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 ›
               </button>
               <button
-                onClick={() => {
+                onClick={() => withHistory(() => {
                   if (activeAxis === 'X') setTiltX(v => Math.round((v + 1) * 100) / 100);
                   else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 1) * 100) / 100);
                   else setRotation(r => Math.round((r + 1) * 100) / 100);
-                }}
+                })}
                 style={{ width: 32, height: 32, borderRadius: 6, background: '#1a1c22', border: '1px solid #2a2d35', color: '#888', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 ››
@@ -658,24 +824,80 @@ export function PostCaptureCentering({
           )}
         </div>
 
-        {/* Image + drag canvas */}
+        {/* Zoom controls: corner buttons · Undo · zoom · Fit */}
+        <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #0d0f13' }}>
+          {[['tl', '◤', 'Top-left'], ['tr', '◥', 'Top-right'], ['bl', '◣', 'Bottom-left'], ['br', '◢', 'Bottom-right']].map(([c, glyph, label]) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={`Zoom to ${label.toLowerCase()} corner`}
+              onClick={() => zoomToCorner(c)}
+              style={{ flex: 1, padding: '7px 0', borderRadius: 6, border: `1px solid ${activeCorner === c ? '#8b5cf6' : '#2a2d35'}`, background: activeCorner === c ? '#8b5cf622' : '#1a1c22', color: activeCorner === c ? '#c4b5fd' : '#888', fontSize: 14, lineHeight: 1, cursor: 'pointer' }}
+            >
+              {glyph}
+            </button>
+          ))}
+          <button type="button" onClick={undo} disabled={undoCount === 0} aria-label="Undo last change"
+            style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #2a2d35', background: '#1a1c22', color: undoCount ? '#ccc' : '#444', fontFamily: mono, fontSize: 9, cursor: undoCount ? 'pointer' : 'default' }}>
+            Undo
+          </button>
+          <div style={{ minWidth: 44, textAlign: 'center', fontFamily: mono, fontSize: 9, color: view.z > 1 ? '#c4b5fd' : '#555' }}>{Math.round(view.z * 100)}%</div>
+          <button type="button" onClick={resetView} disabled={view.z === 1} aria-label="Fit whole image"
+            style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #2a2d35', background: '#1a1c22', color: view.z > 1 ? '#ccc' : '#444', fontFamily: mono, fontSize: 9, cursor: view.z > 1 ? 'pointer' : 'default' }}>
+            Fit
+          </button>
+        </div>
+
+        {/* Vision views + intensity */}
+        <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #0d0f13', flexWrap: 'wrap' }}>
+          {[['original', 'Original'], ['emboss', 'Emboss'], ['highpass', 'Hi-pass'], ['edges', 'Edge']].map(([id, label]) => (
+            <button key={id} type="button" onClick={() => setViewMode(id)}
+              style={{ flex: 1, minWidth: 60, padding: '6px 0', borderRadius: 6, border: `1px solid ${viewMode === id ? '#00ff88' : '#2a2d35'}`, background: viewMode === id ? '#00ff8822' : '#1a1c22', color: viewMode === id ? '#00ff88' : '#777', fontFamily: mono, fontSize: 9, cursor: 'pointer' }}>
+              {label}
+            </button>
+          ))}
+          {viewMode !== 'original' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', paddingTop: 4 }}>
+              <span style={{ fontFamily: mono, fontSize: 8, color: '#666', textTransform: 'uppercase' }}>{mapsBusy && !activeMap ? 'Building view…' : 'Intensity'}</span>
+              <input type="range" min={0} max={100} value={viewIntensity} onChange={e => setViewIntensity(Number(e.target.value))} style={{ flex: 1 }} aria-label="View intensity" />
+              <span style={{ fontFamily: mono, fontSize: 9, color: '#00ff88', minWidth: 30, textAlign: 'right' }}>{viewIntensity}%</span>
+            </div>
+          )}
+        </div>
+
+        {/* Image + drag canvas: viewport (clips) → stage (zooms/pans) → image, map overlay, svg handles */}
         <div
-          style={{ position: 'relative', lineHeight: 0, touchAction: 'none', overflow: 'visible' }}
-          onTouchMove={e => { if (dragging.current) e.preventDefault(); }}
+          ref={viewportRef}
+          style={{ position: 'relative', overflow: 'hidden', touchAction: 'none', lineHeight: 0, aspectRatio: displayImgSize.w > 0 ? `${displayImgSize.w} / ${displayImgSize.h}` : undefined, background: '#000', userSelect: 'none', WebkitUserSelect: 'none' }}
+          onPointerDown={onViewportPointerDown}
+          onPointerMove={onViewportPointerMove}
+          onPointerUp={onViewportPointerUp}
+          onPointerCancel={onViewportPointerUp}
+          onTouchMove={e => { e.preventDefault(); }}
           onTouchStart={e => { if (dragging.current) e.preventDefault(); }}
         >
+          <div style={{ position: 'absolute', inset: 0, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.z})`, transformOrigin: '0 0', willChange: 'transform' }}>
           <img
             src={displayImage}
             alt="Card"
             style={{
               width: '100%',
               display: 'block',
-              transform: step === 1 ? `perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${rotation}deg)` : 'none',
+              transform: stageTransform,
               transformOrigin: 'center center',
               transition: 'transform 0.15s ease',
             }}
             draggable={false}
           />
+          {activeMap && (
+            <img
+              src={activeMap}
+              alt=""
+              aria-hidden="true"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', opacity: viewIntensity / 100, transform: stageTransform, transformOrigin: 'center center', transition: 'transform 0.15s ease', pointerEvents: 'none' }}
+              draggable={false}
+            />
+          )}
           {/* Crosshair overlay */}
           <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: 'rgba(0,255,136,0.2)' }} />
@@ -707,10 +929,12 @@ export function PostCaptureCentering({
                   return (
                     <g
                       key={which}
+                      data-handle={which}
                       style={{ cursor: isHoriz ? 'ns-resize' : 'ew-resize', touchAction: 'none' }}
-                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; }}
-                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const { x, y } = getCoords(e); moveOuterHandle(which, x, y); } }}
-                      onPointerUp={() => { dragging.current = null; }}
+                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; onHandleDrag(edgeHandlePoint(which), e); }}
+                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const { x, y } = getCoords(e); moveOuterHandle(which, x, y); const o = outerRef.current; onHandleDrag(isHoriz ? { x: (o.left + o.right) / 2, y } : { x, y: (o.top + o.bottom) / 2 }, e); } }}
+                      onPointerUp={e => { dragging.current = null; onHandleDrag(null, e); }}
+                      onPointerCancel={e => { dragging.current = null; onHandleDrag(null, e); }}
                     >
                       <rect x={hx - sz / 2 - pad} y={hy - sz / 2 - pad} width={sz + pad * 2} height={sz + pad * 2} fill="transparent" />
                       <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke="#ff9944" strokeWidth={Math.max(2, lw * 0.6)} />
@@ -735,6 +959,8 @@ export function PostCaptureCentering({
                 svgRef={svgRef}
                 onCenteringUpdate={() => {}}
                 activeHandles="outer"
+                zoom={view.z}
+                onHandleDrag={onHandleDrag}
               />
             )}
 
@@ -763,7 +989,7 @@ export function PostCaptureCentering({
                   fill="none"
                   stroke="#00ff88"
                   strokeWidth={Math.max(2, lw * 0.8)}
-                  strokeDasharray={`${croppedImgSize.w * 0.025},${croppedImgSize.w * 0.012}`}
+                  strokeDasharray={`${croppedImgSize.w * 0.025 / view.z},${croppedImgSize.w * 0.012 / view.z}`}
                   opacity={0.9}
                 />
                 {innerHandles.map(([hx, hy, which, arrow]) => {
@@ -772,10 +998,12 @@ export function PostCaptureCentering({
                   return (
                     <g
                       key={which}
+                      data-handle={which}
                       style={{ cursor: isHoriz ? 'ns-resize' : 'ew-resize', touchAction: 'none' }}
-                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; }}
-                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const { x, y } = getCoords(e); moveInnerHandle(which, x, y); } }}
-                      onPointerUp={() => { dragging.current = null; }}
+                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; onHandleDrag(edgeHandlePoint(which), e); }}
+                      onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const { x, y } = getCoords(e); moveInnerHandle(which, x, y); const i = innerRef.current; onHandleDrag(isHoriz ? { x: (i.left + i.right) / 2, y } : { x, y: (i.top + i.bottom) / 2 }, e); } }}
+                      onPointerUp={e => { dragging.current = null; onHandleDrag(null, e); }}
+                      onPointerCancel={e => { dragging.current = null; onHandleDrag(null, e); }}
                     >
                       <rect x={hx - sz / 2 - pad} y={hy - sz / 2 - pad} width={sz + pad * 2} height={sz + pad * 2} fill="transparent" />
                       <rect x={hx - sz / 2} y={hy - sz / 2} width={sz} height={sz} rx={4} fill="#111" stroke="#00ff88" strokeWidth={Math.max(2, lw * 0.6)} />
@@ -800,9 +1028,17 @@ export function PostCaptureCentering({
                 svgRef={svgRef}
                 onCenteringUpdate={setCornerCenteringResult}
                 activeHandles="inner"
+                zoom={view.z}
+                onHandleDrag={onHandleDrag}
               />
             )}
           </svg>
+          </div>
+          <div data-loupe="1" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            <div style={{ pointerEvents: 'auto', position: 'absolute', inset: 0, display: dragPoint ? 'block' : 'none' }}>
+              <Loupe src={displayImage} imgW={displayImgSize.w} imgH={displayImgSize.h} point={dragPoint} anchorScreen={dragAnchor} viewportSize={viewportSize()} />
+            </div>
+          </div>
         </div>
 
         {/* Edge breakdown panel for corner mode Step 2 */}
