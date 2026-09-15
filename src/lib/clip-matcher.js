@@ -181,44 +181,13 @@ export async function loadEmbeddings(forceRefresh = false) {
         console.log(`[CLIPMatcher] Loaded ${db.meta.count} embeddings (bucket v${db.meta.version}) in ${(performance.now() - startTime).toFixed(0)}ms`);
         return { embeddings: cardDb, meta: embeddingsMeta };
       } catch (e) {
-        console.warn('[CLIPMatcher] bucket DB unavailable, using bundled JSON:', e?.message || e);
+        console.error('[CLIPMatcher] card DB unavailable:', e?.message || e);
+        throw new Error(`Card database unavailable: ${e?.message || e}`);
       }
     }
-    // 2) Bundled JSON chunks (legacy). Converted into the same { matrix, ids, cards } shape.
-    const raw = await loadBundledJson();
-    const ids = Object.keys(raw.embeddings);
-    const dim = ids.length ? raw.embeddings[ids[0]].length : 512;
-    const matrix = new Float32Array(ids.length * dim);
-    ids.forEach((id, r) => matrix.set(l2normalize(raw.embeddings[id]), r * dim));
-    const info = await loadCardInfo();
-    const cards = {};
-    for (const id of ids) cards[id] = info?.[id] || { name: null, set: id.split('-')[0], number: id.split('-').slice(1).join('-') };
-    cardDb = { matrix, ids, cards, meta: { ...raw.meta, dim, count: ids.length, source: 'bundled' } };
-    embeddingsMeta = cardDb.meta;
-    console.log(`[CLIPMatcher] Loaded ${ids.length} embeddings (bundled JSON) in ${(performance.now() - startTime).toFixed(0)}ms`);
-    return { embeddings: cardDb, meta: embeddingsMeta };
+    throw new Error('Card database not configured (VITE_SUPABASE_URL missing)');
   })();
   try { return await cardDbPromise; } finally { cardDbPromise = null; }
-}
-
-/** Legacy loader for public/models/clip_embeddings_*.json (kept as a fallback for one release). */
-async function loadBundledJson() {
-  let response = await fetch('/models/clip_embeddings_0.json');
-  if (response.ok) {
-    const firstChunk = await response.json();
-    const totalChunks = firstChunk.totalChunks || 1;
-    const embeddings = { ...firstChunk.embeddings };
-    if (totalChunks > 1) {
-      const chunks = await Promise.all(Array.from({ length: totalChunks - 1 }, (_, i) => fetch(`/models/clip_embeddings_${i + 1}.json`).then((r) => r.json())));
-      for (const chunk of chunks) Object.assign(embeddings, chunk.embeddings);
-    }
-    return { embeddings, meta: { version: firstChunk.version, model: firstChunk.model, chunked: true } };
-  }
-  response = await fetch('/models/clip_embeddings_tfjs.json');
-  if (!response.ok) response = await fetch('/models/clip_embeddings.json');
-  if (!response.ok) throw new Error(`Failed to load embeddings: ${response.status}`);
-  const data = await response.json();
-  return { embeddings: data.embeddings, meta: { version: data.version, model: data.model, generated: data.generated } };
 }
 
 /**
@@ -368,7 +337,8 @@ export async function matchCard(imageSource, options = {}) {
 
     // Step 2: Ensure embeddings and card info are loaded
     if (onProgress) onProgress({ step: 'embeddings', message: 'Loading card database...' });
-    await Promise.all([loadEmbeddings(), loadCardInfo()]);
+    await loadEmbeddings();          // names ship inside the shards; loadCardInfo() is then a no-op
+    await loadCardInfo();
 
     // Step 3: Crop card if requested
     let processedImage = imageSource;
@@ -472,11 +442,8 @@ export function getEmbeddingsMeta() {
  * Preload model, embeddings, and card info (call on app init)
  */
 export async function preload(onProgress = null) {
-  await Promise.all([
-    loadModel(onProgress),
-    loadEmbeddings(),
-    loadCardInfo(),
-  ]);
+  await Promise.all([loadModel(onProgress), loadEmbeddings()]);
+  await loadCardInfo();
 }
 
 export default {
