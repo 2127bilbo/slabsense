@@ -73,7 +73,9 @@ export function CornerHandles({
   setInnerCorners,
   svgRef,
   onCenteringUpdate,
-  activeHandles = 'all'  // 'all', 'outer', or 'inner'
+  activeHandles = 'all',  // 'all', 'outer', or 'inner'
+  zoom = 1,               // stage zoom; handle sizes shrink by it so they stay finger-sized
+  onHandleDrag = null,    // (pointOrNull, event) → loupe hook: corner position while dragging
 }) {
   const dragging = useRef(null);
   const dragOffset = useRef({ x: 0, y: 0 }); // Offset from touch point to actual corner
@@ -207,9 +209,10 @@ export function CornerHandles({
   // Visual parameters
   const cW = outerCorners.br.x - outerCorners.tl.x;
   const cH = outerCorners.br.y - outerCorners.tl.y;
-  const handleSize = Math.max(32, Math.min(cW, cH) * 0.04);
-  const lw = Math.max(2, cW * 0.004);
-  const pad = 50; // Touch target padding
+  const z = Math.max(1, zoom);
+  const handleSize = Math.max(32, Math.min(cW, cH) * 0.04) / z;
+  const lw = Math.max(2, cW * 0.004) / z;
+  const pad = 50 / z; // Touch target padding
   const handleOffset = handleSize * 1.2; // Offset handles away from corners so lines are visible
 
   // Get sample points for visualization (only if both corners exist)
@@ -270,7 +273,7 @@ export function CornerHandles({
           fill="none"
           stroke="#e91e63"
           strokeWidth={Math.max(2, lw * 0.8)}
-          strokeDasharray={`${cW * 0.02},${cW * 0.01}`}
+          strokeDasharray={`${cW * 0.02 / z},${cW * 0.01 / z}`}
           opacity={0.85}
         />
       )}
@@ -320,22 +323,31 @@ export function CornerHandles({
         return (
           <g
             key={which}
+            data-handle={which}
             style={{ cursor: 'move', touchAction: 'none' }}
             onPointerDown={e => {
               e.stopPropagation();
               e.currentTarget.setPointerCapture(e.pointerId);
               startDrag(which, e);
+              if (onHandleDrag) onHandleDrag({ ...getCornerPosition(which) }, e);
             }}
             onPointerMove={e => {
               if (dragging.current === which) {
                 e.preventDefault();
                 const { x: newX, y: newY } = getCoords(e);
                 moveCorner(which, newX, newY);
+                if (onHandleDrag) onHandleDrag({ x: newX + dragOffset.current.x, y: newY + dragOffset.current.y }, e);
               }
             }}
-            onPointerUp={() => {
+            onPointerUp={(e) => {
               dragging.current = null;
               dragOffset.current = { x: 0, y: 0 };
+              if (onHandleDrag) onHandleDrag(null, e);
+            }}
+            onPointerCancel={(e) => {
+              dragging.current = null;
+              dragOffset.current = { x: 0, y: 0 };
+              if (onHandleDrag) onHandleDrag(null, e);
             }}
           >
             {/* Invisible large touch target */}
