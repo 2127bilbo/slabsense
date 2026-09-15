@@ -40,12 +40,14 @@ const asPsa = computeGrade(oneEdge, [], C, C, 'psa', null);
 const asBgs = computeGrade(oneEdge, [], C, C, 'bgs', null);
 check('TAG: one minor edge → grade 10', asTag.grade.grade === 10, `got ${asTag.grade.grade}`);
 check('PSA: one minor edge → grade 9 (any-defect cap)', asPsa.grade.grade === 9, `got ${asPsa.grade.grade}`);
-check('BGS: one minor edge → grade 10', asBgs.grade.grade === 10, `got ${asBgs.grade.grade}`);
+check('BGS: one minor edge → 9.5 (Pristine needs perfect edges; 9.5 allows specs of wear under magnification)', asBgs.grade.grade === 9.5, `got ${asBgs.grade.grade}`);
 check('grade matches companyGrades for psa', asPsa.grade.grade === asPsa.companyGrades.psa.grade && asPsa.grade.label === asPsa.companyGrades.psa.label);
 check('grade carries color/bg', typeof asPsa.grade.color === 'string' && typeof asPsa.grade.bg === 'string');
-// 56/44 front → 6.0 deviation → BGS centering subgrade 9 → overall 9.5 (0.5 rule).
-// (55/45 is only 5.0 deviation → BGS centering 9.5 → overall lifts to 10.)
-const halfBgs = computeGrade([], [], { lrRatio: 56, tbRatio: 50 }, C, 'bgs', null);
+// beckett.com chart: 9 Mint needs 55/45 front; 56/44 (6.0 dev) only meets 8 Near Mint (60/40) → overall 8.5 (0.5 rule).
+const offBgs = computeGrade([], [], { lrRatio: 56, tbRatio: 50 }, C, 'bgs', null);
+check('BGS: 56/44 front → 8.5 (chart: 9 needs 55/45)', offBgs.grade.grade === 8.5, `got ${offBgs.grade.grade}`);
+// 55/45 front + 60/40 back = Gem Mint centering; one minor edge caps at 9.5 → 9.5 reachable.
+const halfBgs = computeGrade(oneEdge, [], { lrRatio: 55, tbRatio: 50 }, { lrRatio: 60, tbRatio: 50 }, 'bgs', null);
 check('BGS 9.5 reachable', halfBgs.grade.grade === 9.5, `got ${halfBgs.grade.grade}`);
 
 console.log(`\n${passed} passed, ${failed} failed`);
