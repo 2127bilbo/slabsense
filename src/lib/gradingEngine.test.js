@@ -158,6 +158,9 @@ const severeCrease = gradeCard({
 });
 check('Severe crease caps at 5', severeCrease.overall.grade <= 5 && severeCrease.overall.capsApplied.includes('CREASE_CAP_5'), true);
 check('Severe front crease → CGC ≤ 5', severeCrease.companyGrades.cgc.grade <= 5, true);
+check('Minor crease → BGS ≤ 6 (was uncapped)', minorCrease.companyGrades.bgs.grade <= 6, true);
+check('Severe crease → BGS ≤ 4', severeCrease.companyGrades.bgs.grade <= 4, true);
+check('Every company caps a creased card at 7 or below', Object.values(minorCrease.companyGrades).every((g) => g.grade <= 7), true);
 const torn = gradeCard({
   centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
   defects: [{ side: 'BACK', type: 'TEAR', severity: 'minor' }],

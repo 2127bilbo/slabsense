@@ -423,6 +423,11 @@ function convertBGS(merged, centering, defects) {
   } else {
     grade = Math.min(lowest + 0.5, secondLowest, lowest + 2);
   }
+  // Structural damage: BGS does not let strong corners/edges carry a creased card
+  const creaseSev = Math.max(-1, ...defects.filter((d) => d.type === 'CREASE').map((d) => sevRank[d.severity]));
+  if (creaseSev >= 0) grade = Math.min(grade, 6);
+  if (creaseSev >= 2) grade = Math.min(grade, 4);
+  if (defects.some((d) => d.type === 'TEAR')) grade = Math.min(grade, 4);
   grade = snapDown(grade, ALLOWED_SUBGRADES.bgs);
   const all10 = vals.every((v) => v === 10);
   const goldLabel = !all10 && vals.filter((v) => v === 10).length === 3 && vals.includes(9.5);
@@ -444,9 +449,10 @@ function convertCGC(merged, centering, defects) {
   const minors = defects.filter((d) => d.severity === 'minor').length;
   const aboveMinor = defects.some((d) => sevRank[d.severity] >= 1);
   if (grade >= 9.5 && (aboveMinor || minors > 1)) grade = 9;
-  const frontCrease = defects.find((d) => d.type === 'CREASE' && d.side === 'FRONT');
-  if (frontCrease) grade = Math.min(grade, 7);
-  if (frontCrease && sevRank[frontCrease.severity] >= 2) grade = Math.min(grade, 5);
+  // Any crease (either side) is structural: CGC caps at 7, severe or worse at 5
+  const creaseSev = Math.max(-1, ...defects.filter((d) => d.type === 'CREASE').map((d) => sevRank[d.severity]));
+  if (creaseSev >= 0) grade = Math.min(grade, 7);
+  if (creaseSev >= 2) grade = Math.min(grade, 5);
   if (defects.some((d) => d.type === 'TEAR')) grade = Math.min(grade, 4);
   grade = snapDown(grade, ALLOWED_SUBGRADES.cgc);
   let label = CGC_LABELS[grade] ?? '';
