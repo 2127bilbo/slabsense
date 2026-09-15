@@ -16,48 +16,61 @@ const mono = '"SF Mono", Monaco, "Fira Code", monospace';
  * @param {number} radius - Corner radius in pixels
  * @returns {string} SVG path d attribute
  */
-function getRoundedQuadPath(corners, radius) {
-  const { tl, tr, br, bl } = corners;
-
-  // Helper to get point along edge, offset from corner by radius
-  const getOffsetPoint = (from, to, dist) => {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len === 0) return from;
-    const ratio = Math.min(dist / len, 0.4); // Cap at 40% of edge length
-    return {
-      x: from.x + dx * ratio,
-      y: from.y + dy * ratio
-    };
+/**
+ * Offset a quadrilateral's edges by `d` (positive = outward) and return the new corners
+ * (intersections of the shifted edge lines). Used so a stroke can be drawn with its INSIDE
+ * edge (outer card line) or OUTSIDE edge (inner art line) exactly on the measured coordinate.
+ */
+export function offsetQuad(corners, d) {
+  if (!d) return corners;
+  const order = ['tl', 'tr', 'br', 'bl'];
+  const pts = order.map((k) => corners[k]);
+  // Edge i goes from pts[i] to pts[(i+1)%4]; outward normal for a clockwise (screen-space) quad
+  const lines = pts.map((p, i) => {
+    const q = pts[(i + 1) % 4];
+    const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
+    const nx = dy / len, ny = -dx / len;             // outward normal for tl→tr→br→bl order in y-down screen space
+    return { p: { x: p.x + nx * d, y: p.y + ny * d }, q: { x: q.x + nx * d, y: q.y + ny * d } };
+  });
+  const intersect = (a, b) => {
+    const x1 = a.p.x, y1 = a.p.y, x2 = a.q.x, y2 = a.q.y, x3 = b.p.x, y3 = b.p.y, x4 = b.q.x, y4 = b.q.y;
+    const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if (Math.abs(den) < 1e-9) return a.q;
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
+    return { x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1) };
   };
+  const out = {};
+  order.forEach((k, i) => { out[k] = intersect(lines[(i + 3) % 4], lines[i]); }); // corner i = prev edge ∩ this edge
+  return out;
+}
 
-  // Get points before and after each corner
-  const tlFromLeft = getOffsetPoint(tl, bl, radius);
-  const tlFromTop = getOffsetPoint(tl, tr, radius);
-
-  const trFromTop = getOffsetPoint(tr, tl, radius);
-  const trFromRight = getOffsetPoint(tr, br, radius);
-
-  const brFromRight = getOffsetPoint(br, tr, radius);
-  const brFromBottom = getOffsetPoint(br, bl, radius);
-
-  const blFromBottom = getOffsetPoint(bl, br, radius);
-  const blFromLeft = getOffsetPoint(bl, tl, radius);
-
-  // Build path: M start, then L + Q for each corner
-  return `
-    M ${tlFromTop.x} ${tlFromTop.y}
-    L ${trFromTop.x} ${trFromTop.y}
-    Q ${tr.x} ${tr.y} ${trFromRight.x} ${trFromRight.y}
-    L ${brFromRight.x} ${brFromRight.y}
-    Q ${br.x} ${br.y} ${brFromBottom.x} ${brFromBottom.y}
-    L ${blFromBottom.x} ${blFromBottom.y}
-    Q ${bl.x} ${bl.y} ${blFromLeft.x} ${blFromLeft.y}
-    L ${tlFromLeft.x} ${tlFromLeft.y}
-    Q ${tl.x} ${tl.y} ${tlFromTop.x} ${tlFromTop.y}
-    Z
-  `;
+/**
+ * Rounded quadrilateral path with TRUE circular arcs of `radius` at each corner (a real card
+ * corner is a circle; a quadratic curve through the corner point is noticeably sharper).
+ */
+function getRoundedQuadPath(corners, radius) {
+  const order = ['tl', 'tr', 'br', 'bl'];
+  const pts = order.map((k) => corners[k]);
+  const segs = pts.map((c, i) => {
+    const prev = pts[(i + 3) % 4], next = pts[(i + 1) % 4];
+    const v1 = { x: prev.x - c.x, y: prev.y - c.y }, v2 = { x: next.x - c.x, y: next.y - c.y };
+    const l1 = Math.hypot(v1.x, v1.y) || 1, l2 = Math.hypot(v2.x, v2.y) || 1;
+    const cosT = Math.max(-0.999, Math.min(0.999, (v1.x * v2.x + v1.y * v2.y) / (l1 * l2)));
+    const theta = Math.acos(cosT);                                     // interior angle
+    const r = Math.min(radius, 0.4 * Math.min(l1, l2) * Math.tan(theta / 2));
+    const t = r / Math.tan(theta / 2);                                 // tangent length along each edge
+    return {
+      r,
+      a: { x: c.x + (v1.x / l1) * t, y: c.y + (v1.y / l1) * t },     // arc start (on the edge toward prev)
+      b: { x: c.x + (v2.x / l2) * t, y: c.y + (v2.y / l2) * t },     // arc end   (on the edge toward next)
+    };
+  });
+  let d = `M ${segs[0].b.x} ${segs[0].b.y}`;
+  for (let i = 1; i <= 4; i++) {
+    const s = segs[i % 4];
+    d += ` L ${s.a.x} ${s.a.y} A ${s.r} ${s.r} 0 0 1 ${s.b.x} ${s.b.y}`;
+  }
+  return d + ' Z';
 }
 
 /**
@@ -258,9 +271,11 @@ export function CornerHandles({
   return (
     <>
       {/* Outer boundary - rounded corners (~4.8% of width) */}
+      {/* Outer (card edge): the stroke sits OUTSIDE the coordinate, so its INSIDE edge is the
+          crop line. Radius grows by half the stroke so the inside edge keeps the card radius. */}
       {showOuter && (
         <path
-          d={getRoundedQuadPath(outerCorners, cW * 0.048)}
+          d={getRoundedQuadPath(offsetQuad(outerCorners, lw / 2), cW * 0.048 + lw / 2)}
           fill="none"
           stroke="#00bcd4"
           strokeWidth={lw}
@@ -268,16 +283,21 @@ export function CornerHandles({
         />
       )}
 
-      {/* Inner boundary - no rounded corners (artwork edge is sharp) */}
-      {showInner && (
-        <polygon
-          points={`${innerCorners.tl.x},${innerCorners.tl.y} ${innerCorners.tr.x},${innerCorners.tr.y} ${innerCorners.br.x},${innerCorners.br.y} ${innerCorners.bl.x},${innerCorners.bl.y}`}
-          fill="none"
-          stroke="#e91e63"
-          strokeWidth={Math.max(1.5 / z, lw * 0.8)}
-          strokeDasharray={`${cW * 0.02 / z},${cW * 0.01 / z}`}
-          opacity={0.85}
-        />
+      {/* Inner (artwork): the stroke sits INSIDE the coordinate, so its OUTSIDE edge is the measured line */}
+      {showInner && (() => {
+        const ilw = Math.max(1.5 / z, lw * 0.8);
+        const q = offsetQuad(innerCorners, -ilw / 2);
+        return (
+          <polygon
+            points={`${q.tl.x},${q.tl.y} ${q.tr.x},${q.tr.y} ${q.br.x},${q.br.y} ${q.bl.x},${q.bl.y}`}
+            fill="none"
+            stroke="#e91e63"
+            strokeWidth={ilw}
+            strokeDasharray={`${cW * 0.02 / z},${cW * 0.01 / z}`}
+            opacity={0.85}
+          />
+        );
+      })()}
       )}
 
       {/* Sample point indicators along each edge */}

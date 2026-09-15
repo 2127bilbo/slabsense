@@ -915,13 +915,14 @@ export function PostCaptureCentering({
             {/* STEP 1: Edge mode - outer boundary only */}
             {step === 1 && measureMode === 'edge' && (
               <>
+                {/* Stroke drawn OUTSIDE the coordinate: its inside edge is the crop line; radius keeps the card radius on that inside edge */}
                 <rect
-                  x={outer.left}
-                  y={outer.top}
-                  width={cW}
-                  height={cH}
-                  rx={cW * 0.048}
-                  ry={cW * 0.048}
+                  x={outer.left - lw / 2}
+                  y={outer.top - lw / 2}
+                  width={cW + lw}
+                  height={cH + lw}
+                  rx={cW * 0.048 + lw / 2}
+                  ry={cW * 0.048 + lw / 2}
                   fill="none"
                   stroke="#ff9944"
                   strokeWidth={lw}
@@ -985,11 +986,12 @@ export function PostCaptureCentering({
                   opacity={0.3}
                 />
                 {/* Draggable inner boundary */}
+                {/* Stroke drawn INSIDE the coordinate: its outside edge is the measured art line */}
                 <rect
-                  x={inner.left}
-                  y={inner.top}
-                  width={inner.right - inner.left}
-                  height={inner.bottom - inner.top}
+                  x={inner.left + Math.max(1.5 / view.z, lw * 0.8) / 2}
+                  y={inner.top + Math.max(1.5 / view.z, lw * 0.8) / 2}
+                  width={inner.right - inner.left - Math.max(1.5 / view.z, lw * 0.8)}
+                  height={inner.bottom - inner.top - Math.max(1.5 / view.z, lw * 0.8)}
                   fill="none"
                   stroke="#00ff88"
                   strokeWidth={Math.max(1.5 / view.z, lw * 0.8)}
