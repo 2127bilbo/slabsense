@@ -151,67 +151,6 @@ async function analyzePhotoQuality(imageSrc) {
 }
 
 
-/* ═══════════════════════════════════════════
-   LOCAL TRAINING DATA — localStorage
-   Saves/loads manual boundary corrections
-   keyed by card type (holo/std)
-   ═══════════════════════════════════════════ */
-function saveTrainingBounds(result, outer, inner) {
-  try {
-    const isHolo = result.surface?.isHolo;
-    const key = `tg-bounds-${isHolo ? 'holo' : 'std'}`;
-    const existing = JSON.parse(localStorage.getItem(key) || 'null');
-    const imgW = result.imgW || 1400, imgH = result.imgH || 1960;
-    const cW = outer.right - outer.left, cH = outer.bottom - outer.top;
-    const entry = {
-      outerPct: { left: outer.left/imgW, right: outer.right/imgW, top: outer.top/imgH, bottom: outer.bottom/imgH },
-      innerOffPct: {
-        left: (inner.left - outer.left)/cW, right: (outer.right - inner.right)/cW,
-        top: (inner.top - outer.top)/cH, bottom: (outer.bottom - inner.bottom)/cH,
-      },
-      count: (existing?.count || 0) + 1,
-    };
-    // Weighted average with existing data
-    if (existing?.count > 0) {
-      const w1 = Math.min(existing.count, 5), w2 = 1, tot = w1 + w2;
-      for (const k of ['left','right','top','bottom']) {
-        entry.outerPct[k] = (existing.outerPct[k]*w1 + entry.outerPct[k]) / tot;
-        entry.innerOffPct[k] = (existing.innerOffPct[k]*w1 + entry.innerOffPct[k]) / tot;
-      }
-    }
-    localStorage.setItem(key, JSON.stringify(entry));
-    return true;
-  } catch(e) { return false; }
-}
-
-function loadTrainingBounds(isHolo, imgW, imgH) {
-  try {
-    const key = `tg-bounds-${isHolo ? 'holo' : 'std'}`;
-    const saved = JSON.parse(localStorage.getItem(key) || 'null');
-    if (!saved || saved.count < 2) return null;
-    const cW = (saved.outerPct.right - saved.outerPct.left) * imgW;
-    const cH = (saved.outerPct.bottom - saved.outerPct.top) * imgH;
-    return {
-      outer: {
-        left: Math.round(saved.outerPct.left * imgW), right: Math.round(saved.outerPct.right * imgW),
-        top: Math.round(saved.outerPct.top * imgH), bottom: Math.round(saved.outerPct.bottom * imgH),
-      },
-      inner: {
-        left: Math.round(saved.outerPct.left*imgW + saved.innerOffPct.left*cW),
-        right: Math.round(saved.outerPct.right*imgW - saved.innerOffPct.right*cW),
-        top: Math.round(saved.outerPct.top*imgH + saved.innerOffPct.top*cH),
-        bottom: Math.round(saved.outerPct.bottom*imgH - saved.innerOffPct.bottom*cH),
-      },
-    };
-  } catch(e) { return null; }
-}
-
-
-
-/* ═══════════════════════════════════════════
-   SURFACE VISION MAPS (genMaps imported from lib/image-utils.js)
-   ═══════════════════════════════════════════ */
-
 function cropReg(src,rg,mx=300){return new Promise(r=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>{const cx=Math.max(0,rg.x),cy=Math.max(0,rg.y),cw=Math.min(rg.w,img.width-cx),ch=Math.min(rg.h,img.height-cy);if(cw<=0||ch<=0){r(null);return;}const sc=Math.min(mx/cw,mx/ch,4);const c=document.createElement("canvas");c.width=~~(cw*sc);c.height=~~(ch*sc);const ctx=c.getContext("2d");ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";ctx.drawImage(img,cx,cy,cw,ch,0,0,c.width,c.height);r(c.toDataURL("image/png"));};img.src=src;});}
 
 /* ═══════════════════════════════════════════
@@ -1674,18 +1613,10 @@ export default function SlabSense(){
   const run=useCallback(async()=>{
     if(!fI||!bI)return; setStep(1);
     try{
-      // If user did manual centering during upload, use those bounds for analysis
-      let frontOverrideBounds = null, frontOverrideCentering = null;
-      let backOverrideBounds = null, backOverrideCentering = null;
+      // Manual centering from the tool overrides the measured ratios (the crop it made is analyzed below)
+      let frontOverrideCentering = null, backOverrideCentering = null;
 
       if (frontCenteringData?.didManualCenter) {
-        // Extract bounds from manual centering data
-        if (frontCenteringData.measureMode === 'corner' && frontCenteringData.outerCorners) {
-          const oc = frontCenteringData.outerCorners;
-          frontOverrideBounds = { left: oc.tl.x, right: oc.tr.x, top: oc.tl.y, bottom: oc.bl.y };
-        } else if (frontCenteringData.outer) {
-          frontOverrideBounds = frontCenteringData.outer;
-        }
         frontOverrideCentering = {
           lrRatio: frontCenteringData.lrRatio,
           tbRatio: frontCenteringData.tbRatio,
@@ -1697,12 +1628,6 @@ export default function SlabSense(){
       }
 
       if (backCenteringData?.didManualCenter) {
-        if (backCenteringData.measureMode === 'corner' && backCenteringData.outerCorners) {
-          const oc = backCenteringData.outerCorners;
-          backOverrideBounds = { left: oc.tl.x, right: oc.tr.x, top: oc.tl.y, bottom: oc.bl.y };
-        } else if (backCenteringData.outer) {
-          backOverrideBounds = backCenteringData.outer;
-        }
         backOverrideCentering = {
           lrRatio: backCenteringData.lrRatio,
           tbRatio: backCenteringData.tbRatio,
@@ -1718,13 +1643,13 @@ export default function SlabSense(){
       // The manual centering ratios still override analyzeCentering.
       const frontSrc = frontCroppedImage || fI;
       const backSrc  = backCroppedImage  || bI;
-      setProg(frontCroppedImage ? "Analyzing cropped card (front)..." : frontOverrideBounds ? "Analyzing with manual bounds (front)..." : "Detecting card bounds (front)...");
+      setProg(frontCroppedImage ? "Analyzing cropped card (front)..." : "Detecting card bounds (front)...");
       await new Promise(r=>setTimeout(r,30));
-      const fr=await analyzeCardFull(frontSrc,"front", frontCroppedImage ? null : frontOverrideBounds, frontOverrideCentering); setFR(fr);
+      const fr=await analyzeCardFull(frontSrc,"front", null, frontOverrideCentering); setFR(fr);
 
-      setProg(backCroppedImage ? "Analyzing cropped card (back)..." : backOverrideBounds ? "Analyzing with manual bounds (back)..." : "Detecting card bounds (back)...");
+      setProg(backCroppedImage ? "Analyzing cropped card (back)..." : "Detecting card bounds (back)...");
       await new Promise(r=>setTimeout(r,30));
-      const br=await analyzeCardFull(backSrc,"back", backCroppedImage ? null : backOverrideBounds, backOverrideCentering); setBR(br);
+      const br=await analyzeCardFull(backSrc,"back", null, backOverrideCentering); setBR(br);
 
       setProg(`Computing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
       const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;
@@ -3290,13 +3215,13 @@ export default function SlabSense(){
           {/* Manual editors: the capture-time centering tool, reopened with the saved points */}
           {manualMode==="front"&&fI&&(
             <PostCaptureCentering image={fI} side="front"
-              initial={frontCenteringData} initialCroppedImage={frontCroppedImage}
+              initial={frontCenteringData} initialCroppedImage={frontCroppedImage} initialMaps={fM}
               onConfirm={(result)=>handleTabCenteringConfirm("front",result)}
               onSkip={()=>setManualMode(null)} onCancel={()=>setManualMode(null)}/>
           )}
           {manualMode==="back"&&bI&&(
             <PostCaptureCentering image={bI} side="back"
-              initial={backCenteringData} initialCroppedImage={backCroppedImage}
+              initial={backCenteringData} initialCroppedImage={backCroppedImage} initialMaps={bM}
               onConfirm={(result)=>handleTabCenteringConfirm("back",result)}
               onSkip={()=>setManualMode(null)} onCancel={()=>setManualMode(null)}/>
           )}

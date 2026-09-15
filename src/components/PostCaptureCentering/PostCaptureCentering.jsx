@@ -35,6 +35,7 @@ export function PostCaptureCentering({
   onSkip,
   initial = null,             // centeringData from a previous confirm → reopen with the saved points
   initialCroppedImage = null, // the crop that went with `initial` (reopens straight at step 2)
+  initialMaps = null,         // genMaps() result for initialCroppedImage, so the vision views need no rebuild
   onCancel = null,            // when given, a Cancel button closes the tool without changes
 }) {
   // ═══════════════════════════════════════════
@@ -78,7 +79,7 @@ export function PostCaptureCentering({
   const [activeCorner, setActiveCorner] = useState(null);          // 'tl' | 'tr' | 'bl' | 'br' | null
   const [viewMode, setViewMode] = useState('original');            // 'original' | 'emboss' | 'highpass' | 'edges'
   const [viewIntensity, setViewIntensity] = useState(70);
-  const [maps, setMaps] = useState({});                            // { [imageSrc]: genMaps() result }
+  const [maps, setMaps] = useState(() => (initialCroppedImage && initialMaps ? { [initialCroppedImage]: initialMaps } : {})); // { [imageSrc]: genMaps() result }
   const [mapsBusy, setMapsBusy] = useState(false);
   const [dragPoint, setDragPoint] = useState(null);                // { x, y } in display coords while a handle is held
   const [dragAnchor, setDragAnchor] = useState(null);              // finger position in viewport px
