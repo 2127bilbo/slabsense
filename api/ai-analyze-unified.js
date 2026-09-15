@@ -17,6 +17,9 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@supabase/supabase-js';
+import { requireUser, AuthError, sendAuthError } from './_lib/auth.js';
+import { runGradeJob, captureHandler } from './_lib/gradeJobs.js';
 import {
   DETECTION_SYSTEM,
   buildDetectionPrompt,
@@ -30,16 +33,10 @@ const anthropic = new Anthropic({
 
 const DIRECT_MODEL = 'claude-opus-4-5-20251101';
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-  maxDuration: 90,
-};
+export const config = { maxDuration: 120 };
 
-export default async function handler(req, res) {
+/** The analysis proper. Not exported as the route: see handler() at the bottom. */
+async function analyzeHandler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -208,5 +205,37 @@ export default async function handler(req, res) {
       error: 'Analysis failed',
       message: error.message,
     });
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PUBLIC HANDLER — auth → spend credit → job row → analysis → result / refund
+// (api/_lib/gradeJobs.js). The analysis itself is analyzeHandler above.
+// ═════════════════════════════════════════════════════════════════════════════
+const jobsDb = createClient(
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  let user;
+  try { user = await requireUser({ db: jobsDb }, req); }
+  catch (e) { if (e instanceof AuthError) return sendAuthError(res, e); throw e; }
+
+  try {
+    const { status, body } = await runGradeJob({
+      db: jobsDb, user, gradeType: 'ai', body: req.body || {},
+      run: () => captureHandler(analyzeHandler, req),
+    });
+    return res.status(status).json(body);
+  } catch (error) {
+    console.error('[AI-Unified] job wrapper error:', error);
+    return res.status(500).json({ error: 'Analysis failed', message: error.message });
   }
 }

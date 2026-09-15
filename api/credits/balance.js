@@ -1,13 +1,12 @@
 /**
- * Get User Credit Balance
- * Returns current credits, expiration, and subscription status
+ * GET/POST /api/credits/balance
+ * Returns the authenticated user's credits, expiration, and subscription status.
+ * The user comes from the Supabase JWT; a userId in the query/body must match it.
  */
-
 import { createClient } from '@supabase/supabase-js';
+import { requireUser, AuthError, sendAuthError } from '../_lib/auth.js';
 
-export const config = {
-  maxDuration: 10,
-};
+export const config = { maxDuration: 10 };
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -15,27 +14,18 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const userId = req.query.userId || req.body?.userId;
+    const user = await requireUser({ db: supabase }, req);
+    const requested = req.query?.userId || req.body?.userId;
+    if (requested && requested !== user.id) return res.status(403).json({ error: 'forbidden' });
+    const userId = user.id;
 
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID required' });
-    }
-
-    // Get user profile
     const { data: profile, error } = await supabase
       .from('profiles')
       .select(`
@@ -49,27 +39,16 @@ export default async function handler(req, res) {
       `)
       .eq('id', userId)
       .single();
+    if (error || !profile) return res.status(404).json({ error: 'User not found' });
 
-    if (error || !profile) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Check if credits are expired
     let balance = profile.credits_balance || 0;
     const expiresAt = profile.credits_expire_at ? new Date(profile.credits_expire_at) : null;
     const now = new Date();
 
-    if (expiresAt && expiresAt < now) {
-      // Credits expired - zero out balance
+    if (expiresAt && expiresAt < now && balance > 0) {
+      // Credits expired: zero the balance once and log it
       balance = 0;
-
-      // Update in database
-      await supabase
-        .from('profiles')
-        .update({ credits_balance: 0 })
-        .eq('id', userId);
-
-      // Log expiration
+      await supabase.from('profiles').update({ credits_balance: 0 }).eq('id', userId);
       await supabase.from('credit_transactions').insert({
         user_id: userId,
         amount: -(profile.credits_balance || 0),
@@ -78,13 +57,9 @@ export default async function handler(req, res) {
       });
     }
 
-    // Calculate days until expiration
     let daysUntilExpiry = null;
-    if (expiresAt && expiresAt > now) {
-      daysUntilExpiry = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
-    }
+    if (expiresAt && expiresAt > now) daysUntilExpiry = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
 
-    // Determine tier limits
     const isLifetime = ['lifetime', 'beta_lifetime'].includes(profile.subscription_status);
     const isFree = profile.subscription_status === 'free';
     const cardLimit = isFree ? 5 : null; // null = unlimited
@@ -104,12 +79,9 @@ export default async function handler(req, res) {
       isLifetime,
       canUseAI: !isFree || isLifetime,
     });
-
   } catch (error) {
+    if (error instanceof AuthError) return sendAuthError(res, error);
     console.error('[Balance] Error:', error);
-    return res.status(500).json({
-      error: 'Failed to get balance',
-      message: error.message,
-    });
+    return res.status(500).json({ error: 'Failed to get balance', message: error.message });
   }
 }

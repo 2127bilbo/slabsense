@@ -1,22 +1,29 @@
 /**
  * Credits Service
- * Handles credit balance, spending, and purchases
+ * Balance, purchases, and the read side of AI grade jobs. Every request carries the
+ * user's Supabase JWT; the server derives the user from it (a userId in the body must match).
+ * Spending and refunding for grades happen SERVER-SIDE inside the grade endpoints now
+ * (api/_lib/gradeJobs.js) — the client no longer calls spend/refund for grading.
  */
+import { supabase } from './supabase.js';
+import { GRADE_TIERS } from '../lib/grade-tiers.js';
 
-const API_BASE = import.meta.env.PROD ? '' : '';
+const API_BASE = '';
+
+async function authHeaders() {
+  if (!supabase) return {};
+  const { data: { session } } = await supabase.auth.getSession();
+  return session ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
 
 /**
  * Get user's credit balance and subscription info
  */
 export async function getCreditsBalance(userId) {
   try {
-    const response = await fetch(`${API_BASE}/api/credits/balance?userId=${userId}`);
+    const response = await fetch(`${API_BASE}/api/credits/balance?userId=${encodeURIComponent(userId)}`, { headers: await authHeaders() });
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to get balance');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to get balance');
     return data;
   } catch (error) {
     console.error('[Credits] Balance error:', error);
@@ -25,64 +32,39 @@ export async function getCreditsBalance(userId) {
 }
 
 /**
- * Spend credits for grading
- * @param {string} userId
+ * Spend credits (kept for non-grade uses; grade endpoints spend for themselves)
  * @param {'ai' | 'deep'} gradeType
- * @param {string} scanId - Optional scan ID for tracking
- * @returns {Promise<{success: boolean, creditsSpent: number, creditsRemaining: number, transactionId: string}>}
  */
 export async function spendCredits(userId, gradeType, scanId = null) {
   try {
     const response = await fetch(`${API_BASE}/api/credits/spend`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({ userId, gradeType, scanId }),
     });
-
     const data = await response.json();
-
     if (!response.ok) {
-      // Return error info for UI handling
-      return {
-        success: false,
-        error: data.error,
-        message: data.message,
-        creditsRequired: data.creditsRequired,
-        creditsRemaining: data.creditsRemaining,
-      };
+      return { success: false, error: data.error, message: data.message, creditsRequired: data.creditsRequired, creditsRemaining: data.creditsRemaining };
     }
-
-    return {
-      success: true,
-      ...data,
-    };
+    return { success: true, ...data };
   } catch (error) {
     console.error('[Credits] Spend error:', error);
-    return {
-      success: false,
-      error: 'Network error',
-      message: 'Failed to connect to server',
-    };
+    return { success: false, error: 'Network error', message: 'Failed to connect to server' };
   }
 }
 
 /**
- * Refund credits (called when AI grading fails)
+ * Refund one grade transaction (idempotent server-side)
  */
-export async function refundCredits(userId, transactionId, amount = null, reason = null) {
+export async function refundCredits(userId, transactionId, reason = null) {
   try {
     const response = await fetch(`${API_BASE}/api/credits/refund`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, transactionId, amount, reason }),
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({ userId, transactionId, reason }),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to refund');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to refund');
     return data;
   } catch (error) {
     console.error('[Credits] Refund error:', error);
@@ -91,8 +73,22 @@ export async function refundCredits(userId, transactionId, amount = null, reason
 }
 
 /**
+ * Read one AI grade job (own jobs only, via RLS). Returns null when missing or not readable.
+ * @returns {Promise<null | { id, status: 'queued'|'running'|'done'|'error', grade_type, card_key, request, result, error, created_at, finished_at }>}
+ */
+export async function getGradeJob(jobId) {
+  if (!supabase || !jobId) return null;
+  const { data, error } = await supabase
+    .from('ai_grade_jobs')
+    .select('id, status, grade_type, card_key, request, result, error, created_at, finished_at')
+    .eq('id', jobId)
+    .maybeSingle();
+  if (error) { console.warn('[Credits] getGradeJob:', error.message); return null; }
+  return data || null;
+}
+
+/**
  * Create checkout session for purchase
- * @param {string} userId
  * @param {string} priceKey - 'trial', 'hobby', 'pro', 'dealer', 'single', 'pack_10', etc.
  * @param {number} quantity - For singles only
  */
@@ -100,7 +96,7 @@ export async function createCheckout(userId, priceKey, quantity = 1) {
   try {
     const response = await fetch(`${API_BASE}/api/stripe/create-checkout`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({
         userId,
         priceKey,
@@ -109,13 +105,8 @@ export async function createCheckout(userId, priceKey, quantity = 1) {
         cancelUrl: `${window.location.origin}/billing?canceled=true`,
       }),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to create checkout');
-    }
-
+    if (!response.ok) throw new Error(data.error || 'Failed to create checkout');
     return data;
   } catch (error) {
     console.error('[Credits] Checkout error:', error);
@@ -130,20 +121,11 @@ export async function openCustomerPortal(userId) {
   try {
     const response = await fetch(`${API_BASE}/api/stripe/create-portal`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId,
-        returnUrl: `${window.location.origin}/settings`,
-      }),
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({ userId, returnUrl: `${window.location.origin}/settings` }),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to open portal');
-    }
-
-    // Redirect to Stripe portal
+    if (!response.ok) throw new Error(data.error || 'Failed to open portal');
     window.location.href = data.url;
   } catch (error) {
     console.error('[Credits] Portal error:', error);
@@ -151,13 +133,8 @@ export async function openCustomerPortal(userId) {
   }
 }
 
-/**
- * Credit costs for display
- */
-export const CREDIT_COSTS = {
-  ai: 1,
-  deep: 2,
-};
+/** Credit costs for display — single source: src/lib/grade-tiers.js */
+export const CREDIT_COSTS = { ai: GRADE_TIERS.ai.credits, deep: GRADE_TIERS.deep.credits };
 
 /**
  * Subscription tier info for display

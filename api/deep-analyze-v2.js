@@ -29,8 +29,14 @@ import {
   parseDetection,
   sanitizeDefects,
   assembleUnifiedOutput,
+  mergeStructural,
 } from './_lib/detectionPrompt.js';
 import { gradeCard } from '../src/lib/gradingEngine.js';
+import { requireUser, AuthError, sendAuthError } from './_lib/auth.js';
+import { runGradeJob, captureHandler } from './_lib/gradeJobs.js';
+
+// Two sequential vision calls + a reference query: needs far more than the platform default.
+export const config = { maxDuration: 300 };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MULTI-PROVIDER CONFIGURATION
@@ -87,26 +93,24 @@ async function getReferences(estimatedGrade, cardType = 'modern_holo') {
     targetGrades.unshift(10);
   }
 
+  // One round-trip for every band (was one query per grade, up to 14 sequential awaits)
   const references = [];
-
-  for (const grade of targetGrades) {
-    const { data, error } = await supabase
-      .from('graded_references')
-      .select('*')
-      .eq('grade_numeric', grade)
-      .order('defect_count', { ascending: true })
-      .limit(3);
-
-    if (error) {
-      console.error('[DeepAnalyzeV3] Reference query error for grade', grade, ':', error.message);
-      continue;
+  const { data: rows, error } = await supabase
+    .from('graded_references')
+    .select('*')
+    .in('grade_numeric', targetGrades)
+    .order('defect_count', { ascending: true });
+  if (error) {
+    console.error('[DeepAnalyzeV3] Reference query error:', error.message);
+  } else {
+    for (const grade of targetGrades) {
+      const data = (rows || []).filter((r) => Number(r.grade_numeric) === grade).slice(0, 3);
+      if (data.length > 0) {
+        const sameType = data.filter((d) => d.card_type === cardType);
+        references.push(...(sameType.length > 0 ? sameType.slice(0, 2) : data.slice(0, 2)));
+      }
+      if (references.length >= 7) break;
     }
-    if (data && data.length > 0) {
-      const sameType = data.filter((d) => d.card_type === cardType);
-      const toAdd = sameType.length > 0 ? sameType.slice(0, 2) : data.slice(0, 2);
-      references.push(...toAdd);
-    }
-    if (references.length >= 7) break;
   }
 
   if (references.length === 0) {
@@ -132,7 +136,8 @@ function enginePreview(detection, centering) {
 // ============================================================================
 // Main Handler
 // ============================================================================
-export default async function handler(req, res) {
+/** The analysis proper. Not exported as the route: see handler() at the bottom. */
+async function analyzeHandler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -222,7 +227,7 @@ export default async function handler(req, res) {
       systemPrompt: DETECTION_SYSTEM,
       userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout }),
       images: imageUrls,
-      maxTokens: 1500,
+      maxTokens: 3000, // the prompt asks for a full prose inspection before the JSON; 1500 truncated it
       temperature: 0.1,
     });
 
@@ -234,7 +239,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const pass1Detection = pass1Result.parsed || parseDetection(pass1Result.text);
+    const pass1Detection = parseDetection(pass1Result.text);
     if (!pass1Detection) {
       return res.status(500).json({ error: 'Failed to parse Pass 1 detection', raw: pass1Result.text });
     }
@@ -293,7 +298,7 @@ export default async function handler(req, res) {
           provider: primaryProvider,
         });
       }
-      finalDetection = pass2Result.parsed || parseDetection(pass2Result.text);
+      finalDetection = parseDetection(pass2Result.text);
       if (!finalDetection) {
         return res.status(500).json({ error: 'Failed to parse Pass 2 detection', raw: pass2Result.text });
       }
@@ -311,8 +316,8 @@ export default async function handler(req, res) {
         callProvider(secondaryProvider, pass2Options),
       ]);
 
-      const det1 = result1.parsed || parseDetection(result1.text);
-      const det2 = result2.parsed || parseDetection(result2.text);
+      const det1 = parseDetection(result1.text);
+      const det2 = parseDetection(result2.text);
 
       multiProviderResults = {
         [primaryProvider]: det1 ? { detection: det1, enginePreview: enginePreview(det1, centering) } : null,
@@ -329,7 +334,7 @@ export default async function handler(req, res) {
       console.log(`[DeepAnalyzeV3] Sequential mode: ${primaryProvider} → ${secondaryProvider}`);
 
       const result1 = await callProvider(primaryProvider, pass2Options);
-      const det1 = result1.parsed || parseDetection(result1.text);
+      const det1 = parseDetection(result1.text);
 
       // Validator gets the primary's defect list as priorFindings to verify
       const result2 = await callProvider(secondaryProvider, {
@@ -342,7 +347,7 @@ export default async function handler(req, res) {
           priorFindings: det1 ? { imageQuality: det1.imageQuality, defects: sanitizeDefects(det1.defects) } : null,
         }),
       });
-      const det2 = result2.parsed || parseDetection(result2.text);
+      const det2 = parseDetection(result2.text);
 
       multiProviderResults = {
         [primaryProvider]: det1 ? { detection: det1, enginePreview: enginePreview(det1, centering) } : null,
@@ -362,8 +367,8 @@ export default async function handler(req, res) {
         callProvider(primaryProvider, pass2Options),
         callProvider(secondaryProvider, pass2Options),
       ]);
-      const det1 = result1.parsed || parseDetection(result1.text);
-      const det2 = result2.parsed || parseDetection(result2.text);
+      const det1 = parseDetection(result1.text);
+      const det2 = parseDetection(result2.text);
 
       const synthesisPrompt = `Two independent inspectors examined the same card. Merge their defect lists into ONE most-accurate list.
 
@@ -386,7 +391,7 @@ ${JSON.stringify(det2 ? { imageQuality: det2.imageQuality, defects: sanitizeDefe
         maxTokens: 3000,
         temperature: 0.1,
       });
-      const detSynth = synthesisResult.parsed || parseDetection(synthesisResult.text);
+      const detSynth = parseDetection(synthesisResult.text);
 
       multiProviderResults = {
         [primaryProvider]: det1 ? { detection: det1, enginePreview: enginePreview(det1, centering) } : null,
@@ -399,6 +404,9 @@ ${JSON.stringify(det2 ? { imageQuality: det2.imageQuality, defects: sanitizeDefe
     if (!finalDetection) {
       return res.status(500).json({ error: 'Failed to get final detection from any provider' });
     }
+
+    // Structural damage found in pass 1 survives pass 2 (severity may only go up)
+    finalDetection = { ...finalDetection, defects: mergeStructural(pass1Defects, sanitizeDefects(finalDetection.defects)) };
 
     // DEBUG: Log final AI defects before engine grading
     console.log('[DeepAnalyzeV3] Final AI defects:', JSON.stringify(finalDetection.defects, null, 2));
@@ -475,5 +483,37 @@ ${JSON.stringify(det2 ? { imageQuality: det2.imageQuality, defects: sanitizeDefe
       error: 'Analysis failed',
       details: error.message,
     });
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PUBLIC HANDLER — auth → spend credit → job row → analysis → result / refund
+// (api/_lib/gradeJobs.js). The analysis itself is analyzeHandler above.
+// ═════════════════════════════════════════════════════════════════════════════
+const jobsDb = createClient(
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  let user;
+  try { user = await requireUser({ db: jobsDb }, req); }
+  catch (e) { if (e instanceof AuthError) return sendAuthError(res, e); throw e; }
+
+  try {
+    const { status, body } = await runGradeJob({
+      db: jobsDb, user, gradeType: 'deep', body: req.body || {},
+      run: () => captureHandler(analyzeHandler, req),
+    });
+    return res.status(status).json(body);
+  } catch (error) {
+    console.error('[DeepAnalyzeV3] job wrapper error:', error);
+    return res.status(500).json({ error: 'Analysis failed', message: error.message });
   }
 }
