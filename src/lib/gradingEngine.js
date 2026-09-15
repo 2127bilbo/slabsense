@@ -350,8 +350,8 @@ const COMPANY_CENTERING = {
     [8, 15.0, 25.0], [7, 20.0, 30.0], [6, 25.0, 35.0], [5, Infinity, Infinity],
   ],
   cgc: [
-    [10, 5.0, 25.0], [9, 10.0, 40.0], [8, 15.0, 15.0], [7, 20.0, 20.0],
-    [6, Infinity, Infinity],
+    [10, 5.0, 25.0], [9, 10.0, 40.0], [8, 15.0, 40.0], [7.5, 15.0, 40.0], [7, 20.0, 40.0],
+    [6, 25.0, 40.0], [4.5, 35.0, 40.0], [3.5, 40.0, 40.0], [3, Infinity, Infinity],
   ],
   sgc: [
     [10, 5.0, 20.0], [9.5, 5.0, 5.0], [9, 10.0, 10.0], [8, 15.0, 15.0],
@@ -454,14 +454,36 @@ function convertCGC(merged, centering, defects) {
   };
   const base = Math.min(subs.corners, subs.edges, subs.surface);
   let grade = subs.centering >= base ? base : Math.max(subs.centering, base - 1.0);
-  const minors = defects.filter((d) => d.severity === 'minor').length;
-  const aboveMinor = defects.some((d) => sevRank[d.severity] >= 1);
-  if (grade >= 9.5 && (aboveMinor || minors > 1)) grade = 9;
-  // Any crease (either side) is structural: CGC caps at 7, severe or worse at 5
-  const creaseSev = Math.max(-1, ...defects.filter((d) => d.type === 'CREASE').map((d) => sevRank[d.severity]));
-  if (creaseSev >= 0) grade = Math.min(grade, 7);
-  if (creaseSev >= 2) grade = Math.min(grade, 5);
-  if (defects.some((d) => d.type === 'TEAR')) grade = Math.min(grade, 4);
+  // Source: docs/grading-research/sources/CGC_gradingscale_verbatim.md (cgccards.com, fetched 2026-09-15)
+  const sevOf = (type) => Math.max(-1, ...defects.filter((d) => d.type === type).map((d) => sevRank[d.severity]));
+  const countOf = (type, minSev = 0) => defects.filter((d) => d.type === type && sevRank[d.severity] >= minSev).length;
+  if (defects.length >= 1) grade = Math.min(grade, 9);                 // Gem Mint 10: perfect corners, no print spots, no surface flaws
+  if (defects.length >= 2) grade = Math.min(grade, 7.5);               // 8.5 / 8: "one of the following very minor flaws is allowed"
+  const minorCorners = countOf('CORNER');
+  if (minorCorners >= 2) grade = Math.min(grade, 7.5);                 // 7.5: touch of wear on two or three corners
+  if (minorCorners >= 3) grade = Math.min(grade, 7);                   // 7: three or more corners
+  const dinged = countOf('CORNER', 1);                                 // moderate = "dinged"
+  if (dinged >= 1) grade = Math.min(grade, 6.5);
+  if (dinged >= 2) grade = Math.min(grade, 5.5);
+  if (dinged >= 3) grade = Math.min(grade, 5);
+  if (sevOf('CORNER') >= 2) grade = Math.min(grade, 4.5);              // severe = rounding
+  if (sevOf('CORNER') >= 3) grade = Math.min(grade, 3.5);              // four rounded corners
+  if (sevOf('EDGE') >= 1) grade = Math.min(grade, 5.5);                // chipping on the edges
+  if (sevOf('EDGE') >= 2) grade = Math.min(grade, 3.5);                // moderate edge wear
+  if (sevOf('PRINT_DEFECT') >= 1) grade = Math.min(grade, 6.5);        // noticeable print spots
+  if (sevOf('SCRATCH') >= 1 || sevOf('DENT') >= 1 || sevOf('PIT') >= 1) grade = Math.min(grade, 4.5); // noticeable surface flaws
+  if (sevOf('SCRATCH') >= 2) grade = Math.min(grade, 3.5);
+  if (sevOf('STAIN') >= 0) grade = Math.min(grade, 6.5);               // light wax staining on the front acceptable at 6.5
+  if (sevOf('STAIN') >= 1) grade = Math.min(grade, 3.5);               // moderate staining
+  const creaseSev = sevOf('CREASE');
+  if (creaseSev >= 0) grade = Math.min(grade, 4.5);                    // 4.5: one light crease
+  if (countOf('CREASE') >= 2) grade = Math.min(grade, 4);              // 4: one or more light creases
+  if (creaseSev >= 1) grade = Math.min(grade, 3.5);                    // 3.5: one moderate crease
+  if (creaseSev >= 2) grade = Math.min(grade, 2.5);                    // 2.5 / 2: heavier creasing
+  if (creaseSev >= 3) grade = Math.min(grade, 1);                      // severe creasing that breaks the surface
+  if (sevOf('TEAR') >= 0) grade = Math.min(grade, 1.5);                // missing surface = catastrophic flaw
+  if (sevOf('TEAR') >= 2) grade = Math.min(grade, 1);
+  if (defects.some((d) => d.severity === 'extreme')) grade = Math.min(grade, 1.5);
   grade = snapDown(grade, ALLOWED_SUBGRADES.cgc);
   let label = CGC_LABELS[grade] ?? '';
   if (grade === 10) {

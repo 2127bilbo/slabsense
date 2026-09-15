@@ -81,6 +81,14 @@ Inventory for that session:
 - Progress: **PSA captured verbatim** → `docs/grading-research/sources/PSA_gradingstandards_verbatim.md`
   (live 2026-09-15 for Gem Mint 10, Wayback 2023 for the rest; psacard.com blocks scripted readers).
   Engine aligned 2026-09-15: PSA any crease ≤ 4 (was 6), severe ≤ 2; any corner wear ≤ 8, 3+ corners ≤ 7;
-  major tear → 1; centering rows for 4 → 1.5 added (85/15, 90/10). CGC next (owner), then BGS, SGC.
+  major tear → 1; centering rows for 4 → 1.5 added (85/15, 90/10).
+- **CGC captured verbatim** → `docs/grading-research/sources/CGC_gradingscale_verbatim.md` (cgccards.com,
+  2026-09-15). Engine aligned the same day: creases 4.5 / 4 / 3.5 / 2.5 / 1 by severity and count; corner,
+  edge, print, scratch and stain severities mapped to the grades that name them; centering rows per the page.
+  BGS and SGC next.
+- **Owner's instruction (2026-09-15):** once all four are lined out, DELETE every other data source for the
+  grading services (`docs/grading-research/*_STANDARDS.md`, `*_DEFECT_WEIGHTS.md`,
+  `ALL_GRADING_COMPANIES_REFERENCE.md`, `Grading Standards/`, the AI-fetched/forum material) and keep only the
+  verified `docs/grading-research/sources/*` captures. TAG DIG data stays (owner's own reports).
 
 Not done (noted): `GradeResultDisplay.jsx` is still imported but unrendered while the Grade tab hand-rolls three blocks; `cardType: 'modern_holo'` is still hard-coded for the Deep reference pool; a worker-based queue (and a "rush" credit tier) can sit on `ai_grade_jobs.status = 'queued'` later.

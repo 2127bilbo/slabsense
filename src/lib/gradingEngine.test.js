@@ -162,13 +162,23 @@ const threeCorners = gradeCard({
   defects: [{ side: 'FRONT', type: 'CORNER', severity: 'minor' }, { side: 'FRONT', type: 'CORNER', severity: 'minor' }, { side: 'BACK', type: 'CORNER', severity: 'minor' }],
 });
 check('Three frayed corners → PSA ≤ 7', threeCorners.companyGrades.psa.grade <= 7, true);
+check('One minor corner → CGC ≤ 9 but can still be 9 (four sharp corners, minor wear)', oneCorner.companyGrades.cgc.grade <= 9 && oneCorner.companyGrades.cgc.grade >= 8, true);
+check('Three minor corners → CGC ≤ 7', threeCorners.companyGrades.cgc.grade <= 7, true);
+const dingedCorner = gradeCard({
+  centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
+  defects: [{ side: 'FRONT', type: 'CORNER', severity: 'moderate' }],
+});
+check('One dinged corner → CGC ≤ 6.5', dingedCorner.companyGrades.cgc.grade <= 6.5, true);
+check('CGC centering: 72/28 front (dev 22) → 6 band', centeringSubgrade(22, 10, 'cgc') === 6, true);
+check('CGC centering: 62/38 front, 88/12 back → 8 band (back 90/10 carried down)', centeringSubgrade(12, 38, 'cgc') === 8, true);
 check('PSA centering: 88/12 front (dev 38) → subgrade 3 band, not 4', centeringSubgrade(38, 10, 'psa') === 3, true);
 const severeCrease = gradeCard({
   centering: { front: { lrRatio: 51.0, tbRatio: 50.0 }, back: { lrRatio: 51.0, tbRatio: 50.0 } },
   defects: [{ side: 'FRONT', type: 'CREASE', severity: 'severe' }],
 });
 check('Severe crease caps at 5', severeCrease.overall.grade <= 5 && severeCrease.overall.capsApplied.includes('CREASE_CAP_5'), true);
-check('Severe front crease → CGC ≤ 5', severeCrease.companyGrades.cgc.grade <= 5, true);
+check('Severe front crease → CGC ≤ 2.5 (heavier creasing)', severeCrease.companyGrades.cgc.grade <= 2.5, true);
+check('Minor crease → CGC ≤ 4.5 (one light crease first appears at 4.5)', minorCrease.companyGrades.cgc.grade <= 4.5, true);
 check('Minor crease → BGS ≤ 6 (was uncapped)', minorCrease.companyGrades.bgs.grade <= 6, true);
 check('Severe crease → BGS ≤ 4', severeCrease.companyGrades.bgs.grade <= 4, true);
 check('Severe crease → PSA ≤ 2 (several/heavy creases)', severeCrease.companyGrades.psa.grade <= 2, true);
