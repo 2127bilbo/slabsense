@@ -79,6 +79,7 @@ export function PostCaptureCentering({
   const [dragAnchor, setDragAnchor] = useState(null);              // finger position in viewport px
   const [undoCount, setUndoCount] = useState(0);
   const viewportRef = useRef(null);
+  const actionBarRef = useRef(null);
   const pointersRef = useRef(new Map());
   const gestureRef = useRef(null);
   const historyRef = useRef([]);
@@ -1034,11 +1035,18 @@ export function PostCaptureCentering({
             )}
           </svg>
           </div>
-          <div data-loupe="1" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            <div style={{ pointerEvents: 'auto', position: 'absolute', inset: 0, display: dragPoint ? 'block' : 'none' }}>
-              <Loupe src={displayImage} imgW={displayImgSize.w} imgH={displayImgSize.h} point={dragPoint} anchorScreen={dragAnchor} viewportSize={viewportSize()} />
-            </div>
-          </div>
+          {dragPoint && (() => {
+            const r = viewportRef.current?.getBoundingClientRect();
+            if (!r) return null;
+            // Visible part of the viewport: the page can scroll it partly off screen, and the
+            // sticky action bar covers the bottom of the screen.
+            const barTop = actionBarRef.current?.getBoundingClientRect().top ?? window.innerHeight;
+            const visible = { x0: Math.max(0, -r.left), y0: Math.max(0, -r.top), x1: Math.min(r.width, window.innerWidth - r.left), y1: Math.min(r.height, Math.min(window.innerHeight, barTop) - r.top) };
+            const stageCssPerDisplayPx = displayImgSize.w > 0 ? (r.width * view.z) / displayImgSize.w : 0.3;
+            return (
+              <Loupe src={displayImage} imgW={displayImgSize.w} imgH={displayImgSize.h} point={dragPoint} anchorScreen={dragAnchor} visible={visible} stageCssPerDisplayPx={stageCssPerDisplayPx} />
+            );
+          })()}
         </div>
 
         {/* Edge breakdown panel for corner mode Step 2 */}
@@ -1049,7 +1057,7 @@ export function PostCaptureCentering({
         )}
 
         {/* Action buttons */}
-        <div style={{
+        <div ref={actionBarRef} style={{
           position: 'sticky',
           bottom: 0,
           padding: '10px 12px',
