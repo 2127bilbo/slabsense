@@ -29,6 +29,10 @@
       "destination": "/studio.html"
     },
     {
+      "source": "/tcgdex-img/(.*)",
+      "destination": "https://assets.tcgdex.net/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

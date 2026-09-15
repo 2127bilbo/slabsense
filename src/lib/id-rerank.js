@@ -14,6 +14,13 @@ const CW = 1000, CH = 1400;
 const SW = CW, SY0 = Math.round(CH * 0.91), SH = CH - SY0; // bottom 9%
 const LUM = (d, i) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
 
+/**
+ * TCGDex reference images are fetched same-origin via /tcgdex-img (vercel.json rewrite, vite proxy):
+ * assets.tcgdex.net sends missing or duplicated CORS headers for some sets, which makes a
+ * crossOrigin <img> fail and would silently zero the pixel boost for those candidates.
+ */
+export const refImageUrl = (u) => String(u).replace(/^https:\/\/assets\.tcgdex\.net\//, '/tcgdex-img/');
+
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -95,7 +102,7 @@ export async function pixelBoosts(cropSrc, candidates, { concurrency = 4, qualit
     while (queue.length) {
       const c = queue.shift();
       try {
-        const { data: rd } = await cardPixels(`${c.image}/${quality}.webp`);
+        const { data: rd } = await cardPixels(refImageUrl(`${c.image}/${quality}.webp`));
         const feat = stripFeature(rd);
         boosts[c.id] = weight * Math.max(0, ncc(qf, { feat, boxes: inkBoxes(feat) }));
       } catch { boosts[c.id] = 0; }
