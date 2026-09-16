@@ -1,0 +1,30 @@
+"""Per-task table specs and the split/grade join (spec §6.1, §11)."""
+from __future__ import annotations
+
+from pathlib import Path
+
+import pandas as pd
+
+TASKS = {
+    "corners": {"table": "corners.parquet", "targets": ["score_angle", "score_fill", "score_fray"],
+                "key_cols": ["side", "corner"], "input_size": (384, 384), "long_side_horizontal": False},
+    "edges": {"table": "edges.parquet", "targets": ["score_fill", "score_fray"],
+              "key_cols": ["side", "edge"], "input_size": (1024, 192), "long_side_horizontal": True},
+}
+
+
+def load_task_table(task: str, dataset_dir: Path, splits_path: Path, split: str,
+                    limit_cards: int | None = None, seed: int = 42, allow_test: bool = False) -> pd.DataFrame:
+    if split == "test" and not allow_test:
+        raise ValueError("the test split is frozen; pass allow_test=True only from evaluate --final-eval")
+    spec = TASKS[task]
+    df = pd.read_parquet(Path(dataset_dir) / spec["table"])
+    splits = pd.read_parquet(splits_path)[["cert", "split"]]
+    grades = pd.read_parquet(Path(dataset_dir) / "manifest.parquet")[["cert", "grade_label"]]
+    df = df.merge(splits, on="cert", how="inner").merge(grades, on="cert", how="left")
+    df = df[df.split == split]
+    if limit_cards is not None:
+        certs = sorted(df.cert.unique())
+        keep = pd.Series(certs).sample(n=min(limit_cards, len(certs)), random_state=seed)
+        df = df[df.cert.isin(set(keep))]
+    return df.reset_index(drop=True)
