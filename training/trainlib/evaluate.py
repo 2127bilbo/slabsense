@@ -10,7 +10,7 @@ import torch
 from .config import load_config
 from .data import SCALE
 from .models import ScoreRegressor
-from .tables import TASKS, load_task_table
+from .tables import TASKS, filter_cached, load_task_table
 from .train import LOW_THRESHOLD, make_loader
 
 
@@ -54,6 +54,8 @@ def main(argv=None) -> Path:
     args = p.parse_args(argv)
     cfg = load_config(args.config); device = torch.device(args.device)
     df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, args.split, args.limit_cards, allow_test=args.final_eval)
+    df, dropped = filter_cached(df, cfg.cache_dir)
+    print(f"{args.split}: dropped {dropped} rows with no cached crop")
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     model = ScoreRegressor(ckpt["n_out"], ckpt["backbone"], pretrained=False)
     model.load_state_dict(ckpt["model"]); model.to(device)

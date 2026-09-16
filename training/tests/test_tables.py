@@ -1,5 +1,7 @@
+import pandas as pd
 import pytest
 
+from conftest import make_cache
 from trainlib import tables
 
 
@@ -35,3 +37,21 @@ def test_limit_cards_is_seeded_and_per_cert(tables):
     a = tables_mod().load_task_table("corners", ds, sp, "train", limit_cards=1, seed=3)
     b = tables_mod().load_task_table("corners", ds, sp, "train", limit_cards=1, seed=3)
     assert a.cert.nunique() == 1 and len(a) == 8 and set(a.cert) == set(b.cert)
+
+
+def test_filter_cached_drops_missing_crop_files(tables, tmp_path):
+    ds, sp = tables
+    df = pd.read_parquet(ds / "corners.parquet")
+    cache = make_cache(tmp_path, df, 32, 32)
+    (cache / df.crop_path.iloc[0]).unlink()
+    filtered, dropped = tables_mod().filter_cached(df, cache)
+    assert dropped == 1 and len(filtered) == len(df) - 1
+    assert df.crop_path.iloc[0] not in set(filtered.crop_path)
+
+
+def test_filter_cached_keeps_frame_unchanged_when_all_present(tables, tmp_path):
+    ds, sp = tables
+    df = pd.read_parquet(ds / "corners.parquet")
+    cache = make_cache(tmp_path, df, 32, 32)
+    filtered, dropped = tables_mod().filter_cached(df, cache)
+    assert dropped == 0 and len(filtered) == len(df)

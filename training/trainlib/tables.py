@@ -28,3 +28,11 @@ def load_task_table(task: str, dataset_dir: Path, splits_path: Path, split: str,
         keep = pd.Series(certs).sample(n=min(limit_cards, len(certs)), random_state=seed)
         df = df[df.cert.isin(set(keep))]
     return df.reset_index(drop=True)
+
+
+def filter_cached(df: pd.DataFrame, cache_dir: Path) -> tuple[pd.DataFrame, int]:
+    """Drop rows whose crop_path has no file under cache_dir (e.g. permanently missing upstream)."""
+    cache_dir = Path(cache_dir)
+    present = df.crop_path.map(lambda p: (cache_dir / p).exists())
+    dropped = int((~present).sum())
+    return df[present].reset_index(drop=True), dropped
