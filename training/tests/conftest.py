@@ -150,3 +150,25 @@ def make_surface_tables(tmp_path: Path):
 @pytest.fixture
 def surface_tables(tmp_path):
     return make_surface_tables(tmp_path)
+
+
+def make_tile_index(tmp_path: Path, n: int = 4, size: int = 128) -> tuple[Path, pd.DataFrame]:
+    """A tiny tile cache: n tiles of size×size gray with one dark rectangle each (label i%7+1) and an index."""
+    import json
+    cache = tmp_path / "cache"
+    out = cache / "tiles" / "train"; out.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for i in range(n):
+        arr = np.full((size, size, 3), 128, dtype=np.uint8)
+        x1, y1 = 10 + 5 * i, 20 + 3 * i
+        arr[y1:y1 + 30, x1:x1 + 40] = 20
+        view = "sfx" if i % 2 == 0 else "rgb"
+        name = f"C{i}_F_{view}_0_0.jpg"
+        Image.fromarray(arr).save(out / name, format="JPEG", quality=95, subsampling=0)
+        boxes = [] if i == n - 1 else [[i % 7 + 1, float(x1), float(y1), float(x1 + 40), float(y1 + 30)]]
+        rows.append({"tile_path": f"tiles/train/{name}", "cert": f"C{i}", "side": "F", "view": view,
+                     "grade_label": ["9 MINT", "1 POOR", "5 EXCELLENT", "7 NEAR MINT"][i % 4],
+                     "x0": 0, "y0": 0, "tile_w": size, "tile_h": size, "n_boxes": len(boxes), "boxes": json.dumps(boxes)})
+    idx = pd.DataFrame(rows)
+    idx.to_parquet(cache / "tiles" / "train.parquet", index=False)
+    return cache, idx
