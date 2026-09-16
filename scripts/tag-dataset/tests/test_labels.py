@@ -92,7 +92,10 @@ def test_ding_rows_uses_location_class_for_engine_type():
 # ── card row ──────────────────────────────────────────────────────────────
 def test_card_row_from_fixture(detail_fixture, score_fixture):
     row = labels.card_row("C1240631", detail_fixture, score_fixture)
-    assert list(row.keys()) == labels.MANIFEST_COLUMNS
+    # n_dings_unassigned is filled in by build.build after card_row returns, not by
+    # card_row itself, so it's the one MANIFEST_COLUMNS entry missing here.
+    assert list(row.keys()) == labels.MANIFEST_COLUMNS[:-1]
+    assert labels.MANIFEST_COLUMNS[-1] == "n_dings_unassigned"
     d = detail_fixture["data"]; s = score_fixture["data"]
     assert row["cert"] == "C1240631" and row["uuid"] == d["uuid"]
     assert row["grade_label"] == d["grade"]
@@ -336,3 +339,130 @@ def test_ding_rows_without_dimensions():
                                                 "Location": "LEFT", "LocationX": 10, "LocationY": 20}]}}}
     r = labels.ding_rows("X", detail)[0]
     assert r["side"] == "B" and r["engine_type"] == "SKIP" and math.isnan(r["w"]) and r["x"] == 0.01
+
+
+# ── slot targets ────────────────────────────────────────────────────────
+def test_ding_slot_position_wins_over_string_for_corner():
+    row = {"x": 0.02, "y": 0.97, "location": "TOP LEFT"}
+    assert labels.ding_slot(row, "corner") == "BL"
+
+
+def test_ding_slot_falls_back_to_string_when_position_missing():
+    row = {"x": float("nan"), "y": float("nan"), "location": "BOTTOMRIGHT"}
+    assert labels.ding_slot(row, "corner") == "BR"
+
+
+def test_ding_slot_edge_position_top():
+    assert labels.ding_slot({"x": 0.5, "y": 0.02, "location": "TOP LEFT"}, "edge") == "T"
+
+
+def test_ding_slot_edge_position_left():
+    assert labels.ding_slot({"x": 0.02, "y": 0.5, "location": "TOP LEFT"}, "edge") == "L"
+
+
+def test_ding_slot_edge_out_of_range_position_falls_back_to_string():
+    row = {"x": 2.5, "y": 0.5, "location": "MIDDLE RIGHT"}
+    assert labels.ding_slot(row, "edge") == "R"
+
+
+def test_ding_slot_unassigned_when_neither_position_nor_string_resolve():
+    row = {"x": float("nan"), "y": float("nan"), "location": "SOMEWHERE"}
+    assert labels.ding_slot(row, "corner") is None
+
+
+def _marker(side, engine_type, location, is_rollup, deduction):
+    return {"side": side, "engine_type": engine_type, "location": location, "is_rollup": is_rollup, "deduction": deduction}
+
+
+def _slot_ding(side, engine_type, x, y, location="?"):
+    return {"side": side, "engine_type": engine_type, "x": x, "y": y, "location": location}
+
+
+def test_slot_targets_prefers_rollup_over_constituents():
+    dings = [_slot_ding("F", "CORNER", 0.02, 0.02), _slot_ding("F", "CORNER", 0.03, 0.03)]
+    markers = [
+        _marker("F", "CORNER", "TL", True, 120.0),
+        _marker("F", "CORNER", "TL", False, 50.0),
+        _marker("F", "CORNER", "TL", False, 40.0),
+    ]
+    t = labels.slot_targets(markers, dings)
+    assert t[("F", "corner", "TL")] == {"ding_count": 2, "marker_deduction": 120.0, "marker_source": "rollup"}
+
+
+def test_slot_targets_sums_constituents_when_no_rollup():
+    markers = [_marker("F", "CORNER", "TR", False, 50.0), _marker("F", "CORNER", "TR", False, 40.0)]
+    t = labels.slot_targets(markers, [])
+    assert t[("F", "corner", "TR")] == {"ding_count": 0, "marker_deduction": 90.0, "marker_source": "constituent"}
+
+
+def test_slot_targets_ding_without_marker_leaves_deduction_unset():
+    dings = [_slot_ding("B", "CORNER", 0.98, 0.98)]
+    t = labels.slot_targets([], dings)
+    key = ("B", "corner", "BR")
+    assert t[key]["ding_count"] == 1
+    assert math.isnan(t[key]["marker_deduction"])
+    assert t[key]["marker_source"] is None
+
+
+def test_slot_targets_edge_markers_use_edge_kind():
+    markers = [_marker("F", "EDGE", "L", False, 30.0)]
+    t = labels.slot_targets(markers, [])
+    assert t[("F", "edge", "L")]["marker_source"] == "constituent"
+
+
+def test_slot_targets_edge_rollup_back_right_key():
+    markers = [_marker("B", "EDGE", "R", True, 15.0)]
+    t = labels.slot_targets(markers, [])
+    assert t[("B", "edge", "R")] == {"ding_count": 0, "marker_deduction": 15.0, "marker_source": "rollup"}
+
+
+def test_slot_targets_only_includes_slots_with_data():
+    assert labels.slot_targets([], []) == {}
+
+
+def test_corner_rows_with_targets_fills_columns(score_fixture):
+    targets = {("F", "corner", "TL"): {"ding_count": 2, "marker_deduction": 120.0, "marker_source": "rollup"}}
+    rows = labels.corner_rows("C1240631", score_fixture, targets)
+    ftl = next(r for r in rows if r["side"] == "F" and r["corner"] == "TL")
+    assert ftl["ding_count"] == 2 and ftl["marker_deduction"] == 120.0 and ftl["marker_source"] == "rollup"
+    other = next(r for r in rows if r["side"] == "F" and r["corner"] == "TR")
+    assert other["ding_count"] == 0 and math.isnan(other["marker_deduction"]) and other["marker_source"] is None
+
+
+def test_corner_rows_without_targets_ding_count_is_nan(score_fixture):
+    rows = labels.corner_rows("C1240631", score_fixture)
+    assert all(math.isnan(r["ding_count"]) for r in rows)
+    assert all(math.isnan(r["marker_deduction"]) and r["marker_source"] is None for r in rows)
+
+
+def test_corner_columns_end_with_slot_target_names():
+    assert labels.CORNER_COLUMNS[-3:] == ["ding_count", "marker_deduction", "marker_source"]
+
+
+def test_edge_columns_end_with_slot_target_names():
+    assert labels.EDGE_COLUMNS[-3:] == ["ding_count", "marker_deduction", "marker_source"]
+
+
+def test_edge_rows_with_and_without_targets(score_fixture):
+    targets = {("B", "edge", "R"): {"ding_count": 1, "marker_deduction": 15.0, "marker_source": "rollup"}}
+    rows = labels.edge_rows("C1240631", score_fixture, targets)
+    br = next(r for r in rows if r["side"] == "B" and r["edge"] == "R")
+    assert br["ding_count"] == 1 and br["marker_deduction"] == 15.0 and br["marker_source"] == "rollup"
+    other = next(r for r in rows if r["side"] == "B" and r["edge"] == "L")
+    assert other["ding_count"] == 0 and math.isnan(other["marker_deduction"]) and other["marker_source"] is None
+
+    rows_no_targets = labels.edge_rows("C1240631", score_fixture)
+    assert all(math.isnan(r["ding_count"]) for r in rows_no_targets)
+
+
+def test_unassigned_dings_counts_only_corner_edge_dings_without_a_slot():
+    dings = [
+        _slot_ding("F", "CORNER", float("nan"), float("nan"), location="SOMEWHERE"),  # unassigned
+        _slot_ding("F", "CORNER", 0.02, 0.02),                                        # assigned (TL)
+        _slot_ding("F", "SKIP", float("nan"), float("nan"), location="SOMEWHERE"),    # not corner/edge, ignored
+    ]
+    assert labels.unassigned_dings(dings) == 1
+
+
+def test_unassigned_dings_empty_list_is_zero():
+    assert labels.unassigned_dings([]) == 0

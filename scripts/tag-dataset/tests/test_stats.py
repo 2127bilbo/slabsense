@@ -123,3 +123,36 @@ def test_report_lists_worst_aspect_mismatches_sorted(tmp_path, detail_fixture, s
     tail = text.split("offending certs (cert, side, ratio), worst first:")[1]
     assert "OK1" not in tail
     assert tail.index("BAD_BIG") < tail.index("BAD_SMALL")
+
+
+# ── slot targets (corner/edge redesign Task 1) ────────────────────────────
+def test_report_slot_targets_section_present_and_last(tmp_path, detail_fixture, score_fixture):
+    out = _built(tmp_path, detail_fixture, score_fixture)
+    text = stats.report(out)
+    assert "== slot targets ==" in text
+    assert stats.SECTIONS[-1] == "== slot targets =="
+
+
+def test_report_slot_targets_reports_fixture_counts(tmp_path, detail_fixture, score_fixture):
+    """C1240631 has three back-side CORNER WEAR dings (TL/BL/BR), so at least one corner
+    slot must show ding_count > 0."""
+    out = _built(tmp_path, detail_fixture, score_fixture)
+    text = stats.report(out)
+    assert "corners: ding_count>0: " in text
+    n_positive = int(text.split("corners: ding_count>0: ")[1].split("/")[0])
+    assert n_positive >= 1
+    assert "edges: ding_count>0: " in text
+    assert "dings unassigned to a slot:" in text
+    assert "correlation(sum marker_deduction, 1000 - rollup_corners)" in text
+    assert "correlation(sum marker_deduction, 1000 - rollup_edges)" in text
+
+
+def test_report_slot_targets_handles_empty_dataset(tmp_path):
+    s = Store(str(tmp_path / "e.sqlite"))
+    out = tmp_path / "out"
+    build.build(s, str(out), splits_path=tmp_path / "s.parquet")
+    text = stats.report(str(out))
+    assert "== slot targets ==" in text
+    assert "corners: no rows" in text
+    assert "edges: no rows" in text
+    assert "dings unassigned to a slot: 0" in text

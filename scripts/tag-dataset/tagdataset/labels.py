@@ -75,6 +75,10 @@ MANIFEST_COLUMNS = [
     "path_front", "path_back", "path_sfx_front", "path_sfx_back",
     "path_sfx_front_annotated", "path_sfx_back_annotated",
     "n_files_uploaded", "n_files_unavailable",
+    # Filled in by build.build after card_row returns (not produced by card_row itself):
+    # count of this card's dings whose engine_type is CORNER/EDGE but that ding_slot could
+    # not assign to a slot (position out of range and the location string didn't match).
+    "n_dings_unassigned",
 ]
 
 
@@ -132,36 +136,55 @@ def card_row(cert: str, detail: dict, score: dict, store_counts: dict | None = N
 
 # ── corners / edges ──────────────────────────────────────────────────────
 CORNER_COLUMNS = ["cert", "side", "corner", "score_angle", "score_fill", "score_fray",
-                  "fill_px", "fray_px", "angle_deg", "crop_path"]
-EDGE_COLUMNS = ["cert", "side", "edge", "score_fill", "score_fray", "fill_px", "fray_px", "crop_path"]
+                  "fill_px", "fray_px", "angle_deg", "crop_path",
+                  "ding_count", "marker_deduction", "marker_source"]
+EDGE_COLUMNS = ["cert", "side", "edge", "score_fill", "score_fray", "fill_px", "fray_px", "crop_path",
+                "ding_count", "marker_deduction", "marker_source"]
 
 
-def corner_rows(cert: str, score: dict) -> list[dict]:
+def _slot_target_fields(targets: dict | None, key: tuple[str, str, str]) -> dict:
+    """Shared tail of corner_rows/edge_rows: look up the per-slot wear/deduction target for
+    `key` in `targets`. `targets is None` means the caller has no ding data at all for this
+    cert, so ding_count stays NaN (distinguishing "no ding data" from "no dings at this
+    slot"); `targets` given (even an empty dict) means absent slots get ding_count 0."""
+    if targets is None:
+        return {"ding_count": NAN, "marker_deduction": NAN, "marker_source": None}
+    t = targets.get(key)
+    if t is None:
+        return {"ding_count": 0, "marker_deduction": NAN, "marker_source": None}
+    return {"ding_count": t["ding_count"], "marker_deduction": t["marker_deduction"], "marker_source": t["marker_source"]}
+
+
+def corner_rows(cert: str, score: dict, targets: dict | None = None) -> list[dict]:
     s = (score or {}).get("data") or {}
     out = []
     for k in CORNER_KEYS:
         side, corner = k[0], k[1:]
-        out.append({
+        row = {
             "cert": cert, "side": side, "corner": corner,
             "score_angle": _num(s.get(f"score{k}CAngle")), "score_fill": _num(s.get(f"score{k}CFill")),
             "score_fray": _num(s.get(f"score{k}CFray")), "fill_px": _num(s.get(f"fill{k}Cpx")),
             "fray_px": _num(s.get(f"fray{k}Cpx")), "angle_deg": _num(s.get(f"angle{k}")),
             "crop_path": f"{PREFIX}/{cert}/corner_{k}.png",
-        })
+        }
+        row.update(_slot_target_fields(targets, (side, "corner", corner)))
+        out.append(row)
     return out
 
 
-def edge_rows(cert: str, score: dict) -> list[dict]:
+def edge_rows(cert: str, score: dict, targets: dict | None = None) -> list[dict]:
     s = (score or {}).get("data") or {}
     out = []
     for k in EDGE_KEYS:
         side, edge = k[0], k[1]
-        out.append({
+        row = {
             "cert": cert, "side": side, "edge": edge,
             "score_fill": _num(s.get(f"score{k}EFill")), "score_fray": _num(s.get(f"score{k}EFray")),
             "fill_px": _num(s.get(f"fill{k}Epx")), "fray_px": _num(s.get(f"fray{k}Epx")),
             "crop_path": f"{PREFIX}/{cert}/edge_{k}.png",
-        })
+        }
+        row.update(_slot_target_fields(targets, (side, "edge", edge)))
+        out.append(row)
     return out
 
 
@@ -285,3 +308,84 @@ def ding_rows(cert: str, detail: dict) -> list[dict]:
             "crop_path": f"{PREFIX}/{cert}/{name}",
         })
     return out
+
+
+# ── per-slot wear/deduction targets ─────────────────────────────────────
+_ENGINE_KIND = {"CORNER": "corner", "EDGE": "edge"}
+_POSITION_RANGE = (-0.05, 1.05)
+_DING_SLOT_STRINGS = {
+    "corner": {"TOPLEFT": "TL", "TOPRIGHT": "TR", "BOTTOMLEFT": "BL", "BOTTOMRIGHT": "BR"},
+    "edge": {"TOP": "T", "BOTTOM": "B", "LEFT": "L", "RIGHT": "R",
+             "TOPCENTER": "T", "BOTTOMCENTER": "B", "MIDDLELEFT": "L", "MIDDLERIGHT": "R"},
+}
+
+
+def _finite_in_range(v) -> bool:
+    try:
+        return not math.isnan(v) and _POSITION_RANGE[0] <= v <= _POSITION_RANGE[1]
+    except TypeError:
+        return False
+
+
+def ding_slot(row: dict, kind: str) -> str | None:
+    """Slot assignment for one ding (spec §Global Constraints): by pixel position when both
+    x and y are finite and within [-0.05, 1.05], else by the location string, else None
+    (unassigned)."""
+    x, y = row.get("x"), row.get("y")
+    if _finite_in_range(x) and _finite_in_range(y):
+        if kind == "corner":
+            return ("T" if y < 0.5 else "B") + ("L" if x < 0.5 else "R")
+        candidates = {"L": x, "R": 1 - x, "T": y, "B": 1 - y}
+        return min(candidates, key=candidates.get)
+    loc = "".join((row.get("location") or "").upper().split())
+    return _DING_SLOT_STRINGS.get(kind, {}).get(loc)
+
+
+def slot_targets(markers: list[dict], dings: list[dict]) -> dict[tuple[str, str, str], dict]:
+    """Per-slot wear (ding_count) and deduction (marker_deduction/marker_source) targets,
+    keyed by (side, kind, slot). Only slots with at least one ding or marker appear."""
+    groups: dict[tuple[str, str, str], dict] = {}
+
+    def group(key: tuple[str, str, str]) -> dict:
+        return groups.setdefault(key, {"ding_count": 0, "rollup": [], "constituent": []})
+
+    for m in markers:
+        kind = _ENGINE_KIND.get(m.get("engine_type"))
+        if kind is None:
+            continue
+        loc = m.get("location")
+        if loc not in (CORNER_LOCATIONS if kind == "corner" else EDGE_LOCATIONS):
+            continue
+        g = group((m["side"], kind, loc))
+        (g["rollup"] if m.get("is_rollup") else g["constituent"]).append(m.get("deduction"))
+
+    for d in dings:
+        kind = _ENGINE_KIND.get(d.get("engine_type"))
+        if kind is None:
+            continue
+        slot = ding_slot(d, kind)
+        if slot is None:
+            continue
+        group((d["side"], kind, slot))["ding_count"] += 1
+
+    out = {}
+    for key, g in groups.items():
+        if g["rollup"]:
+            marker_deduction, marker_source = sum(g["rollup"]), "rollup"
+        elif g["constituent"]:
+            marker_deduction, marker_source = sum(g["constituent"]), "constituent"
+        else:
+            marker_deduction, marker_source = NAN, None
+        out[key] = {"ding_count": g["ding_count"], "marker_deduction": marker_deduction, "marker_source": marker_source}
+    return out
+
+
+def unassigned_dings(dings: list[dict]) -> int:
+    """Count of dings whose engine_type is CORNER/EDGE but that ding_slot could not place
+    into a slot (used to fill the manifest's n_dings_unassigned column)."""
+    count = 0
+    for d in dings:
+        kind = _ENGINE_KIND.get(d.get("engine_type"))
+        if kind is not None and ding_slot(d, kind) is None:
+            count += 1
+    return count

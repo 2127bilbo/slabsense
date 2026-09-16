@@ -43,10 +43,13 @@ MANIFEST_SCHEMA = _schema(
         "path_sfx_front_annotated", "path_sfx_back_annotated",
     },
     bool_cols={"is_pristine"},
-    int_cols={"year", "n_dings", "n_markers_front", "n_markers_back", "n_files_uploaded", "n_files_unavailable"},
+    int_cols={"year", "n_dings", "n_markers_front", "n_markers_back", "n_files_uploaded", "n_files_unavailable",
+              "n_dings_unassigned"},
 )
-CORNER_SCHEMA = _schema(labels.CORNER_COLUMNS, string_cols={"cert", "side", "corner", "crop_path"})
-EDGE_SCHEMA = _schema(labels.EDGE_COLUMNS, string_cols={"cert", "side", "edge", "crop_path"})
+CORNER_SCHEMA = _schema(labels.CORNER_COLUMNS, string_cols={"cert", "side", "corner", "crop_path", "marker_source"},
+                        int_cols={"ding_count"})
+EDGE_SCHEMA = _schema(labels.EDGE_COLUMNS, string_cols={"cert", "side", "edge", "crop_path", "marker_source"},
+                      int_cols={"ding_count"})
 SURFACE_SCHEMA = _schema(
     labels.SURFACE_COLUMNS,
     string_cols={"cert", "side", "type_name", "subtype_name", "family", "engine_type", "location", "source"},
@@ -81,11 +84,16 @@ def build(store: Store, out_dir: str, seed: int = 42, splits_path: str | Path | 
     for cert, detail, score in store.iter_raw_ok():
         try:
             counts = {"uploaded": len(store.files_for(cert)), "unavailable": len(store.gone_files(cert))}
-            cards.append(labels.card_row(cert, detail, score, counts))
-            corners.extend(labels.corner_rows(cert, score))
-            edges.extend(labels.edge_rows(cert, score))
-            markers.extend(labels.surface_rows(cert, score))
-            dings.extend(labels.ding_rows(cert, detail))
+            row = labels.card_row(cert, detail, score, counts)
+            cert_markers = labels.surface_rows(cert, score)
+            cert_dings = labels.ding_rows(cert, detail)
+            targets = labels.slot_targets(cert_markers, cert_dings)
+            row["n_dings_unassigned"] = labels.unassigned_dings(cert_dings)
+            cards.append(row)
+            corners.extend(labels.corner_rows(cert, score, targets))
+            edges.extend(labels.edge_rows(cert, score, targets))
+            markers.extend(cert_markers)
+            dings.extend(cert_dings)
         except Exception as e:
             raise RuntimeError(f"cert {cert}: {e}") from e
 

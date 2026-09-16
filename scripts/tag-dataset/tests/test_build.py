@@ -140,3 +140,40 @@ def test_build_wraps_per_cert_error_with_cert_id(tmp_path, detail_fixture, score
         build.build(store, str(tmp_path / "out"), seed=1, splits_path=tmp_path / "s.parquet")
     assert "C1240631" in str(exc_info.value)
     assert "boom" in str(exc_info.value)
+
+
+# ── slot targets (corner/edge redesign Task 1) ────────────────────────────
+def test_build_fills_slot_target_columns_with_expected_dtypes(tmp_path, detail_fixture, score_fixture):
+    store = _store(tmp_path, detail_fixture, score_fixture)
+    out = tmp_path / "out"
+    build.build(store, str(out), seed=1, splits_path=tmp_path / "s.parquet")
+
+    corners = pd.read_parquet(out / "corners.parquet")
+    edges = pd.read_parquet(out / "edges.parquet")
+    assert corners.columns.tolist() == labels.CORNER_COLUMNS
+    assert edges.columns.tolist() == labels.EDGE_COLUMNS
+
+    # Every cert in the fixture store has ding data, so ding_count must never be NaN.
+    assert not corners.ding_count.isna().any()
+    assert not edges.ding_count.isna().any()
+    assert str(corners.ding_count.dtype) == "Int64"
+    assert str(corners.marker_deduction.dtype) == "float64"
+    assert str(corners.marker_source.dtype) == "string"
+    assert str(edges.ding_count.dtype) == "Int64"
+    assert str(edges.marker_deduction.dtype) == "float64"
+    assert str(edges.marker_source.dtype) == "string"
+
+    present_sources = set(corners.marker_source.dropna().unique()) | set(edges.marker_source.dropna().unique())
+    assert present_sources.issubset({"rollup", "constituent"})
+    # The fixture's back-side CORNER WEAR dings must land as positive corner slots.
+    assert (corners.ding_count > 0).any()
+
+
+def test_build_manifest_gains_n_dings_unassigned_column(tmp_path, detail_fixture, score_fixture):
+    store = _store(tmp_path, detail_fixture, score_fixture)
+    out = tmp_path / "out"
+    build.build(store, str(out), seed=1, splits_path=tmp_path / "s.parquet")
+    m = pd.read_parquet(out / "manifest.parquet")
+    assert list(m.columns) == labels.MANIFEST_COLUMNS
+    assert str(m.n_dings_unassigned.dtype) == "Int64"
+    assert (m.n_dings_unassigned >= 0).all()

@@ -75,14 +75,56 @@ were absorbed this way, and a file throttled more than 20 times is parked as a f
 
 `build` writes six cert-keyed parquet files to `data/dataset/` (all geometry is expressed as canvas fractions, i.e. divided by the annotation canvas width/height, not raw pixels), plus the authoritative copy of `splits.parquet` described below:
 
-- `manifest.parquet` — one row per card: identity (`cert`, `uuid`), grade (`grade_label`, `grade_num`, `grade_alias`, `is_pristine`, `date_graded`), card metadata (`era`, `year`, `brand`, `set_name`, `subset_name`, `card_name`, `card_number`), scores (`score_total`, the four `rollup_*` scores, `score_size`, `card_w_in`/`card_h_in`, `surface_front`/`surface_back`), centering (`dte_*` for each side/edge), image and annotation dimensions (`image_w`/`image_h` — the sfx image's own pixel dimensions, *not* the annotation canvas; `ann_front_w`/`ann_front_h`, `ann_back_w`/`ann_back_h` — the annotation canvas per side), counts (`n_dings`, `n_markers_front`, `n_markers_back`), bucket paths (`path_front`, `path_back`, `path_sfx_*`), and file completeness (`n_files_uploaded`, `n_files_unavailable`). Column dtypes are pinned (see `build.MANIFEST_SCHEMA` and friends) so they stay identical across builds regardless of which certs are present — e.g. `year` is always nullable `Int64`, never inferred as `float64` just because one build's certs all have a year.
-- `corners.parquet` — one row per card per corner (`cert`, `side`, `corner`): `score_angle`, `score_fill`, `score_fray`, `fill_px`, `fray_px`, `angle_deg`, `crop_path`.
-- `edges.parquet` — one row per card per edge (`cert`, `side`, `edge`): `score_fill`, `score_fray`, `fill_px`, `fray_px`, `crop_path`.
+- `manifest.parquet` — one row per card: identity (`cert`, `uuid`), grade (`grade_label`, `grade_num`, `grade_alias`, `is_pristine`, `date_graded`), card metadata (`era`, `year`, `brand`, `set_name`, `subset_name`, `card_name`, `card_number`), scores (`score_total`, the four `rollup_*` scores, `score_size`, `card_w_in`/`card_h_in`, `surface_front`/`surface_back`), centering (`dte_*` for each side/edge), image and annotation dimensions (`image_w`/`image_h` — the sfx image's own pixel dimensions, *not* the annotation canvas; `ann_front_w`/`ann_front_h`, `ann_back_w`/`ann_back_h` — the annotation canvas per side), counts (`n_dings`, `n_markers_front`, `n_markers_back`), bucket paths (`path_front`, `path_back`, `path_sfx_*`), file completeness (`n_files_uploaded`, `n_files_unavailable`), and `n_dings_unassigned` — the number of this card's CORNER/EDGE dings that `ding_slot` could not place into a slot (position out of range and the location string didn't match either; see "Per-slot wear and deduction targets" below). Column dtypes are pinned (see `build.MANIFEST_SCHEMA` and friends) so they stay identical across builds regardless of which certs are present — e.g. `year` is always nullable `Int64`, never inferred as `float64` just because one build's certs all have a year.
+- `corners.parquet` — one row per card per corner (`cert`, `side`, `corner`): `score_angle`, `score_fill`, `score_fray`, `fill_px`, `fray_px`, `angle_deg`, `crop_path`, plus the per-slot wear/deduction targets `ding_count`, `marker_deduction`, `marker_source` (see below).
+- `edges.parquet` — one row per card per edge (`cert`, `side`, `edge`): `score_fill`, `score_fray`, `fill_px`, `fray_px`, `crop_path`, plus the same `ding_count`, `marker_deduction`, `marker_source` targets.
 - `surface.parquet` — one row per surface marker (`cert`, `side`, `marker_id`): type (`type_name`, `subtype_name`, `family`, `engine_type`, an `is_rollup` flag for rollup-only markers), geometry as canvas fractions (`x`, `y`, `w`, `h`, plus `raw_w`/`raw_h` — the un-rotated fractions, equal to `w`/`h` except for a rotated Frame/Ellipse box where `w`/`h` are expanded to the rotated rectangle's axis-aligned bounding box — and raw-fraction endpoints `x1`/`y1`/`x2`/`y2`), `rotation_deg` (present for every marker; `0.0` when the source gave no rotation, not just for lines), and scoring (`deduction`, `deduction_raw`, `deduction_override`, `area`, `depth`, `white_scale`).
 - `dings.parquet` — one row per ding, kept separate from `surface.parquet` since dings come from the detail record's `dingsJSON` rather than the score record's annotations: `cert`, `side`, `ordering`, `type_name`, `engine_type`, `location`, pixel geometry (`px_x`, `px_y`, `px_w`, `px_h`) and the same geometry as canvas fractions (`x`, `y`, `w`, `h`), plus `crop_path`.
 - `splits.parquet` — one row per card (`cert`, `split`, `stratum`, `assigned_at`); frozen across rebuilds so a card's split never changes once assigned. The authoritative file is `splits/splits.parquet` (cwd-relative to `scripts/tag-dataset`), which is tracked and versioned in git; `build` also writes an identical copy to `data/dataset/splits.parquet` so `stats` keeps working unchanged. Pass `--splits path.parquet` (or `splits_path=` to `build.build()`) to use a different location.
 
 The `== canvas aspect check ==` section of `stats` compares each side's annotation canvas (`ann_*_w`/`ann_*_h`) to the card's single `image_w`/`image_h` — a training-time aspect check must instead read the real `sfx_*` pixel dimensions (from the image files themselves), since `image_w`/`image_h` are not guaranteed to match either side's canvas.
+
+### Per-slot wear and deduction targets
+
+`corners.parquet` and `edges.parquet` carry three columns computed per `(cert, side, slot)` from
+the same cert's `surface_rows` (markers) and `ding_rows` (dings), via `labels.slot_targets`:
+
+- `ding_count` (`Int64`) — how many dings of the matching kind (CORNER for `corners.parquet`,
+  EDGE for `edges.parquet`) landed at that slot. `0` when the card has ding data but none at
+  this slot; `NaN`/`<NA>` only when `slot_targets` was never computed for the row (not possible
+  from `build`, only from calling `labels.corner_rows`/`edge_rows` directly with `targets=None`).
+- `marker_deduction` (`float64`) — the slot's deduction magnitude: the sum of `deduction` over
+  rollup markers (`is_rollup`) at that slot if any exist, else the sum over non-rollup
+  ("constituent") markers at that slot if any, else `NaN`. Rollup is preferred because it is
+  TAG's own per-slot total and correlates more strongly with the rollup score.
+- `marker_source` (`string`, nullable) — `"rollup"`, `"constituent"`, or `null` matching which
+  case above produced `marker_deduction`.
+
+Slot assignment (`labels.ding_slot`, `labels.slot_targets`):
+
+- **Markers** land in a slot by their `location` field alone (`TL`/`TR`/`BL`/`BR` for corners,
+  `T`/`B`/`L`/`R` for edges); a marker whose `engine_type` isn't `CORNER`/`EDGE`, or whose
+  `location` isn't a valid slot for its kind, is ignored for slot targets (it still appears in
+  `surface.parquet` as normal).
+- **Dings** are assigned by pixel position first: when both `x` and `y` are finite and within
+  `[-0.05, 1.05]`, corners use `("T" if y < 0.5 else "B") + ("L" if x < 0.5 else "R")` and edges
+  use the argmin of `(x, 1-x, y, 1-y)` → `L, R, T, B`. Otherwise the free-text `location` string
+  is upper-cased and stripped of spaces and matched against `TOPLEFT/TOPRIGHT/BOTTOMLEFT/
+  BOTTOMRIGHT` (corners) or `TOP/BOTTOM/LEFT/RIGHT/TOPCENTER/BOTTOMCENTER/MIDDLELEFT/
+  MIDDLERIGHT` (edges). A ding that matches neither is unassigned; `build` counts these per
+  card into the manifest's `n_dings_unassigned` column (summed by `stats`).
+- A `(side, kind, slot)` key only appears in `slot_targets`'s result when at least one ding or
+  marker landed there; `corner_rows`/`edge_rows` fill every other slot with `ding_count 0`,
+  `marker_deduction NaN`, `marker_source None` once a `targets` dict (even an empty one) is
+  passed in.
+
+`stats`'s `== slot targets ==` section reports, per table: how many slots have `ding_count > 0`,
+how many have `marker_deduction` present broken down by `marker_source`, the count of
+unassigned dings, and the per-card Pearson correlation between the summed `marker_deduction`
+and `1000 - rollup_corners` (or `1000 - rollup_edges`) — restricted to cards that have at least
+one rollup-sourced marker of that kind, since a card with no rollup marker usually has no
+per-slot deduction data at all and would otherwise dilute the correlation with an uninformative
+zero.
 
 ### Using these for training
 
@@ -100,3 +142,4 @@ The `== canvas aspect check ==` section of `stats` compares each side's annotati
 | 2026-09-13 | rebuild after final-review fixes | 2,215 cards; splits 1,764 / 235 / 216 (494 new certs assigned, 1,721 existing assignments preserved); `splits/splits.parquet` now tracked | unmapped: 0 markers, 0 dings, 0 fallback pairs (12 subtype keys added); boxes out of range: 37 (centred min-box lines at the card edge; see stats) |
 | 2026-09-14 | build on the completed fetch | 27,751 cards → 222,008 corner rows, 222,008 edge rows, 320,864 markers (43,591 rollup), 113,621 dings; splits 22,202 / 2,790 / 2,759 assigned and frozen (25,536 new) | unmapped: 10 markers + 37 dings (GLOSS, PIN HOLE(S), TAPE, FRAMEMARKER_ESW_CSW ding type, SURFACE/SCRATCH(ES)); rotated markers 11,729 (3.7%); aspect mismatch 35 front / 52 back sides; boxes out of range 551; score_total on 3,010 cards. Images not yet downloaded for most cards. |
 | 2026-09-15 | full download + verify + rebuild | 27,751 cards complete in R2 (`verify --check-bucket`: 0 missing in every grade; 9,882 files unavailable upstream across 8,542 certs, almost all annotated surface images). Tables rebuilt: 222,008 corner / 222,008 edge rows, 320,864 markers, 113,621 dings; splits unchanged (0 new) | unmapped 0 / 0 / 0 fallbacks; 2,050 dings have no crop (2,043 have no image URL at TAG, 7 gone upstream); rotated markers 11,729 (7,679 expanded > 1%); boxes out of range 1,587 (expanded rotated boxes at card edges); aspect mismatch 35 front / 52 back sides |
+| 2026-09-16 | rebuild with per-slot wear/deduction targets (`ding_count`, `marker_deduction`, `marker_source` on `corners.parquet`/`edges.parquet`) | 27,751 cards, 222,008 corner rows, 222,008 edge rows unchanged; `splits_new: 0` (`splits/splits.parquet` untouched) | 10 dings unassigned to a slot; corners: `ding_count > 0` on 53,300/222,008 slots, `marker_deduction` present on 40,374 (29,900 rollup / 10,474 constituent), correlation(sum `marker_deduction`, `1000 - rollup_corners`) = 0.9019 over 9,947 cards with a rollup corner marker; edges: `ding_count > 0` on 20,221/222,008, `marker_deduction` present on 21,513 (13,691 rollup / 7,822 constituent), correlation = 0.7914 over 6,569 cards with a rollup edge marker |

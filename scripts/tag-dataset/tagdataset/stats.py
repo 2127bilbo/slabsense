@@ -12,6 +12,7 @@ SECTIONS = (
     "== markers by type_name ==", "== unmapped ==", "== nulls ==", "== score_total coverage ==",
     "== canvas aspect check ==", "== file completeness by grade ==", "== ding crops without upload ==",
     "== duplicates ==", "== markers with rotation ==", "== boxes out of range ==",
+    "== slot targets ==",
 )
 LABEL_NULL_COLUMNS = {
     "manifest": ["grade_label", "grade_num", "era", "rollup_centering", "rollup_corners", "rollup_edges",
@@ -138,6 +139,42 @@ def report(out_dir: str) -> str:
         lines.append(f"boxes out of range: {len(bad)}")
     else:
         lines.append("boxes out of range: 0")
+
+    lines.append(SECTIONS[13])
+    unassigned = int(m.n_dings_unassigned.sum()) if len(m) and "n_dings_unassigned" in m.columns else 0
+    lines.append(f"dings unassigned to a slot: {unassigned}")
+    for name, rollup_col in (("corners", "rollup_corners"), ("edges", "rollup_edges")):
+        df = t[name]
+        if not len(df):
+            lines.append(f"{name}: no rows")
+            continue
+        n_wear = int((df.ding_count > 0).sum())
+        has_ded = df.marker_deduction.notna()
+        by_source = df.loc[has_ded, "marker_source"].fillna("None").value_counts().to_dict()
+        lines.append(f"{name}: ding_count>0: {n_wear}/{len(df)}; marker_deduction present: "
+                     f"{int(has_ded.sum())}/{len(df)} by source {by_source}")
+        # Restrict the correlation to cards that have at least one rollup-sourced slot in
+        # this table: a card with no rollup marker at all usually has no per-slot
+        # deduction data either (constituent-only or none), so its summed deduction is an
+        # uninformative 0 that would just dilute the correlation against a real deficit
+        # (this matches the plan's measured fact: 0.90 over the 9,947 cards with a rollup
+        # corner marker, not 0 over all 27,751 cards).
+        rollup_certs = df.loc[df.marker_source == "rollup", "cert"].unique()
+        sub = df[df.cert.isin(rollup_certs)]
+        per_card = sub.groupby("cert").marker_deduction.sum()
+        joined = per_card.to_frame("sum_deduction").merge(m[["cert", rollup_col]], on="cert", how="inner")
+        joined = joined.dropna(subset=[rollup_col])
+        inverted = 1000 - joined[rollup_col]
+        # Guard against a zero-variance side (e.g. a tiny fixture where every card has the
+        # same rollup score): pandas' corr() would otherwise divide by a zero stddev and
+        # numpy raises "invalid value encountered in divide" as a RuntimeWarning.
+        if len(joined) > 1 and joined["sum_deduction"].std() > 0 and inverted.std() > 0:
+            corr = joined["sum_deduction"].corr(inverted)
+            corr_str = f"{corr:.4f}"
+        else:
+            corr_str = "nan"
+        lines.append(f"{name}: correlation(sum marker_deduction, 1000 - {rollup_col}) = {corr_str} "
+                     f"(n={len(joined)} cards with a rollup {name[:-1]} marker)")
     return "\n".join(lines)
 
 
