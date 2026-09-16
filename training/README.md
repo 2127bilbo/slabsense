@@ -300,7 +300,9 @@ deduction (0–1000 points) for a given box's class and geometry. Reads
   0.002 of its best through epoch 8) but bought only half a point of AUROC,
   so the corner model is near what ConvNeXt-Tiny at 384 px extracts from
   these labels; the next lever is a larger backbone or input resolution, not
-  more regularization. Weights in `training/weights/corners/v2/`.
+  more regularization. Test split (read once): auroc_wear 0.9265,
+  precision/recall 0.718/0.735, mae_deduction 105.1, mae_angle 2.37 (v1 test:
+  0.9225 / 106.7 / 2.37). Weights in `training/weights/corners/v2/`.
 - **Edges v2 rejected, v1 stays.** Drop-path 0.1 + EMA + strong augmentation
   over 12 epochs: auroc_wear 0.883 vs v1 0.895, mae_deduction 170 vs 161,
   val loss 0.2054 vs 0.1965, still improving at epoch 12. Edges never
