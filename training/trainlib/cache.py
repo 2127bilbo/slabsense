@@ -25,6 +25,7 @@ def _fetch(reader, key: str, dest: Path) -> str:
 def build_cache(reader, keys: list[str], cache_dir: Path, workers: int = 16,
                 progress: Callable[[dict], None] | None = None) -> dict[str, int]:
     counts = {"downloaded": 0, "skipped": 0, "failed": 0}
+    keys = list(dict.fromkeys(keys))
     with ThreadPoolExecutor(max(1, workers)) as ex:
         futures = {ex.submit(_fetch, reader, k, cache_path(cache_dir, k)): k for k in keys}
         for f in as_completed(futures):

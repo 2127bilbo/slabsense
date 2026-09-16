@@ -55,7 +55,10 @@ def make_cache(tmp_path: Path, table: pd.DataFrame, w: int, h: int, vertical_for
     cache = tmp_path / "cache"
     for p in table.crop_path:
         dest = cache / p; dest.parent.mkdir(parents=True, exist_ok=True)
-        ww, hh = (h, w) if (vertical_for_lr and p[-6] in "LR") else (w, h)
+        stem = Path(p).stem
+        edge = stem[-1]
+        vertical = vertical_for_lr and stem.startswith("edge_") and edge in "LR"
+        ww, hh = (h, w) if vertical else (w, h)
         dest.write_bytes(png_bytes(ww, hh))
     return cache
 
