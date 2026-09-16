@@ -57,3 +57,7 @@ scripts/tag-dataset/tagdataset.egg-info/
 
 # card DB shard build output
 scripts/card-db/out/
+
+training/.venv/
+training/runs/
+training/config.toml

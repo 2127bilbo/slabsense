@@ -1,0 +1,10 @@
+[paths]
+dataset_dir = "../scripts/tag-dataset/data/dataset"
+splits_path = "../scripts/tag-dataset/splits/splits.parquet"
+cache_dir   = "../scripts/tag-dataset/data/cache"
+runs_dir    = "runs"
+weights_dir = "weights"
+
+[r2]
+# Same bucket the dataset package writes to. Credentials come from env B2_KEY_ID / B2_APP_KEY.
+config_toml = "../scripts/tag-dataset/config.toml"
