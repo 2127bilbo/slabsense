@@ -280,3 +280,119 @@ Accept v2 only if its val `ALL` row beats v1 on auroc_wear and
 mae_deduction; otherwise v1 stays the shipped model. The test split is read
 once per accepted checkpoint, after val acceptance, and never to choose
 between versions.
+
+## Surface detector
+
+A Faster R-CNN detector that finds and classifies surface defects (creases,
+dents, pits, print lines, scratches, stains, tears) as boxes on each card
+side, plus a separate gradient-boosted regressor that predicts the TAG
+deduction (0–1000 points) for a given box's class and geometry. Reads
+`surface.parquet` (spec §7); never modifies it.
+
+### Classes and exclusions
+
+`SURFACE_CLASSES = ["CREASE", "DENT", "PIT", "PRINT_DEFECT", "SCRATCH", "STAIN", "TEAR"]`
+(label 0 is background). `load_surface_split` filters `surface.parquet`
+markers before they ever reach a tile:
+
+- keeps only rows whose `engine_type` is one of the seven classes above —
+  `ESW_CSW` (edge/corner wear, handled by the edge model) and `PLAY_WEAR`
+  are dropped;
+- drops zero-width/zero-height rows;
+- drops boxes covering more than 25% of the card face (`MAX_BOX_AREA = 0.25`)
+  — these are whole-card annotation frames, not localized defects;
+- clips `deduction` to `[0, 1000]` TAG points.
+
+Measured on the 2026-09-16 full-table pass: **25,575 kept boxes on 14,768
+sides**, with **2,557 whole-card frames excluded** by the area filter
+(`ESW_CSW` and `PLAY_WEAR` rows excluded by class before that filter even
+runs).
+
+### Tiling
+
+Both views are cut into native-resolution 1024×1024 tiles (`TILE = 1024`,
+`STRIDE = 896`, `trainlib/tiles.py`) rather than downscaling the whole
+~4391×6063 card to a detector's usual long side (1280): the 2026-09-16 box
+size measurement found median sizes of **11 px (pits)**, **160 px
+(scratches)**, **280 px (dents)**, **390 px (creases)**, and **3175×24 px
+(print lines)** — downscaling to 1280 would shrink an 11 px pit to about
+2 px, below what any detector head can resolve. A tile is kept if it
+contains ≥ 50% of a marker's area (`MIN_VISIBLE = 0.5`); a clean side
+contributes one random empty tile (`--neg-per-side`, default 1) so the
+detector sees true negatives.
+
+### Views
+
+Each side has two co-registered images in the same pixel frame: `sfx`
+(raking-light relief image) and `rgb` (normal color photo). All seven
+classes are trained in `sfx`; **`DENT` is dropped from `rgb`**
+(`RGB_EXCLUDED_LABELS`) because dents are only visible under raking light —
+training the model to find them in flat lighting would teach it to guess
+from context instead of evidence.
+
+### Cache layout
+
+Under `cache_dir` (`config.toml`): `tiles/train.parquet` /
+`tiles/val.parquet` / `tiles/test.parquet` index tiles (columns
+`tile_path, cert, side, view, grade_label, x0, y0, tile_w, tile_h, n_boxes,
+boxes`), and `tiles/<split>/<cert>_<side>_<view>_<x0>_<y0>.jpg` are the tile
+images (JPEG q95, no chroma subsampling). Source card images cache under the
+usual full-resolution `cache.cache_path` layout shared with corners/edges.
+
+### Commands (from `training/`, venv python)
+
+| Command | What it does |
+|---|---|
+| `python -m trainlib.surface_cache_cli pull --splits train:300,val:60 --workers 8` | pull those cards' `sfx`+`rgb` front/back images from R2 into the cache (resumable) |
+| `python -m trainlib.surface_cache_cli tile --splits train:300,val:60 --workers 8` | cut cached images into 1024 tiles + write the tile index parquet |
+| `python -m trainlib.train_surface --run-name smoke --epochs 2 --batch-size 4 --workers 2 --warmup-iters 50` | train; writes `runs/surface/smoke/{log.csv,best.pt,last.pt,args.json}` |
+| `python -m trainlib.evaluate_surface --checkpoint runs/surface/smoke/best.pt --split val --batch-size 4 --workers 2 --full-cards 20` | per-grade, per-view, per-class tables + a full-card (tile-merged) pass, written next to the checkpoint |
+| `python -m trainlib.deduction_model --out weights/surface/smoke/deduction.joblib` | fit the box→deduction regressor on the full train/val tables (CPU, no images needed) |
+
+### Why torchvision, not Ultralytics
+
+The detector is `torchvision.models.detection.fasterrcnn_resnet50_fpn_v2`
+(COCO-pretrained, small anchors down to 16 px) rather than Ultralytics
+YOLOv8. Ultralytics is AGPL-3.0, which would require either open-sourcing
+SlabSense or buying a commercial license to ship it; torchvision is BSD, so
+it carries no such obligation.
+
+### Results
+
+| Date | Run | Tiles (train/val) | Epochs | s/epoch | Peak VRAM | map50 (ALL) | map50 (sfx) | map50 (rgb) | Precision/Recall (ALL) |
+|---|---|---|---|---|---|---|---|---|---|
+| 2026-09-16 | smoke (300/60 cards, batch 4) | 1,462/261 | 2 | 113.2, 100.9 | 4.00 GiB | 0.0292 | 0.0517 | 0.0102 | 0.333 / 0.014 |
+
+Per-class AP50 (best.pt, epoch 2, non-NaN only; PIT/STAIN/TEAR had 0 val
+ground-truth boxes in this 60-card sample and report NaN): CREASE 0.0667,
+DENT 0.0000, PRINT_DEFECT 0.0000, SCRATCH 0.0500.
+
+Cache: 1,200 train + 240 val images pulled in 52 s. Tiling: train 1,462
+tiles (561 positive, 605 boxes; 742 `sfx` / 720 `rgb`), val 261 tiles (74
+positive, 74 boxes; 131 `sfx` / 130 `rgb`); 605 MB total on disk under
+`cache_dir/tiles/`. No OOM at batch size 4 (peak VRAM 4.00 GiB, well under
+the 4070's ~10 GB free). `map50` near zero after 2 epochs is expected — this
+smoke checks plumbing, not accuracy (see Task 9 brief); `--full-cards 20`
+found 0 cached sides because it takes the *first* 20 sorted certs of the
+full val split and only cards a random subset of 60 val certs were pulled
+locally, so none of the alphabetically-first 20 happened to be cached — the
+full-side merge/NMS path ran and wrote a well-formed (all-NaN) CSV with no
+error, but wasn't exercised against real detections at this scale; it will
+be on the rented-GPU full run where the whole split is cached.
+
+Deduction regressor (`HistGradientBoostingRegressor`, fit on the full
+20,757-box train table, evaluated on the full val table — independent of
+the image cache):
+
+| class | n | mae | baseline_mae |
+|---|---|---|---|
+| CREASE | 877 | 60.1 | 93.8 |
+| DENT | 496 | 58.8 | 97.2 |
+| PIT | 78 | 25.8 | 42.9 |
+| PRINT_DEFECT | 539 | 72.9 | 162.7 |
+| SCRATCH | 442 | 82.0 | 106.2 |
+| STAIN | 58 | 75.5 | 184.4 |
+| TEAR | 2 | 146.0 | 137.5 |
+| ALL | 2,492 | 65.8 | 112.1 |
+
+`mae < baseline_mae` for CREASE, DENT, SCRATCH, PIT as required by Task 9.

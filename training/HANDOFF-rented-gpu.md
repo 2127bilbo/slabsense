@@ -305,3 +305,157 @@ them down over SSH.
 | Cache count far below 222,008 after a rerun | check `df -h`; if the disk is full, stop and tell the user |
 | val_loss rises from epoch 2 onward or shows `nan` | kill the run, copy `log.csv` home, report; do not retune |
 | Box unreachable | the vast.ai page shows whether it was paused for credit; tell the user |
+
+## Step 7: surface detector
+
+**For the Claude instance taking this over.** This is a new model (defect
+boxes, not corner/edge scores) added after v1/v2 of corners and edges. Read
+`training/README.md`'s "Surface detector" section first (classes, exclusion
+rules, tiling constants, the two views, the local smoke numbers). Everything
+you need to *do* is below. The local smoke (300 train / 60 val cards, 2
+epochs) already ran and passed plumbing checks; your job is the full run.
+
+### Step 7.0: update the code and verify tests
+
+```bash
+cd /workspace/SlabSense && git pull && cd training
+uv pip install --python .venv/bin/python -e ".[dev]"     # scikit-learn is new (deduction regressor)
+.venv/bin/python -m pytest -q     # expect 99 passed
+```
+
+### Step 7.1: bring the key file back
+
+The key file was removed from the box after the v1/v2 corner/edge runs (see
+the note at the end of Step 6 above). Bring it back the same way as Step 1:
+from the main session, `scp` `scripts/tag-dataset/data/env.ps1` up, or
+recreate `/workspace/env.sh` directly:
+
+```bash
+# on the box
+cat > /workspace/env.sh <<'EOF'
+export B2_KEY_ID=...
+export B2_APP_KEY=...
+EOF
+chmod 600 /workspace/env.sh
+```
+
+Never paste the actual keys into a committed file, a log, or your report.
+
+### Step 7.2: pull — already DONE on this box, check before repeating
+
+**Pull is already done.** 111,004 images across both views (`sfx` + `rgb`,
+front + back) are already cached under `/workspace/cache/tag-dataset/` from
+an earlier session. **Skip the `pull` step** unless the `tile` step below
+reports a large number of "not cached" side-views (more than a handful) —
+only then run:
+
+```bash
+cd /workspace/SlabSense/training && source /workspace/env.sh
+nohup .venv/bin/python -m trainlib.surface_cache_cli pull --splits train,val,test --workers 32 > /workspace/pull_surface.log 2>&1 &
+```
+
+(expect ~111,000 images across both views, ~435 GB, ~$17.50 of R2 bandwidth
+at $40/TB; the box has ~680 GB free after the corner and edge caches — check
+`df -h /workspace` first if you do end up needing this).
+
+### Step 7.3: tile
+
+```bash
+cd /workspace/SlabSense/training && source /workspace/env.sh
+nohup .venv/bin/python -m trainlib.surface_cache_cli tile --splits train,val,test --workers 32 > /workspace/tile_surface.log 2>&1 &
+```
+
+Expect roughly 100k train tiles, about 40 GB on disk under
+`/workspace/cache/tiles/`. Monitor with `tail -5 /workspace/tile_surface.log`
+every 15–30 minutes; the final line per split reports tile/positive/box
+counts and how many side-views were "not cached" / "failed" — a large
+"not cached" count here is the signal to go back and run the pull step.
+
+### Step 7.4: train v1
+
+```bash
+cd /workspace/SlabSense/training && source /workspace/env.sh
+nohup .venv/bin/python -m trainlib.train_surface --run-name v1 --epochs 8 --batch-size 8 --workers 8 > /workspace/train_surface_v1.log 2>&1 &
+```
+
+Expect roughly 110 min per epoch on the 5880 Ada; judge health from the
+`map50` column in `runs/surface/v1/log.csv`, not from wall time. Peak VRAM
+is expected under 20 GiB (the local 4070 smoke at batch 4 used 4.00 GiB;
+batch 8 on a 48 GB card has plenty of headroom). Monitor every 20–30 minutes:
+
+```bash
+tail -5 runs/surface/v1/log.csv
+nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader
+```
+
+If `map50` is still `nan` after epoch 2, stop and report — see the failure
+playbook addition below, this is not a tuning problem.
+
+### Step 7.5: evaluate v1 on val, then accept/reject
+
+```bash
+cd /workspace/SlabSense/training && source /workspace/env.sh
+.venv/bin/python -m trainlib.evaluate_surface --checkpoint runs/surface/v1/best.pt --split val --batch-size 8 --workers 8 --full-cards 300 | tee runs/surface/v1/eval_val.log
+```
+
+**Acceptance bars** (a first-version bar; report whatever the numbers are
+even if they miss):
+
+- val `ALL` row `map50` ≥ 0.50
+- `sfx` view `map50` ≥ 0.55
+- CREASE, DENT, and SCRATCH each have AP50 ≥ 0.50
+
+If it misses, do not retune — copy the artifacts home and report the
+numbers; the user and the main session decide what changes.
+
+### Step 7.6: test, exactly once, only if v1 is accepted
+
+```bash
+.venv/bin/python -m trainlib.evaluate_surface --checkpoint runs/surface/v1/best.pt --split test --final-eval --batch-size 8 --workers 8 --full-cards 300 | tee runs/surface/v1/eval_test.log
+```
+
+The frozen test split is read exactly once, with `--final-eval`, only after
+val is accepted — same rule as corners/edges.
+
+### Step 7.7: gray-card specialist fine-tune (`v1-sfx`)
+
+`sfx` (raking-light) is the more reliable view (it alone carries `DENT` and
+is generally higher-contrast for defects); a short fine-tune restricted to
+`sfx` tiles, initialized from `v1`'s weights, checks whether specializing
+helps that view specifically:
+
+```bash
+cd /workspace/SlabSense/training && source /workspace/env.sh
+nohup .venv/bin/python -m trainlib.train_surface --run-name v1-sfx --epochs 3 --batch-size 8 --workers 8 --init runs/surface/v1/best.pt --views sfx --lr 0.002 --warmup-iters 100 > /workspace/train_surface_v1sfx.log 2>&1 &
+```
+
+Evaluate the same way as Step 7.5 (`--checkpoint runs/surface/v1-sfx/best.pt
+--split val --batch-size 8 --workers 8 --full-cards 300`) and compare its
+`sfx`-view row against v1's `sfx`-view row from Step 7.5's per-view table.
+Accept `v1-sfx` as the shipped `sfx` specialist only if it beats v1's `sfx`
+map50; otherwise v1 stays the shipped model for both views.
+
+### Step 7.8: deduction model (CPU, independent of the image cache)
+
+```bash
+cd /workspace/SlabSense/training && source /workspace/env.sh
+.venv/bin/python -m trainlib.deduction_model --out weights/surface/v1/deduction.joblib --final-eval
+```
+
+This fits on the full train table and reports val (then, with
+`--final-eval`, test) per-class MAE vs. the baseline (the local smoke's val
+numbers, for comparison, are in `training/README.md`'s Surface detector
+Results section — MAE below baseline for CREASE, DENT, SCRATCH, PIT).
+
+Leave all `runs/surface/v1/`, `runs/surface/v1-sfx/`, and
+`weights/surface/v1/` artifacts on the box; the main session pulls them
+down over SSH the same way as Step 4 above (never commit a `.pt` or
+`.joblib` file — `training/weights/**/*.pt|*.joblib` is gitignored).
+
+### Step 7 failure playbook additions
+
+| Symptom | Do this |
+|---|---|
+| DataLoader `Bus error` | rerun with `--workers 4` |
+| `CUDA out of memory` | rerun with `--batch-size 4` |
+| `map50` still `nan` after epoch 2 | stop and report — the model is producing no detections above score 0.05; this is almost certainly a tiling/index problem (e.g. an empty or misaligned tile index), not something a tuning change fixes |
