@@ -92,10 +92,8 @@ def test_ding_rows_uses_location_class_for_engine_type():
 # ── card row ──────────────────────────────────────────────────────────────
 def test_card_row_from_fixture(detail_fixture, score_fixture):
     row = labels.card_row("C1240631", detail_fixture, score_fixture)
-    # n_dings_unassigned is filled in by build.build after card_row returns, not by
-    # card_row itself, so it's the one MANIFEST_COLUMNS entry missing here.
-    assert list(row.keys()) == labels.MANIFEST_COLUMNS[:-1]
-    assert labels.MANIFEST_COLUMNS[-1] == "n_dings_unassigned"
+    assert list(row.keys()) == labels.MANIFEST_COLUMNS
+    assert row["n_dings_unassigned"] == 0
     d = detail_fixture["data"]; s = score_fixture["data"]
     assert row["cert"] == "C1240631" and row["uuid"] == d["uuid"]
     assert row["grade_label"] == d["grade"]
@@ -418,6 +416,38 @@ def test_slot_targets_edge_rollup_back_right_key():
 
 def test_slot_targets_only_includes_slots_with_data():
     assert labels.slot_targets([], []) == {}
+
+
+# ── NaN-safe deduction sums (code review fix) ────────────────────────────
+def test_slot_targets_constituent_sum_ignores_a_nan_sibling():
+    """One marker with a missing deduction must not poison the whole slot's sum: a
+    co-located real 50.0 stays 50.0, not NaN."""
+    markers = [_marker("F", "CORNER", "TL", False, 50.0), _marker("F", "CORNER", "TL", False, float("nan"))]
+    t = labels.slot_targets(markers, [])
+    assert t[("F", "corner", "TL")] == {"ding_count": 0, "marker_deduction": 50.0, "marker_source": "constituent"}
+
+
+def test_slot_targets_falls_through_to_constituent_when_rollup_is_all_nan():
+    markers = [
+        _marker("F", "CORNER", "TL", True, float("nan")),
+        _marker("F", "CORNER", "TL", False, 50.0),
+        _marker("F", "CORNER", "TL", False, 40.0),
+    ]
+    t = labels.slot_targets(markers, [])
+    assert t[("F", "corner", "TL")] == {"ding_count": 0, "marker_deduction": 90.0, "marker_source": "constituent"}
+
+
+def test_slot_targets_all_nan_deductions_is_nan_source_none_but_ding_count_still_counted():
+    dings = [_slot_ding("F", "CORNER", 0.02, 0.02)]
+    markers = [
+        _marker("F", "CORNER", "TL", True, float("nan")),
+        _marker("F", "CORNER", "TL", False, float("nan")),
+    ]
+    t = labels.slot_targets(markers, dings)
+    key = ("F", "corner", "TL")
+    assert t[key]["ding_count"] == 1
+    assert math.isnan(t[key]["marker_deduction"])
+    assert t[key]["marker_source"] is None
 
 
 def test_corner_rows_with_targets_fills_columns(score_fixture):

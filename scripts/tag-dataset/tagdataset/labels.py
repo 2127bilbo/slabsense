@@ -75,9 +75,9 @@ MANIFEST_COLUMNS = [
     "path_front", "path_back", "path_sfx_front", "path_sfx_back",
     "path_sfx_front_annotated", "path_sfx_back_annotated",
     "n_files_uploaded", "n_files_unavailable",
-    # Filled in by build.build after card_row returns (not produced by card_row itself):
-    # count of this card's dings whose engine_type is CORNER/EDGE but that ding_slot could
+    # Count of this card's dings whose engine_type is CORNER/EDGE but that ding_slot could
     # not assign to a slot (position out of range and the location string didn't match).
+    # card_row defaults this to 0; build.build passes the real count via unassigned_dings().
     "n_dings_unassigned",
 ]
 
@@ -90,7 +90,8 @@ def _grade_num(d: dict) -> float:
     return _num(str(d.get("grade") or "").split(" ")[0])
 
 
-def card_row(cert: str, detail: dict, score: dict, store_counts: dict | None = None) -> dict:
+def card_row(cert: str, detail: dict, score: dict, store_counts: dict | None = None,
+             n_dings_unassigned: int = 0) -> dict:
     d = (detail or {}).get("data") or {}
     s = (score or {}).get("data") or {}
     pop = d.get("pop") or {}
@@ -131,6 +132,7 @@ def card_row(cert: str, detail: dict, score: dict, store_counts: dict | None = N
         "path_sfx_front": p("sfx_front.jpg"), "path_sfx_back": p("sfx_back.jpg"),
         "path_sfx_front_annotated": p("sfx_front_annotated.jpg"), "path_sfx_back_annotated": p("sfx_back_annotated.jpg"),
         "n_files_uploaded": int(sc.get("uploaded", 0)), "n_files_unavailable": int(sc.get("unavailable", 0)),
+        "n_dings_unassigned": int(n_dings_unassigned),
     }
 
 
@@ -327,6 +329,20 @@ def _finite_in_range(v) -> bool:
         return False
 
 
+def _finite_values(values: list) -> list:
+    """Drop None/NaN entries so one marker with a missing deduction can't poison a whole
+    slot's sum (e.g. a co-located real 50.0 must not become NaN just because a sibling
+    marker at the same slot has no deduction)."""
+    out = []
+    for v in values:
+        try:
+            if v is not None and not math.isnan(v):
+                out.append(v)
+        except TypeError:
+            pass
+    return out
+
+
 def ding_slot(row: dict, kind: str) -> str | None:
     """Slot assignment for one ding (spec §Global Constraints): by pixel position when both
     x and y are finite and within [-0.05, 1.05], else by the location string, else None
@@ -370,10 +386,12 @@ def slot_targets(markers: list[dict], dings: list[dict]) -> dict[tuple[str, str,
 
     out = {}
     for key, g in groups.items():
-        if g["rollup"]:
-            marker_deduction, marker_source = sum(g["rollup"]), "rollup"
-        elif g["constituent"]:
-            marker_deduction, marker_source = sum(g["constituent"]), "constituent"
+        rollup_vals = _finite_values(g["rollup"])
+        constituent_vals = _finite_values(g["constituent"])
+        if rollup_vals:
+            marker_deduction, marker_source = sum(rollup_vals), "rollup"
+        elif constituent_vals:
+            marker_deduction, marker_source = sum(constituent_vals), "constituent"
         else:
             marker_deduction, marker_source = NAN, None
         out[key] = {"ding_count": g["ding_count"], "marker_deduction": marker_deduction, "marker_source": marker_source}

@@ -132,7 +132,7 @@ def test_build_wraps_per_cert_error_with_cert_id(tmp_path, detail_fixture, score
     store = Store(str(tmp_path / "t.sqlite"))
     store.put_raw("C1240631", "7", detail_fixture, score_fixture, 200, None)
 
-    def boom(cert, detail, score, store_counts=None):
+    def boom(cert, detail, score, store_counts=None, **kwargs):
         raise ValueError("boom")
 
     monkeypatch.setattr(labels, "card_row", boom)

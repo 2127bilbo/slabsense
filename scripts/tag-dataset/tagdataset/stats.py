@@ -140,6 +140,23 @@ def report(out_dir: str) -> str:
     else:
         lines.append("boxes out of range: 0")
 
+    def _correlation(df: pd.DataFrame, rollup_col: str, cert_filter=None, require_any_data: bool = False) -> tuple[str, int]:
+        """Pearson correlation between a card's summed marker_deduction (over `df`, optionally
+        restricted to `cert_filter` certs) and 1000 - rollup_col. `require_any_data=True` also
+        drops cards whose every slot in `df` is NaN (sum(min_count=1) -> NaN) instead of
+        counting them as a 0 deduction."""
+        sub = df if cert_filter is None else df[df.cert.isin(cert_filter)]
+        per_card = sub.groupby("cert").marker_deduction.sum(min_count=1 if require_any_data else 0)
+        joined = per_card.to_frame("sum_deduction").merge(m[["cert", rollup_col]], on="cert", how="inner")
+        joined = joined.dropna(subset=["sum_deduction", rollup_col])
+        inverted = 1000 - joined[rollup_col]
+        # Guard against a zero-variance side (e.g. a tiny fixture where every card has the
+        # same rollup score): pandas' corr() would otherwise divide by a zero stddev and
+        # numpy raises "invalid value encountered in divide" as a RuntimeWarning.
+        if len(joined) > 1 and joined["sum_deduction"].std() > 0 and inverted.std() > 0:
+            return f"{joined['sum_deduction'].corr(inverted):.4f}", len(joined)
+        return "nan", len(joined)
+
     lines.append(SECTIONS[13])
     unassigned = int(m.n_dings_unassigned.sum()) if len(m) and "n_dings_unassigned" in m.columns else 0
     lines.append(f"dings unassigned to a slot: {unassigned}")
@@ -153,28 +170,20 @@ def report(out_dir: str) -> str:
         by_source = df.loc[has_ded, "marker_source"].fillna("None").value_counts().to_dict()
         lines.append(f"{name}: ding_count>0: {n_wear}/{len(df)}; marker_deduction present: "
                      f"{int(has_ded.sum())}/{len(df)} by source {by_source}")
-        # Restrict the correlation to cards that have at least one rollup-sourced slot in
-        # this table: a card with no rollup marker at all usually has no per-slot
-        # deduction data either (constituent-only or none), so its summed deduction is an
-        # uninformative 0 that would just dilute the correlation against a real deficit
-        # (this matches the plan's measured fact: 0.90 over the 9,947 cards with a rollup
-        # corner marker, not 0 over all 27,751 cards).
+        # Two correlations, since they answer different questions:
+        # (a) restricted to cards with at least one rollup-sourced slot in this table — this
+        #     matches the plan's own measured fact (0.90 over the 9,947 cards with a rollup
+        #     corner marker) and is the more informative number, since a card with no rollup
+        #     marker usually has no per-slot deduction data at all;
+        # (b) over every card that has *any* marker_deduction in this table (rollup or
+        #     constituent), for comparison against the full population that isn't all zeros.
         rollup_certs = df.loc[df.marker_source == "rollup", "cert"].unique()
-        sub = df[df.cert.isin(rollup_certs)]
-        per_card = sub.groupby("cert").marker_deduction.sum()
-        joined = per_card.to_frame("sum_deduction").merge(m[["cert", rollup_col]], on="cert", how="inner")
-        joined = joined.dropna(subset=[rollup_col])
-        inverted = 1000 - joined[rollup_col]
-        # Guard against a zero-variance side (e.g. a tiny fixture where every card has the
-        # same rollup score): pandas' corr() would otherwise divide by a zero stddev and
-        # numpy raises "invalid value encountered in divide" as a RuntimeWarning.
-        if len(joined) > 1 and joined["sum_deduction"].std() > 0 and inverted.std() > 0:
-            corr = joined["sum_deduction"].corr(inverted)
-            corr_str = f"{corr:.4f}"
-        else:
-            corr_str = "nan"
-        lines.append(f"{name}: correlation(sum marker_deduction, 1000 - {rollup_col}) = {corr_str} "
-                     f"(n={len(joined)} cards with a rollup {name[:-1]} marker)")
+        corr_rollup, n_rollup = _correlation(df, rollup_col, cert_filter=rollup_certs)
+        corr_any, n_any = _correlation(df, rollup_col, require_any_data=True)
+        lines.append(f"{name}: correlation(sum marker_deduction, 1000 - {rollup_col}) "
+                     f"restricted to cards with a rollup {name[:-1]} marker = {corr_rollup} (n={n_rollup})")
+        lines.append(f"{name}: correlation(sum marker_deduction, 1000 - {rollup_col}) "
+                     f"over all cards with any marker_deduction = {corr_any} (n={n_any})")
     return "\n".join(lines)
 
 

@@ -120,11 +120,13 @@ Slot assignment (`labels.ding_slot`, `labels.slot_targets`):
 
 `stats`'s `== slot targets ==` section reports, per table: how many slots have `ding_count > 0`,
 how many have `marker_deduction` present broken down by `marker_source`, the count of
-unassigned dings, and the per-card Pearson correlation between the summed `marker_deduction`
-and `1000 - rollup_corners` (or `1000 - rollup_edges`) — restricted to cards that have at least
-one rollup-sourced marker of that kind, since a card with no rollup marker usually has no
-per-slot deduction data at all and would otherwise dilute the correlation with an uninformative
-zero.
+unassigned dings, and two per-card Pearson correlations between the summed `marker_deduction`
+and `1000 - rollup_corners` (or `1000 - rollup_edges`) — one restricted to cards that have at
+least one rollup-sourced marker of that kind (the more informative number, since a card with no
+rollup marker usually has no per-slot deduction data at all and would otherwise dilute the
+correlation with an uninformative zero), and one over every card that has *any*
+`marker_deduction` in the table (rollup or constituent), for comparison against the larger
+population.
 
 ### Using these for training
 
@@ -142,4 +144,5 @@ zero.
 | 2026-09-13 | rebuild after final-review fixes | 2,215 cards; splits 1,764 / 235 / 216 (494 new certs assigned, 1,721 existing assignments preserved); `splits/splits.parquet` now tracked | unmapped: 0 markers, 0 dings, 0 fallback pairs (12 subtype keys added); boxes out of range: 37 (centred min-box lines at the card edge; see stats) |
 | 2026-09-14 | build on the completed fetch | 27,751 cards → 222,008 corner rows, 222,008 edge rows, 320,864 markers (43,591 rollup), 113,621 dings; splits 22,202 / 2,790 / 2,759 assigned and frozen (25,536 new) | unmapped: 10 markers + 37 dings (GLOSS, PIN HOLE(S), TAPE, FRAMEMARKER_ESW_CSW ding type, SURFACE/SCRATCH(ES)); rotated markers 11,729 (3.7%); aspect mismatch 35 front / 52 back sides; boxes out of range 551; score_total on 3,010 cards. Images not yet downloaded for most cards. |
 | 2026-09-15 | full download + verify + rebuild | 27,751 cards complete in R2 (`verify --check-bucket`: 0 missing in every grade; 9,882 files unavailable upstream across 8,542 certs, almost all annotated surface images). Tables rebuilt: 222,008 corner / 222,008 edge rows, 320,864 markers, 113,621 dings; splits unchanged (0 new) | unmapped 0 / 0 / 0 fallbacks; 2,050 dings have no crop (2,043 have no image URL at TAG, 7 gone upstream); rotated markers 11,729 (7,679 expanded > 1%); boxes out of range 1,587 (expanded rotated boxes at card edges); aspect mismatch 35 front / 52 back sides |
-| 2026-09-16 | rebuild with per-slot wear/deduction targets (`ding_count`, `marker_deduction`, `marker_source` on `corners.parquet`/`edges.parquet`) | 27,751 cards, 222,008 corner rows, 222,008 edge rows unchanged; `splits_new: 0` (`splits/splits.parquet` untouched) | 10 dings unassigned to a slot; corners: `ding_count > 0` on 53,300/222,008 slots, `marker_deduction` present on 40,374 (29,900 rollup / 10,474 constituent), correlation(sum `marker_deduction`, `1000 - rollup_corners`) = 0.9019 over 9,947 cards with a rollup corner marker; edges: `ding_count > 0` on 20,221/222,008, `marker_deduction` present on 21,513 (13,691 rollup / 7,822 constituent), correlation = 0.7914 over 6,569 cards with a rollup edge marker |
+| 2026-09-16 | rebuild with per-slot wear/deduction targets (`ding_count`, `marker_deduction`, `marker_source` on `corners.parquet`/`edges.parquet`) | 27,751 cards, 222,008 corner rows, 222,008 edge rows unchanged; `splits_new: 0` (`splits/splits.parquet` untouched) | 10 dings unassigned to a slot; corners: `ding_count > 0` on 53,300/222,008 slots, `marker_deduction` present on 40,374 (29,900 rollup / 10,474 constituent), correlation(sum `marker_deduction`, `1000 - rollup_corners`) = 0.9019 over 9,947 cards with a rollup corner marker (0.8888 over all 12,461 cards with any corner `marker_deduction`); edges: `ding_count > 0` on 20,221/222,008, `marker_deduction` present on 21,513 (13,691 rollup / 7,822 constituent), correlation = 0.7914 over 6,569 cards with a rollup edge marker (0.7597 over all 8,858 cards with any edge `marker_deduction`) |
+| 2026-09-16 | code-review fix: NaN-safe per-slot deduction sums (a marker with a missing deduction no longer poisons a co-located marker's real value), `card_row` fills `n_dings_unassigned` itself (default 0) instead of `build` mutating the dict afterward, `stats` prints both correlations | rebuilt: same 27,751 cards / 222,008 corner / 222,008 edge rows; `splits_new: 0` | slot-target counts unchanged from the row above (no real slot today mixes a NaN and a finite deduction at the same slot) |

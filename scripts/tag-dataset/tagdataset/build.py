@@ -84,12 +84,11 @@ def build(store: Store, out_dir: str, seed: int = 42, splits_path: str | Path | 
     for cert, detail, score in store.iter_raw_ok():
         try:
             counts = {"uploaded": len(store.files_for(cert)), "unavailable": len(store.gone_files(cert))}
-            row = labels.card_row(cert, detail, score, counts)
             cert_markers = labels.surface_rows(cert, score)
             cert_dings = labels.ding_rows(cert, detail)
             targets = labels.slot_targets(cert_markers, cert_dings)
-            row["n_dings_unassigned"] = labels.unassigned_dings(cert_dings)
-            cards.append(row)
+            n_unassigned = labels.unassigned_dings(cert_dings)
+            cards.append(labels.card_row(cert, detail, score, counts, n_dings_unassigned=n_unassigned))
             corners.extend(labels.corner_rows(cert, score, targets))
             edges.extend(labels.edge_rows(cert, score, targets))
             markers.extend(cert_markers)
