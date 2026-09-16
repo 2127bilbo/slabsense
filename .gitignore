@@ -61,3 +61,4 @@ scripts/card-db/out/
 training/.venv/
 training/runs/
 training/config.toml
+training/trainlib.egg-info/
