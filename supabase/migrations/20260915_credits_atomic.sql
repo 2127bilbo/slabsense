@@ -8,6 +8,44 @@
 -- the serverless endpoints verify the user's JWT and pass the user id themselves.
 -- The endpoints fall back to the old path until this migration is applied.
 
+-- ──────────────────────────────────────────────────────────────────────────
+-- Bootstrap (2026-09-15): the owner's project never had 002_credits_system.sql applied — the
+-- credit_transactions table did not exist, which is why the old spend endpoint's log insert failed
+-- silently and refunds were impossible. Everything below is idempotent, so this file can be run on a
+-- project with or without 002 applied. (002 still owns stripe_events / referrals / system_settings.)
+-- ──────────────────────────────────────────────────────────────────────────
+alter table profiles add column if not exists stripe_customer_id text;
+alter table profiles add column if not exists subscription_status text default 'free';
+alter table profiles add column if not exists subscription_id text;
+alter table profiles add column if not exists subscription_renews_at timestamptz;
+alter table profiles add column if not exists credits_balance integer default 0;
+alter table profiles add column if not exists credits_expire_at timestamptz;
+alter table profiles add column if not exists used_trial boolean default false;
+alter table profiles add column if not exists signup_bonus_awarded boolean default false;
+alter table profiles add column if not exists signup_bonus_eligible boolean default true;
+alter table profiles add column if not exists cards_saved_count integer default 0;
+
+create table if not exists credit_transactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete cascade,
+  amount integer not null,
+  transaction_type text not null,
+    -- 'subscription', 'bundle', 'single', 'signup_bonus', 'referral_bonus',
+    -- 'grade_ai', 'grade_deep', 'refund', 'expired'
+  description text,
+  stripe_payment_id text,
+  scan_id uuid,
+  created_at timestamptz default now()
+);
+create index if not exists idx_credit_transactions_user_id on credit_transactions(user_id);
+create index if not exists idx_credit_transactions_created_at on credit_transactions(created_at);
+
+alter table credit_transactions enable row level security;
+drop policy if exists "Users can view own transactions" on credit_transactions;
+create policy "Users can view own transactions" on credit_transactions
+  for select using (auth.uid() = user_id);
+-- Writes happen through the service role (endpoints / the functions below); no user write policies.
+
 alter table credit_transactions add column if not exists refunded_at timestamptz;
 alter table credit_transactions add column if not exists refund_of uuid references credit_transactions(id);
 create index if not exists idx_credit_transactions_refund_of on credit_transactions(refund_of);
