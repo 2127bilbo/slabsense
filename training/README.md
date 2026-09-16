@@ -59,6 +59,8 @@ targets. Metrics are reported overall (per epoch, in `log.csv`) and per grade (`
 | 2026-09-16 | edges (resized cache) | wear / deduction | 500/100 | 3 | 85, 67, 66 | 4.07 GiB | 0.2798 (epoch 2) | 0.765 (final epoch) | 330 pts (final epoch) | n/a (no angle target) |
 | 2026-09-16 | corners v1 (full) | wear / deduction / angle | 22,202/2,790 (all cards) | 12 | 530–553 | 11.41 GiB | 0.18695 (epoch 5) | 0.919 (val, best.pt) | 105 pts (val, best.pt) | 2.41 pts (val, best.pt) |
 | 2026-09-16 | edges v1 (full) | wear / deduction | 22,202/2,790 (all cards) | 12 | 673–734 | 7.73 GiB | 0.19654 (epoch 10) | 0.895 (val, best.pt) | 161 pts (val, best.pt) | n/a (no angle target) |
+| 2026-09-16 | corners v2 (full, EMA 0.999 + drop-path 0.2 + strong aug) | wear / deduction / angle | 22,202/2,790 (all cards) | 8 | 541–549 | 11.55 GiB | 0.18282 (epoch 6) | 0.924 (val, best.pt) | 103.7 pts (val, best.pt) | 2.42 pts (val, best.pt) |
+| 2026-09-16 | edges v2 (full, EMA 0.999 + drop-path 0.1 + strong aug) — REJECTED, v1 stays | wear / deduction | 22,202/2,790 (all cards) | 12 | 691–734 | 7.86 GiB | 0.20536 (epoch 12) | 0.883 (val, best.pt) | 170 pts (val, best.pt) | n/a (no angle target) |
 
 **Metric definitions changed on 2026-09-16** with the corner/edge target
 redesign (`docs/superpowers/plans/2026-09-16-corner-edge-targets.md`):
@@ -288,6 +290,23 @@ dents, pits, print lines, scratches, stains, tears) as boxes on each card
 side, plus a separate gradient-boosted regressor that predicts the TAG
 deduction (0–1000 points) for a given box's class and geometry. Reads
 `surface.parquet` (spec §7); never modifies it.
+
+### v2 outcome (2026-09-16)
+
+- **Corners v2 accepted.** EMA + drop-path 0.2 + strong augmentation over 8
+  epochs: best val loss 0.18282 (epoch 6) vs v1 0.18695; auroc_wear 0.924 vs
+  0.919; mae_deduction 103.7 vs 105.0; mae_angle 2.42 vs 2.41. The
+  regularization removed the late-epoch collapse (val loss stayed within
+  0.002 of its best through epoch 8) but bought only half a point of AUROC,
+  so the corner model is near what ConvNeXt-Tiny at 384 px extracts from
+  these labels; the next lever is a larger backbone or input resolution, not
+  more regularization. Weights in `training/weights/corners/v2/`.
+- **Edges v2 rejected, v1 stays.** Drop-path 0.1 + EMA + strong augmentation
+  over 12 epochs: auroc_wear 0.883 vs v1 0.895, mae_deduction 170 vs 161,
+  val loss 0.2054 vs 0.1965, still improving at epoch 12. Edges never
+  overfit in v1, so the extra regularization only slowed convergence. If
+  edges get another pass, the candidates are longer training at the v1
+  recipe, a wider input strip, or a larger backbone.
 
 ### Classes and exclusions
 
