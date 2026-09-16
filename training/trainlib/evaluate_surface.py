@@ -16,9 +16,18 @@ from .cache import cache_path
 from .config import load_config
 from .det_metrics import evaluate_detections, match
 from .detector import load_detector
-from .surface_tables import SURFACE_CLASSES, boxes_for_view, load_surface_split
+from .surface_tables import RGB_EXCLUDED_LABELS, SURFACE_CLASSES, VIEWS, boxes_for_view, load_surface_split
 from .tile_data import TileDataset, collate_det
 from .tiles import TILE, tile_grid
+
+
+def filter_view_preds(pred: dict, view: str) -> dict:
+    """Drop predictions whose label is excluded from `view`'s ground truth (rgb has no DENT labels:
+    the detector has no view input and cannot know it should not emit them on a flat-light image)."""
+    if view != "rgb":
+        return pred
+    keep = ~torch.isin(pred["labels"], torch.tensor(sorted(RGB_EXCLUDED_LABELS), dtype=pred["labels"].dtype))
+    return {"boxes": pred["boxes"][keep], "labels": pred["labels"][keep], "scores": pred["scores"][keep]}
 
 
 def merge_tiles(preds_per_tile: list[tuple[int, int, dict]], iou: float = 0.5) -> dict:
@@ -48,12 +57,16 @@ def _fmt(v: float) -> str:
 
 
 def tile_eval(model, index: pd.DataFrame, cache_dir: Path, device, batch_size: int, workers: int, score_thr: float):
+    assert index.index.equals(pd.RangeIndex(len(index))), \
+        "index must carry a RangeIndex: g.index is used positionally into preds/gts below"
     loader = DataLoader(TileDataset(index, cache_dir, False), batch_size=batch_size, shuffle=False,
                         num_workers=workers, collate_fn=collate_det)
+    views = index["view"].tolist()
     preds, gts = [], []
     model.eval()
     for imgs, tgts in loader:
-        preds += _predict(model, imgs, device)
+        batch = _predict(model, imgs, device)
+        preds += [filter_view_preds(p, views[len(preds) + j]) for j, p in enumerate(batch)]
         gts += tgts
     rows = []
     for grade, g in index.groupby("grade_label", sort=True):
@@ -76,15 +89,32 @@ def tile_eval(model, index: pd.DataFrame, cache_dir: Path, device, batch_size: i
     return pd.DataFrame(rows), pd.DataFrame(view_rows), pd.DataFrame(classes)
 
 
-def full_side_eval(model, cfg, split: str, n_cards: int, device, score_thr: float, allow_test: bool) -> pd.DataFrame:
+def _fp_per_side(p: dict, gb: torch.Tensor, gl: torch.Tensor, score_thr: float) -> int:
+    """Class-aware false positives above score_thr: a box predicted on a real defect but with the
+    wrong class is counted as a false positive, not a match."""
+    keep = p["scores"] >= score_thr
+    pb, pl, ps = p["boxes"][keep], p["labels"][keep], p["scores"][keep]
+    fp = 0
+    for c in sorted(set(pl.tolist())):
+        cm, gm = pl == c, gl == c
+        fp += sum(1 for f in match(pb[cm], ps[cm], gb[gm]) if not f)
+    return fp
+
+
+def full_side_eval(model, cfg, split: str, n_cards: int, device, score_thr: float, allow_test: bool,
+                   seed: int = 42, views: tuple[str, ...] = VIEWS) -> pd.DataFrame:
     sides, boxes = load_surface_split(cfg.dataset_dir, cfg.splits_path, split, allow_test=allow_test)
-    # the first n_cards cards (sorted) whose images are all cached, so a partial cache (local smoke) still evaluates
+    sides = sides[sides.view.isin(views)]
+    # a seeded random sample of n_cards cards whose images are all cached, so a partial cache (local smoke) still evaluates
     cached = sides[sides.image_key.map(lambda k: cache_path(cfg.cache_dir, k).exists())]
     full = cached.groupby("cert").size()
-    certs = sorted(full[full == sides.groupby("cert").size().reindex(full.index)].index)[:n_cards]
+    certs_all = full[full == sides.groupby("cert").size().reindex(full.index)].index.tolist()
+    rng = np.random.default_rng(seed)
+    n = min(n_cards, len(certs_all))
+    certs = sorted(rng.choice(certs_all, size=n, replace=False).tolist()) if n else []
     sides = sides[sides.cert.isin(certs)]
-    by_view = {v: {k: g for k, g in boxes_for_view(boxes, v).groupby(["cert", "side"])} for v in ("sfx", "rgb")}
-    preds, gts, fps, views = [], [], [], []
+    by_view = {v: {k: g for k, g in boxes_for_view(boxes, v).groupby(["cert", "side"])} for v in views}
+    preds, gts, fps, side_views = [], [], [], []
     model.eval()
     for r in sides.itertuples():
         path = cache_path(cfg.cache_dir, r.image_key)
@@ -98,17 +128,16 @@ def full_side_eval(model, cfg, split: str, n_cards: int, device, score_thr: floa
             crop = img.crop((x0, y0, x0 + TILE, y0 + TILE))
             t = torch.from_numpy(np.asarray(crop, dtype="float32") / 255.0).permute(2, 0, 1)
             per_tile.append((x0, y0, _predict(model, [t], device)[0]))
-        p = merge_tiles(per_tile)
+        p = filter_view_preds(merge_tiles(per_tile), r.view)
         g = by_view[r.view].get((r.cert, r.side))
         gb = torch.tensor([[b.x * w, b.y * h, (b.x + b.w) * w, (b.y + b.h) * h] for b in g.itertuples()],
                           dtype=torch.float32).reshape(-1, 4) if g is not None else torch.zeros(0, 4)
         gl = torch.tensor([int(b.label) for b in g.itertuples()], dtype=torch.int64) if g is not None else torch.zeros(0, dtype=torch.int64)
-        preds.append(p); gts.append({"boxes": gb, "labels": gl}); views.append(r.view)
-        keep = p["scores"] >= score_thr
-        fps.append(sum(1 for f in match(p["boxes"][keep], p["scores"][keep], gb) if not f))
+        preds.append(p); gts.append({"boxes": gb, "labels": gl}); side_views.append(r.view)
+        fps.append(_fp_per_side(p, gb, gl, score_thr))
     rows = []
-    for view in sorted(set(views)) + ["ALL"]:
-        ii = [i for i, v in enumerate(views) if view == "ALL" or v == view]
+    for view in sorted(set(side_views)) + ["ALL"]:
+        ii = [i for i, v in enumerate(side_views) if view == "ALL" or v == view]
         m = evaluate_detections([preds[i] for i in ii], [gts[i] for i in ii], len(SURFACE_CLASSES), score_thr=score_thr)
         n = len(ii)
         rows.append({"view": view, "n_sides": n, "n_gt": sum(m["n_gt"].values()), "map50": m["map50"],
@@ -125,15 +154,18 @@ def main(argv=None) -> None:
     p.add_argument("--limit-tiles", type=int); p.add_argument("--full-cards", type=int)
     p.add_argument("--score-thr", type=float, default=0.5); p.add_argument("--seed", type=int, default=42)
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu"); p.add_argument("--min-size", type=int)
+    p.add_argument("--views", default="sfx,rgb", help="comma-separated views to evaluate on")
     args = p.parse_args(argv)
     if args.split == "test" and not args.final_eval:
         raise SystemExit("the test split is read only with --final-eval, once per accepted checkpoint")
+    views = tuple(v.strip() for v in args.views.split(","))
     cfg = load_config(args.config)
     device = torch.device(args.device)
     model, ckpt = load_detector(args.checkpoint, device)
     if args.min_size:
         model.transform.min_size = (args.min_size,); model.transform.max_size = args.min_size
-    index = pd.read_parquet(Path(cfg.cache_dir) / "tiles" / f"{args.split}.parquet")
+    index = pd.read_parquet(Path(cfg.cache_dir) / "tiles" / f"{args.split}.parquet").reset_index(drop=True)
+    index = index[index.view.isin(views)].reset_index(drop=True)
     if args.limit_tiles is not None and args.limit_tiles < len(index):
         index = index.sample(n=args.limit_tiles, random_state=args.seed).sort_index().reset_index(drop=True)
     grade_df, view_df, class_df = tile_eval(model, index, cfg.cache_dir, device, args.batch_size, args.workers, args.score_thr)
@@ -146,7 +178,8 @@ def main(argv=None) -> None:
     print(view_df.to_string(index=False, float_format=lambda v: _fmt(v)))
     print(class_df.to_string(index=False, float_format=lambda v: _fmt(v)))
     if args.full_cards:
-        fs = full_side_eval(model, cfg, args.split, args.full_cards, device, args.score_thr, allow_test=args.final_eval)
+        fs = full_side_eval(model, cfg, args.split, args.full_cards, device, args.score_thr, allow_test=args.final_eval,
+                            seed=args.seed, views=views)
         fs.to_csv(out_dir / f"eval_{args.split}_fullside.csv", index=False)
         print("full-side:"); print(fs.to_string(index=False, float_format=lambda v: _fmt(v)))
 

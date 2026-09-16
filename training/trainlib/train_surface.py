@@ -81,7 +81,10 @@ def main(argv=None) -> Path:
                               persistent_workers=(args.workers > 0), drop_last=True)
     val_loader = DataLoader(TileDataset(val_idx, cfg.cache_dir, False), batch_size=args.batch_size, shuffle=False,
                             num_workers=args.workers, collate_fn=collate_det, persistent_workers=(args.workers > 0))
-    model = build_detector(num_classes=len(SURFACE_CLASSES) + 1, pretrained=not args.no_pretrained).to(device)
+    # --init loads a full checkpoint state dict one line below, so COCO weights would be downloaded
+    # only to be overwritten; skip that download entirely when fine-tuning from a checkpoint.
+    pretrained = not args.no_pretrained and not args.init
+    model = build_detector(num_classes=len(SURFACE_CLASSES) + 1, pretrained=pretrained).to(device)
     if args.init:
         model.load_state_dict(torch.load(args.init, map_location="cpu", weights_only=False)["model"])
     if args.min_size:

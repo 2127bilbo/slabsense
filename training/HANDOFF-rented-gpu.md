@@ -315,6 +315,15 @@ rules, tiling constants, the two views, the local smoke numbers). Everything
 you need to *do* is below. The local smoke (300 train / 60 val cards, 2
 epochs) already ran and passed plumbing checks; your job is the full run.
 
+**Step 7 budget** (tell the user this before starting): tile ~1 h; train 8
+epochs at an extrapolated ~110 min/epoch (from the 4070 smoke — not
+measured on this box; the first epoch here tells the truth, update the
+estimate then) ≈ 15 h; val eval with `--full-cards 100` ≈ 25 min; test eval
+with `--full-cards 300` ≈ 1 h, once; sfx fine-tune, 3 epochs on ~50k sfx
+tiles, ≈ 2.5 h plus its eval ≈ 25 min; **total ≈ 20 h, roughly $20 at
+~$1/h**. Disk: ≈ 275 GB free after the image pull (545/820 GB used) — enough
+for the ~40 GB tile cache.
+
 ### Step 7.0: update the code and verify tests
 
 ```bash
@@ -395,7 +404,7 @@ playbook addition below, this is not a tuning problem.
 
 ```bash
 cd /workspace/SlabSense/training && source /workspace/env.sh
-.venv/bin/python -m trainlib.evaluate_surface --checkpoint runs/surface/v1/best.pt --split val --batch-size 8 --workers 8 --full-cards 300 | tee runs/surface/v1/eval_val.log
+.venv/bin/python -m trainlib.evaluate_surface --checkpoint runs/surface/v1/best.pt --split val --batch-size 8 --workers 8 --full-cards 100 | tee runs/surface/v1/eval_val.log
 ```
 
 **Acceptance bars** (a first-version bar; report whatever the numbers are
@@ -429,23 +438,41 @@ cd /workspace/SlabSense/training && source /workspace/env.sh
 nohup .venv/bin/python -m trainlib.train_surface --run-name v1-sfx --epochs 3 --batch-size 8 --workers 8 --init runs/surface/v1/best.pt --views sfx --lr 0.002 --warmup-iters 100 > /workspace/train_surface_v1sfx.log 2>&1 &
 ```
 
-Evaluate the same way as Step 7.5 (`--checkpoint runs/surface/v1-sfx/best.pt
---split val --batch-size 8 --workers 8 --full-cards 300`) and compare its
-`sfx`-view row against v1's `sfx`-view row from Step 7.5's per-view table.
-Accept `v1-sfx` as the shipped `sfx` specialist only if it beats v1's `sfx`
-map50; otherwise v1 stays the shipped model for both views.
+Evaluate with `--views sfx` so the pass only runs the `sfx` view (the `rgb`
+row would be meaningless for a model fine-tuned solely on `sfx` tiles):
+
+```bash
+.venv/bin/python -m trainlib.evaluate_surface --checkpoint runs/surface/v1-sfx/best.pt --split val --batch-size 8 --workers 8 --full-cards 100 --views sfx | tee runs/surface/v1-sfx/eval_val.log
+```
+
+Compare its `sfx` row against v1's `sfx`-view row from Step 7.5's per-view
+table (v1 was evaluated with both views, so the views table has the `sfx`
+row to compare against). Accept `v1-sfx` as the shipped `sfx` specialist
+only if it beats v1's `sfx` map50; otherwise v1 stays the shipped model for
+both views.
 
 ### Step 7.8: deduction model (CPU, independent of the image cache)
 
+Val first, same rule as the detector — do not read test before val is accepted:
+
 ```bash
 cd /workspace/SlabSense/training && source /workspace/env.sh
+.venv/bin/python -m trainlib.deduction_model --out weights/surface/v1/deduction.joblib
+```
+
+This fits on the full train table and reports val per-class MAE vs. the
+baseline (the local smoke's val numbers, for comparison, are in
+`training/README.md`'s Surface detector Results section). Only if the val
+MAE beats the baseline for CREASE, DENT, SCRATCH, and PIT, rerun once with
+`--final-eval` added (this refits the same model and additionally reads the
+frozen test split exactly once):
+
+```bash
 .venv/bin/python -m trainlib.deduction_model --out weights/surface/v1/deduction.joblib --final-eval
 ```
 
-This fits on the full train table and reports val (then, with
-`--final-eval`, test) per-class MAE vs. the baseline (the local smoke's val
-numbers, for comparison, are in `training/README.md`'s Surface detector
-Results section — MAE below baseline for CREASE, DENT, SCRATCH, PIT).
+`deduction_val.csv` and `deduction_test.csv` land next to the `.joblib` and
+are small enough to commit if the user wants them kept.
 
 Leave all `runs/surface/v1/`, `runs/surface/v1-sfx/`, and
 `weights/surface/v1/` artifacts on the box; the main session pulls them
@@ -456,6 +483,7 @@ down over SSH the same way as Step 4 above (never commit a `.pt` or
 
 | Symptom | Do this |
 |---|---|
-| DataLoader `Bus error` | rerun with `--workers 4` |
+| DataLoader `Bus error` during train/eval | increasing `--shm-size` is not possible on vast.ai; rerun with `--workers 4` (each worker holds float32 1024² tensors, so 4 workers instead of 8-16 roughly halves what moves through `/dev/shm`). If it still fails, rerun with `--workers 0` — no worker processes, no shared memory, but roughly 2x slower. |
+| `tile` step OOM / killed (32 workers, each holding a decoded ~26 MP image, is ~8 GB RSS) | rerun with `--workers 16`; it resumes (tiles already written are skipped) |
 | `CUDA out of memory` | rerun with `--batch-size 4` |
 | `map50` still `nan` after epoch 2 | stop and report — the model is producing no detections above score 0.05; this is almost certainly a tiling/index problem (e.g. an empty or misaligned tile index), not something a tuning change fixes |

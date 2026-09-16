@@ -339,6 +339,12 @@ boxes`), and `tiles/<split>/<cert>_<side>_<view>_<x0>_<y0>.jpg` are the tile
 images (JPEG q95, no chroma subsampling). Source card images cache under the
 usual full-resolution `cache.cache_path` layout shared with corners/edges.
 
+`surface_cache_cli pull`/`tile` may name the `test` split in `--splits`
+without `--final-eval` — they only move pixels into the cache and never
+compute a metric, so the frozen-test-split-read rule that gates
+`evaluate_surface --split test` and `deduction_model --final-eval` doesn't
+apply to them.
+
 ### Commands (from `training/`, venv python)
 
 | Command | What it does |
@@ -348,6 +354,12 @@ usual full-resolution `cache.cache_path` layout shared with corners/edges.
 | `python -m trainlib.train_surface --run-name smoke --epochs 2 --batch-size 4 --workers 2 --warmup-iters 50` | train; writes `runs/surface/smoke/{log.csv,best.pt,last.pt,args.json}` |
 | `python -m trainlib.evaluate_surface --checkpoint runs/surface/smoke/best.pt --split val --batch-size 4 --workers 2 --full-cards 20` | per-grade, per-view, per-class tables + a full-card (tile-merged) pass, written next to the checkpoint |
 | `python -m trainlib.deduction_model --out weights/surface/smoke/deduction.joblib` | fit the box→deduction regressor on the full train/val tables (CPU, no images needed) |
+
+`train_surface`'s `log.csv` reports `val_loss_proxy = 1 - map50` — it is not
+a loss, so don't read it for the corner/edge "val_loss rises" overfit signal;
+watch `map50` itself instead. `evaluate_surface`'s full-side `fp_per_side`
+column is class-aware: a box predicted with the wrong class on top of a real
+defect counts as a false positive, not a match.
 
 ### Why torchvision, not Ultralytics
 

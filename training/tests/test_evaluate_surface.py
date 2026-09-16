@@ -23,6 +23,19 @@ def test_merge_tiles_empty():
     assert m["boxes"].shape == (0, 4) and m["labels"].shape == (0,)
 
 
+def test_filter_view_preds_drops_dent_on_rgb_only():
+    pred = {"boxes": torch.tensor([[0.0, 0.0, 1.0, 1.0], [2.0, 2.0, 3.0, 3.0], [4.0, 4.0, 5.0, 5.0]]),
+           "labels": torch.tensor([2, 1, 2]), "scores": torch.tensor([0.9, 0.8, 0.7])}
+    rgb = es.filter_view_preds(pred, "rgb")
+    assert rgb["labels"].tolist() == [1]
+    assert rgb["boxes"].tolist() == [[2.0, 2.0, 3.0, 3.0]]
+    assert torch.allclose(rgb["scores"], torch.tensor([0.8]))
+    sfx = es.filter_view_preds(pred, "sfx")
+    assert sfx["labels"].tolist() == [2, 1, 2]
+    assert sfx["boxes"].tolist() == pred["boxes"].tolist()
+    assert torch.allclose(sfx["scores"], pred["scores"])
+
+
 def _cfg(tmp_path):
     cfg = tmp_path / "config.toml"
     (tmp_path / "ds.toml").write_text('[bucket]\nendpoint="e"\nregion="auto"\nname="b"\nprefix="p"\n', encoding="utf-8")
@@ -48,6 +61,17 @@ def test_tile_eval_writes_per_grade_and_per_class_tables(tmp_path, capsys):
     views = pd.read_csv(tmp_path / "eval_val_views.csv")
     assert list(views.columns) == ["view", "n_tiles", "n_gt", "map50", "precision", "recall"]
     assert views.view.tolist() == ["rgb", "sfx"] and views.n_tiles.tolist() == [2, 2]
+
+
+def test_views_flag_filters_tile_index(tmp_path, capsys):
+    cache, idx = make_tile_index(tmp_path, n=4, size=96)
+    idx.to_parquet(cache / "tiles" / "val.parquet", index=False)
+    m = detector.build_detector(num_classes=8, pretrained=False)
+    ck = tmp_path / "best.pt"; detector.save_checkpoint(m, ck, ["CREASE", "DENT", "PIT", "PRINT_DEFECT", "SCRATCH", "STAIN", "TEAR"], 1, 0.0)
+    es.main(["--config", str(_cfg(tmp_path)), "--checkpoint", str(ck), "--split", "val", "--device", "cpu",
+             "--workers", "0", "--batch-size", "2", "--min-size", "96", "--views", "sfx"])
+    views = pd.read_csv(tmp_path / "eval_val_views.csv")
+    assert views.view.tolist() == ["sfx"] and int(views.n_tiles.iloc[0]) == 2
 
 
 def test_test_split_requires_final_eval(tmp_path):
