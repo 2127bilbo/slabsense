@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import ZoomableCardView from './ZoomableCardView';
 import VisionModeControls from './VisionModeControls';
 import DefectMap from './DefectMap';
@@ -86,7 +87,9 @@ export default function DamageReportModal({
     setViewSide(defect.side || 'front');
   };
 
-  return (
+  // Rendered on document.body so it sits above whichever screen opened it (the card-details
+  // layer in the collection view is a fixed overlay at z-index 2000 and used to cover this).
+  return createPortal(
     <div style={{
       position: 'fixed',
       top: 0,
@@ -94,7 +97,7 @@ export default function DamageReportModal({
       right: 0,
       bottom: 0,
       background: 'rgba(0, 0, 0, 0.9)',
-      zIndex: 1000,
+      zIndex: 5000,
       overflowY: 'auto',
       padding: 16
     }}>
@@ -290,7 +293,7 @@ export default function DamageReportModal({
         </Section>
       </div>
     </div>
-  );
+  , document.body);
 }
 
 // Section wrapper component
