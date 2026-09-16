@@ -56,6 +56,7 @@ targets. Metrics are reported overall (per epoch, in `log.csv`) and per grade (`
 |---|---|---|---|---|---|---|---|---|---|---|
 | 2026-09-16 | corners | wear / deduction / angle | 500/100 | 3 | 107, 88, 105 | 5.93 GiB | 0.2424 (epoch 2) | 0.828 (final epoch) | 160 pts (final epoch) | 2.6 pts (final epoch) |
 | 2026-09-16 | edges | wear / deduction | 500/100 | 3 | 320, 308, 305 | 4.07 GiB | 0.2811 (epoch 3) | 0.779 (final epoch) | 323 pts (final epoch) | n/a (no angle target) |
+| 2026-09-16 | edges (resized cache) | wear / deduction | 500/100 | 3 | 85, 67, 66 | 4.07 GiB | 0.2798 (epoch 2) | 0.765 (final epoch) | 330 pts (final epoch) | n/a (no angle target) |
 
 **Metric definitions changed on 2026-09-16** with the corner/edge target
 redesign (`docs/superpowers/plans/2026-09-16-corner-edge-targets.md`):
@@ -119,6 +120,24 @@ yet after 3 short epochs); use `auroc_wear` instead. Per-grade eval
 AUROC where `npos_wear` is 0 for that grade in this 100-card sample (no
 positive edge-wear rows to rank against); `ALL` row: `auroc_wear` 0.780,
 `mae_deduction` 323 pts, `npos_wear` 80 of 800.
+
+### Edge smoke on resized cache (2026-09-16)
+
+Same 500/100-card sample; crops cached pre-resized to 1024×192 (JPEG q95,
+4:4:4) instead of full resolution. Cache: 4,796 of 4,800 strips in 146 s
+(~33 files/s), 708 MB on disk for the 4,796 strips (≈148 KB each →
+~33 GB projected for all ~222k edge crops, matching the ~30 GB estimate
+already used in the rented-GPU recipe below). Training (`--batch-size 16
+--workers 0`) dropped to 85/67/66 s per epoch — versus 320/308/305 s on the
+full-resolution cache — because the GPU is now ~50% busy instead of 2–7%;
+peak VRAM unchanged at 4.07 GiB. Best val loss 0.2798 at epoch 2; final
+epoch `auroc_wear` 0.765, `npos_wear` 80/800, `mae_deduction` 330 pts;
+per-grade `ALL` row (`runs/edges/smoke3/eval.log`): `auroc_wear` 0.761,
+`mae_deduction` 329 pts.
+
+Accuracy matched the full-resolution run within the noise of a 3-epoch
+smoke (0.765 vs 0.779 AUROC; 329 vs 323 pts MAE) at 4.6x the speed, so **all
+edge runs use the resized cache from here on**.
 
 Edge strips will be cached **pre-resized to 1024×192** before any full run,
 because the full-resolution edge object set in the bucket is 833 GB — far
