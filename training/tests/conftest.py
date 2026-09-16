@@ -110,3 +110,43 @@ def make_cache(tmp_path: Path, table: pd.DataFrame, w: int, h: int, vertical_for
 @pytest.fixture
 def tables(tmp_path):
     return make_tables(tmp_path)
+
+
+def make_surface_tables(tmp_path: Path):
+    """manifest + surface + splits for four certs. Boxes exercise every filter:
+    a kept marker per class, a zero-width marker, an ESW_CSW marker, a PLAY_WEAR frame,
+    a whole-card (area > 0.25) stain, and a deduction above 1000."""
+    ds = tmp_path / "dataset"; ds.mkdir(exist_ok=True)
+    certs = ["A1", "B2", "C3", "D4"]
+    pd.DataFrame({
+        "cert": certs, "grade_label": ["9 MINT", "1 POOR", "9 MINT", "5 EXCELLENT"],
+        "path_sfx_front": [f"tag-dataset/{c}/sfx_front.jpg" for c in certs],
+        "path_sfx_back": [f"tag-dataset/{c}/sfx_back.jpg" for c in certs],
+        "path_front": [f"tag-dataset/{c}/front.jpg" for c in certs],
+        "path_back": [f"tag-dataset/{c}/back.jpg" for c in certs],
+    }).to_parquet(ds / "manifest.parquet", index=False)
+    rows = [
+        # cert, side, engine_type, x, y, w, h, deduction
+        ("A1", "F", "CREASE", 0.10, 0.10, 0.05, 0.20, 480.0),
+        ("A1", "F", "DENT", 0.50, 0.50, 0.04, 0.03, 345.0),
+        ("A1", "B", "SCRATCH", 0.02, 0.60, 0.007, 0.06, 76.0),
+        ("B2", "F", "PIT", 0.30, 0.30, 0.003, 0.002, 11.0),
+        ("B2", "F", "PRINT_DEFECT", 0.05, 0.40, 0.90, 0.004, 23.0),   # a print line: wide, thin, area 0.0036 -> kept
+        ("B2", "B", "STAIN", 0.00, 0.00, 0.98, 0.99, 11000.0),         # whole-card frame -> dropped (area > 0.25)
+        ("B2", "B", "TEAR", 0.70, 0.70, 0.02, 0.02, 1350.0),           # kept, deduction clipped to 1000
+        ("C3", "F", "EDGE", 0.00, 0.95, 0.006, 0.006, 133.0),          # ESW_CSW -> dropped
+        ("C3", "F", "PLAY_WEAR", 0.01, 0.01, 0.98, 0.98, 425.0),       # dropped
+        ("C3", "B", "DENT", 0.40, 0.40, 0.00, 0.03, 300.0),            # zero width -> dropped
+        ("D4", "F", "CREASE", 0.20, 0.20, 0.10, 0.10, 500.0),
+    ]
+    pd.DataFrame(rows, columns=["cert", "side", "engine_type", "x", "y", "w", "h", "deduction"]).to_parquet(
+        ds / "surface.parquet", index=False)
+    sp = tmp_path / "splits.parquet"
+    pd.DataFrame({"cert": certs, "split": ["train", "train", "val", "test"],
+                  "stratum": ["x"] * 4, "assigned_at": ["t"] * 4}).to_parquet(sp, index=False)
+    return ds, sp
+
+
+@pytest.fixture
+def surface_tables(tmp_path):
+    return make_surface_tables(tmp_path)
