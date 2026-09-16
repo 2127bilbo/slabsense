@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 from PIL import Image, ImageEnhance
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, get_worker_info
 
 from .tables import TASKS
 
@@ -26,16 +26,17 @@ def load_crop(
 ) -> torch.Tensor:
     spec = TASKS[task]
     w, h = input_size if input_size is not None else spec["input_size"]
-    img = Image.open(path).convert("RGB")
+    with Image.open(path) as im:
+        img = im.convert("RGB")
     if spec["long_side_horizontal"] and img.height > img.width:
         img = img.transpose(Image.Transpose.ROTATE_90)
+    img = img.resize((w, h), Image.Resampling.BILINEAR)
     if train:
         rng = rng or np.random.default_rng()
         img = ImageEnhance.Brightness(img).enhance(float(rng.uniform(0.9, 1.1)))
         img = ImageEnhance.Contrast(img).enhance(float(rng.uniform(0.9, 1.1)))
         if spec["long_side_horizontal"] and rng.random() < 0.5:
             img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-    img = img.resize((w, h), Image.Resampling.BILINEAR)
     t = torch.from_numpy(np.asarray(img, dtype=np.float32) / 255.0).permute(2, 0, 1)
     return (t - MEAN) / STD
 
@@ -55,14 +56,21 @@ class CropDataset(Dataset):
         self.train = train
         self.input_size = input_size
         self.targets = TASKS[task]["targets"]
-        self.rng = np.random.default_rng()
+        self.rng = None
+
+    def _generator(self) -> np.random.Generator:
+        if self.rng is None:
+            info = get_worker_info()
+            seed = info.seed if info is not None else torch.initial_seed()
+            self.rng = np.random.default_rng(seed % (2**32))
+        return self.rng
 
     def __len__(self) -> int:
         return len(self.df)
 
     def __getitem__(self, i: int):
         row = self.df.iloc[i]
-        img = load_crop(self.cache_dir / row.crop_path, self.task, self.train, self.rng, self.input_size)
+        img = load_crop(self.cache_dir / row.crop_path, self.task, self.train, self._generator(), self.input_size)
         side = torch.tensor([1.0 if row.side == "B" else 0.0])
         vals = [float(row[c]) for c in self.targets]
         mask = torch.tensor([0.0 if math.isnan(v) else 1.0 for v in vals])

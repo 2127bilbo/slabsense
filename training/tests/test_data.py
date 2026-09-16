@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import pandas as pd
 import torch
 
@@ -44,13 +45,57 @@ def test_collate_stacks(tables, tmp_path):
     assert imgs.shape == (3, 3, 384, 384) and sides.shape == (3, 1) and targets.shape == (3, 3) and masks.shape == (3, 3)
 
 
-def test_train_transform_is_stochastic_but_bounded(tables, tmp_path):
+def test_train_transform_rng_is_seeded_and_reproducible(tables, tmp_path):
     ds, sp = tables
     df = tables_mod.load_task_table("edges", ds, sp, "train")
     cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True)
+
+    d1 = data.CropDataset(df, "edges", cache, train=True)
+    d1.rng = np.random.default_rng(1)
+    d2 = data.CropDataset(df, "edges", cache, train=True)
+    d2.rng = np.random.default_rng(2)
+    d3 = data.CropDataset(df, "edges", cache, train=True)
+    d3.rng = np.random.default_rng(1)
+
+    a = d1[0][0]
+    b = d2[0][0]
+    c = d3[0][0]
+
+    assert not torch.equal(a, b)
+    assert torch.equal(a, c)
+
+
+def test_eval_transform_is_deterministic_and_train_transform_is_bounded(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("edges", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True)
+
+    e1 = data.CropDataset(df, "edges", cache, train=False)
+    e2 = data.CropDataset(df, "edges", cache, train=False)
+    eval_a = e1[0][0]
+    eval_b = e2[0][0]
+    assert torch.equal(eval_a, eval_b)
+
     d = data.CropDataset(df, "edges", cache, train=True)
-    a = d[0][0]; b = d[0][0]
-    assert torch.isfinite(a).all() and a.shape == b.shape
+    d.rng = np.random.default_rng(7)
+    train_a = d[0][0]
+    assert torch.isfinite(train_a).all()
+    assert (train_a - eval_a).abs().mean().item() < 0.3
+
+
+def test_generator_is_lazy_and_per_dataset_instance(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("edges", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True)
+
+    d1 = data.CropDataset(df, "edges", cache, train=True)
+    d2 = data.CropDataset(df, "edges", cache, train=True)
+    assert d1.rng is None and d2.rng is None
+
+    d1[0]
+    d2[0]
+
+    assert d1.rng is not None and d2.rng is not None
 
 
 def test_input_size_override_does_not_mutate_tasks(tables, tmp_path):
