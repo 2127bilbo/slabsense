@@ -372,13 +372,15 @@ tiles (561 positive, 605 boxes; 742 `sfx` / 720 `rgb`), val 261 tiles (74
 positive, 74 boxes; 131 `sfx` / 130 `rgb`); 605 MB total on disk under
 `cache_dir/tiles/`. No OOM at batch size 4 (peak VRAM 4.00 GiB, well under
 the 4070's ~10 GB free). `map50` near zero after 2 epochs is expected — this
-smoke checks plumbing, not accuracy (see Task 9 brief); `--full-cards 20`
-found 0 cached sides because it takes the *first* 20 sorted certs of the
-full val split and only cards a random subset of 60 val certs were pulled
-locally, so none of the alphabetically-first 20 happened to be cached — the
-full-side merge/NMS path ran and wrote a well-formed (all-NaN) CSV with no
-error, but wasn't exercised against real detections at this scale; it will
-be on the rented-GPU full run where the whole split is cached.
+smoke checks plumbing, not accuracy (see Task 9 brief). The first
+`--full-cards 20` pass found 0 cached sides: it took the first 20 sorted
+certs of the whole val split, none of which were in the random 60-card local
+pull. `full_side_eval` now takes the first N cards whose images are *all*
+cached, so a partial local cache still exercises the path. Re-run with
+`--full-cards 5` on the same checkpoint: 20 side-views (10 `sfx`, 10 `rgb`),
+17 GT boxes, `map50` 0.0004, `fp_per_side` 0.25 (rgb 0.30, sfx 0.20) —
+meaningless as accuracy after 2 epochs, but the tile merge / NMS / matching
+path is proven on real images.
 
 Deduction regressor (`HistGradientBoostingRegressor`, fit on the full
 20,757-box train table, evaluated on the full val table — independent of

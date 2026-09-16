@@ -78,7 +78,10 @@ def tile_eval(model, index: pd.DataFrame, cache_dir: Path, device, batch_size: i
 
 def full_side_eval(model, cfg, split: str, n_cards: int, device, score_thr: float, allow_test: bool) -> pd.DataFrame:
     sides, boxes = load_surface_split(cfg.dataset_dir, cfg.splits_path, split, allow_test=allow_test)
-    certs = sorted(sides.cert.unique())[:n_cards]
+    # the first n_cards cards (sorted) whose images are all cached, so a partial cache (local smoke) still evaluates
+    cached = sides[sides.image_key.map(lambda k: cache_path(cfg.cache_dir, k).exists())]
+    full = cached.groupby("cert").size()
+    certs = sorted(full[full == sides.groupby("cert").size().reindex(full.index)].index)[:n_cards]
     sides = sides[sides.cert.isin(certs)]
     by_view = {v: {k: g for k, g in boxes_for_view(boxes, v).groupby(["cert", "side"])} for v in ("sfx", "rgb")}
     preds, gts, fps, views = [], [], [], []
