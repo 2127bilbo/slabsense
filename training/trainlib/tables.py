@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from .cache import resized_path
+
 Target = namedtuple("Target", "name kind column")
 
 TASKS = {
@@ -19,6 +21,7 @@ TASKS = {
         "key_cols": ["side", "corner"],
         "input_size": (384, 384),
         "long_side_horizontal": False,
+        "cache_resize": None,
     },
     "edges": {
         "table": "edges.parquet",
@@ -29,6 +32,7 @@ TASKS = {
         "key_cols": ["side", "edge"],
         "input_size": (1024, 192),
         "long_side_horizontal": True,
+        "cache_resize": (1024, 192),
     },
 }
 
@@ -58,9 +62,19 @@ def load_task_table(task: str, dataset_dir: Path, splits_path: Path, split: str,
     return df.reset_index(drop=True)
 
 
-def filter_cached(df: pd.DataFrame, cache_dir: Path) -> tuple[pd.DataFrame, int]:
-    """Drop rows whose crop_path has no file under cache_dir (e.g. permanently missing upstream)."""
+def filter_cached(df: pd.DataFrame, cache_dir: Path, task: str | None = None) -> tuple[pd.DataFrame, int]:
+    """Drop rows whose crop_path has no file under cache_dir (e.g. permanently missing upstream).
+
+    When `task` has a `cache_resize`, a row counts as cached if either the resized or the
+    full-res file exists.
+    """
     cache_dir = Path(cache_dir)
-    present = df.crop_path.map(lambda p: (cache_dir / p).exists())
+    resize = TASKS[task]["cache_resize"] if task else None
+    if resize:
+        present = df.crop_path.map(
+            lambda p: resized_path(cache_dir, p, resize).exists() or (cache_dir / p).exists()
+        )
+    else:
+        present = df.crop_path.map(lambda p: (cache_dir / p).exists())
     dropped = int((~present).sum())
     return df[present].reset_index(drop=True), dropped

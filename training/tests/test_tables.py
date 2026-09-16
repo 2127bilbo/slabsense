@@ -20,6 +20,8 @@ def test_tasks_spec():
     assert tables.TASKS["edges"]["input_size"] == (1024, 192)
     assert tables.TASKS["corners"]["key_cols"] == ["side", "corner"]
     assert tables.TASKS["edges"]["key_cols"] == ["side", "edge"]
+    assert tables.TASKS["corners"]["cache_resize"] is None
+    assert tables.TASKS["edges"]["cache_resize"] == (1024, 192)
 
 
 def test_target_names_and_kinds():
@@ -71,3 +73,39 @@ def test_filter_cached_keeps_frame_unchanged_when_all_present(tables, tmp_path):
     cache = make_cache(tmp_path, df, 32, 32)
     filtered, dropped = tables_mod().filter_cached(df, cache)
     assert dropped == 0 and len(filtered) == len(df)
+
+
+def test_filter_cached_counts_resized_only_file_as_cached_for_edges(tables, tmp_path):
+    ds, sp = tables
+    df = pd.read_parquet(ds / "edges.parquet")
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True, resized=True)
+    filtered, dropped = tables_mod().filter_cached(df, cache, task="edges")
+    assert dropped == 0 and len(filtered) == len(df)
+
+
+def test_filter_cached_without_task_ignores_resized_only_edges(tables, tmp_path):
+    ds, sp = tables
+    df = pd.read_parquet(ds / "edges.parquet")
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True, resized=True)
+    filtered, dropped = tables_mod().filter_cached(df, cache)
+    assert dropped == len(df) and len(filtered) == 0
+
+
+def test_filter_cached_drops_row_missing_both_resized_and_full_res(tables, tmp_path):
+    ds, sp = tables
+    df = pd.read_parquet(ds / "edges.parquet")
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True, resized=True)
+    key = df.crop_path.iloc[0]
+    from trainlib.cache import resized_path
+    resized_path(cache, key, (1024, 192)).unlink()
+    filtered, dropped = tables_mod().filter_cached(df, cache, task="edges")
+    assert dropped == 1 and key not in set(filtered.crop_path)
+
+
+def test_filter_cached_task_with_no_cache_resize_behaves_like_before(tables, tmp_path):
+    ds, sp = tables
+    df = pd.read_parquet(ds / "corners.parquet")
+    cache = make_cache(tmp_path, df, 32, 32)
+    (cache / df.crop_path.iloc[0]).unlink()
+    filtered, dropped = tables_mod().filter_cached(df, cache, task="corners")
+    assert dropped == 1 and len(filtered) == len(df) - 1

@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import pandas as pd
 from PIL import Image
 
-from conftest import FakeReader, make_cache, make_tables
+from conftest import FakeReader, make_cache, make_tables, png_bytes
 from trainlib import cache
 
 
@@ -53,3 +55,48 @@ def test_make_cache_picks_edge_letter_not_side_letter(tmp_path):
     flat_cache = make_cache(tmp_path / "flat", edges, 3296, 550, vertical_for_lr=False)
     assert _png_size(flat_cache / "tag-dataset/A1/edge_FL.png") == (3296, 550)
     assert _png_size(flat_cache / "tag-dataset/A1/edge_FT.png") == (3296, 550)
+
+
+def test_resized_path_layout():
+    p = cache.resized_path(Path("/c"), "tag-dataset/A1/corner_FTL.png", (1024, 192))
+    assert p == Path("/c/resized/1024x192/tag-dataset/A1/corner_FTL.jpg")
+
+
+def test_build_cache_resize_rotates_vertical_strip_and_writes_jpeg(tmp_path):
+    reader = FakeReader({"tag-dataset/A1/edge_FL.png": png_bytes(550, 4992)})
+    counts = cache.build_cache(reader, ["tag-dataset/A1/edge_FL.png"], tmp_path / "c",
+                               workers=2, resize=(1024, 192))
+    assert counts == {"downloaded": 1, "skipped": 0, "failed": 0}
+    dest = cache.resized_path(tmp_path / "c", "tag-dataset/A1/edge_FL.png", (1024, 192))
+    assert dest.exists() and dest.suffix == ".jpg"
+    with Image.open(dest) as im:
+        assert im.size == (1024, 192)
+        assert im.format == "JPEG"
+
+
+def test_build_cache_resize_no_rotation_needed_for_horizontal_strip(tmp_path):
+    reader = FakeReader({"tag-dataset/A1/edge_FT.png": png_bytes(3296, 550)})
+    cache.build_cache(reader, ["tag-dataset/A1/edge_FT.png"], tmp_path / "c",
+                      workers=2, resize=(1024, 192))
+    dest = cache.resized_path(tmp_path / "c", "tag-dataset/A1/edge_FT.png", (1024, 192))
+    with Image.open(dest) as im:
+        assert im.size == (1024, 192)
+
+
+def test_build_cache_resize_skips_when_resized_file_already_exists(tmp_path):
+    key = "tag-dataset/A1/edge_FT.png"
+    reader = FakeReader({key: png_bytes(3296, 550)})
+    cache.build_cache(reader, [key], tmp_path / "c", resize=(1024, 192))
+    reader.calls.clear()
+    counts = cache.build_cache(reader, [key], tmp_path / "c", resize=(1024, 192))
+    assert counts == {"downloaded": 0, "skipped": 1, "failed": 0}
+    assert reader.calls == []
+
+
+def test_build_cache_resize_does_not_write_full_res_copy(tmp_path):
+    key = "tag-dataset/A1/edge_FT.png"
+    reader = FakeReader({key: png_bytes(3296, 550)})
+    cdir = tmp_path / "c"
+    cache.build_cache(reader, [key], cdir, resize=(1024, 192))
+    assert not cache.cache_path(cdir, key).exists()
+    assert not list(cdir.rglob("*.part"))

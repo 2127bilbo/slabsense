@@ -9,6 +9,7 @@ import torch
 from PIL import Image, ImageEnhance
 from torch.utils.data import Dataset, get_worker_info
 
+from .cache import resized_path
 from .tables import TASKS
 
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
@@ -48,12 +49,14 @@ class CropDataset(Dataset):
         cache_dir: Path,
         train: bool,
         input_size: tuple[int, int] | None = None,
+        full_res: bool = False,
     ):
         self.df = df.reset_index(drop=True)
         self.task = task
         self.cache_dir = Path(cache_dir)
         self.train = train
         self.input_size = input_size
+        self.full_res = full_res
         self.targets = TASKS[task]["targets"]
         self.rng = None
 
@@ -67,9 +70,23 @@ class CropDataset(Dataset):
     def __len__(self) -> int:
         return len(self.df)
 
+    def _resolve_path(self, crop_path: str) -> Path:
+        resize = TASKS[self.task]["cache_resize"]
+        full_path = self.cache_dir / crop_path
+        if not resize or self.full_res:
+            return full_path
+        rpath = resized_path(self.cache_dir, crop_path, resize)
+        if rpath.exists():
+            return rpath
+        if full_path.exists():
+            return full_path
+        raise FileNotFoundError(
+            f"no cached crop for {crop_path!r}: checked resized ({rpath}) and full-res ({full_path})"
+        )
+
     def __getitem__(self, i: int):
         row = self.df.iloc[i]
-        img = load_crop(self.cache_dir / row.crop_path, self.task, self.train, self._generator(), self.input_size)
+        img = load_crop(self._resolve_path(row.crop_path), self.task, self.train, self._generator(), self.input_size)
         side = torch.tensor([1.0 if row.side == "B" else 0.0])
         vals, masks = [], []
         for _name, kind, column in self.targets:

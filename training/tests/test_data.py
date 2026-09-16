@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 
 from conftest import make_cache
@@ -149,6 +150,59 @@ def test_generator_is_lazy_and_per_dataset_instance(tables, tmp_path):
     d2[0]
 
     assert d1.rng is not None and d2.rng is not None
+
+
+def test_edge_dataset_reads_from_resized_cache(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("edges", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True, resized=True)
+    d = data.CropDataset(df, "edges", cache, train=False)
+    img, _, target, mask = d[0]
+    assert img.shape == (3, 192, 1024)
+    assert target.shape == (2,) and mask.shape == (2,)
+
+
+def test_edge_dataset_falls_back_to_full_res_when_resized_missing(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("edges", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True)  # full-res only
+    d = data.CropDataset(df, "edges", cache, train=False)
+    img, *_ = d[0]
+    assert img.shape == (3, 192, 1024)
+
+
+def test_edge_dataset_raises_with_both_paths_when_neither_exists(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("edges", ds, sp, "train")
+    cache = tmp_path / "empty_cache"
+    cache.mkdir()
+    d = data.CropDataset(df, "edges", cache, train=False)
+    with pytest.raises(FileNotFoundError) as exc:
+        d[0]
+    msg = str(exc.value)
+    assert "resized" in msg and str(cache) in msg
+
+
+def test_full_res_flag_ignores_resized_cache(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("edges", ds, sp, "train")
+    # only a full-res file exists at the wrong size, plus a resized one; full_res=True
+    # must read the full-res file, not the resized one, even though it exists.
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True, resized=True)
+    make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True)  # also writes full-res copies into same cache dir
+    d = data.CropDataset(df, "edges", cache, train=False, full_res=True)
+    img, *_ = d[0]
+    assert img.shape == (3, 192, 1024)
+
+
+def test_corner_dataset_ignores_resize_since_corners_have_no_cache_resize(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("corners", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 550, 550)
+    assert tables_mod.TASKS["corners"]["cache_resize"] is None
+    d = data.CropDataset(df, "corners", cache, train=False)
+    img, *_ = d[0]
+    assert img.shape == (3, 384, 384)
 
 
 def test_input_size_override_does_not_mutate_tasks(tables, tmp_path):

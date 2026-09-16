@@ -63,7 +63,7 @@ def main(argv=None) -> Path:
     args = p.parse_args(argv)
     cfg = load_config(args.config); device = torch.device(args.device)
     df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, args.split, args.limit_cards, allow_test=args.final_eval)
-    df, dropped = filter_cached(df, cfg.cache_dir)
+    df, dropped = filter_cached(df, cfg.cache_dir, args.task)
     print(f"{args.split}: dropped {dropped} rows with no cached crop")
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     model = ScoreRegressor(ckpt["n_out"], ckpt["backbone"], pretrained=False)

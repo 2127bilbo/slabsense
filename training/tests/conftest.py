@@ -80,15 +80,30 @@ def make_tables(tmp_path: Path, certs=("A1", "B2", "C3", "D4"), grades=("9 MINT"
     return ds, sp
 
 
-def make_cache(tmp_path: Path, table: pd.DataFrame, w: int, h: int, vertical_for_lr: bool = False) -> Path:
+def make_cache(tmp_path: Path, table: pd.DataFrame, w: int, h: int, vertical_for_lr: bool = False,
+              resized: bool = False, resize_size: tuple[int, int] = (1024, 192)) -> Path:
+    """Write PNGs at the full-res path, or (resized=True) JPEGs at the resized path — mirroring
+    the production rotate-then-resize rule so dataset tests can exercise both cache modes."""
     cache = tmp_path / "cache"
+    rw, rh = resize_size
     for p in table.crop_path:
-        dest = cache / p; dest.parent.mkdir(parents=True, exist_ok=True)
         stem = Path(p).stem
         edge = stem[-1]
         vertical = vertical_for_lr and stem.startswith("edge_") and edge in "LR"
         ww, hh = (h, w) if vertical else (w, h)
-        dest.write_bytes(png_bytes(ww, hh))
+        if resized:
+            dest = cache / "resized" / f"{rw}x{rh}" / Path(p).with_suffix(".jpg")
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            arr = np.full((hh, ww, 3), 128, dtype=np.uint8)
+            img = Image.fromarray(arr)
+            if img.height > img.width:
+                img = img.transpose(Image.Transpose.ROTATE_90)
+            img = img.resize((rw, rh), Image.Resampling.LANCZOS)
+            img.save(dest, format="JPEG", quality=95)
+        else:
+            dest = cache / p
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(png_bytes(ww, hh))
     return cache
 
 

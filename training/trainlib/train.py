@@ -139,8 +139,8 @@ def main(argv=None) -> Path:
 
     train_df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, "train", args.limit_cards, args.seed)
     val_df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, "val", args.val_limit_cards, args.seed)
-    train_df, train_dropped = filter_cached(train_df, cfg.cache_dir)
-    val_df, val_dropped = filter_cached(val_df, cfg.cache_dir)
+    train_df, train_dropped = filter_cached(train_df, cfg.cache_dir, args.task)
+    val_df, val_dropped = filter_cached(val_df, cfg.cache_dir, args.task)
     print(f"train: dropped {train_dropped} rows with no cached crop")
     print(f"val: dropped {val_dropped} rows with no cached crop")
     train_loader = make_loader(train_df, args.task, cfg.cache_dir, True, args.batch_size, args.workers, args.input_size)
