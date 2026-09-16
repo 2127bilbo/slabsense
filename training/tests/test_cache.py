@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
-from PIL import Image
+from PIL import Image, JpegImagePlugin
 
 from conftest import FakeReader, make_cache, make_tables, png_bytes
 from trainlib import cache
@@ -100,3 +100,13 @@ def test_build_cache_resize_does_not_write_full_res_copy(tmp_path):
     cache.build_cache(reader, [key], cdir, resize=(1024, 192))
     assert not cache.cache_path(cdir, key).exists()
     assert not list(cdir.rglob("*.part"))
+
+
+def test_build_cache_resize_uses_444_chroma_subsampling(tmp_path):
+    key = "tag-dataset/A1/edge_FT.png"
+    reader = FakeReader({key: png_bytes(3296, 550)})
+    cdir = tmp_path / "c"
+    cache.build_cache(reader, [key], cdir, resize=(1024, 192))
+    dest = cache.resized_path(cdir, key, (1024, 192))
+    with Image.open(dest) as im:
+        assert JpegImagePlugin.get_sampling(im) == 0

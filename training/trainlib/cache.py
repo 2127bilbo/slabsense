@@ -33,7 +33,9 @@ def _resize_and_save(data: bytes, dest: Path, size: tuple[int, int], quality: in
         img = img.transpose(Image.Transpose.ROTATE_90)
     img = img.resize((w, h), Image.Resampling.LANCZOS)
     tmp = dest.with_suffix(dest.suffix + ".part")
-    img.save(tmp, format="JPEG", quality=quality)
+    # subsampling=0 (4:4:4): keep full chroma resolution — Pillow's default 4:2:0 would
+    # average 2x2 color blocks, throwing away color detail at hairline edge/corner marks.
+    img.save(tmp, format="JPEG", quality=quality, subsampling=0)
     os.replace(tmp, dest)
 
 

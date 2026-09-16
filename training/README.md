@@ -22,7 +22,11 @@ R2 credentials come from the same env vars the dataset package uses (`B2_KEY_ID`
 | `python -m trainlib.evaluate --task corners --checkpoint runs/corners/smoke/best.pt --split val` | per-grade MAE table → `eval_val.csv` |
 | `... --split test --final-eval` | the frozen test split; only for an accepted model |
 
-Cache location: `scripts/tag-dataset/data/cache/` (full-resolution originals; ~100 GB each for all corners or all edges).
+Cache location: `cache_dir` from `config.toml` (`scripts/tag-dataset/data/cache/` by default). Two caching modes, chosen per task from `tables.TASKS[task]["cache_resize"]`:
+- **Full resolution** (`cache.cache_path`, `cache_dir/<key>`): the downloaded file, byte-for-byte. Used for corners (~105 GB for all cards) and, with `cache_cli --no-resize`, for any task.
+- **Pre-resized** (`cache.resized_path`, `cache_dir/resized/<w>x<h>/<key>.jpg`): the downloaded bytes decoded, rotated so the long side is horizontal, resized to the task's input size, and saved as JPEG quality 95 with 4:4:4 chroma subsampling (`subsampling=0` — Pillow's default 4:2:0 would average 2x2 color blocks, throwing away color detail at hairline edge/corner marks). `cache_cli` uses this automatically for edges (input size 1024×192, ~30 GB for all 222,008 edge crops, vs 833 GB full-resolution). `--no-resize` forces full-resolution caching instead. If the edge model's input size changes later, the resized cache must be rebuilt at the new size — old `resized/<old-w>x<old-h>/` files are not reused or migrated.
+
+`tables.filter_cached(df, cache_dir, task)` counts a row as cached if either file exists, so a resized-only edge cache is not reported as all-missing.
 
 `evaluate` without `--limit-cards` loads the whole split and then drops every row whose crop is not cached, so match `--limit-cards` to what was cached or cache the full split first.
 
