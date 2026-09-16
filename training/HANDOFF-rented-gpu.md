@@ -329,8 +329,18 @@ for the ~40 GB tile cache.
 ```bash
 cd /workspace/SlabSense && git pull && cd training
 uv pip install --python .venv/bin/python -e ".[dev]"     # scikit-learn is new (deduction regressor)
-.venv/bin/python -m pytest -q     # expect 99 passed
+.venv/bin/python -m pytest -q     # expect 103 passed
+ls ../scripts/tag-dataset/data/dataset/                   # must list surface.parquet (and manifest.parquet)
 ```
+
+The surface step reads `surface.parquet`, which Step 1 did not copy (it only
+needed the corner and edge tables). If it is missing, copy it from the PC the
+same way as Step 1 (`scp -P <port> ".../data/dataset/surface.parquet"
+root@<host>:/workspace/SlabSense/scripts/tag-dataset/data/dataset/`); the
+tile step fails immediately with `FileNotFoundError: ... surface.parquet`
+otherwise. As of 2026-09-16 evening it is already on the box, and the tile
+step (7.3) was launched by the main session: check `/workspace/tile_surface.log`
+before launching it again.
 
 ### Step 7.1: bring the key file back
 
