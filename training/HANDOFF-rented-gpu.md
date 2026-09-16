@@ -270,16 +270,26 @@ uv pip install --python .venv/bin/python -e ".[dev]" && .venv/bin/python -m pyte
 source /workspace/env.sh
 nohup .venv/bin/python -m trainlib.train --task corners --run-name v2 --epochs 8 --batch-size 64 --workers 8 --drop-path 0.2 --ema-decay 0.999 --aug strong > /workspace/train_corners_v2.log 2>&1 &
 # after corners v2 finishes:
-nohup .venv/bin/python -m trainlib.train --task edges --run-name v2 --epochs 8 --batch-size 32 --workers 8 --drop-path 0.2 --ema-decay 0.999 --aug strong > /workspace/train_edges_v2.log 2>&1 &
+nohup .venv/bin/python -m trainlib.train --task edges --run-name v2 --epochs 12 --batch-size 32 --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug strong > /workspace/train_edges_v2.log 2>&1 &
 ```
 
-Expect about 9.5 min per corner epoch and 12.5 min per edge epoch, so about
-75 min and 100 min respectively. Epoch 1 will look worse than v1's epoch 1
+The edge recipe differs on purpose: edges v1 did not overfit (train loss
+0.18 vs val 0.198 at epoch 12, still improving slowly), so it keeps the
+12-epoch schedule and a lighter drop-path of 0.1; the EMA and stronger
+augmentation are the changes that help it. Corners v1 did overfit, hence
+8 epochs and 0.2 there.
+
+No R2 keys are needed for training or evaluation; both read the local cache
+under `/workspace/cache`. The key file was removed after v1 and will be
+copied back only when the surface pull needs it.
+
+Expect about 9.5 min per corner epoch and 11.5 min per edge epoch, so about
+75 min and 140 min respectively. Epoch 1 will look worse than v1's epoch 1
 because the EMA copy lags the raw weights early; judge from epoch 3 onward.
 
 Evaluate exactly as in Step 4 with `runs/<task>/v2/best.pt`. Accept v2 for
 a task only if its val `ALL` row beats v1 on both auroc_wear (v1: corners
-0.919, edges see the v1 report) and mae_deduction (v1: corners 105.0). Run
+0.919, edges 0.895) and mae_deduction (v1: corners 105.0, edges 161.3). Run
 the test evaluation on an accepted v2 once, the same way. If v2 does not
 beat v1, report the numbers and leave the artifacts in place; v1 stays.
 Leave all `runs/<task>/v2/` artifacts on the box; the main session pulls
