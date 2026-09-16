@@ -26,6 +26,8 @@ Cache location: `scripts/tag-dataset/data/cache/` (full-resolution originals; ~1
 
 `evaluate` without `--limit-cards` loads the whole split and then drops every row whose crop is not cached, so match `--limit-cards` to what was cached or cache the full split first.
 
+The 2026-09-16 wear/deduction/angle corner smoke (`run-name smoke2`) had to be launched as a detached OS process with `--workers 0`, outside the interactive shell: the sandboxed shell's own memory guard killed both `--workers 2` and in-shell `--workers 0` runs on a box that had only ~5 GB free at the time (unrelated apps — dozens of `camoufox` processes, several `node` processes, browsers — were holding the rest of the 31.8 GB). `--workers 2` (or higher) is still the right choice once RAM is actually available; `--workers 0` is slower per epoch (in-process loading) but is the fallback when the host is this constrained.
+
 ## Metrics
 Corner and edge models predict typed per-slot targets, not raw fill/fray scores:
 - `wear` (binary): whether TAG recorded a ding at that slot (`ding_count > 0`). Metrics: rank-based
@@ -46,26 +48,50 @@ targets. Metrics are reported overall (per epoch, in `log.csv`) and per grade (`
 `eval_<split>.csv`), with `ALL` as the last row.
 
 ## Results
-| Date | Task | Cards (train/val) | Epochs | s/epoch | Peak VRAM | Best val MAE | Low-subset MAE |
-|---|---|---|---|---|---|---|---|
-| 2026-09-16 | corners | 500/100 | 3 | 61, 34, 34 | 5.93 GiB | 1.14 pts | 213.5 pts (n=1) |
+| Date | Task | Targets | Cards (train/val) | Epochs | s/epoch | Peak VRAM | Best val loss | auroc_wear | mae_deduction | mae_angle |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-09-16 | corners | wear / deduction / angle | 500/100 | 3 | 107, 88, 105 | 5.93 GiB | 0.2424 (epoch 2) | 0.828 (final epoch) | 160 pts (final epoch) | 2.6 pts (final epoch) |
+
+**Metric definitions changed on 2026-09-16** with the corner/edge target
+redesign (`docs/superpowers/plans/2026-09-16-corner-edge-targets.md`):
+corners now predict `wear` (binary), `deduction` (regression), and `angle`
+(regression) — see Metrics above. `score_fill`/`score_fray` are no longer
+training targets (near-zero variance across the dataset); the old
+"Best val MAE" / "Low-subset MAE" columns from the pre-redesign fill/fray
+smoke no longer apply and are replaced by the columns above. Checkpoint
+selection is now by `val_loss` (the combined masked BCE + Huber loss), not
+by MAE.
+
+`recall_wear`/`precision_wear` at the fixed 0.5 threshold are **not
+informative** after only 3 short epochs: `precision_wear` is NaN and
+`recall_wear` is 0.0 because none of the model's sigmoid outputs crossed 0.5
+yet, even though ranking quality is good (`auroc_wear` 0.828 and rising each
+epoch: 0.810 → 0.826 → 0.828). Use AUROC as the wear metric for now; a full
+run should either tune the decision threshold from validation data or add a
+`pos_weight` to the BCE term so precision/recall at 0.5 become meaningful.
+
+Full per-grade eval (`runs/corners/smoke2/eval.log`,
+`runs/corners/smoke2/eval_val.csv`, 800 val rows across 100 cards):
+`auroc_wear` ranges 0.5–0.95 across grades (small per-grade `n`, from 8 to
+80 rows), `mae_deduction` from ~54 to ~660 points, `mae_angle` from ~0.7 to
+~7.5 points; `ALL` row: `auroc_wear` 0.826, `mae_deduction` 157 pts,
+`mae_angle` 2.9 pts, `npos_wear` 184 of 800.
 
 Smoke run on an RTX 4070 SUPER, `convnext_tiny` (pretrained), batch size 32.
+Run outside the interactive shell as a detached process with `--workers 0`
+(see the Commands section note above) because the sandboxed shell's memory
+guard killed worker-based attempts on a box with only ~5 GB free at the
+time.
 
-Cache: 4,796 of 4,800 files downloaded, 2.2 GB in 85 s, about 26 MB/s (4 files
-unavailable upstream — cert Z9219918 front side, see below).
+Cache: 4,796 of 4,800 files downloaded, 2.2 GB in 85 s, about 26 MB/s. The 4
+files that never downloaded (cert Z9219918 front side) return a confirmed
+permanent HTTP 404/403 from the source, not a transient cache miss; every
+run since has correctly reported `dropped 4 rows with no cached crop` for
+train, handled by `tables.filter_cached` before building loaders.
 
-Trained with `--workers 2`, not the Commands table's default of 6: two
-attempts at `--workers 6` were killed by the host's own low-memory guard
-(unrelated processes — several `node` and `claude` sessions, a browser,
-Discord — already had the machine's 31.8 GB near its working limit), not a
-CUDA OOM or a training crash. Dropping to `--workers 2` resolved it; batch
-size stayed at 32 throughout.
-
-4 rows dropped: cert Z9219918 front side unavailable upstream (confirmed
-permanent HTTP 404/403 from the source, not a transient cache miss) — handled
-by `tables.filter_cached`, applied in `train.main` and `evaluate.main` before
-building loaders. The low-subset MAE is based on a single masked target below
-900 points in this 100-card val sample, so it isn't statistically meaningful
-at this scale; the full per-grade table is in `runs/corners/smoke/eval.log`
-and `runs/corners/smoke/eval_val.csv`.
+`train.err` shows a benign `UserWarning: Detected call of
+lr_scheduler.step() before optimizer.step()` on the very first AMP step —
+`GradScaler` skips the first `optimizer.step()` when it detects `inf`
+gradients while calibrating its loss scale, so the scheduler's `.step()`
+runs first that one time. This is expected AMP warm-up behavior, not a bug,
+and does not recur after step 1.
