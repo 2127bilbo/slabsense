@@ -57,6 +57,8 @@ targets. Metrics are reported overall (per epoch, in `log.csv`) and per grade (`
 | 2026-09-16 | corners | wear / deduction / angle | 500/100 | 3 | 107, 88, 105 | 5.93 GiB | 0.2424 (epoch 2) | 0.828 (final epoch) | 160 pts (final epoch) | 2.6 pts (final epoch) |
 | 2026-09-16 | edges | wear / deduction | 500/100 | 3 | 320, 308, 305 | 4.07 GiB | 0.2811 (epoch 3) | 0.779 (final epoch) | 323 pts (final epoch) | n/a (no angle target) |
 | 2026-09-16 | edges (resized cache) | wear / deduction | 500/100 | 3 | 85, 67, 66 | 4.07 GiB | 0.2798 (epoch 2) | 0.765 (final epoch) | 330 pts (final epoch) | n/a (no angle target) |
+| 2026-09-16 | corners v1 (full) | wear / deduction / angle | 22,202/2,790 (all cards) | 12 | 530–553 | 11.41 GiB | 0.18695 (epoch 5) | 0.919 (val, best.pt) | 105 pts (val, best.pt) | 2.41 pts (val, best.pt) |
+| 2026-09-16 | edges v1 (full) | wear / deduction | 22,202/2,790 (all cards) | 12 | 673–734 | 7.73 GiB | 0.19654 (epoch 10) | 0.895 (val, best.pt) | 161 pts (val, best.pt) | n/a (no angle target) |
 
 **Metric definitions changed on 2026-09-16** with the corner/edge target
 redesign (`docs/superpowers/plans/2026-09-16-corner-edge-targets.md`):
@@ -101,6 +103,49 @@ lr_scheduler.step() before optimizer.step()` on the very first AMP step —
 gradients while calibrating its loss scale, so the scheduler's `.step()`
 runs first that one time. This is expected AMP warm-up behavior, not a bug,
 and does not recur after step 1.
+
+### Full runs v1 (2026-09-16)
+
+Both tasks trained on the full dataset (all cards; 177,604 corner / 177,602
+edge train rows, 22,320 val rows) on a rented RTX 5880 Ada (48 GB), 12
+epochs, `convnext_tiny` (pretrained), corners batch 64 / edges batch 32,
+`--workers 8`. Checkpoints selected by `val_loss`; `ALL` rows from
+`trainlib.evaluate` on `best.pt`. The `test` split was read exactly once per
+task, after the val numbers were accepted (corners ≥ 0.85 AUROC and < 160
+MAE; edges ≥ 0.80 and < 330). Artifacts in `training/weights/<task>/v1/`
+(`best.pt` kept out of git; corners sha256 `aef5ec98…dec2866`, edges
+`bb4037fb…df66779`).
+
+| Task | Split | Rows | auroc_wear | precision_wear | recall_wear | npos_wear | mae_deduction | mae_angle |
+|---|---|---|---|---|---|---|---|---|
+| corners v1 (epoch 5) | val | 22,320 | 0.9194 | 0.698 | 0.753 | 5,390 | 105.0 | 2.41 |
+| corners v1 (epoch 5) | test | 22,072 | 0.9225 | 0.702 | 0.761 | 5,308 | 106.7 | 2.37 |
+| edges v1 (epoch 10) | val | 22,320 | 0.8947 | 0.604 | 0.251 | 2,110 | 161.3 | n/a |
+| edges v1 (epoch 10) | test | 22,072 | 0.8937 | 0.601 | 0.262 | 2,068 | 170.4 | n/a |
+
+Observations for the next iteration (no retuning was done on the box):
+
+- **Corners overfit after epoch 5.** val_loss bottomed at 0.187 (epoch 5)
+  and then rose every epoch to 0.529 at epoch 12 while train_loss fell to
+  0.025; auroc_wear peaked at 0.919 and slid to 0.849 by the end. 12 epochs
+  is too many for corners at this LR schedule; ~5–6 epochs, stronger
+  augmentation/regularization, or early stopping would all be cheaper.
+- **Edges did not overfit.** val_loss fell monotonically to 0.1965 at epoch
+  10 and plateaued (0.1978, 0.1981) as the cosine LR reached zero; train
+  and val loss stayed within ~0.015 of each other throughout.
+- Unlike the smoke, corners `recall_wear` at the 0.5 threshold is meaningful
+  (0.75–0.76); edges recall is still low (0.25–0.26) at 9.5% positives, so
+  threshold tuning / `pos_weight` still applies there.
+- Test tracks val closely for both tasks (AUROC within 0.003), so checkpoint
+  selection on val did not leak.
+- Cache: corners 199,924 of 199,936 train+val crops (12 permanent upstream
+  misses), edges 199,922 (14 misses); test split 22,072 of 22,072 for both.
+  With 48–64 download workers R2 sustained ~105 files/s (corners) and
+  ~29 files/s ≈ 97 MB/s (edges, full-res in → 1024x192 out) from the box.
+  Note the handoff's cache step only pulled `train,val`; the `test` split
+  must be cached too before `--split test --final-eval` (fixed on the box
+  by a separate `--splits test` pull).
+
 
 ### Edge smoke (2026-09-16)
 
