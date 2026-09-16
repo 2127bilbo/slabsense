@@ -13,6 +13,7 @@ import { CardViewer3D } from '../CardViewer/CardViewer3D.jsx';
 import { claudeGradingAnalysis, deepGradingAnalysisV2 } from '../../services/api.js';
 import { GradeResultDisplay } from '../Grading/GradeResultDisplay.jsx';
 import { DamageReportModal } from '../DamageReport';
+import { aiRecordFromResult, scanAiColumns, savedAi, conditionScores, damageReportInputs } from '../../lib/grade-records.js';
 import holoConfig from '../../../config/holo-config.json';
 import { orderSlab, getSlabForScan, SLAB_STATUS_TEXT, certUrl } from '../../services/slabs.js';
 
@@ -271,51 +272,32 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
         ? { lrRatio: selectedCard.back_centering.lrRatio, tbRatio: selectedCard.back_centering.tbRatio }
         : null;
 
+      // Same endpoint contract as the Grade tab: the server spends the credit and records a
+      // one-shot job keyed by this saved card (no duplicate charge while one is running).
       const result = await claudeGradingAnalysis(
         frontImg,
         backImg,
         'pokemon',
         userId,
         frontCentering,
-        backCentering
+        backCentering,
+        { jobId: (crypto.randomUUID ? crypto.randomUUID() : null), cardKey: `scan:${selectedCard.id}` }
       );
       if (result.success) {
         setRegradeResult(result);
 
-        // Update the scan in database with new grades
-        // IMPORTANT: Preserve __deep__ keys when updating AI grades
-        const updateData = {};
-        if (result.grades) {
-          // Merge with existing ai_grades to preserve __deep__ key
-          updateData.ai_grades = {
-            ...(selectedCard.ai_grades || {}),
-            ...result.grades
-          };
-        }
-        if (result.condition) {
-          // Merge with existing ai_condition to preserve __deep__ key
-          updateData.ai_condition = {
-            ...(selectedCard.ai_condition || {}),
-            ...result.condition
-          };
-        }
-        if (result.summary) {
-          // Merge with existing ai_summary to preserve __deep__ key
-          updateData.ai_summary = {
-            ...(selectedCard.ai_summary || {}),
-            ...result.summary
-          };
-        }
-        if (result.centering) updateData.ai_centering = result.centering;
-
-        if (Object.keys(updateData).length > 0) {
-          await updateScan(selectedCard.id, updateData);
-          // Update local state
-          setSelectedCard(prev => ({ ...prev, ...updateData }));
-          setScans(prev => prev.map(s =>
-            s.id === selectedCard.id ? { ...s, ...updateData } : s
-          ));
-        }
+        // Store exactly what the Grade tab stores (src/lib/grade-records.js); __deep__ is preserved
+        const updateData = scanAiColumns({
+          ai: aiRecordFromResult(result),
+          aiGrades: result.grades || null,
+          aiSummary: result.summary || null,
+          aiCentering: result.centering || null,
+          existing: selectedCard,
+        });
+        await updateScan(selectedCard.id, updateData);
+        setSelectedCard(prev => ({ ...prev, ...updateData }));
+        setScans(prev => prev.map(s => (s.id === selectedCard.id ? { ...s, ...updateData } : s)));
+        setGradeMode('ai');
 
         setEnhancingStatus('done');
       } else {
@@ -368,7 +350,8 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
         'modern_holo',      // cardType (TODO: detect from card info)
         userId,             // userId
         frontCentering,     // software centering (optional)
-        backCentering       // software centering (optional)
+        backCentering,      // software centering (optional)
+        { jobId: (crypto.randomUUID ? crypto.randomUUID() : null), cardKey: `scan:${selectedCard.id}` }
       );
       if (result.success) {
         setDeepGradeResult(result);
@@ -381,32 +364,16 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           setDeepAiCentering(result.centering);
         }
 
-        // SAVE TO DATABASE - persist the deep grade results using __deep__ nested structure
-        const updateData = {};
-        // Store deep grades in ai_grades.__deep__
-        if (result.grades) {
-          updateData.ai_grades = { ...(selectedCard.ai_grades || {}), __deep__: result.grades };
-        }
-        // Store deep condition in ai_condition.__deep__
-        if (result.condition || result.defects) {
-          updateData.ai_condition = {
-            ...(selectedCard.ai_condition || {}),
-            __deep__: { ...result.condition, defects: result.defects || [] }
-          };
-        }
-        // Store deep summary in ai_summary.__deep__
-        if (result.summary) {
-          updateData.ai_summary = { ...(selectedCard.ai_summary || {}), __deep__: result.summary };
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          await updateScan(selectedCard.id, updateData);
-          // Update local scan list to reflect saved data
-          setSelectedCard(prev => ({ ...prev, ...updateData }));
-          setScans(prev => prev.map(s =>
-            s.id === selectedCard.id ? { ...s, ...updateData } : s
-          ));
-        }
+        // Store exactly what the Grade tab stores (src/lib/grade-records.js); standard AI data is kept
+        const updateData = scanAiColumns({
+          deep: aiRecordFromResult(result),
+          deepGrades: result.grades || null,
+          deepSummary: result.summary || null,
+          existing: selectedCard,
+        });
+        await updateScan(selectedCard.id, updateData);
+        setSelectedCard(prev => ({ ...prev, ...updateData }));
+        setScans(prev => prev.map(s => (s.id === selectedCard.id ? { ...s, ...updateData } : s)));
 
         // Switch to deep grade display mode
         setGradeMode('deep');
@@ -1428,23 +1395,16 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
 
           {/* Condition - Software, AI, or Deep AI */}
           {(()=>{
-            const isAiMode = gradeMode === 'ai' || gradeMode === 'deep';
-            // Deep condition: from deepGradeResult OR saved in ai_condition.__deep__
-            // AI condition: from ai_condition (excluding __deep__)
-            const savedDeepCondition = selectedCard.ai_condition?.__deep__;
-            const conditionData = gradeMode === 'deep' ? (deepGradeResult?.condition || savedDeepCondition || selectedCard.ai_condition) :
-                                  gradeMode === 'ai' ? selectedCard.ai_condition :
-                                  selectedCard.subgrades;
-            if (!conditionData) return null;
+            // One shape for all three tiers (src/lib/grade-records.js): 8 engine subgrades → 4 boxes
+            const saved = savedAi(selectedCard);
+            const record = gradeMode === 'deep' ? (deepGradeResult ? aiRecordFromResult(deepGradeResult) : saved.deep)
+                         : gradeMode === 'ai' ? (regradeResult ? aiRecordFromResult(regradeResult) : saved.ai)
+                         : null;
+            const scores = conditionScores(gradeMode === 'software' ? selectedCard.subgrades : record?.subgrades);
+            if (!scores && !record) return null;
             const isTAG = selectedCompany === 'tag';
-            // For software grades, subgrades has corners, edges, surface as scores
-            const corners = isAiMode ? conditionData.corners : conditionData.corners?.score;
-            const edges = isAiMode ? conditionData.edges : conditionData.edges?.score;
-            const surface = isAiMode ? conditionData.surface : conditionData.surface?.score;
-            const centering = isAiMode ? conditionData.centering : conditionData.centering?.score;
-            // Deep mode: defects at root level of deepGradeResult, AI mode: inside ai_condition
-            const defects = gradeMode === 'deep' ? (deepGradeResult?.defects || conditionData.defects) :
-                            gradeMode === 'ai' ? conditionData.defects : null;
+            const { corners = null, edges = null, surface = null, centering = null } = scores || {};
+            const defects = record?.defects?.items || null;
 
             return (
               <div style={{
@@ -2020,13 +1980,18 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           backImage={selectedCard.enhanced_back_path || selectedCard.back_image_path}
           frontMaps={fM}
           backMaps={bM}
-          gradeResult={{
-            allDings: selectedCard.software_grade?.allDings || [],
-            subgrades: selectedCard.software_grade?.subgrades || {},
-            defectCounts: selectedCard.software_grade?.defectCounts || {},
-            centeringDeviation: selectedCard.software_grade?.centeringDeviation || {},
-          }}
-          tagDefects={deepGradeResult?.defects?.details || selectedCard.ai_grade?.defects?.details || null}
+          {...(() => {
+            const saved = savedAi(selectedCard);
+            return damageReportInputs({
+              mode: gradeMode,
+              dings: selectedCard.dings || [],
+              subgrades: selectedCard.subgrades || null,
+              frontCentering: selectedCard.front_centering || null,
+              backCentering: selectedCard.back_centering || null,
+              ai: regradeResult ? aiRecordFromResult(regradeResult) : saved.ai,
+              deep: deepGradeResult ? aiRecordFromResult(deepGradeResult) : saved.deep,
+            });
+          })()}
         />
       )}
     </div>

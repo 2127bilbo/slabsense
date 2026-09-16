@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { GRADING_COMPANIES, getCompanyOptions, DEFAULT_GRADING_COMPANY } from "./utils/gradingScales.js";
 import { shapeAiResult, shapeDeepResult } from "./services/api.js";
+import { aiRecordFromResult, damageReportInputs } from "./lib/grade-records.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { AuthModal } from "./components/Auth/AuthModal.jsx";
 import { UserMenu } from "./components/Auth/UserMenu.jsx";
@@ -1926,6 +1927,10 @@ export default function SlabSense(){
       deepAiGrades: deepAiGrades || null,
       deepAiConfidence: deepAiConfidence || null,
       deepAiSummary: deepAiSummary || null,
+      // Canonical records (subgrades, overall, confidence, DEFECT BOXES, centering) so saved cards
+      // can show the damage report for AI / Deep grades (src/lib/grade-records.js)
+      aiRecord: aiGrades ? { subgrades: aiSubgrades, overall: aiOverall, confidence: aiConfidence, defects: aiDefects, centering: aiCentering, gradedAt: new Date().toISOString() } : null,
+      deepRecord: deepGradeResult ? aiRecordFromResult(deepGradeResult) : null,
       // Store centering in numeric format (lrRatio/tbRatio)
       aiCentering: aiCentering || null,
       cardInfo: cardInfo || null,
@@ -2346,10 +2351,14 @@ export default function SlabSense(){
         backImage={backCroppedImage || bI}
         frontMaps={fM}
         backMaps={bM}
-        frontResult={fR}
-        backResult={bR}
-        gradeResult={gradeResult}
-        tagDefects={gradeMode === 'deep' ? (deepGradeResult?.defects?.items || null) : gradeMode === 'ai' ? (aiDefects?.items || null) : null}
+        {...damageReportInputs({
+          mode: gradeMode,
+          dings: gradeResult.allDings,
+          subgrades: gradeResult.subgrades,
+          frontResult: fR, backResult: bR,
+          ai: aiGrades ? { defects: aiDefects } : null,
+          deep: deepGradeResult ? { defects: deepGradeResult.defects } : null,
+        })}
       />
     )}
     {/* Card Crop Modal (for missing TCGDex images) */}

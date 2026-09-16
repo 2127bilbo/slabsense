@@ -235,6 +235,15 @@ items.length`; `companyGrades.tag.grade === overall.grade`; every company grade 
 
 ---
 
+### Saved cards
+
+A saved scan keeps the software result in its own columns (`dings`, `subgrades`, `company_grades`,
+`front_centering`, `back_centering`) and the paid results in `ai_grades` / `ai_condition` / `ai_summary` /
+`ai_centering`, standard AI at the top level and Deep AI under `__deep__`. `ai_condition` holds the record
+`{ subgrades, overall, confidence, defects: { counts, items }, centering, gradedAt }`, so the defect boxes are
+available to the damage report later. `src/lib/grade-records.js` is the only code that writes or reads this shape;
+the Grade tab, the collection view and its re-grade buttons all go through it.
+
 ## 5. UI metadata
 
 `src/utils/gradingScales.js` derives names, colours, allowed steps, labels and the per-grade centering limits

@@ -4,6 +4,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
+import { scanAiColumns } from '../lib/grade-records.js';
 
 /**
  * Upload an image to Supabase Storage
@@ -73,18 +74,17 @@ export function scanRowFromSaveData(scanData) {
     back_centering: scanData.backCentering || {},
     dings: scanData.dings || [],
     notes: scanData.notes || null,
-    // AI grading data (from Claude) - includes both standard and deep AI
-    // Structure: { psa, bgs, sgc, cgc, tag, __deep__: { psa, bgs, ... } }
-    ai_grades: scanData.deepAiGrades
-      ? { ...(scanData.aiGrades || {}), __deep__: scanData.deepAiGrades }
-      : (scanData.aiGrades || null),
-    ai_condition: scanData.deepAiCondition
-      ? { ...(scanData.aiCondition || {}), __deep__: scanData.deepAiCondition }
-      : (scanData.aiCondition || null),
-    ai_summary: scanData.deepAiSummary
-      ? { ...(scanData.aiSummary || {}), __deep__: scanData.deepAiSummary }
-      : (scanData.aiSummary || null),
-    ai_centering: scanData.aiCentering || null,  // { front: {leftRight, topBottom}, back: {...} }
+    // AI grading data — one canonical shape for the Grade tab, the collection view and the damage
+    // report (src/lib/grade-records.js): standard AI at the top level, Deep AI under __deep__.
+    ...scanAiColumns({
+      ai: scanData.aiRecord || null,
+      deep: scanData.deepRecord || null,
+      aiGrades: scanData.aiGrades || null,
+      deepGrades: scanData.deepAiGrades || null,
+      aiSummary: scanData.aiSummary || null,
+      deepSummary: scanData.deepAiSummary || null,
+      aiCentering: scanData.aiCentering || null,
+    }),
     card_info: scanData.cardInfo || null,        // { name, hp, cardNumber, setName, rarity, year, variant, language }
     tcgdex_image: scanData.tcgdexImage || null,  // High-quality card image URL from TCGDex
     tcgdex_id: scanData.tcgdexId || null,        // TCGDex card ID for future lookups
