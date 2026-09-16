@@ -8,11 +8,12 @@ import time
 from pathlib import Path
 
 import torch
+from torch.optim.swa_utils import AveragedModel, get_ema_multi_avg_fn
 from torch.utils.data import DataLoader
 
 from . import metrics
 from .config import load_config
-from .data import SCALE, CropDataset, collate
+from .data import AUG_MODES, SCALE, CropDataset, collate
 from .models import ScoreRegressor, count_params, masked_loss, to_scores
 from .tables import TASKS, filter_cached, load_task_table, target_kinds, target_names
 
@@ -52,11 +53,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--input-size", type=int, help="override the square input size (tests only)")
+    p.add_argument("--drop-path", type=float, default=0.0, help="stochastic depth rate in the backbone (v2: 0.2)")
+    p.add_argument("--ema-decay", type=float, default=0.0,
+                   help="keep an exponential moving average of the weights and evaluate/save it (v2: 0.999); 0 = off")
+    p.add_argument("--aug", choices=list(AUG_MODES), default="light", help="training augmentation mode (v2: strong)")
     return p
 
 
-def make_loader(df, task, cache_dir, train, batch_size, workers, input_size=None):
-    ds = CropDataset(df, task, cache_dir, train=train, input_size=(input_size, input_size) if input_size else None)
+def make_loader(df, task, cache_dir, train, batch_size, workers, input_size=None, aug="light"):
+    ds = CropDataset(df, task, cache_dir, train=train, input_size=(input_size, input_size) if input_size else None,
+                     aug=aug)
     return DataLoader(ds, batch_size=batch_size, shuffle=train, num_workers=workers, collate_fn=collate,
                       pin_memory=(workers > 0), drop_last=False, persistent_workers=(workers > 0))
 
@@ -106,7 +112,7 @@ def evaluate_loader(model, loader, device, kinds, names) -> dict:
     return result
 
 
-def run_epoch(model, loader, optimizer, scaler, scheduler, device, kinds) -> float:
+def run_epoch(model, loader, optimizer, scaler, scheduler, device, kinds, ema=None) -> float:
     model.train(); total = 0.0; batches = 0
     for imgs, sides, targets, masks in loader:
         imgs, sides, targets, masks = imgs.to(device), sides.to(device), targets.to(device), masks.to(device)
@@ -118,6 +124,8 @@ def run_epoch(model, loader, optimizer, scaler, scheduler, device, kinds) -> flo
         scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         scaler.step(optimizer); scaler.update(); scheduler.step()
+        if ema is not None:
+            ema.update_parameters(model)
         total += loss.item(); batches += 1
     return total / max(batches, 1)
 
@@ -143,10 +151,16 @@ def main(argv=None) -> Path:
     val_df, val_dropped = filter_cached(val_df, cfg.cache_dir, args.task)
     print(f"train: dropped {train_dropped} rows with no cached crop")
     print(f"val: dropped {val_dropped} rows with no cached crop")
-    train_loader = make_loader(train_df, args.task, cfg.cache_dir, True, args.batch_size, args.workers, args.input_size)
+    train_loader = make_loader(train_df, args.task, cfg.cache_dir, True, args.batch_size, args.workers, args.input_size,
+                               aug=args.aug)
     val_loader = make_loader(val_df, args.task, cfg.cache_dir, False, args.batch_size, args.workers, args.input_size)
 
-    model = ScoreRegressor(len(spec["targets"]), args.backbone, pretrained=not args.no_pretrained).to(device)
+    model = ScoreRegressor(len(spec["targets"]), args.backbone, pretrained=not args.no_pretrained,
+                           drop_path_rate=args.drop_path).to(device)
+    # EMA copy: evaluated and saved in place of the raw weights (smoother, less overfit late in training).
+    ema = (AveragedModel(model, multi_avg_fn=get_ema_multi_avg_fn(args.ema_decay), use_buffers=True)
+           if args.ema_decay > 0 else None)
+    eval_model = ema.module if ema is not None else model
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     steps = max(1, args.epochs * len(train_loader))
     scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=steps, pct_start=0.1)
@@ -162,17 +176,18 @@ def main(argv=None) -> Path:
         w = csv.writer(f); w.writerow(cols)
         for epoch in range(1, args.epochs + 1):
             t0 = time.time()
-            train_loss = run_epoch(model, train_loader, optimizer, scaler, scheduler, device, kinds)
-            val = evaluate_loader(model, val_loader, device, kinds, names)
+            train_loss = run_epoch(model, train_loader, optimizer, scaler, scheduler, device, kinds, ema)
+            val = evaluate_loader(eval_model, val_loader, device, kinds, names)
             secs = time.time() - t0
             row = [epoch, f"{train_loss:.5f}", f"{val['loss']:.5f}", f"{scheduler.get_last_lr()[0]:.2e}", f"{secs:.1f}"]
             row += [_fmt(val[k]) for k in metric_cols]
             w.writerow(row); f.flush()
             metrics_str = " ".join(f"{k}={_fmt(val[k])}" for k in metric_cols)
             print(f"epoch {epoch}/{args.epochs} train {train_loss:.4f} val {val['loss']:.4f} {metrics_str} {secs:.0f}s")
-            state = {"model": model.state_dict(), "task": args.task, "backbone": args.backbone,
+            state = {"model": eval_model.state_dict(), "task": args.task, "backbone": args.backbone,
                      "n_out": len(spec["targets"]), "epoch": epoch, "val_loss": val["loss"],
-                     "kinds": kinds, "target_names": names}
+                     "kinds": kinds, "target_names": names,
+                     "ema_decay": args.ema_decay, "drop_path": args.drop_path, "aug": args.aug}
             torch.save(state, run_dir / "last.pt")
             if val["loss"] < best:
                 best = val["loss"]; torch.save(state, run_dir / "best.pt")

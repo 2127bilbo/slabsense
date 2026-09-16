@@ -217,3 +217,33 @@ def test_input_size_override_does_not_mutate_tasks(tables, tmp_path):
     assert img_default.shape == (3, 384, 384)
     assert img_small.shape == (3, 64, 64)
     assert tables_mod.TASKS["corners"]["input_size"] == default_size
+
+
+def test_strong_aug_keeps_shape_is_bounded_and_reproducible(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("corners", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 96, 96)
+
+    ev = data.CropDataset(df, "corners", cache, train=False)[0][0]
+    d1 = data.CropDataset(df, "corners", cache, train=True, aug="strong")
+    d1.rng = np.random.default_rng(3)
+    d2 = data.CropDataset(df, "corners", cache, train=True, aug="strong")
+    d2.rng = np.random.default_rng(3)
+    d3 = data.CropDataset(df, "corners", cache, train=True, aug="strong")
+    d3.rng = np.random.default_rng(4)
+
+    a = d1[0][0]
+    assert a.shape == ev.shape
+    assert torch.isfinite(a).all()
+    assert (a - ev).abs().mean().item() < 0.6
+    assert torch.equal(a, d2[0][0])
+    assert not torch.equal(a, d3[0][0])
+
+
+def test_light_aug_is_the_default_and_rejects_unknown_modes(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("corners", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 96, 96)
+    assert data.CropDataset(df, "corners", cache, train=True).aug == "light"
+    with pytest.raises(ValueError):
+        data.load_crop(cache / df.iloc[0].crop_path, "corners", True, np.random.default_rng(0), aug="wild")

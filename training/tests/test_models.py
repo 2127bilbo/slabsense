@@ -66,3 +66,12 @@ def test_convnext_tiny_param_count():
     m = models.ScoreRegressor(n_out=3, backbone="convnext_tiny", pretrained=False)
     n = models.count_params(m)
     assert 27_000_000 < n < 30_000_000
+
+
+def test_drop_path_rate_reaches_backbone_and_keeps_state_dict_keys():
+    plain = models.ScoreRegressor(n_out=3, backbone="convnext_tiny", pretrained=False)
+    reg = models.ScoreRegressor(n_out=3, backbone="convnext_tiny", pretrained=False, drop_path_rate=0.2)
+    probs = [m.drop_prob for m in reg.modules() if type(m).__name__ == "DropPath"]
+    assert probs and max(probs) > 0.0
+    assert [m.drop_prob for m in plain.modules() if type(m).__name__ == "DropPath"] in ([], [0.0] * len(probs))
+    assert list(reg.state_dict().keys()) == list(plain.state_dict().keys())

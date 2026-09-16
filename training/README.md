@@ -210,3 +210,28 @@ not minutes.
    under $5; edges 2–4 h once cached at the resized 1024×192 (down from the
    4–6 h estimate against the full-resolution 833 GB set), also under $5.
    Sync `runs/<task>/v1/log.csv` back to this repo for the README.
+
+### v2 recipe: regularized runs
+
+The v1 corner run overfit hard: train loss fell from 0.21 to 0.025 over
+12 epochs while val loss rose from 0.19 to 0.53 after epoch 5 (best epoch 5,
+auroc_wear 0.919, mae_deduction 105). With 177k crops the ConvNeXt-Tiny
+memorizes the training set once the one-cycle rate starts to decay, so v2
+adds regularization and shortens the schedule. Three flags, all off by
+default so v1 commands behave exactly as before:
+
+| Flag | v2 value | What it does |
+|---|---|---|
+| `--drop-path 0.2` | 0.2 | stochastic depth in the backbone (timm `drop_path_rate`); adds no parameters, so checkpoints stay interchangeable |
+| `--ema-decay 0.999` | 0.999 | keeps an exponential moving average of the weights, updated every step; the EMA copy is what gets evaluated each epoch and saved in `best.pt`/`last.pt` (`ckpt["ema_decay"]` records it) |
+| `--aug strong` | strong | training transform adds a random 88–100% window before the resize, widens brightness/contrast jitter to ±20%, and adds ±20% saturation jitter. No rotation (the corner angle target must survive) and no blur (it would erase hairline marks) |
+
+```bash
+.venv/bin/python -m trainlib.train --task corners --run-name v2 --epochs 8 --batch-size 64 --workers 8 --drop-path 0.2 --ema-decay 0.999 --aug strong
+.venv/bin/python -m trainlib.train --task edges   --run-name v2 --epochs 8 --batch-size 32 --workers 8 --drop-path 0.2 --ema-decay 0.999 --aug strong
+```
+
+Accept v2 only if its val `ALL` row beats v1 on auroc_wear and
+mae_deduction; otherwise v1 stays the shipped model. The test split is read
+once per accepted checkpoint, after val acceptance, and never to choose
+between versions.

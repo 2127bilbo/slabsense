@@ -53,3 +53,28 @@ def test_train_edges_two_epochs_cpu(tables, tmp_path):
     assert list(log.columns) == ["epoch", "train_loss", "val_loss", "lr", "seconds",
                                  "auroc_wear", "precision_wear", "recall_wear", "npos_wear",
                                  "mae_deduction"]
+
+
+def test_train_v2_flags_ema_drop_path_strong_aug(tables, tmp_path):
+    import torch
+    from trainlib import models
+
+    ds, sp = tables
+    df = pd.read_parquet(ds / "corners.parquet")
+    cache = make_cache(tmp_path, df, 96, 96)
+    cfg = tmp_path / "config.toml"
+    (tmp_path / "ds.toml").write_text('[bucket]\nendpoint="e"\nregion="auto"\nname="b"\nprefix="p"\n', encoding="utf-8")
+    cfg.write_text('[paths]\ndataset_dir = "dataset"\nsplits_path = "splits.parquet"\ncache_dir = "cache"\nruns_dir = "runs"\n'
+                   '[r2]\nconfig_toml = "ds.toml"\n', encoding="utf-8")
+    run_dir = train.main(["--config", str(cfg), "--task", "corners", "--run-name", "v2t", "--epochs", "1",
+                          "--batch-size", "4", "--backbone", "resnet18", "--no-pretrained", "--device", "cpu",
+                          "--workers", "0", "--input-size", "64",
+                          "--ema-decay", "0.9", "--drop-path", "0.1", "--aug", "strong"])
+    args = json.loads((run_dir / "args.json").read_text())
+    assert args["ema_decay"] == 0.9 and args["drop_path"] == 0.1 and args["aug"] == "strong"
+    ckpt = torch.load(run_dir / "best.pt", map_location="cpu", weights_only=False)
+    assert ckpt["ema_decay"] == 0.9
+    # the saved weights are the EMA copy, with plain (non-AveragedModel) keys that evaluate.py can load
+    assert not any(k.startswith("module.") for k in ckpt["model"])
+    m = models.ScoreRegressor(ckpt["n_out"], ckpt["backbone"], pretrained=False)
+    m.load_state_dict(ckpt["model"])

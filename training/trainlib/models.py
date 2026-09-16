@@ -8,9 +8,13 @@ import torch.nn.functional as F
 
 
 class ScoreRegressor(nn.Module):
-    def __init__(self, n_out: int, backbone: str = "convnext_tiny", pretrained: bool = True):
+    def __init__(self, n_out: int, backbone: str = "convnext_tiny", pretrained: bool = True,
+                 drop_path_rate: float = 0.0):
+        """`drop_path_rate` > 0 enables stochastic depth in the backbone (regularization; v2 runs use 0.2).
+        It adds no parameters or buffers, so checkpoints load into a model built with any rate."""
         super().__init__()
-        self.backbone = timm.create_model(backbone, pretrained=pretrained, num_classes=0)
+        self.backbone = timm.create_model(backbone, pretrained=pretrained, num_classes=0,
+                                          drop_path_rate=drop_path_rate)
         feat = self.backbone.num_features
         self.head = nn.Sequential(nn.Linear(feat + 1, 256), nn.GELU(), nn.Dropout(0.1), nn.Linear(256, n_out))
 

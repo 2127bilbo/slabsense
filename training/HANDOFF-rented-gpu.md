@@ -257,6 +257,34 @@ training/.venv/Scripts/python -c "import torch; s=torch.load('training/weights/c
 3. Tell the user the instance can be destroyed, and give them the final
    numbers in a short table.
 
+## Step 6: v2 regularized runs (approved by the user, same box)
+
+v1 overfit after epoch 5 on corners (train loss 0.21 to 0.025, val loss
+0.19 to 0.53). v2 adds stochastic depth, a weight EMA, stronger augmentation
+and a shorter schedule. Pull the code first, then run both tasks the same
+way as v1, one at a time on the GPU:
+
+```bash
+cd /workspace/SlabSense && git pull && cd training
+uv pip install --python .venv/bin/python -e ".[dev]" && .venv/bin/python -m pytest -q     # expect 64 passed
+source /workspace/env.sh
+nohup .venv/bin/python -m trainlib.train --task corners --run-name v2 --epochs 8 --batch-size 64 --workers 8 --drop-path 0.2 --ema-decay 0.999 --aug strong > /workspace/train_corners_v2.log 2>&1 &
+# after corners v2 finishes:
+nohup .venv/bin/python -m trainlib.train --task edges --run-name v2 --epochs 8 --batch-size 32 --workers 8 --drop-path 0.2 --ema-decay 0.999 --aug strong > /workspace/train_edges_v2.log 2>&1 &
+```
+
+Expect about 9.5 min per corner epoch and 12.5 min per edge epoch, so about
+75 min and 100 min respectively. Epoch 1 will look worse than v1's epoch 1
+because the EMA copy lags the raw weights early; judge from epoch 3 onward.
+
+Evaluate exactly as in Step 4 with `runs/<task>/v2/best.pt`. Accept v2 for
+a task only if its val `ALL` row beats v1 on both auroc_wear (v1: corners
+0.919, edges see the v1 report) and mae_deduction (v1: corners 105.0). Run
+the test evaluation on an accepted v2 once, the same way. If v2 does not
+beat v1, report the numbers and leave the artifacts in place; v1 stays.
+Leave all `runs/<task>/v2/` artifacts on the box; the main session pulls
+them down over SSH.
+
 ## Failure playbook
 
 | Symptom | Do this |
