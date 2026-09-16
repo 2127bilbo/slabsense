@@ -4,6 +4,17 @@ from __future__ import annotations
 import torch
 from torchvision.ops import box_iou
 
+from .surface_tables import RGB_EXCLUDED_LABELS
+
+
+def filter_view_preds(pred: dict, view: str) -> dict:
+    """Drop predictions whose label is excluded from `view`'s ground truth (rgb has no DENT labels:
+    the detector has no view input and cannot know it should not emit them on a flat-light image)."""
+    if view != "rgb":
+        return pred
+    keep = ~torch.isin(pred["labels"], torch.tensor(sorted(RGB_EXCLUDED_LABELS), dtype=pred["labels"].dtype))
+    return {"boxes": pred["boxes"][keep], "labels": pred["labels"][keep], "scores": pred["scores"][keep]}
+
 
 def iou_matrix(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     if len(a) == 0 or len(b) == 0:

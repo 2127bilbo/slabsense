@@ -47,3 +47,13 @@ def test_evaluate_detections_two_classes():
     assert r["precision_by_class"][1] == 0.5 and r["recall_by_class"][1] == 0.5
     assert math.isnan(r["precision_by_class"][2]) and r["recall_by_class"][2] == 0.0
     assert r["precision"] == 0.5 and abs(r["recall"] - 1 / 3) < 1e-9
+
+
+def test_filter_view_preds_drops_excluded_labels_on_rgb_only():
+    p = _p([[0, 0, 10, 10], [20, 20, 30, 30], [40, 40, 50, 50]], [2, 1, 2], [0.9, 0.8, 0.7])
+    rgb = dm.filter_view_preds(p, "rgb")
+    assert rgb["labels"].tolist() == [1] and rgb["scores"].tolist() == [0.800000011920929] and rgb["boxes"].shape == (1, 4)
+    sfx = dm.filter_view_preds(p, "sfx")
+    assert sfx["labels"].tolist() == [2, 1, 2]
+    empty = dm.filter_view_preds(_p([], [], []), "rgb")
+    assert empty["boxes"].shape == (0, 4) and empty["labels"].shape == (0,)

@@ -14,20 +14,11 @@ from torchvision.ops import batched_nms
 
 from .cache import cache_path
 from .config import load_config
-from .det_metrics import evaluate_detections, match
+from .det_metrics import evaluate_detections, filter_view_preds, match
 from .detector import load_detector
-from .surface_tables import RGB_EXCLUDED_LABELS, SURFACE_CLASSES, VIEWS, boxes_for_view, load_surface_split
+from .surface_tables import SURFACE_CLASSES, VIEWS, boxes_for_view, load_surface_split
 from .tile_data import TileDataset, collate_det
 from .tiles import TILE, tile_grid
-
-
-def filter_view_preds(pred: dict, view: str) -> dict:
-    """Drop predictions whose label is excluded from `view`'s ground truth (rgb has no DENT labels:
-    the detector has no view input and cannot know it should not emit them on a flat-light image)."""
-    if view != "rgb":
-        return pred
-    keep = ~torch.isin(pred["labels"], torch.tensor(sorted(RGB_EXCLUDED_LABELS), dtype=pred["labels"].dtype))
-    return {"boxes": pred["boxes"][keep], "labels": pred["labels"][keep], "scores": pred["scores"][keep]}
 
 
 def merge_tiles(preds_per_tile: list[tuple[int, int, dict]], iou: float = 0.5) -> dict:

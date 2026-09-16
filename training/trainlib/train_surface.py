@@ -13,7 +13,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from .config import load_config
-from .det_metrics import evaluate_detections
+from .det_metrics import evaluate_detections, filter_view_preds
 from .detector import build_detector, save_checkpoint
 from .surface_tables import SURFACE_CLASSES
 from .tile_data import TileDataset, collate_det
@@ -50,14 +50,19 @@ def _to(device, imgs, tgts):
 
 
 @torch.no_grad()
-def evaluate_loader(model, loader, device) -> dict:
+def evaluate_loader(model, loader, device, views: list[str] | None = None) -> dict:
+    """`views[i]` is the view of the i-th tile in loader order (shuffle=False); predictions excluded from
+    that view's ground truth (rgb DENT) are dropped before scoring, matching `evaluate_surface`."""
     model.eval()
     preds, gts = [], []
     for imgs, tgts in loader:
-        imgs, _ = _to(device, imgs, tgts)
+        imgs = [i.to(device) for i in imgs]
         with torch.autocast(device_type=device.type, enabled=(device.type == "cuda")):
             out = model(imgs)
-        preds += [{k: v.float().cpu() if k != "labels" else v.cpu() for k, v in o.items()} for o in out]
+        batch = [{k: v.float().cpu() if k != "labels" else v.cpu() for k, v in o.items()} for o in out]
+        if views is not None:
+            batch = [filter_view_preds(p, views[len(preds) + j]) for j, p in enumerate(batch)]
+        preds += batch
         gts += [{"boxes": t["boxes"], "labels": t["labels"]} for t in tgts]
     return evaluate_detections(preds, gts, n_classes=len(SURFACE_CLASSES))
 
@@ -125,7 +130,7 @@ def main(argv=None) -> Path:
                 scaler.step(optimizer); scaler.update()
                 total += float(loss.item()); n += 1; step += 1
             train_loss = total / max(n, 1)
-            m = evaluate_loader(model, val_loader, device)
+            m = evaluate_loader(model, val_loader, device, val_idx.view.tolist())
             secs = time.time() - t0
             row = [epoch, f"{train_loss:.5f}", f"{1.0 - m['map50']:.5f}" if not math.isnan(m["map50"]) else "nan",
                    f"{optimizer.param_groups[0]['lr']:.2e}", f"{secs:.1f}", f"{m['map50']:.4f}",
