@@ -1,0 +1,20 @@
+{
+ "config": "config.toml",
+ "task": "corners",
+ "run_name": "v2",
+ "epochs": 8,
+ "batch_size": 64,
+ "lr": 0.0002,
+ "weight_decay": 0.05,
+ "limit_cards": null,
+ "val_limit_cards": null,
+ "backbone": "convnext_tiny",
+ "no_pretrained": false,
+ "workers": 8,
+ "device": "cuda",
+ "seed": 42,
+ "input_size": null,
+ "drop_path": 0.2,
+ "ema_decay": 0.999,
+ "aug": "strong"
+}
