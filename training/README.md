@@ -119,3 +119,71 @@ positive edge-wear rows to rank against); `ALL` row: `auroc_wear` 0.780,
 Edge strips will be cached **pre-resized to 1024×192** before any full run,
 because the full-resolution edge object set in the bucket is 833 GB — far
 too large to cache as-is on a single training box.
+
+## Bucket storage facts
+
+The R2 bucket totals about 1.63 TB:
+
+| Object set | Size |
+|---|---|
+| Edges (full resolution) | 833 GB |
+| SFX | 338 GB |
+| Front/back (whole-card images) | 251 GB |
+| Corners (full resolution) | 105 GB |
+| Dings | 105 GB |
+
+R2 storage cost is roughly $24/month at this size. Corners can be cached
+full-resolution on a rented box (~105 GB); edges cannot (833 GB) and must be
+cached pre-resized to 1024×192 (~30 GB once the resize-on-cache work lands),
+per the note above.
+
+## Full runs on a rented GPU
+
+Once a smoke run looks right locally, the full run (all cards, more epochs)
+happens on a rented GPU rather than the local 4070 — corners' full-resolution
+cache alone is ~105 GB and a full 12-epoch run over all cards takes hours,
+not minutes.
+
+1. **Rent**: a V100 32 GB (16 GB also works for corners/edges) with Ubuntu,
+   CUDA driver ≥ 12.8, and ≥ 300 GB disk (headroom for the corners cache,
+   the resized edges cache, checkpoints, and the venv).
+2. **Set up**:
+   ```bash
+   git clone <repo-url> && cd SlabSense && git checkout tag-dataset
+   cd training
+   python3.12 -m venv .venv
+   .venv/bin/python -m pip install --upgrade pip
+   .venv/bin/python -m pip install torch==2.9.1 torchvision --index-url https://download.pytorch.org/whl/cu128
+   .venv/bin/python -m pip install -e ".[dev]"
+   cp config.example.toml config.toml   # then set cache_dir = "/data/cache"
+   export B2_KEY_ID=...
+   export B2_APP_KEY=...
+   ```
+3. **Cache from R2** (egress from R2 is free, and the box has a datacenter
+   link, so this is much faster than the local smoke pulls): corners
+   full-resolution (~105 GB) and edges pre-resized (~30 GB once Task 6
+   lands):
+   ```bash
+   .venv/bin/python -m trainlib.cache_cli --task corners --splits train,val --workers 8
+   .venv/bin/python -m trainlib.cache_cli --task edges --splits train,val --workers 8
+   ```
+   8 workers is fine on a rented box (unlike the local 4070 box, there are
+   no competing desktop apps eating RAM — see the `--workers 0`/`--workers 2`
+   notes above, which are local-box-specific workarounds, not a rented-box
+   default).
+4. **Train**:
+   ```bash
+   .venv/bin/python -m trainlib.train --task corners --run-name v1 --epochs 12 --batch-size 64 --workers 8
+   .venv/bin/python -m trainlib.train --task edges --run-name v1 --epochs 12 --batch-size 32 --workers 8
+   ```
+   A V100 has no bf16 support; the training loop already uses fp16
+   `autocast` with `GradScaler`, which is exactly what a V100 needs — no
+   code change required.
+5. **Evaluate**: run `evaluate --split val` first; only once a model is
+   accepted, run `--split test --final-eval` exactly once (the frozen test
+   split is never read otherwise). Copy `best.pt` and the resulting
+   `eval_test.csv` to `training/weights/<task>/v1/` and commit them there.
+6. **Expected cost/time** at $0.40/h: corners 3–5 h full-resolution cache,
+   under $5; edges 2–4 h once cached at the resized 1024×192 (down from the
+   4–6 h estimate against the full-resolution 833 GB set), also under $5.
+   Sync `runs/<task>/v1/log.csv` back to this repo for the README.
