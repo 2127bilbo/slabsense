@@ -140,18 +140,18 @@ cd /workspace/SlabSense/training && .venv/bin/python -m pytest -q     # expect 6
 Both pulls are resumable: rerunning the same command skips files already on
 disk. Run them detached with logs in `/workspace/`.
 
-Corners first (full resolution, 199,936 files, ~95 GB):
+Corners first (full resolution, 222,008 files incl. the test split, ~105 GB; the test crops are needed for the one-shot test evaluation in Step 4):
 
 ```bash
 cd /workspace/SlabSense/training && source /workspace/env.sh
-nohup .venv/bin/python -m trainlib.cache_cli --task corners --splits train,val --workers 16 > /workspace/cache_corners.log 2>&1 &
+nohup .venv/bin/python -m trainlib.cache_cli --task corners --splits train,val,test --workers 16 > /workspace/cache_corners.log 2>&1 &
 ```
 
 Then edges (downloads full resolution, saves 1024x192 JPEG q95 4:4:4;
-199,936 files, ~33 GB on disk but ~750 GB through the network):
+222,008 files incl. test, ~33 GB on disk but ~833 GB through the network):
 
 ```bash
-nohup .venv/bin/python -m trainlib.cache_cli --task edges --splits train,val --workers 16 > /workspace/cache_edges.log 2>&1 &
+nohup .venv/bin/python -m trainlib.cache_cli --task edges --splits train,val,test --workers 16 > /workspace/cache_edges.log 2>&1 &
 ```
 
 Start the edge pull as soon as the corners pull finishes, so it overlaps with
@@ -264,6 +264,6 @@ training/.venv/Scripts/python -c "import torch; s=torch.load('training/weights/c
 | `CUDA out of memory` | halve `--batch-size`, rerun with a new `--run-name` (v1b); note it in the report |
 | DataLoader worker crashes or `Bus error` | container shared memory is small: rerun with `--workers 4` |
 | `RuntimeError: Set B2_KEY_ID and B2_APP_KEY` | `source /workspace/env.sh` in the same shell before the command |
-| Cache count far below 199,936 after a rerun | check `df -h`; if the disk is full, stop and tell the user |
+| Cache count far below 222,008 after a rerun | check `df -h`; if the disk is full, stop and tell the user |
 | val_loss rises from epoch 2 onward or shows `nan` | kill the run, copy `log.csv` home, report; do not retune |
 | Box unreachable | the vast.ai page shows whether it was paused for credit; tell the user |
