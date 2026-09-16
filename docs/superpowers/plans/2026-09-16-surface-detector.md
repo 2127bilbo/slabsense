@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Train a detector that finds surface defects (creases, dents, pits, print defects, scratches, stains, tears) as boxes with a class on TAG's raking-light surface images, plus a small model that turns each box into a TAG deduction, and evaluate both per class and per grade.
+**Goal:** Train a detector that finds surface defects (creases, dents, pits, print defects, scratches, stains, tears) as boxes with a class on both of TAG's image views (the raking-light relief image and the normal color image of the same card side), plus a small model that turns each box into a TAG deduction, and evaluate both per class, per grade, and per view.
 
-**Architecture:** The 4391×6063 raking-light images (`sfx_front.jpg`, `sfx_back.jpg`) are cut into 1024×1024 tiles at native resolution (median defect is 30–400 px; downscaling the whole card to 1280 would shrink pits to 2 px). Tiles that contain a marker box, plus one random empty tile per clean side, form the training set (~58k tiles). A torchvision Faster R-CNN ResNet50-FPN v2 (COCO-pretrained, BSD license) is fine-tuned on those tiles with small anchors. Deductions are predicted by a gradient-boosted regressor from the box's class and geometry, trained on TAG's own markers. Evaluation reports AP50 per class, precision/recall at a 0.5 score, per-grade rows, and a full-card pass that merges tile predictions.
+**Architecture:** Each card side has two views in the same 4391×6063 pixel frame: the raking-light relief image (`sfx_front.jpg`, `sfx_back.jpg`, view `sfx`) and the normal color image (`front.jpg`, `back.jpg`, view `rgb`). TAG's marker boxes apply to both. Both views are cut into 1024×1024 tiles at native resolution (median defect is 30–400 px; downscaling the whole card to 1280 would shrink pits to 2 px). Tiles that contain a marker box, plus one random empty tile per clean side, form the training set (~100k tiles across both views). Dent boxes are dropped from the `rgb` view only, because dents are not visible under flat lighting; every other class is kept in both views. The `rgb` view is what phone photos resemble; the `sfx` view is what TAG's process and a future multi-light rig produce. A torchvision Faster R-CNN ResNet50-FPN v2 (COCO-pretrained, BSD license) is fine-tuned on those tiles with small anchors. Deductions are predicted by a gradient-boosted regressor from the box's class and geometry, trained on TAG's own markers. Evaluation reports AP50 per class, precision/recall at a 0.5 score, per-grade rows, and a full-card pass that merges tile predictions.
 
 **Tech Stack:** Python 3.12, torch 2.9.1+cu128, torchvision 0.24.1, Pillow, pandas/pyarrow, scikit-learn (new dependency, for the deduction regressor), pytest. Reuses `trainlib.cache`, `trainlib.config`, `trainlib.r2`.
 
@@ -12,18 +12,20 @@
 1. **Detector framework**: torchvision Faster R-CNN v2 instead of Ultralytics YOLOv8-m. Ultralytics is AGPL-3.0 and would require a commercial license for SlabSense; torchvision is BSD.
 2. **Input**: native-resolution 1024 tiles instead of "1280 long side". Median box widths per class run from 11 px (pits) to 580 px; at 1280 long side (0.29×) a median pit is 3 px and a median scratch 46 px. Tiles keep every pixel.
 3. **Deduction**: a separate gradient-boosted regressor on class + geometry instead of a regression head on the detector. Within-class correlation of log box area with deduction is 0.52–0.80, and the separate model can be swapped for a crop regressor later without retraining the detector.
-4. **Targets**: `FrameMarker_ESW_CSW` (edge/corner whitening, already covered by the corner and edge models), `PLAY_WEAR` (whole-card frames, w ≈ h ≈ 0.98), and any box whose area exceeds 25% of the image (whole-card ink/stain frames, 2,557 boxes) are excluded from detection targets. They remain in `surface.parquet`.
+4. **Views**: both `sfx` and `rgb` images are training input (the spec's "front/back as augmentation"), with `DENT` boxes excluded from the `rgb` view.
+5. **Targets**: `FrameMarker_ESW_CSW` (edge/corner whitening, already covered by the corner and edge models), `PLAY_WEAR` (whole-card frames, w ≈ h ≈ 0.98), and any box whose area exceeds 25% of the image (whole-card ink/stain frames, 2,557 boxes) are excluded from detection targets. They remain in `surface.parquet`.
 
 ## Global Constraints
 
 - Python `>=3.12,<3.13`; torch `2.9.1`; torchvision `0.24.1`; new dependency `scikit-learn>=1.5` and `joblib` added to `training/pyproject.toml` `dependencies` (not `dev`).
 - Package is `training/trainlib`; tests in `training/tests`; run tests as `cd training && .venv/Scripts/python -m pytest -q` (Windows) / `.venv/bin/python -m pytest -q` (Linux). All existing 64 tests must keep passing; `filterwarnings = ["error"]` is in effect, so no warnings may be emitted by new code.
 - Never `git add` `scripts/tag-dataset/tagdataset/cli.py`, `scripts/tag-dataset/tagdataset/download.py`, or any `.pt`/`.joblib` file. Never `git stash`. Commit only the files each task names.
-- `surface.parquet` columns used: `cert, side, engine_type, x, y, w, h, deduction` (`x, y, w, h` are fractions of the image, origin top-left; `side` is `"F"`/`"B"`). `manifest.parquet` columns used: `cert, grade_label, path_sfx_front, path_sfx_back`. Splits: `splits.parquet` columns `cert, split`.
+- `surface.parquet` columns used: `cert, side, engine_type, x, y, w, h, deduction` (`x, y, w, h` are fractions of the image, origin top-left; `side` is `"F"`/`"B"`). `manifest.parquet` columns used: `cert, grade_label, path_sfx_front, path_sfx_back, path_front, path_back`. Splits: `splits.parquet` columns `cert, split`.
+- Views: `VIEWS = ("sfx", "rgb")`; `sfx` uses `path_sfx_front`/`path_sfx_back`, `rgb` uses `path_front`/`path_back`. `RGB_EXCLUDED_LABELS = {2}` (DENT): `boxes_for_view(boxes, "rgb")` drops those rows; `boxes_for_view(boxes, "sfx")` returns boxes unchanged.
 - Class list, in this order, label ids 1–7 (0 is background): `SURFACE_CLASSES = ["CREASE", "DENT", "PIT", "PRINT_DEFECT", "SCRATCH", "STAIN", "TEAR"]`.
 - Box filters (exact): keep a marker iff `engine_type in SURFACE_CLASSES` and `w > 0` and `h > 0` and `w * h <= 0.25`. Deduction target is `min(max(deduction, 0), 1000)`.
 - Tiling constants: `TILE = 1024`, `STRIDE = 896`, `MIN_VISIBLE = 0.5` (a box is kept in a tile if at least 50% of its area lies inside), `MIN_SIDE_PX = 4` (clipped boxes narrower or shorter than 4 px are dropped), `NEG_PER_SIDE = 1`.
-- Tile cache layout: `<cache_dir>/tiles/<split>/<cert>_<side>_<x0>_<y0>.jpg` (JPEG quality 95, `subsampling=0`), index at `<cache_dir>/tiles/<split>.parquet` with columns `tile_path` (relative to `cache_dir`), `cert`, `side`, `grade_label`, `x0`, `y0`, `tile_w`, `tile_h`, `n_boxes`, `boxes` (JSON string: list of `[label, x1, y1, x2, y2]` in tile pixels, floats).
+- Tile cache layout: `<cache_dir>/tiles/<split>/<cert>_<side>_<view>_<x0>_<y0>.jpg` (JPEG quality 95, `subsampling=0`), index at `<cache_dir>/tiles/<split>.parquet` with columns `tile_path` (relative to `cache_dir`), `cert`, `side`, `view`, `grade_label`, `x0`, `y0`, `tile_w`, `tile_h`, `n_boxes`, `boxes` (JSON string: list of `[label, x1, y1, x2, y2]` in tile pixels, floats).
 - Detector: `torchvision.models.detection.fasterrcnn_resnet50_fpn_v2`, COCO weights, `num_classes = 8`, anchor sizes `((16,), (32,), (64,), (128,), (256,))`, aspect ratios `((0.25, 0.5, 1.0, 2.0, 4.0),) * 5`, fresh `RPNHead(256, 5, conv_depth=2)`, `min_size = max_size = 1024`, `box_detections_per_img = 100`.
 - Training defaults: SGD, momentum 0.9, weight decay 1e-4, lr 0.01, batch 8, 500 linear warm-up iterations then cosine to 0, AMP on CUDA, grad-norm clip 10, best checkpoint by val `map50`.
 - Checkpoint dict keys: `model` (state_dict), `classes` (list), `epoch`, `map50`, `anchor_sizes`, `aspect_ratios`.
@@ -59,7 +61,7 @@
 - Test: `training/tests/test_surface_tables.py`
 
 **Interfaces:**
-- Produces: `SURFACE_CLASSES: list[str]`; `LABEL_OF: dict[str, int]` (class → 1..7); `load_surface_split(dataset_dir, splits_path, split, limit_cards=None, seed=42, allow_test=False) -> tuple[pd.DataFrame, pd.DataFrame]` returning `(sides, boxes)`. `sides` columns: `cert, side, image_key, grade_label` (one row per cert per side, both sides for every card in the split, sorted by cert then side). `boxes` columns: `cert, side, label (int), cls (str), x, y, w, h (fractions), deduction (float, clipped 0–1000)`; only markers passing the Global Constraints filters.
+- Produces: `SURFACE_CLASSES: list[str]`; `LABEL_OF: dict[str, int]` (class → 1..7); `VIEWS`, `RGB_EXCLUDED_LABELS`; `load_surface_split(dataset_dir, splits_path, split, limit_cards=None, seed=42, allow_test=False) -> tuple[pd.DataFrame, pd.DataFrame]` returning `(sides, boxes)`. `sides` columns: `cert, side, view, image_key, grade_label` (one row per cert per side per view: four rows per card, sorted by cert, side, view). `boxes` columns: `cert, side, label (int), cls (str), x, y, w, h (fractions), deduction (float, clipped 0–1000)`; only markers passing the Global Constraints filters; boxes are per side, not per view. `boxes_for_view(boxes, view) -> pd.DataFrame` applies the per-view exclusion.
 
 - [ ] **Step 1: Add fixtures to conftest**
 
@@ -76,6 +78,8 @@ def make_surface_tables(tmp_path: Path):
         "cert": certs, "grade_label": ["9 MINT", "1 POOR", "9 MINT", "5 EXCELLENT"],
         "path_sfx_front": [f"tag-dataset/{c}/sfx_front.jpg" for c in certs],
         "path_sfx_back": [f"tag-dataset/{c}/sfx_back.jpg" for c in certs],
+        "path_front": [f"tag-dataset/{c}/front.jpg" for c in certs],
+        "path_back": [f"tag-dataset/{c}/back.jpg" for c in certs],
     }).to_parquet(ds / "manifest.parquet", index=False)
     rows = [
         # cert, side, engine_type, x, y, w, h, deduction
@@ -122,9 +126,10 @@ def test_class_list_and_labels():
 def test_train_split_sides_and_filtered_boxes(surface_tables):
     ds, sp = surface_tables
     sides, boxes = st.load_surface_split(ds, sp, "train")
-    assert list(sides.columns) == ["cert", "side", "image_key", "grade_label"]
-    assert sides[["cert", "side"]].values.tolist() == [["A1", "B"], ["A1", "F"], ["B2", "B"], ["B2", "F"]]
-    assert sides.image_key.tolist()[1] == "tag-dataset/A1/sfx_front.jpg"
+    assert list(sides.columns) == ["cert", "side", "view", "image_key", "grade_label"]
+    assert sides[["cert", "side", "view"]].values.tolist()[:4] == [["A1", "B", "rgb"], ["A1", "B", "sfx"], ["A1", "F", "rgb"], ["A1", "F", "sfx"]]
+    assert len(sides) == 8
+    assert sides.image_key.tolist()[2] == "tag-dataset/A1/front.jpg" and sides.image_key.tolist()[3] == "tag-dataset/A1/sfx_front.jpg"
     assert sides.grade_label.tolist()[0] == "9 MINT"
     # A1: crease, dent, scratch; B2: pit, print line, tear (stain frame dropped)
     assert len(boxes) == 6
@@ -134,10 +139,19 @@ def test_train_split_sides_and_filtered_boxes(surface_tables):
     assert boxes[boxes.cls == "PIT"].iloc[0].label == 3
 
 
+def test_boxes_for_view_drops_dents_from_rgb_only(surface_tables):
+    ds, sp = surface_tables
+    _, boxes = st.load_surface_split(ds, sp, "train")
+    assert st.VIEWS == ("sfx", "rgb") and st.RGB_EXCLUDED_LABELS == {2}
+    assert len(st.boxes_for_view(boxes, "sfx")) == 6
+    rgb = st.boxes_for_view(boxes, "rgb")
+    assert len(rgb) == 5 and "DENT" not in set(rgb.cls)
+
+
 def test_val_split_drops_edge_playwear_and_zero_width(surface_tables):
     ds, sp = surface_tables
     sides, boxes = st.load_surface_split(ds, sp, "val")
-    assert len(sides) == 2 and len(boxes) == 0
+    assert len(sides) == 4 and len(boxes) == 0
 
 
 def test_test_split_is_gated(surface_tables):
@@ -145,14 +159,14 @@ def test_test_split_is_gated(surface_tables):
     with pytest.raises(ValueError):
         st.load_surface_split(ds, sp, "test")
     sides, boxes = st.load_surface_split(ds, sp, "test", allow_test=True)
-    assert len(sides) == 2 and len(boxes) == 1
+    assert len(sides) == 4 and len(boxes) == 1
 
 
 def test_limit_cards_is_seeded(surface_tables):
     ds, sp = surface_tables
     a, _ = st.load_surface_split(ds, sp, "train", limit_cards=1, seed=1)
     b, _ = st.load_surface_split(ds, sp, "train", limit_cards=1, seed=1)
-    assert a.cert.tolist() == b.cert.tolist() and a.cert.nunique() == 1 and len(a) == 2
+    assert a.cert.tolist() == b.cert.tolist() and a.cert.nunique() == 1 and len(a) == 4
 ```
 
 - [ ] **Step 3: Run tests to verify they fail**
@@ -175,8 +189,19 @@ import pandas as pd
 
 SURFACE_CLASSES = ["CREASE", "DENT", "PIT", "PRINT_DEFECT", "SCRATCH", "STAIN", "TEAR"]
 LABEL_OF = {c: i + 1 for i, c in enumerate(SURFACE_CLASSES)}   # 0 is background
+VIEWS = ("sfx", "rgb")                 # raking-light relief image; normal color image (same pixel frame)
+RGB_EXCLUDED_LABELS = {LABEL_OF["DENT"]}   # dents are invisible under flat lighting
 MAX_BOX_AREA = 0.25
 MAX_DEDUCTION = 1000.0
+VIEW_COLUMNS = {"sfx": ("path_sfx_back", "path_sfx_front"), "rgb": ("path_back", "path_front")}
+
+
+def boxes_for_view(boxes: pd.DataFrame, view: str) -> pd.DataFrame:
+    if view not in VIEWS:
+        raise ValueError(f"view must be one of {VIEWS}, got {view!r}")
+    if view == "rgb":
+        return boxes[~boxes.label.isin(RGB_EXCLUDED_LABELS)].reset_index(drop=True)
+    return boxes
 
 
 def _split_certs(splits_path: Path, split: str, limit_cards: int | None, seed: int) -> list[str]:
@@ -196,12 +221,15 @@ def load_surface_split(dataset_dir: Path, splits_path: Path, split: str, limit_c
     dataset_dir = Path(dataset_dir)
     certs = _split_certs(Path(splits_path), split, limit_cards, seed)
     man = pd.read_parquet(dataset_dir / "manifest.parquet",
-                          columns=["cert", "grade_label", "path_sfx_front", "path_sfx_back"])
+                          columns=["cert", "grade_label", "path_sfx_front", "path_sfx_back", "path_front", "path_back"])
     man = man[man.cert.isin(certs)]
-    sides = pd.concat([
-        pd.DataFrame({"cert": man.cert, "side": "B", "image_key": man.path_sfx_back, "grade_label": man.grade_label}),
-        pd.DataFrame({"cert": man.cert, "side": "F", "image_key": man.path_sfx_front, "grade_label": man.grade_label}),
-    ]).sort_values(["cert", "side"]).reset_index(drop=True)
+    parts = []
+    for view in VIEWS:
+        back_col, front_col = VIEW_COLUMNS[view]
+        for side, col in (("B", back_col), ("F", front_col)):
+            parts.append(pd.DataFrame({"cert": man.cert, "side": side, "view": view, "image_key": man[col],
+                                       "grade_label": man.grade_label}))
+    sides = pd.concat(parts).sort_values(["cert", "side", "view"]).reset_index(drop=True)
 
     s = pd.read_parquet(dataset_dir / "surface.parquet",
                         columns=["cert", "side", "engine_type", "x", "y", "w", "h", "deduction"])
@@ -218,7 +246,7 @@ def load_surface_split(dataset_dir: Path, splits_path: Path, split: str, limit_c
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `cd training && .venv/Scripts/python -m pytest -q tests/test_surface_tables.py`
-Expected: 5 passed
+Expected: 6 passed
 
 - [ ] **Step 6: Commit**
 
@@ -393,7 +421,7 @@ git commit -m "feat(training): tile grid, box clipping and tile selection for su
 
 **Interfaces:**
 - Consumes: `surface_tables.load_surface_split`, `tiles.select_tiles`, `cache.build_cache`, `cache.cache_path`, `config.load_config`, `r2.reader_from_config`.
-- Produces: `python -m trainlib.surface_cache_cli pull --splits train,val,test [--limit-cards N] [--workers 16]` caches `sides.image_key` objects full-resolution at `cache_path(cache_dir, key)`; `python -m trainlib.surface_cache_cli tile --splits train,val [--limit-cards N] [--workers 16] [--seed 42] [--neg-per-side 1]` writes tiles and the index. Library functions: `tile_side(args) -> list[dict]` (one side; module-level so multiprocessing can pickle it; `args = (image_path: str, cert, side, grade_label, boxes_px_json: str, out_dir: str, seed: int, neg_per_side: int)`), `build_tile_index(cache_dir, split, sides, boxes, workers, seed, neg_per_side) -> pd.DataFrame` (writes `<cache_dir>/tiles/<split>.parquet`, returns it). Sides whose image is not cached are skipped and counted.
+- Produces: `python -m trainlib.surface_cache_cli pull --splits train,val,test [--limit-cards N] [--workers 16]` caches every `sides.image_key` object (both views) full-resolution at `cache_path(cache_dir, key)`; `python -m trainlib.surface_cache_cli tile --splits train,val [--limit-cards N] [--workers 16] [--seed 42] [--neg-per-side 1]` writes tiles and the index. Library functions: `tile_side(args) -> list[dict]` (one side; module-level so multiprocessing can pickle it; `args = (image_path: str, cert, side, view, grade_label, boxes_frac_json: str, out_dir: str, seed: int, neg_per_side: int)`), `build_tile_index(cache_dir, split, sides, boxes, workers, seed, neg_per_side) -> pd.DataFrame` (writes `<cache_dir>/tiles/<split>.parquet`, returns it; boxes per side-view come from `boxes_for_view`). Side-views whose image is not cached are skipped and counted.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -421,7 +449,7 @@ def test_pull_caches_every_side_image_for_requested_splits(surface_tables, tmp_p
     sides, _ = st.load_surface_split(ds, sp, "train")
     reader = FakeReader({k: _image(64, 64) for k in sides.image_key})
     counts = scc.pull(reader, ds, sp, cache, "train", workers=2)
-    assert counts["downloaded"] == 4
+    assert counts["downloaded"] == 8
     assert all((cache / k).exists() for k in sides.image_key)
 
 
@@ -434,24 +462,31 @@ def test_tile_writes_tiles_and_index(surface_tables, tmp_path):
         Image.fromarray(np.full((2100, 2000, 3), 120, dtype=np.uint8)).save(p, format="JPEG")
     idx = scc.build_tile_index(cache, "train", sides, boxes, workers=1, seed=0, neg_per_side=1)
     assert (cache / "tiles" / "train.parquet").exists()
-    assert list(idx.columns) == ["tile_path", "cert", "side", "grade_label", "x0", "y0", "tile_w", "tile_h", "n_boxes", "boxes"]
-    # A1/F: crease at x 0.10-0.15, y 0.10-0.30 of 2000x2100 -> px (200,210)-(300,630): tile (0,0) only.
+    assert list(idx.columns) == ["tile_path", "cert", "side", "view", "grade_label", "x0", "y0", "tile_w", "tile_h", "n_boxes", "boxes"]
+    # A1/F in a 2000x2100 image: crease at px (200,210)-(300,630) lands in tile (0,0) only;
+    # the dent at px (1000,1050)-(1080,1113) lands in the four tiles around (896..976, 896..1076).
     a1f = idx[(idx.cert == "A1") & (idx.side == "F")]
-    assert a1f.n_boxes.sum() == 2 and (a1f.n_boxes > 0).all()
-    b = json.loads(a1f.iloc[0].boxes)
-    assert b[0][0] == 1 and b[0][1:] == [200.0, 210.0, 300.0, 630.0]
+    sfx = a1f[a1f.view == "sfx"]; rgb = a1f[a1f.view == "rgb"]
+    assert (a1f.n_boxes > 0).all()
+    first = sfx[(sfx.x0 == 0) & (sfx.y0 == 0)].iloc[0]
+    assert json.loads(first.boxes) == [[1, 200.0, 210.0, 300.0, 630.0]]
+    assert first.tile_path == "tiles/train/A1_F_sfx_0_0.jpg"
+    sfx_labels = {b[0] for bx in sfx.boxes for b in json.loads(bx)}
+    rgb_labels = {b[0] for bx in rgb.boxes for b in json.loads(bx)}
+    assert sfx_labels == {1, 2} and rgb_labels == {1}          # dent only in the sfx view
+    assert len(rgb) == 1 and len(sfx) == 5
     # every tile file exists at the recorded path and is 1024x1024 (image larger than a tile on both axes)
     for _, r in idx.iterrows():
         with Image.open(cache / r.tile_path) as im:
             assert im.size == (r.tile_w, r.tile_h) == (1024, 1024)
-    # clean sides (B2/B has only a dropped stain + a kept tear -> positive; A1/B has a scratch -> positive)
-    # so negatives only come from sides with zero kept boxes: none in train. Check val instead.
+    # negatives only come from side-views with zero kept boxes: none in train (every train side has a box). Check val.
     sides_v, boxes_v = st.load_surface_split(ds, sp, "val")
     for k in sides_v.image_key:
         p = cache / k; p.parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(np.full((2100, 2000, 3), 120, dtype=np.uint8)).save(p, format="JPEG")
     idx_v = scc.build_tile_index(cache, "val", sides_v, boxes_v, workers=1, seed=0, neg_per_side=1)
-    assert len(idx_v) == 2 and (idx_v.n_boxes == 0).all() and (idx_v.boxes == "[]").all()
+    assert len(idx_v) == 4 and (idx_v.n_boxes == 0).all() and (idx_v.boxes == "[]").all()
+    assert sorted(idx_v.view.unique()) == ["rgb", "sfx"]
 
 
 def test_tile_skips_sides_without_cached_image_and_is_resumable(surface_tables, tmp_path):
@@ -462,7 +497,7 @@ def test_tile_skips_sides_without_cached_image_and_is_resumable(surface_tables, 
     p = cache / k; p.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(np.full((1100, 1100, 3), 120, dtype=np.uint8)).save(p, format="JPEG")
     idx = scc.build_tile_index(cache, "train", sides, boxes, workers=1, seed=0, neg_per_side=1)
-    assert set(idx.cert) == {sides.cert.iloc[0]} and set(idx.side) == {sides.side.iloc[0]}
+    assert set(idx.cert) == {sides.cert.iloc[0]} and set(idx.side) == {sides.side.iloc[0]} and set(idx.view) == {sides.view.iloc[0]}
     first = (cache / idx.tile_path.iloc[0]).stat().st_mtime_ns
     idx2 = scc.build_tile_index(cache, "train", sides, boxes, workers=1, seed=0, neg_per_side=1)
     assert (cache / idx2.tile_path.iloc[0]).stat().st_mtime_ns == first   # existing tile not rewritten
@@ -505,10 +540,10 @@ from PIL import Image
 from .cache import build_cache, cache_path
 from .config import load_config
 from .r2 import reader_from_config
-from .surface_tables import load_surface_split
+from .surface_tables import boxes_for_view, load_surface_split
 from .tiles import TILE, select_tiles
 
-INDEX_COLUMNS = ["tile_path", "cert", "side", "grade_label", "x0", "y0", "tile_w", "tile_h", "n_boxes", "boxes"]
+INDEX_COLUMNS = ["tile_path", "cert", "side", "view", "grade_label", "x0", "y0", "tile_w", "tile_h", "n_boxes", "boxes"]
 
 
 def _boxes_px(boxes: pd.DataFrame, w: int, h: int) -> list[list[float]]:
@@ -516,25 +551,25 @@ def _boxes_px(boxes: pd.DataFrame, w: int, h: int) -> list[list[float]]:
 
 
 def tile_side(args) -> list[dict]:
-    """Cut one side's tiles. args = (image_path, cert, side, grade_label, boxes_frac_json, out_dir, seed, neg_per_side).
-    boxes_frac_json: JSON list of [label, x, y, w, h] fractions. Returns index rows (tile_path relative to out_dir's parent's parent)."""
-    image_path, cert, side, grade_label, boxes_json, out_dir, seed, neg_per_side = args
+    """Cut one side-view's tiles. args = (image_path, cert, side, view, grade_label, boxes_frac_json, out_dir, seed, neg_per_side).
+    boxes_frac_json: JSON list of [label, x, y, w, h] fractions. Returns index rows (tile_path relative to cache_dir)."""
+    image_path, cert, side, view, grade_label, boxes_json, out_dir, seed, neg_per_side = args
     out_dir = Path(out_dir)
     rows = []
     with Image.open(image_path) as im:
         im = im.convert("RGB")
         w, h = im.size
         boxes_px = [[lb, x * w, y * h, (x + bw) * w, (y + bh) * h] for lb, x, y, bw, bh in json.loads(boxes_json)]
-        rng = np.random.default_rng((seed * 1_000_003 + hash((cert, side)) % 1_000_003) % (2**32))
+        rng = np.random.default_rng((seed * 1_000_003 + int.from_bytes(f"{cert}/{side}/{view}".encode(), "little") % 1_000_003) % (2**32))
         for x0, y0, kept in select_tiles(w, h, boxes_px, rng, neg_per_side):
             tw, th = min(TILE, w - x0), min(TILE, h - y0)
-            name = f"{cert}_{side}_{x0}_{y0}.jpg"
+            name = f"{cert}_{side}_{view}_{x0}_{y0}.jpg"
             dest = out_dir / name
             if not dest.exists():
                 tmp = dest.with_suffix(".part")
                 im.crop((x0, y0, x0 + tw, y0 + th)).save(tmp, format="JPEG", quality=95, subsampling=0)
                 tmp.replace(dest)
-            rows.append({"tile_path": f"tiles/{out_dir.name}/{name}", "cert": cert, "side": side,
+            rows.append({"tile_path": f"tiles/{out_dir.name}/{name}", "cert": cert, "side": side, "view": view,
                          "grade_label": grade_label, "x0": x0, "y0": y0, "tile_w": tw, "tile_h": th,
                          "n_boxes": len(kept), "boxes": json.dumps(kept)})
     return rows
@@ -546,16 +581,16 @@ def build_tile_index(cache_dir: Path, split: str, sides: pd.DataFrame, boxes: pd
     cache_dir = Path(cache_dir)
     out_dir = cache_dir / "tiles" / split
     out_dir.mkdir(parents=True, exist_ok=True)
-    by_side = {k: g for k, g in boxes.groupby(["cert", "side"])}
+    by_view = {v: {k: g for k, g in boxes_for_view(boxes, v).groupby(["cert", "side"])} for v in ("sfx", "rgb")}
     jobs, skipped = [], 0
     for r in sides.itertuples():
         img = cache_path(cache_dir, r.image_key)
         if not img.exists():
             skipped += 1
             continue
-        g = by_side.get((r.cert, r.side))
+        g = by_view[r.view].get((r.cert, r.side))
         frac = [] if g is None else [[int(b.label), float(b.x), float(b.y), float(b.w), float(b.h)] for b in g.itertuples()]
-        jobs.append((str(img), r.cert, r.side, r.grade_label, json.dumps(frac), str(out_dir), seed, neg_per_side))
+        jobs.append((str(img), r.cert, r.side, r.view, r.grade_label, json.dumps(frac), str(out_dir), seed, neg_per_side))
     rows: list[dict] = []
     if workers <= 1:
         for j in jobs:
@@ -566,7 +601,7 @@ def build_tile_index(cache_dir: Path, split: str, sides: pd.DataFrame, boxes: pd
             for out in pool.imap_unordered(tile_side, jobs, chunksize=4):
                 rows += out
                 if progress: progress(len(rows))
-    df = pd.DataFrame(rows, columns=INDEX_COLUMNS).sort_values(["cert", "side", "y0", "x0"]).reset_index(drop=True)
+    df = pd.DataFrame(rows, columns=INDEX_COLUMNS).sort_values(["cert", "side", "view", "y0", "x0"]).reset_index(drop=True)
     df.attrs["skipped_sides"] = skipped
     df.to_parquet(cache_dir / "tiles" / f"{split}.parquet", index=False)
     return df
@@ -599,7 +634,7 @@ def _run_tile(cfg, split, limit, workers, seed, neg_per_side):
     df = build_tile_index(cfg.cache_dir, split, sides, boxes, workers, seed, neg_per_side,
                           progress=lambda n: print(f"  {split}: {n} tiles", flush=True) if n % 2000 < 40 else None)
     print(f"{split}: {len(df)} tiles ({int((df.n_boxes > 0).sum())} positive, {df.n_boxes.sum()} boxes) "
-          f"from {len(sides) - df.attrs['skipped_sides']} sides, {df.attrs['skipped_sides']} sides not cached, "
+          f"from {len(sides) - df.attrs['skipped_sides']} side-views, {df.attrs['skipped_sides']} not cached, "
           f"{time.time() - t0:.0f}s")
 
 
@@ -622,6 +657,8 @@ def main(argv=None) -> None:
 if __name__ == "__main__":
     main()
 ```
+
+The rng seed line hashes the side-view name with `int.from_bytes` rather than `hash()` so tile selection is identical across processes and runs (Python's `hash()` of a str is salted per process).
 
 Note for the implementer: `build_cache`'s `progress` callback receives the running `counts` dict (see `cache.py`); the lambda above must match that contract exactly, check it before running.
 
@@ -664,10 +701,11 @@ def make_tile_index(tmp_path: Path, n: int = 4, size: int = 128) -> tuple[Path, 
         arr = np.full((size, size, 3), 128, dtype=np.uint8)
         x1, y1 = 10 + 5 * i, 20 + 3 * i
         arr[y1:y1 + 30, x1:x1 + 40] = 20
-        name = f"C{i}_F_0_0.jpg"
+        view = "sfx" if i % 2 == 0 else "rgb"
+        name = f"C{i}_F_{view}_0_0.jpg"
         Image.fromarray(arr).save(out / name, format="JPEG", quality=95, subsampling=0)
         boxes = [] if i == n - 1 else [[i % 7 + 1, float(x1), float(y1), float(x1 + 40), float(y1 + 30)]]
-        rows.append({"tile_path": f"tiles/train/{name}", "cert": f"C{i}", "side": "F",
+        rows.append({"tile_path": f"tiles/train/{name}", "cert": f"C{i}", "side": "F", "view": view,
                      "grade_label": ["9 MINT", "1 POOR", "5 EXCELLENT", "7 NEAR MINT"][i % 4],
                      "x0": 0, "y0": 0, "tile_w": size, "tile_h": size, "n_boxes": len(boxes), "boxes": json.dumps(boxes)})
     idx = pd.DataFrame(rows)
@@ -1062,7 +1100,7 @@ git commit -m "feat(training): AP50 and precision/recall metrics for detections"
 
 **Interfaces:**
 - Consumes: `TileDataset`, `collate_det`, `build_detector`, `save_checkpoint`, `evaluate_detections`, `load_config`, `SURFACE_CLASSES`.
-- Produces: `python -m trainlib.train_surface --run-name v1 [--epochs 8] [--batch-size 8] [--lr 0.01] [--workers 8] [--warmup-iters 500] [--limit-tiles N] [--val-limit-tiles N] [--no-pretrained] [--device] [--seed 42] [--min-size 1024]`; reads `<cache_dir>/tiles/train.parquet` and `val.parquet`; writes `runs/surface/<run-name>/{args.json, log.csv, best.pt, last.pt}`; `log.csv` columns `epoch,train_loss,val_loss_proxy,lr,seconds,map50,precision,recall` followed by `ap50_<CLASS>` for each of the 7 classes in order (`val_loss_proxy` is `1 - map50`, kept so the column layout mirrors the crop trainer); prints `best map50 <v>` and, on CUDA, `peak GPU memory: <v> GiB`. `main(argv) -> Path` returns the run dir. `--min-size` overrides the model's internal resize for tests only (sets `model.transform.min_size=(v,)`, `max_size=v`).
+- Produces: `python -m trainlib.train_surface --run-name v1 [--epochs 8] [--batch-size 8] [--lr 0.01] [--workers 8] [--warmup-iters 500] [--limit-tiles N] [--val-limit-tiles N] [--no-pretrained] [--device] [--seed 42] [--min-size 1024] [--init <checkpoint.pt>] [--views sfx|rgb|sfx,rgb]`; `--init` loads `model` weights from an existing checkpoint after construction (fine-tuning start point); `--views` keeps only index rows whose `view` is listed (default both); reads `<cache_dir>/tiles/train.parquet` and `val.parquet`; writes `runs/surface/<run-name>/{args.json, log.csv, best.pt, last.pt}`; `log.csv` columns `epoch,train_loss,val_loss_proxy,lr,seconds,map50,precision,recall` followed by `ap50_<CLASS>` for each of the 7 classes in order (`val_loss_proxy` is `1 - map50`, kept so the column layout mirrors the crop trainer); prints `best map50 <v>` and, on CUDA, `peak GPU memory: <v> GiB`. `main(argv) -> Path` returns the run dir. `--min-size` overrides the model's internal resize for tests only (sets `model.transform.min_size=(v,)`, `max_size=v`).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1098,6 +1136,12 @@ def test_train_one_epoch_cpu_writes_artifacts(tmp_path):
     assert args["epochs"] == 1
     ckpt = torch.load(run_dir / "best.pt", map_location="cpu", weights_only=False)
     assert ckpt["classes"] == ["CREASE", "DENT", "PIT", "PRINT_DEFECT", "SCRATCH", "STAIN", "TEAR"]
+    # fine-tune start from that checkpoint on the sfx view only
+    run2 = train_surface.main(["--config", str(cfg), "--run-name", "t2", "--epochs", "1", "--batch-size", "2",
+                               "--no-pretrained", "--device", "cpu", "--workers", "0", "--warmup-iters", "1",
+                               "--min-size", "96", "--init", str(run_dir / "best.pt"), "--views", "sfx"])
+    assert (run2 / "best.pt").exists()
+    assert json.loads((run2 / "args.json").read_text())["views"] == "sfx"
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1144,11 +1188,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-pretrained", action="store_true"); p.add_argument("--seed", type=int, default=42)
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--min-size", type=int, help="override the detector's internal resize (tests only)")
+    p.add_argument("--init", help="start from this checkpoint's weights (fine-tuning)")
+    p.add_argument("--views", default="sfx,rgb", help="comma-separated views to train and validate on")
     return p
 
 
-def _index(cache_dir: Path, split: str, limit: int | None, seed: int) -> pd.DataFrame:
+def _index(cache_dir: Path, split: str, limit: int | None, seed: int, views: str = "sfx,rgb") -> pd.DataFrame:
     df = pd.read_parquet(Path(cache_dir) / "tiles" / f"{split}.parquet")
+    df = df[df.view.isin([v.strip() for v in views.split(",")])]
     if limit is not None and limit < len(df):
         df = df.sample(n=limit, random_state=seed).sort_index()
     return df.reset_index(drop=True)
@@ -1183,14 +1230,16 @@ def main(argv=None) -> Path:
     cfg = load_config(args.config)
     torch.manual_seed(args.seed)
     device = torch.device(args.device)
-    train_idx = _index(cfg.cache_dir, "train", args.limit_tiles, args.seed)
-    val_idx = _index(cfg.cache_dir, "val", args.val_limit_tiles, args.seed)
+    train_idx = _index(cfg.cache_dir, "train", args.limit_tiles, args.seed, args.views)
+    val_idx = _index(cfg.cache_dir, "val", args.val_limit_tiles, args.seed, args.views)
     train_loader = DataLoader(TileDataset(train_idx, cfg.cache_dir, True), batch_size=args.batch_size, shuffle=True,
                               num_workers=args.workers, collate_fn=collate_det, pin_memory=(device.type == "cuda"),
                               persistent_workers=(args.workers > 0), drop_last=True)
     val_loader = DataLoader(TileDataset(val_idx, cfg.cache_dir, False), batch_size=args.batch_size, shuffle=False,
                             num_workers=args.workers, collate_fn=collate_det, persistent_workers=(args.workers > 0))
     model = build_detector(num_classes=len(SURFACE_CLASSES) + 1, pretrained=not args.no_pretrained).to(device)
+    if args.init:
+        model.load_state_dict(torch.load(args.init, map_location="cpu", weights_only=False)["model"])
     if args.min_size:
         model.transform.min_size = (args.min_size,); model.transform.max_size = args.min_size
     params = [p for p in model.parameters() if p.requires_grad]
@@ -1201,8 +1250,8 @@ def main(argv=None) -> Path:
     run_dir = Path(cfg.runs_dir) / "surface" / args.run_name
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "args.json").write_text(json.dumps(vars(args), indent=1), encoding="utf-8")
-    print(f"surface: {len(train_idx)} train tiles ({int((train_idx.n_boxes > 0).sum())} positive) / "
-          f"{len(val_idx)} val tiles; device {device}")
+    print(f"surface: {len(train_idx)} train tiles ({int((train_idx.n_boxes > 0).sum())} positive; "
+          f"{train_idx.view.value_counts().to_dict()}) / {len(val_idx)} val tiles; device {device}")
 
     best, step = -1.0, 0
     with open(run_dir / "log.csv", "w", newline="", encoding="utf-8") as f:
@@ -1267,7 +1316,7 @@ git commit -m "feat(training): surface detector training loop with warmup+cosine
 
 **Interfaces:**
 - Consumes: `load_detector`, `TileDataset`, `collate_det`, `evaluate_detections`, `surface_tables.load_surface_split`, `tiles.tile_grid`, `cache.cache_path`.
-- Produces: `python -m trainlib.evaluate_surface --checkpoint runs/surface/v1/best.pt --split val [--final-eval] [--batch-size 8] [--workers 8] [--limit-tiles N] [--full-cards N] [--score-thr 0.5] [--device] [--min-size]`. Tile eval reads `<cache_dir>/tiles/<split>.parquet`, prints a per-grade table with columns `grade, n_tiles, n_gt, map50, precision, recall` and an `ALL` row, then a per-class table `class, n_gt, ap50, precision, recall`, and writes `eval_<split>.csv` (the per-grade rows) and `eval_<split>_classes.csv` next to the checkpoint. `--split test` without `--final-eval` raises `SystemExit` with a message. `--full-cards N`: for the first N cards of the split (sorted cert order) whose sfx images are cached, run the detector over every grid tile of each side, translate boxes back to image coordinates, merge with `torchvision.ops.batched_nms` (IoU 0.5, per class), and score against that side's full GT boxes (from `load_surface_split`, fractions × decoded size) with `evaluate_detections`; print `full-side: n_sides, n_gt, map50, precision, recall, fp_per_side` where `fp_per_side` is predictions above `--score-thr` unmatched at IoU 0.5 divided by n_sides; write `eval_<split>_fullside.csv`. Library function `merge_tiles(preds_per_tile: list[tuple[int, int, dict]], iou=0.5) -> dict` (translate + NMS) is public and tested.
+- Produces: `python -m trainlib.evaluate_surface --checkpoint runs/surface/v1/best.pt --split val [--final-eval] [--batch-size 8] [--workers 8] [--limit-tiles N] [--full-cards N] [--score-thr 0.5] [--device] [--min-size]`. Tile eval reads `<cache_dir>/tiles/<split>.parquet`, prints a per-grade table with columns `grade, n_tiles, n_gt, map50, precision, recall` and an `ALL` row, then a per-view table `view, n_tiles, n_gt, map50, precision, recall` (one row per view), then a per-class table `class, n_gt, ap50, precision, recall`, and writes `eval_<split>.csv` (the per-grade rows), `eval_<split>_views.csv`, and `eval_<split>_classes.csv` next to the checkpoint. `--split test` without `--final-eval` raises `SystemExit` with a message. `--full-cards N`: for the first N cards of the split (sorted cert order) whose sfx images are cached, run the detector over every grid tile of each side-view, translate boxes back to image coordinates, merge with `torchvision.ops.batched_nms` (IoU 0.5, per class), and score against that side-view's full GT boxes (from `load_surface_split` + `boxes_for_view`, fractions × decoded size) with `evaluate_detections`; print one row per view plus `ALL`: `view, n_sides, n_gt, map50, precision, recall, fp_per_side` where `fp_per_side` is predictions above `--score-thr` unmatched at IoU 0.5 divided by n_sides; write `eval_<split>_fullside.csv`. Library function `merge_tiles(preds_per_tile: list[tuple[int, int, dict]], iou=0.5) -> dict` (translate + NMS) is public and tested.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1320,6 +1369,9 @@ def test_tile_eval_writes_per_grade_and_per_class_tables(tmp_path, capsys):
     assert grade.grade.iloc[-1] == "ALL" and int(grade.n_tiles.iloc[-1]) == 4 and int(grade.n_gt.iloc[-1]) == 3
     cls = pd.read_csv(tmp_path / "eval_val_classes.csv")
     assert list(cls.columns) == ["class", "n_gt", "ap50", "precision", "recall"] and len(cls) == 7
+    views = pd.read_csv(tmp_path / "eval_val_views.csv")
+    assert list(views.columns) == ["view", "n_tiles", "n_gt", "map50", "precision", "recall"]
+    assert views.view.tolist() == ["rgb", "sfx"] and views.n_tiles.tolist() == [2, 2]
 
 
 def test_test_split_requires_final_eval(tmp_path):
@@ -1359,7 +1411,7 @@ from .cache import cache_path
 from .config import load_config
 from .det_metrics import evaluate_detections, match
 from .detector import load_detector
-from .surface_tables import SURFACE_CLASSES, load_surface_split
+from .surface_tables import SURFACE_CLASSES, boxes_for_view, load_surface_split
 from .tile_data import TileDataset, collate_det
 from .tiles import TILE, tile_grid
 
@@ -1407,18 +1459,24 @@ def tile_eval(model, index: pd.DataFrame, cache_dir: Path, device, batch_size: i
     m = evaluate_detections(preds, gts, len(SURFACE_CLASSES), score_thr=score_thr)
     rows.append({"grade": "ALL", "n_tiles": len(index), "n_gt": sum(m["n_gt"].values()), "map50": m["map50"],
                  "precision": m["precision"], "recall": m["recall"]})
+    view_rows = []
+    for view, g in index.groupby("view", sort=True):
+        ii = g.index.tolist()
+        mv = evaluate_detections([preds[i] for i in ii], [gts[i] for i in ii], len(SURFACE_CLASSES), score_thr=score_thr)
+        view_rows.append({"view": view, "n_tiles": len(ii), "n_gt": sum(mv["n_gt"].values()), "map50": mv["map50"],
+                          "precision": mv["precision"], "recall": mv["recall"]})
     classes = [{"class": c, "n_gt": m["n_gt"][i + 1], "ap50": m["ap50"][i + 1],
                 "precision": m["precision_by_class"][i + 1], "recall": m["recall_by_class"][i + 1]}
                for i, c in enumerate(SURFACE_CLASSES)]
-    return pd.DataFrame(rows), pd.DataFrame(classes)
+    return pd.DataFrame(rows), pd.DataFrame(view_rows), pd.DataFrame(classes)
 
 
 def full_side_eval(model, cfg, split: str, n_cards: int, device, score_thr: float, allow_test: bool) -> pd.DataFrame:
     sides, boxes = load_surface_split(cfg.dataset_dir, cfg.splits_path, split, allow_test=allow_test)
     certs = sorted(sides.cert.unique())[:n_cards]
     sides = sides[sides.cert.isin(certs)]
-    by_side = {k: g for k, g in boxes.groupby(["cert", "side"])}
-    preds, gts, fp = [], [], 0
+    by_view = {v: {k: g for k, g in boxes_for_view(boxes, v).groupby(["cert", "side"])} for v in ("sfx", "rgb")}
+    preds, gts, fps, views = [], [], [], []
     model.eval()
     for r in sides.itertuples():
         path = cache_path(cfg.cache_dir, r.image_key)
@@ -1433,17 +1491,22 @@ def full_side_eval(model, cfg, split: str, n_cards: int, device, score_thr: floa
             t = torch.from_numpy(__import__("numpy").asarray(crop, dtype="float32") / 255.0).permute(2, 0, 1)
             per_tile.append((x0, y0, _predict(model, [t], device)[0]))
         p = merge_tiles(per_tile)
-        g = by_side.get((r.cert, r.side))
+        g = by_view[r.view].get((r.cert, r.side))
         gb = torch.tensor([[b.x * w, b.y * h, (b.x + b.w) * w, (b.y + b.h) * h] for b in g.itertuples()],
                           dtype=torch.float32).reshape(-1, 4) if g is not None else torch.zeros(0, 4)
         gl = torch.tensor([int(b.label) for b in g.itertuples()], dtype=torch.int64) if g is not None else torch.zeros(0, dtype=torch.int64)
-        preds.append(p); gts.append({"boxes": gb, "labels": gl})
+        preds.append(p); gts.append({"boxes": gb, "labels": gl}); views.append(r.view)
         keep = p["scores"] >= score_thr
-        fp += sum(1 for f in match(p["boxes"][keep], p["scores"][keep], gb) if not f)
-    m = evaluate_detections(preds, gts, len(SURFACE_CLASSES), score_thr=score_thr)
-    n = len(preds)
-    return pd.DataFrame([{"n_sides": n, "n_gt": sum(m["n_gt"].values()), "map50": m["map50"], "precision": m["precision"],
-                          "recall": m["recall"], "fp_per_side": (fp / n if n else float("nan"))}])
+        fps.append(sum(1 for f in match(p["boxes"][keep], p["scores"][keep], gb) if not f))
+    rows = []
+    for view in sorted(set(views)) + ["ALL"]:
+        ii = [i for i, v in enumerate(views) if view == "ALL" or v == view]
+        m = evaluate_detections([preds[i] for i in ii], [gts[i] for i in ii], len(SURFACE_CLASSES), score_thr=score_thr)
+        n = len(ii)
+        rows.append({"view": view, "n_sides": n, "n_gt": sum(m["n_gt"].values()), "map50": m["map50"],
+                     "precision": m["precision"], "recall": m["recall"],
+                     "fp_per_side": (sum(fps[i] for i in ii) / n if n else float("nan"))})
+    return pd.DataFrame(rows)
 
 
 def main(argv=None) -> None:
@@ -1465,12 +1528,14 @@ def main(argv=None) -> None:
     index = pd.read_parquet(Path(cfg.cache_dir) / "tiles" / f"{args.split}.parquet")
     if args.limit_tiles is not None and args.limit_tiles < len(index):
         index = index.sample(n=args.limit_tiles, random_state=args.seed).sort_index().reset_index(drop=True)
-    grade_df, class_df = tile_eval(model, index, cfg.cache_dir, device, args.batch_size, args.workers, args.score_thr)
+    grade_df, view_df, class_df = tile_eval(model, index, cfg.cache_dir, device, args.batch_size, args.workers, args.score_thr)
     out_dir = Path(args.checkpoint).parent
     grade_df.to_csv(out_dir / f"eval_{args.split}.csv", index=False)
+    view_df.to_csv(out_dir / f"eval_{args.split}_views.csv", index=False)
     class_df.to_csv(out_dir / f"eval_{args.split}_classes.csv", index=False)
     print(f"checkpoint epoch {ckpt['epoch']} (map50 at save {ckpt['map50']:.4f}); split {args.split}; {len(index)} tiles")
     print(grade_df.to_string(index=False, float_format=lambda v: _fmt(v)))
+    print(view_df.to_string(index=False, float_format=lambda v: _fmt(v)))
     print(class_df.to_string(index=False, float_format=lambda v: _fmt(v)))
     if args.full_cards:
         fs = full_side_eval(model, cfg, args.split, args.full_cards, device, args.score_thr, allow_test=args.final_eval)
@@ -1676,7 +1741,7 @@ cd training
 .\.venv\Scripts\python.exe -m trainlib.surface_cache_cli pull --splits train:300,val:60 --workers 8
 .\.venv\Scripts\python.exe -m trainlib.surface_cache_cli tile --splits train:300,val:60 --workers 8
 ```
-Expected: 720 images (~2.4 GB); tile counts printed per split. Record the counts (tiles, positive tiles, boxes) for the README.
+Expected: 1,440 images across both views (~5.6 GB); tile counts printed per split. Record the counts (tiles, positive tiles, boxes) for the README.
 
 - [ ] **Step 2: Smoke train 2 epochs**
 
@@ -1695,11 +1760,11 @@ Expected: per-class MAE table on val with `mae < baseline_mae` for CREASE, DENT,
 
 - [ ] **Step 4: README section**
 
-Add to `training/README.md`, after the corner/edge sections, a "Surface detector" section covering: the seven classes and the exclusion rules with the measured counts (25,575 kept boxes on 14,768 sides; 2,557 whole-card frames excluded; ESW_CSW and PLAY_WEAR excluded), the tiling constants and why (median box sizes per class from the 2026-09-16 measurement: pits 11 px, scratches 160 px, dents 280 px, creases 390 px, print lines 3175×24 px), the cache layout, the four commands (pull, tile, train, evaluate) and the deduction model command, the license reasoning for torchvision over Ultralytics, and a Results row for the smoke (tiles, epochs, s/epoch, peak VRAM, map50, per-class AP where non-NaN).
+Add to `training/README.md`, after the corner/edge sections, a "Surface detector" section covering: the seven classes and the exclusion rules with the measured counts (25,575 kept boxes on 14,768 sides; 2,557 whole-card frames excluded; ESW_CSW and PLAY_WEAR excluded), the tiling constants and why (median box sizes per class from the 2026-09-16 measurement: pits 11 px, scratches 160 px, dents 280 px, creases 390 px, print lines 3175×24 px), the two views and why the rgb view drops dents, the cache layout, the four commands (pull, tile, train, evaluate) and the deduction model command, the license reasoning for torchvision over Ultralytics, and a Results row for the smoke (tiles, epochs, s/epoch, peak VRAM, map50 overall and per view, per-class AP where non-NaN).
 
 - [ ] **Step 5: Handoff Step 7**
 
-Append to `training/HANDOFF-rented-gpu.md` a "Step 7: surface detector" section with, in order: `git pull` and `uv pip install -e ".[dev]"` (scikit-learn is new) and the test count; copy the key file back (`scp env.ps1` from the main session, then `/workspace/env.sh` as in Step 1); `pull --splits train,val,test --workers 32` (55,500 images, ~184 GB, ~$7.50 of bandwidth); `tile --splits train,val,test --workers 32` (expect ~58k train tiles, ~25 GB); train `--run-name v1 --epochs 8 --batch-size 8 --workers 8` (~65 min per epoch expected on the 5880 Ada, judge from the `map50` column; peak VRAM expected under 20 GiB); `evaluate_surface --split val --full-cards 300`; acceptance: val `ALL` `map50` ≥ 0.50 and CREASE/DENT/SCRATCH AP50 each ≥ 0.50 (a first-version bar; report whatever it is); then `--split test --final-eval --full-cards 300` once; `deduction_model --out weights/surface/v1/deduction.joblib --final-eval`; leave artifacts in place for the main session to pull. Include the failure playbook additions: DataLoader `Bus error` → `--workers 4`; OOM → `--batch-size 4`; `map50` still `nan` after epoch 2 → stop and report (the model is producing no detections above 0.05 score; likely a tiling/index problem, not a tuning problem).
+Append to `training/HANDOFF-rented-gpu.md` a "Step 7: surface detector" section with, in order: `git pull` and `uv pip install -e ".[dev]"` (scikit-learn is new) and the test count; copy the key file back (`scp env.ps1` from the main session, then `/workspace/env.sh` as in Step 1); `pull --splits train,val,test --workers 32` (111,000 images across both views, ~435 GB, ~$17.50 of bandwidth; the box has ~680 GB free after the corner and edge caches); `tile --splits train,val,test --workers 32` (expect ~100k train tiles, ~40 GB); train `--run-name v1 --epochs 8 --batch-size 8 --workers 8` (~110 min per epoch expected on the 5880 Ada, judge from the `map50` column; peak VRAM expected under 20 GiB); `evaluate_surface --split val --full-cards 300`; acceptance: val `ALL` `map50` ≥ 0.50, `sfx` view `map50` ≥ 0.55, and CREASE/DENT/SCRATCH AP50 each ≥ 0.50 (a first-version bar; report whatever it is); then `--split test --final-eval --full-cards 300` once; then the gray specialist: `train_surface --run-name v1-sfx --epochs 3 --batch-size 8 --workers 8 --init runs/surface/v1/best.pt --views sfx --lr 0.002 --warmup-iters 100` (Task 6 adds `--init` to start from a checkpoint's weights and `--views` to filter the tile index by view), evaluated the same way and reported against v1's `sfx` view row; `deduction_model --out weights/surface/v1/deduction.joblib --final-eval`; leave artifacts in place for the main session to pull. Include the failure playbook additions: DataLoader `Bus error` → `--workers 4`; OOM → `--batch-size 4`; `map50` still `nan` after epoch 2 → stop and report (the model is producing no detections above 0.05 score; likely a tiling/index problem, not a tuning problem).
 
 - [ ] **Step 6: Commit**
 
@@ -1715,5 +1780,7 @@ git commit -m "docs(training): surface detector smoke, README section, handoff S
 **Spec coverage.** §7 Surface row: architecture (Task 4, deviation 1 recorded), input (Tasks 2–3, deviation 2), outputs boxes + type (Tasks 4, 6) + deduction (Task 8, deviation 3), metrics precision/recall/mAP50 by type and deduction MAE (Tasks 5, 7, 8), per-grade table (Task 7), smoke then full run then frozen weights (Task 9 + handoff). Type mapping to engine keys: the `engine_type` column already carries the mapping produced by the dataset build; the detector uses those keys directly.
 
 **Placeholder scan.** No TBDs; every code step carries the full code. Task 9 is a run-and-record task by design.
+
+**View handling.** `sides` carries `view`; `boxes` does not (they are per side) and every consumer goes through `boxes_for_view` (Tasks 3 and 7). The tile index carries `view` (Tasks 3, 4 fixture, 6 filter, 7 tables).
 
 **Type consistency.** `boxes` DataFrame columns (`cert, side, label, cls, x, y, w, h, deduction`) are produced in Task 1 and consumed unchanged in Tasks 3, 7, 8. Index columns are fixed in the Global Constraints and used identically in Tasks 3, 4, 6, 7. Checkpoint keys are fixed in the Global Constraints and used in Tasks 4, 6, 7. `evaluate_detections` output keys are fixed in Task 5 and consumed in Tasks 6 and 7.
