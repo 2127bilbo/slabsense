@@ -1,7 +1,6 @@
 """Crop datasets with NaN-masked targets (spec §7, §11)."""
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
 import numpy as np
@@ -72,9 +71,17 @@ class CropDataset(Dataset):
         row = self.df.iloc[i]
         img = load_crop(self.cache_dir / row.crop_path, self.task, self.train, self._generator(), self.input_size)
         side = torch.tensor([1.0 if row.side == "B" else 0.0])
-        vals = [float(row[c]) for c in self.targets]
-        mask = torch.tensor([0.0 if math.isnan(v) else 1.0 for v in vals])
-        target = torch.tensor([0.0 if math.isnan(v) else v / SCALE for v in vals])
+        vals, masks = [], []
+        for _name, kind, column in self.targets:
+            raw = row[column]
+            missing = pd.isna(raw)
+            if kind == "binary":
+                vals.append(1.0 if (not missing and float(raw) > 0) else 0.0)
+            else:
+                vals.append(0.0 if missing else min(max(float(raw) / SCALE, 0.0), 1.0))
+            masks.append(0.0 if missing else 1.0)
+        target = torch.tensor(vals)
+        mask = torch.tensor(masks)
         return img, side, target, mask
 
 

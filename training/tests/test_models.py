@@ -3,11 +3,16 @@ import torch
 from trainlib import models
 
 
-def test_regressor_forward_shape_and_range():
-    m = models.ScoreRegressor(n_out=3, backbone="resnet18", pretrained=False)
+def test_regressor_forward_returns_raw_logits():
+    m = models.ScoreRegressor(n_out=3, backbone="resnet18", pretrained=False).eval()
     x = torch.randn(2, 3, 64, 64); s = torch.tensor([[0.0], [1.0]])
     y = m(x, s)
-    assert y.shape == (2, 3) and (y >= 0).all() and (y <= 1).all()
+    assert y.shape == (2, 3)
+    with torch.no_grad():
+        f = m.backbone(x)
+        expected = m.head(torch.cat([f, s.to(f.dtype)], dim=1))
+    # forward() must return the head's output as-is, with no sigmoid applied
+    assert torch.equal(y, expected)
 
 
 def test_side_changes_output():
@@ -18,18 +23,43 @@ def test_side_changes_output():
     assert not torch.allclose(a, b)
 
 
-def test_masked_huber_ignores_masked_elements():
-    pred = torch.tensor([[0.5, 0.5], [0.5, 0.5]])
-    target = torch.tensor([[0.5, 0.0], [0.5, 0.0]])
+def test_to_scores_is_sigmoid_in_unit_range():
+    pred = torch.tensor([[-5.0, 0.0, 5.0]])
+    scores = models.to_scores(pred, kinds=["binary", "regress", "regress"])
+    assert torch.equal(scores, torch.sigmoid(pred))
+    assert (scores >= 0).all() and (scores <= 1).all()
+
+
+def test_masked_loss_all_masked_regress_equals_bce_alone():
+    kinds = ["binary", "regress"]
+    pred = torch.tensor([[2.0, -1.0], [-1.0, 3.0]])
+    target = torch.tensor([[1.0, 0.7], [0.0, 0.2]])
     mask = torch.tensor([[1.0, 0.0], [1.0, 0.0]])
-    assert models.masked_huber(pred, target, mask).item() == 0.0
-    mask_all = torch.ones_like(mask)
-    assert models.masked_huber(pred, target, mask_all).item() > 0.0
+    loss = models.masked_loss(pred, target, mask, kinds)
+    bce = torch.nn.functional.binary_cross_entropy_with_logits(pred[:, 0], target[:, 0], reduction="mean")
+    assert torch.allclose(loss, bce)
 
 
-def test_masked_huber_all_masked_is_zero_not_nan():
-    pred = torch.zeros(2, 2); target = torch.ones(2, 2); mask = torch.zeros(2, 2)
-    assert models.masked_huber(pred, target, mask).item() == 0.0
+def test_masked_loss_all_masked_is_zero_with_grad():
+    kinds = ["binary", "regress"]
+    pred = torch.zeros(2, 2, requires_grad=True)
+    target = torch.ones(2, 2)
+    mask = torch.zeros(2, 2)
+    loss = models.masked_loss(pred, target, mask, kinds)
+    assert loss.item() == 0.0
+    assert loss.requires_grad
+    loss.backward()
+    assert pred.grad is not None
+
+
+def test_masked_loss_decreases_denominator_contribution_when_mixed():
+    kinds = ["binary"]
+    pred = torch.tensor([[0.5], [0.5]])
+    target = torch.tensor([[1.0], [1.0]])
+    mask_none = torch.zeros(2, 1)
+    assert models.masked_loss(pred, target, mask_none, kinds).item() == 0.0
+    mask_all = torch.ones(2, 1)
+    assert models.masked_loss(pred, target, mask_all, kinds).item() > 0.0
 
 
 def test_convnext_tiny_param_count():

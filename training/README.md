@@ -27,7 +27,23 @@ Cache location: `scripts/tag-dataset/data/cache/` (full-resolution originals; ~1
 `evaluate` without `--limit-cards` loads the whole split and then drops every row whose crop is not cached, so match `--limit-cards` to what was cached or cache the full split first.
 
 ## Metrics
-MAE in TAG points (0–1000) overall and on targets below 900 (`mae_low_points`), per grade. Back-corner angle scores are always missing in TAG data and are masked.
+Corner and edge models predict typed per-slot targets, not raw fill/fray scores:
+- `wear` (binary): whether TAG recorded a ding at that slot (`ding_count > 0`). Metrics: rank-based
+  AUROC (no sklearn dependency; NaN if a batch/split has only one class), precision and recall at a
+  0.5 score threshold, and the positive count (`npos_wear`).
+- `deduction` (regression): the summed marker deduction at that slot (TAG points, 0–1000), masked
+  where no marker exists at that slot. Metric: MAE in TAG points over unmasked rows.
+- `angle` (corners only, regression): `score_angle`, masked on back corners where TAG never records
+  it. Metric: MAE in TAG points.
+
+`score_fill`/`score_fray` (per-corner and per-edge) are **not** training targets: across 27,751 certs
+they sit below 900 points on only 0.1% of corner rows and 8 of 222,008 edge rows, so there is almost no
+variance for a regressor to learn from. They stay in the parquet tables for reference. The model emits
+raw logits; `models.to_scores` applies sigmoid to get a 0–1 probability (binary) or score (regression),
+and `models.masked_loss` combines masked BCE-with-logits (binary) and masked Huber-on-sigmoid
+(regression, β = 0.05) into one loss, normalized by the total number of unmasked elements across all
+targets. Metrics are reported overall (per epoch, in `log.csv`) and per grade (`evaluate`'s
+`eval_<split>.csv`), with `ALL` as the last row.
 
 ## Results
 | Date | Task | Cards (train/val) | Epochs | s/epoch | Peak VRAM | Best val MAE | Low-subset MAE |

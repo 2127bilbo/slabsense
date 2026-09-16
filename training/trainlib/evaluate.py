@@ -1,4 +1,4 @@
-"""Per-grade MAE tables against TAG scores (spec §7 metrics, §12)."""
+"""Per-grade metric tables against TAG typed targets (spec §7 metrics, §12)."""
 from __future__ import annotations
 
 import argparse
@@ -7,11 +7,12 @@ from pathlib import Path
 import pandas as pd
 import torch
 
+from . import metrics
 from .config import load_config
 from .data import SCALE
-from .models import ScoreRegressor
+from .models import ScoreRegressor, to_scores
 from .tables import TASKS, filter_cached, load_task_table
-from .train import LOW_THRESHOLD, make_loader
+from .train import make_loader
 
 
 @torch.no_grad()
@@ -24,22 +25,30 @@ def _predict(model, loader, device):
     return torch.cat(preds), torch.cat(targets), torch.cat(masks)
 
 
-def per_grade_table(model, df: pd.DataFrame, task: str, cache_dir, device, batch_size=64, workers=0, input_size=None) -> pd.DataFrame:
+def per_grade_table(model, df: pd.DataFrame, task: str, cache_dir, device, kinds, target_names,
+                    batch_size=64, workers=0, input_size=None) -> pd.DataFrame:
     loader = make_loader(df, task, cache_dir, False, batch_size, workers, input_size)
     pred, target, mask = _predict(model, loader, device)
-    err = (pred - target).abs() * SCALE
-    low = mask * (target < LOW_THRESHOLD)
-    names = TASKS[task]["targets"]
+    scores = to_scores(pred, kinds)
     rows = []
     groups = list(df.groupby("grade_label").indices.items()) + [("ALL", list(range(len(df))))]
     for grade, idx in groups:
         idx = torch.as_tensor(list(idx))
-        m, l, e = mask[idx], low[idx], err[idx]
-        row = {"grade_label": grade, "n": int(m.sum()), "n_low": int(l.sum()),
-               "mae_points": float((e * m).sum() / max(m.sum(), 1)),
-               "mae_low_points": float((e * l).sum() / l.sum()) if l.sum() > 0 else float("nan")}
-        for j, name in enumerate(names):
-            row[f"mae_{name}"] = float((e[:, j] * m[:, j]).sum() / max(m[:, j].sum(), 1))
+        row = {"grade_label": grade, "n_rows": int(len(idx))}
+        for j, name in enumerate(target_names):
+            m, s, t = mask[idx, j], scores[idx, j], target[idx, j]
+            if kinds[j] == "regress":
+                err = (s - t).abs() * m
+                n = int(m.sum().item())
+                row[f"mae_{name}"] = float(SCALE * err.sum() / n) if n else float("nan")
+            else:
+                keep = m.bool()
+                sc, lb = s[keep], t[keep]
+                row[f"auroc_{name}"] = metrics.auroc(sc, lb)
+                precision, recall = metrics.precision_recall_at(sc, lb)
+                row[f"precision_{name}"] = precision
+                row[f"recall_{name}"] = recall
+                row[f"npos_{name}"] = int((lb == 1).sum().item()) if lb.numel() else 0
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -59,10 +68,12 @@ def main(argv=None) -> Path:
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     model = ScoreRegressor(ckpt["n_out"], ckpt["backbone"], pretrained=False)
     model.load_state_dict(ckpt["model"]); model.to(device)
-    table = per_grade_table(model, df, args.task, cfg.cache_dir, device, args.batch_size, args.workers, args.input_size)
+    kinds = ckpt["kinds"]; target_names = ckpt["target_names"]
+    table = per_grade_table(model, df, args.task, cfg.cache_dir, device, kinds, target_names,
+                            args.batch_size, args.workers, args.input_size)
     out = Path(args.checkpoint).parent / f"eval_{args.split}.csv"
     table.to_csv(out, index=False)
-    print(table.to_string(index=False, float_format=lambda v: f"{v:.1f}"))
+    print(table.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
     return out
 
 

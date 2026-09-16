@@ -7,10 +7,26 @@ from trainlib import tables
 
 def test_tasks_spec():
     assert set(tables.TASKS) == {"corners", "edges"}
-    assert tables.TASKS["corners"]["targets"] == ["score_angle", "score_fill", "score_fray"]
-    assert tables.TASKS["edges"]["targets"] == ["score_fill", "score_fray"]
+    assert tables.TASKS["corners"]["targets"] == [
+        tables.Target("wear", "binary", "ding_count"),
+        tables.Target("deduction", "regress", "marker_deduction"),
+        tables.Target("angle", "regress", "score_angle"),
+    ]
+    assert tables.TASKS["edges"]["targets"] == [
+        tables.Target("wear", "binary", "ding_count"),
+        tables.Target("deduction", "regress", "marker_deduction"),
+    ]
     assert tables.TASKS["corners"]["input_size"] == (384, 384)
     assert tables.TASKS["edges"]["input_size"] == (1024, 192)
+    assert tables.TASKS["corners"]["key_cols"] == ["side", "corner"]
+    assert tables.TASKS["edges"]["key_cols"] == ["side", "edge"]
+
+
+def test_target_names_and_kinds():
+    assert tables.target_names("corners") == ["wear", "deduction", "angle"]
+    assert tables.target_kinds("corners") == ["binary", "regress", "regress"]
+    assert tables.target_names("edges") == ["wear", "deduction"]
+    assert tables.target_kinds("edges") == ["binary", "regress"]
 
 
 def test_load_task_table_joins_split_and_grade(tables):

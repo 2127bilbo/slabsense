@@ -32,6 +32,7 @@ def make_tables(tmp_path: Path, certs=("A1", "B2", "C3", "D4"), grades=("9 MINT"
                 splits=("train", "train", "val", "test")):
     ds = tmp_path / "dataset"; ds.mkdir(exist_ok=True)
     corners, edges = [], []
+    k = 0
     for i, cert in enumerate(certs):
         for side in "FB":
             for c in ("TL", "TR", "BL", "BR"):
@@ -39,12 +40,40 @@ def make_tables(tmp_path: Path, certs=("A1", "B2", "C3", "D4"), grades=("9 MINT"
                                 "score_angle": float("nan") if side == "B" else 990.0 - i,
                                 "score_fill": 1000.0 - 10 * i, "score_fray": 950.0 + i,
                                 "fill_px": 1.0, "fray_px": 0.0, "angle_deg": 90.0,
+                                "ding_count": k % 3, "marker_deduction": 40.0 + 10 * k,
+                                "marker_source": "rollup" if k % 2 == 0 else "constituent",
                                 "crop_path": f"tag-dataset/{cert}/corner_{side}{c}.png"})
+                k += 1
+    # one slot with no ding data at all (ding_count NaN); two slots with no marker at all
+    corners[5]["ding_count"] = None
+    corners[2]["marker_deduction"] = float("nan"); corners[2]["marker_source"] = None
+    corners[7]["marker_deduction"] = float("nan"); corners[7]["marker_source"] = None
+
+    k = 0
+    for i, cert in enumerate(certs):
+        for side in "FB":
             for e in "TBLR":
                 edges.append({"cert": cert, "side": side, "edge": e, "score_fill": 999.0 - i, "score_fray": 1000.0,
-                              "fill_px": 0.0, "fray_px": 0.0, "crop_path": f"tag-dataset/{cert}/edge_{side}{e}.png"})
-    pd.DataFrame(corners).to_parquet(ds / "corners.parquet", index=False)
-    pd.DataFrame(edges).to_parquet(ds / "edges.parquet", index=False)
+                              "fill_px": 0.0, "fray_px": 0.0,
+                              "ding_count": (k + 1) % 3, "marker_deduction": 25.0 + 5 * k,
+                              "marker_source": "constituent" if k % 2 == 0 else "rollup",
+                              "crop_path": f"tag-dataset/{cert}/edge_{side}{e}.png"})
+                k += 1
+    edges[3]["ding_count"] = None
+    edges[9]["marker_deduction"] = float("nan"); edges[9]["marker_source"] = None
+
+    corners_df = pd.DataFrame(corners)
+    corners_df["ding_count"] = corners_df["ding_count"].astype("Int64")
+    corners_df["marker_deduction"] = corners_df["marker_deduction"].astype("float64")
+    corners_df["marker_source"] = corners_df["marker_source"].astype("string")
+    corners_df.to_parquet(ds / "corners.parquet", index=False)
+
+    edges_df = pd.DataFrame(edges)
+    edges_df["ding_count"] = edges_df["ding_count"].astype("Int64")
+    edges_df["marker_deduction"] = edges_df["marker_deduction"].astype("float64")
+    edges_df["marker_source"] = edges_df["marker_source"].astype("string")
+    edges_df.to_parquet(ds / "edges.parquet", index=False)
+
     pd.DataFrame({"cert": list(certs), "grade_label": list(grades), "era": ["1999-2003"] * len(certs)}).to_parquet(ds / "manifest.parquet", index=False)
     sp = tmp_path / "splits.parquet"
     pd.DataFrame({"cert": list(certs), "split": list(splits), "stratum": ["x"] * len(certs), "assigned_at": ["t"] * len(certs)}).to_parquet(sp, index=False)

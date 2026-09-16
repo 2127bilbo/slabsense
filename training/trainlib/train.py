@@ -1,4 +1,4 @@
-"""Train a corner or edge score regressor (spec §7)."""
+"""Train a corner or edge score model with typed targets (spec §7)."""
 from __future__ import annotations
 
 import argparse
@@ -10,13 +10,29 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
+from . import metrics
 from .config import load_config
 from .data import SCALE, CropDataset, collate
-from .models import ScoreRegressor, count_params, masked_huber
-from .tables import TASKS, filter_cached, load_task_table
+from .models import ScoreRegressor, count_params, masked_loss, to_scores
+from .tables import TASKS, filter_cached, load_task_table, target_kinds, target_names
 
-LOG_COLUMNS = ["epoch", "train_loss", "val_loss", "val_mae_points", "val_mae_low_points", "lr", "seconds"]
-LOW_THRESHOLD = 900.0 / SCALE
+BASE_LOG_COLUMNS = ["epoch", "train_loss", "val_loss", "lr", "seconds"]
+
+
+def metric_keys(targets) -> list[str]:
+    """Metric column names in target order: one `mae_<name>` per regression target,
+    four columns (`auroc`/`precision`/`recall`/`npos`) per binary target."""
+    keys = []
+    for name, kind, _column in targets:
+        if kind == "regress":
+            keys.append(f"mae_{name}")
+        else:
+            keys += [f"auroc_{name}", f"precision_{name}", f"recall_{name}", f"npos_{name}"]
+    return keys
+
+
+def log_columns(task: str) -> list[str]:
+    return BASE_LOG_COLUMNS + metric_keys(TASKS[task]["targets"])
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -46,31 +62,58 @@ def make_loader(df, task, cache_dir, train, batch_size, workers, input_size=None
 
 
 @torch.no_grad()
-def evaluate_loader(model, loader, device) -> dict:
+def evaluate_loader(model, loader, device, kinds, names) -> dict:
+    """`loss` plus, per target (in order): `mae_<name>` for regression, or
+    `auroc_<name>`/`precision_<name>`/`recall_<name>`/`npos_<name>` for binary."""
     model.eval()
-    abs_sum = 0.0; n = 0; low_sum = 0.0; n_low = 0; loss_sum = 0.0; batches = 0
+    n_targets = len(kinds)
+    loss_sum = 0.0
+    batches = 0
+    mae_sum = [0.0] * n_targets
+    mae_n = [0] * n_targets
+    scores_by_col: list[list[torch.Tensor]] = [[] for _ in range(n_targets)]
+    labels_by_col: list[list[torch.Tensor]] = [[] for _ in range(n_targets)]
     for imgs, sides, targets, masks in loader:
         imgs, sides, targets, masks = imgs.to(device), sides.to(device), targets.to(device), masks.to(device)
         with torch.autocast(device_type=device.type, enabled=(device.type == "cuda")):
             pred = model(imgs, sides)
         pred = pred.float()
-        loss_sum += masked_huber(pred, targets, masks).item(); batches += 1
-        err = (pred - targets).abs() * masks
-        abs_sum += err.sum().item(); n += int(masks.sum().item())
-        low = masks * (targets < LOW_THRESHOLD)
-        low_sum += ((pred - targets).abs() * low).sum().item(); n_low += int(low.sum().item())
-    return {"loss": loss_sum / max(batches, 1), "mae_points": SCALE * abs_sum / max(n, 1),
-            "mae_low_points": SCALE * low_sum / max(n_low, 1) if n_low else float("nan"), "n": n, "n_low": n_low}
+        loss_sum += masked_loss(pred, targets, masks, kinds).item()
+        batches += 1
+        scores = to_scores(pred, kinds)
+        for j in range(n_targets):
+            m = masks[:, j].cpu()
+            if kinds[j] == "regress":
+                err = (scores[:, j].cpu() - targets[:, j].cpu()).abs() * m
+                mae_sum[j] += err.sum().item()
+                mae_n[j] += int(m.sum().item())
+            else:
+                keep = m.bool()
+                scores_by_col[j].append(scores[:, j].cpu()[keep])
+                labels_by_col[j].append(targets[:, j].cpu()[keep])
+    result = {"loss": loss_sum / max(batches, 1)}
+    for j, name in enumerate(names):
+        if kinds[j] == "regress":
+            result[f"mae_{name}"] = SCALE * mae_sum[j] / mae_n[j] if mae_n[j] else float("nan")
+        else:
+            s = torch.cat(scores_by_col[j]) if scores_by_col[j] else torch.empty(0)
+            l = torch.cat(labels_by_col[j]) if labels_by_col[j] else torch.empty(0)
+            result[f"auroc_{name}"] = metrics.auroc(s, l)
+            precision, recall = metrics.precision_recall_at(s, l)
+            result[f"precision_{name}"] = precision
+            result[f"recall_{name}"] = recall
+            result[f"npos_{name}"] = int((l == 1).sum().item()) if l.numel() else 0
+    return result
 
 
-def run_epoch(model, loader, optimizer, scaler, scheduler, device) -> float:
+def run_epoch(model, loader, optimizer, scaler, scheduler, device, kinds) -> float:
     model.train(); total = 0.0; batches = 0
     for imgs, sides, targets, masks in loader:
         imgs, sides, targets, masks = imgs.to(device), sides.to(device), targets.to(device), masks.to(device)
         optimizer.zero_grad(set_to_none=True)
         with torch.autocast(device_type=device.type, enabled=(device.type == "cuda")):
             pred = model(imgs, sides)
-        loss = masked_huber(pred.float(), targets, masks)
+        loss = masked_loss(pred.float(), targets, masks, kinds)
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -79,12 +122,20 @@ def run_epoch(model, loader, optimizer, scaler, scheduler, device) -> float:
     return total / max(batches, 1)
 
 
+def _fmt(v) -> str:
+    return str(v) if isinstance(v, int) else f"{v:.4f}"
+
+
 def main(argv=None) -> Path:
     args = build_parser().parse_args(argv)
     cfg = load_config(args.config)
     torch.manual_seed(args.seed)
     device = torch.device(args.device)
     spec = TASKS[args.task]
+    kinds = target_kinds(args.task)
+    names = target_names(args.task)
+    cols = log_columns(args.task)
+    metric_cols = cols[len(BASE_LOG_COLUMNS):]
 
     train_df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, "train", args.limit_cards, args.seed)
     val_df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, "val", args.val_limit_cards, args.seed)
@@ -108,22 +159,24 @@ def main(argv=None) -> Path:
 
     best = float("inf")
     with open(run_dir / "log.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f); w.writerow(LOG_COLUMNS)
+        w = csv.writer(f); w.writerow(cols)
         for epoch in range(1, args.epochs + 1):
             t0 = time.time()
-            train_loss = run_epoch(model, train_loader, optimizer, scaler, scheduler, device)
-            val = evaluate_loader(model, val_loader, device)
+            train_loss = run_epoch(model, train_loader, optimizer, scaler, scheduler, device, kinds)
+            val = evaluate_loader(model, val_loader, device, kinds, names)
             secs = time.time() - t0
-            w.writerow([epoch, f"{train_loss:.5f}", f"{val['loss']:.5f}", f"{val['mae_points']:.2f}",
-                        f"{val['mae_low_points']:.2f}", f"{scheduler.get_last_lr()[0]:.2e}", f"{secs:.1f}"]); f.flush()
-            print(f"epoch {epoch}/{args.epochs} train {train_loss:.4f} val {val['loss']:.4f} "
-                  f"MAE {val['mae_points']:.1f} pts (low<900: {val['mae_low_points']:.1f} on n={val['n_low']}) {secs:.0f}s")
+            row = [epoch, f"{train_loss:.5f}", f"{val['loss']:.5f}", f"{scheduler.get_last_lr()[0]:.2e}", f"{secs:.1f}"]
+            row += [_fmt(val[k]) for k in metric_cols]
+            w.writerow(row); f.flush()
+            metrics_str = " ".join(f"{k}={_fmt(val[k])}" for k in metric_cols)
+            print(f"epoch {epoch}/{args.epochs} train {train_loss:.4f} val {val['loss']:.4f} {metrics_str} {secs:.0f}s")
             state = {"model": model.state_dict(), "task": args.task, "backbone": args.backbone,
-                     "n_out": len(spec["targets"]), "epoch": epoch, "val_mae": val["mae_points"]}
+                     "n_out": len(spec["targets"]), "epoch": epoch, "val_loss": val["loss"],
+                     "kinds": kinds, "target_names": names}
             torch.save(state, run_dir / "last.pt")
-            if val["mae_points"] < best:
-                best = val["mae_points"]; torch.save(state, run_dir / "best.pt")
-    print(f"best val MAE {best:.2f} points; artifacts in {run_dir}")
+            if val["loss"] < best:
+                best = val["loss"]; torch.save(state, run_dir / "best.pt")
+    print(f"best val loss {best:.5f}; artifacts in {run_dir}")
     if device.type == "cuda":
         print(f"peak GPU memory: {torch.cuda.max_memory_allocated()/2**30:.2f} GiB")
     return run_dir

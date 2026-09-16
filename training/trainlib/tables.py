@@ -1,16 +1,44 @@
 """Per-task table specs and the split/grade join (spec §6.1, §11)."""
 from __future__ import annotations
 
+from collections import namedtuple
 from pathlib import Path
 
 import pandas as pd
 
+Target = namedtuple("Target", "name kind column")
+
 TASKS = {
-    "corners": {"table": "corners.parquet", "targets": ["score_angle", "score_fill", "score_fray"],
-                "key_cols": ["side", "corner"], "input_size": (384, 384), "long_side_horizontal": False},
-    "edges": {"table": "edges.parquet", "targets": ["score_fill", "score_fray"],
-              "key_cols": ["side", "edge"], "input_size": (1024, 192), "long_side_horizontal": True},
+    "corners": {
+        "table": "corners.parquet",
+        "targets": [
+            Target("wear", "binary", "ding_count"),
+            Target("deduction", "regress", "marker_deduction"),
+            Target("angle", "regress", "score_angle"),
+        ],
+        "key_cols": ["side", "corner"],
+        "input_size": (384, 384),
+        "long_side_horizontal": False,
+    },
+    "edges": {
+        "table": "edges.parquet",
+        "targets": [
+            Target("wear", "binary", "ding_count"),
+            Target("deduction", "regress", "marker_deduction"),
+        ],
+        "key_cols": ["side", "edge"],
+        "input_size": (1024, 192),
+        "long_side_horizontal": True,
+    },
 }
+
+
+def target_names(task: str) -> list[str]:
+    return [t.name for t in TASKS[task]["targets"]]
+
+
+def target_kinds(task: str) -> list[str]:
+    return [t.kind for t in TASKS[task]["targets"]]
 
 
 def load_task_table(task: str, dataset_dir: Path, splits_path: Path, split: str,

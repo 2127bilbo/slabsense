@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 import pandas as pd
 import torch
@@ -9,7 +7,7 @@ from trainlib import data
 from trainlib import tables as tables_mod
 
 
-def test_corner_dataset_shapes_targets_and_mask(tables, tmp_path):
+def test_corner_dataset_shapes_and_first_row_targets(tables, tmp_path):
     ds, sp = tables
     df = tables_mod.load_task_table("corners", ds, sp, "train")
     cache = make_cache(tmp_path, df, 550, 550)
@@ -19,10 +17,43 @@ def test_corner_dataset_shapes_targets_and_mask(tables, tmp_path):
     assert side.shape == (1,) and target.shape == (3,) and mask.shape == (3,)
     row = df.iloc[0]
     assert side.item() == (1.0 if row.side == "B" else 0.0)
-    assert abs(target[1].item() - row.score_fill / 1000) < 1e-6 and mask[1].item() == 1.0
-    back = next(i for i in range(len(d)) if df.iloc[i].side == "B")
-    _, _, t, m = d[back]
-    assert m[0].item() == 0.0 and t[0].item() == 0.0 and m[1].item() == 1.0
+    # row 0: ding_count 0 -> wear 0.0 (not masked); marker_deduction 40.0 -> deduction 0.04;
+    # side F -> score_angle 990.0 -> angle 0.99
+    assert target[0].item() == 0.0 and mask[0].item() == 1.0
+    assert abs(target[1].item() - 0.04) < 1e-6 and mask[1].item() == 1.0
+    assert abs(target[2].item() - 0.99) < 1e-6 and mask[2].item() == 1.0
+
+
+def test_corner_wear_target_is_one_when_ding_count_positive(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("corners", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 550, 550)
+    d = data.CropDataset(df, "corners", cache, train=False)
+    # row 4: cert A1 side B corner TL, ding_count 1 -> wear 1.0; score_angle NaN -> angle masked
+    _, _, target, mask = d[4]
+    assert target[0].item() == 1.0 and mask[0].item() == 1.0
+    assert target[2].item() == 0.0 and mask[2].item() == 0.0
+
+
+def test_corner_wear_mask_is_zero_when_ding_count_is_nan(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("corners", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 550, 550)
+    d = data.CropDataset(df, "corners", cache, train=False)
+    assert pd.isna(df.iloc[5].ding_count)
+    _, _, target, mask = d[5]
+    assert mask[0].item() == 0.0 and target[0].item() == 0.0
+
+
+def test_corner_deduction_mask_is_zero_when_marker_deduction_is_nan(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("corners", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 550, 550)
+    d = data.CropDataset(df, "corners", cache, train=False)
+    assert pd.isna(df.iloc[2].marker_deduction) and pd.isna(df.iloc[7].marker_deduction)
+    for i in (2, 7):
+        _, _, target, mask = d[i]
+        assert mask[1].item() == 0.0 and target[1].item() == 0.0
 
 
 def test_edge_dataset_rotates_vertical_strips(tables, tmp_path):
@@ -33,7 +64,29 @@ def test_edge_dataset_rotates_vertical_strips(tables, tmp_path):
     for i in range(len(d)):
         img, _, target, mask = d[i]
         assert img.shape == (3, 192, 1024)
-        assert target.shape == (2,) and mask.tolist() == [1.0, 1.0]
+        assert target.shape == (2,) and mask.shape == (2,)
+        assert set(mask.tolist()) <= {0.0, 1.0}
+        assert ((target >= 0.0) & (target <= 1.0)).all()
+
+
+def test_edge_wear_mask_is_zero_when_ding_count_is_nan(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("edges", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True)
+    d = data.CropDataset(df, "edges", cache, train=False)
+    assert pd.isna(df.iloc[3].ding_count)
+    _, _, target, mask = d[3]
+    assert mask[0].item() == 0.0 and target[0].item() == 0.0
+
+
+def test_edge_deduction_mask_is_zero_when_marker_deduction_is_nan(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("edges", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True)
+    d = data.CropDataset(df, "edges", cache, train=False)
+    assert pd.isna(df.iloc[9].marker_deduction)
+    _, _, target, mask = d[9]
+    assert mask[1].item() == 0.0 and target[1].item() == 0.0
 
 
 def test_collate_stacks(tables, tmp_path):
