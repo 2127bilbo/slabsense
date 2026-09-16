@@ -7,7 +7,7 @@ import { UserMenu } from "./components/Auth/UserMenu.jsx";
 import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
-import { saveScan, logMissingImage } from "./services/scans.js";
+import { upsertScan, logMissingImage } from "./services/scans.js";
 import { CardCropModal } from "./components/CardCropModal.jsx";
 import { claudeGradingAnalysis, deepGradingAnalysisV2 } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
@@ -1442,6 +1442,12 @@ export default function SlabSense(){
   const cardKeyRef=useRef(null);   // sha-256 of the two photos: ties AI grade jobs to this card
   const gradeRunRef=useRef(0);     // bumps on every new card; late AI results for an older card are not applied
   const pendingApplyRef=useRef(null); // { gradeType, result, jobId, cardKey } to apply once a restored card is analyzed
+  // One saved row per card: auto-save after a paid grade and the Save button both write the same scan.
+  const[savedScanId,setSavedScanId]=useState(null);
+  const savedScanIdRef=useRef(null);      // mirrors savedScanId for async code
+  const savedImagesRef=useRef(null);      // images uploaded with the last save (skip re-upload when unchanged)
+  const saveChainRef=useRef(Promise.resolve()); // serializes saves (AI + Deep back to back → insert, then update)
+  const autosaveArmedRef=useRef(null);    // gradeType whose result should be auto-saved on the next render
   const[show3DViewer,setShow3DViewer]=useState(false); // 3D viewer modal visibility
   const[cardInfo,setCardInfo]=useState(null); // Card info: { name, cardNumber, setName, etc. }
   // AI grade results (unified schema - GRADING_OUTPUT_SCHEMA.md)
@@ -1775,7 +1781,7 @@ export default function SlabSense(){
   // Everything the Grade tab derives from a card: software, AI and Deep AI results and their statuses.
   // Used by "New", "Scan New Card" and job restore, so no path can leave a stale status behind
   // (the Deep button used to stay disabled for the whole session after one Deep grade).
-  const resetGradingState=()=>{setGradeResult(null);setFR(null);setBR(null);setFM(null);setBM(null);setCardInfo(null);setAiSubgrades(null);setAiOverall(null);setAiGrades(null);setAiConfidence(null);setAiGradingNotes(null);setAiSummary(null);setAiCentering(null);setAiDefects(null);setDeepAiSubgrades(null);setDeepAiOverall(null);setDeepAiGrades(null);setDeepAiConfidence(null);setDeepAiCentering(null);setDeepAiSummary(null);setDeepGradeStatus(null);setDeepGradeResult(null);setEnhancingStatus(null);setExtractingInfo(false);setGradeMode('software');setUseAiCentering(false);setCenteringConfirmed(false);setIgnoreCentering(false);setSavingStatus(null);gradeRunRef.current+=1;};
+  const resetGradingState=()=>{setGradeResult(null);setFR(null);setBR(null);setFM(null);setBM(null);setCardInfo(null);setAiSubgrades(null);setAiOverall(null);setAiGrades(null);setAiConfidence(null);setAiGradingNotes(null);setAiSummary(null);setAiCentering(null);setAiDefects(null);setDeepAiSubgrades(null);setDeepAiOverall(null);setDeepAiGrades(null);setDeepAiConfidence(null);setDeepAiCentering(null);setDeepAiSummary(null);setDeepGradeStatus(null);setDeepGradeResult(null);setEnhancingStatus(null);setExtractingInfo(false);setGradeMode('software');setUseAiCentering(false);setCenteringConfirmed(false);setIgnoreCentering(false);setSavingStatus(null);setSavedScanId(null);savedScanIdRef.current=null;savedImagesRef.current=null;autosaveArmedRef.current=null;gradeRunRef.current+=1;};
   const reset=()=>{setStep(0);setFI(null);setBI(null);resetGradingState();setTab("scan");setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setShow3DViewer(false);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
 
   // Analyze photo quality when images are captured
@@ -1937,9 +1943,51 @@ export default function SlabSense(){
     };
   };
 
+  /**
+   * Save the current card once: inserts on the first call, updates the same row after that.
+   * Calls are queued so an AI result and a Deep result arriving back to back (or a tap on Save while an
+   * auto-save runs) never create two rows. Unchanged images are not re-uploaded on updates.
+   */
+  const persistScan = (opts = {}) => {
+    const run = async () => {
+      if (!auth.user?.id || !gradeResult) return null;
+      const existing = savedScanIdRef.current;
+      const imagesKey = `${(frontCroppedImage || fI || '').length}:${(backCroppedImage || bI || '').length}:${opts.userCardImage ? 'u' : ''}`;
+      const skipImages = !!existing && savedImagesRef.current === imagesKey;
+      const scan = await upsertScan(auth.user.id, buildSaveData(opts.userCardImage ?? null), existing, { skipImages });
+      savedScanIdRef.current = scan.id; setSavedScanId(scan.id);
+      savedImagesRef.current = imagesKey;
+      rememberSavedScan(cardKeyRef.current, scan.id);
+      if (refreshCollectionStats) refreshCollectionStats();
+      return scan;
+    };
+    const p = saveChainRef.current.then(run, run);
+    saveChainRef.current = p.catch(() => {});
+    return p;
+  };
+
+  // Auto-save after a paid grade lands (effect so buildSaveData sees the committed state)
+  useEffect(() => {
+    const armed = autosaveArmedRef.current;
+    if (!armed || !auth.user?.id || !gradeResult) return;
+    autosaveArmedRef.current = null;
+    setSavingStatus('saving');
+    persistScan({ userCardImage: tcgdexImage ? null : (frontCroppedImage || fI || null) })
+      .then(() => { setSavingStatus('saved'); setTimeout(() => setSavingStatus(null), 2000); })
+      .catch((e) => { console.error('[autosave] failed:', e); setSavingStatus('error'); setTimeout(() => setSavingStatus(null), 3000); });
+  }, [aiGrades, deepAiGrades]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Save scan to user's collection (includes AI data and enhanced images)
   const handleSaveScan = async () => {
     if (!auth.isAuthenticated || !gradeResult) return;
+
+    // Already saved (auto-save or an earlier tap): update that row, never insert again
+    if (savedScanIdRef.current) {
+      setSavingStatus('saving');
+      try { await persistScan(); setSavingStatus('saved'); setTimeout(() => setSavingStatus(null), 2000); }
+      catch (err) { console.error('Error updating saved scan:', err); setSavingStatus('error'); setTimeout(() => setSavingStatus(null), 3000); }
+      return;
+    }
 
     // Check if card was identified but has no TCGDex image
     const hasCardId = tcgdexData?.id || cardInfo?.name;
@@ -1960,8 +2008,7 @@ export default function SlabSense(){
       if (frontCroppedImage) {
         setSavingStatus('saving');
         try {
-          const saveData = buildSaveData(frontCroppedImage);
-          await saveScan(auth.user.id, saveData);
+          await persistScan({ userCardImage: frontCroppedImage });
           setSavingStatus('saved');
           setTimeout(() => setSavingStatus(null), 2000);
         } catch (err) {
@@ -1981,7 +2028,7 @@ export default function SlabSense(){
     // Normal save flow
     setSavingStatus('saving');
     try {
-      await saveScan(auth.user.id, buildSaveData());
+      await persistScan();
       setSavingStatus('saved');
       setTimeout(() => setSavingStatus(null), 2000);
     } catch (err) {
@@ -1997,12 +2044,8 @@ export default function SlabSense(){
     setSavingStatus('saving');
 
     try {
-      // Include cropped image directly in save data
-      const saveData = pendingSaveData || buildSaveData();
-      saveData.userCardImage = croppedDataUrl; // Store as data URL directly
-
       console.log('[CropComplete] Saving with user card image:', croppedDataUrl?.substring(0, 50) + '...');
-      await saveScan(auth.user.id, saveData);
+      await persistScan({ userCardImage: croppedDataUrl });
 
       setSavingStatus('saved');
       setPendingSaveData(null);
@@ -2023,8 +2066,7 @@ export default function SlabSense(){
     setSavingStatus('saving');
 
     try {
-      const saveData = pendingSaveData || buildSaveData();
-      await saveScan(auth.user.id, saveData);
+      await persistScan();
       setSavingStatus('saved');
       setPendingSaveData(null);
       setTimeout(() => setSavingStatus(null), 2000);
@@ -2049,6 +2091,12 @@ export default function SlabSense(){
   const readJobs = () => { try { return JSON.parse(localStorage.getItem(JOBS_KEY) || '[]'); } catch { return []; } };
   const writeJobs = (jobs) => { try { localStorage.setItem(JOBS_KEY, JSON.stringify(jobs)); } catch { /* ignore */ } };
   const rememberJob = (job) => writeJobs([...readJobs().filter((j) => j.jobId !== job.jobId), job]);
+  const SAVED_KEY = 'slabsense_savedScans';                 // { [cardKey]: scanId } (last 30 cards)
+  const savedScanFor = (cardKey) => { try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '{}')[cardKey] || null; } catch { return null; } };
+  const rememberSavedScan = (cardKey, scanId) => {
+    if (!cardKey || !scanId) return;
+    try { const m = JSON.parse(localStorage.getItem(SAVED_KEY) || '{}'); m[cardKey] = scanId; const keys = Object.keys(m); if (keys.length > 30) delete m[keys[0]]; localStorage.setItem(SAVED_KEY, JSON.stringify(m)); } catch { /* ignore */ }
+  };
   const forgetJob = (jobId) => writeJobs(readJobs().filter((j) => j.jobId !== jobId));
 
   /** Stable id for "this card" = hash of both photos. */
@@ -2060,7 +2108,12 @@ export default function SlabSense(){
   useEffect(() => {
     let alive = true;
     cardKeyRef.current = null;
-    if (fI && bI) cardKeyFor(fI, bI).then((k) => { if (alive) cardKeyRef.current = k; });
+    if (fI && bI) cardKeyFor(fI, bI).then((k) => {
+      if (!alive) return;
+      cardKeyRef.current = k;
+      const prior = savedScanFor(k);
+      if (prior && !savedScanIdRef.current) { savedScanIdRef.current = prior; setSavedScanId(prior); }
+    });
     return () => { alive = false; };
   }, [fI, bI]);
 
@@ -2112,6 +2165,7 @@ export default function SlabSense(){
     }
     setProg('');
     if (window.refreshCreditBalance) window.refreshCreditBalance();
+    autosaveArmedRef.current = gradeType;   // a paid result is always saved (see the auto-save effect)
     console.log(`[${gradeType}] grade applied:`, result.cardInfo?.name, result.grades?.tag?.grade);
   };
   const resultFromJob = (job) => (job.grade_type === 'deep' ? shapeDeepResult(job.result, { jobId: job.id }) : shapeAiResult(job.result, { jobId: job.id }));
@@ -2216,6 +2270,8 @@ export default function SlabSense(){
         rq.frontCroppedUrl ? toDataUrl(rq.frontCroppedUrl) : null, rq.backCroppedUrl ? toDataUrl(rq.backCroppedUrl) : null,
       ]);
       resetGradingState();
+      const priorScan = savedScanFor(job.card_key);
+      if (priorScan) { savedScanIdRef.current = priorScan; setSavedScanId(priorScan); }
       setStep(0); setTab('scan');
       setFrontCenteringData(rq.frontCentering ? { didManualCenter: true, lrRatio: rq.frontCentering.lrRatio, tbRatio: rq.frontCentering.tbRatio } : null);
       setBackCenteringData(rq.backCentering ? { didManualCenter: true, lrRatio: rq.backCentering.lrRatio, tbRatio: rq.backCentering.tbRatio } : null);
@@ -2761,7 +2817,7 @@ export default function SlabSense(){
           {/* Compact Action Icons */}
           <div style={{display:"flex",justifyContent:"center",gap:24,marginBottom:16}}>
             {auth.isAuthenticated && (
-              <button onClick={handleSaveScan} disabled={savingStatus==='saving'} title="Save to Collection" style={{
+              <button onClick={handleSaveScan} disabled={savingStatus==='saving'} title={savedScanId ? "Update saved card" : "Save to Collection"} style={{
                 background:"transparent",border:"none",cursor:"pointer",padding:8,color:savingStatus==='saved'?"#00ff88":"#666",fontSize:20,transition:"color .2s"
               }}>{savingStatus==='saving'?"⏳":savingStatus==='saved'?"✓":"💾"}</button>
             )}

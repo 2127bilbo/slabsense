@@ -54,84 +54,102 @@ export async function uploadCardImage(userId, scanId, dataUrl, type) {
  * Save a new scan to the database
  * Optionally uploads enhanced card images for 3D viewing
  */
-export async function saveScan(userId, scanData) {
+/** Column mapping shared by insert and update (kept in one place so both paths save the same fields). */
+export function scanRowFromSaveData(scanData) {
+  return {
+    card_name: scanData.cardName || null,
+    card_set: scanData.cardSet || null,
+    card_number: scanData.cardNumber || null,
+    card_game: scanData.cardGame || 'pokemon',
+    front_image_path: scanData.frontImagePath || null,
+    back_image_path: scanData.backImagePath || null,
+    grading_company: scanData.gradingCompany || 'tag',
+    raw_score: scanData.rawScore,
+    grade_value: scanData.gradeValue,
+    grade_label: scanData.gradeLabel,
+    subgrades: scanData.subgrades || {},
+    company_grades: scanData.companyGrades || null,   // engine per-company grades (F1)
+    front_centering: scanData.frontCentering || {},
+    back_centering: scanData.backCentering || {},
+    dings: scanData.dings || [],
+    notes: scanData.notes || null,
+    // AI grading data (from Claude) - includes both standard and deep AI
+    // Structure: { psa, bgs, sgc, cgc, tag, __deep__: { psa, bgs, ... } }
+    ai_grades: scanData.deepAiGrades
+      ? { ...(scanData.aiGrades || {}), __deep__: scanData.deepAiGrades }
+      : (scanData.aiGrades || null),
+    ai_condition: scanData.deepAiCondition
+      ? { ...(scanData.aiCondition || {}), __deep__: scanData.deepAiCondition }
+      : (scanData.aiCondition || null),
+    ai_summary: scanData.deepAiSummary
+      ? { ...(scanData.aiSummary || {}), __deep__: scanData.deepAiSummary }
+      : (scanData.aiSummary || null),
+    ai_centering: scanData.aiCentering || null,  // { front: {leftRight, topBottom}, back: {...} }
+    card_info: scanData.cardInfo || null,        // { name, hp, cardNumber, setName, rarity, year, variant, language }
+    tcgdex_image: scanData.tcgdexImage || null,  // High-quality card image URL from TCGDex
+    tcgdex_id: scanData.tcgdexId || null,        // TCGDex card ID for future lookups
+    // Note: user_card_image is set via upload below (URL, not base64)
+  };
+}
+
+/**
+ * Save a scan, or update the one already saved for this card.
+ * @param {string} userId
+ * @param {object} scanData  see scanRowFromSaveData + enhancedFront/enhancedBack/userCardImage data URLs
+ * @param {string|null} existingId  update this row instead of inserting (auto-save + manual save share one row)
+ * @param {{ skipImages?: boolean }} [opts]  skip re-uploading unchanged images on an update
+ */
+export async function upsertScan(userId, scanData, existingId = null, { skipImages = false } = {}) {
   if (!isSupabaseConfigured()) {
     throw new Error('Database not configured');
   }
 
-  // First insert the scan to get an ID
-  const { data: scan, error } = await supabase
-    .from('scans')
-    .insert({
-      user_id: userId,
-      card_name: scanData.cardName || null,
-      card_set: scanData.cardSet || null,
-      card_number: scanData.cardNumber || null,
-      card_game: scanData.cardGame || 'pokemon',
-      front_image_path: scanData.frontImagePath || null,
-      back_image_path: scanData.backImagePath || null,
-      grading_company: scanData.gradingCompany || 'tag',
-      raw_score: scanData.rawScore,
-      grade_value: scanData.gradeValue,
-      grade_label: scanData.gradeLabel,
-      subgrades: scanData.subgrades || {},
-      company_grades: scanData.companyGrades || null,   // engine per-company grades (F1)
-      front_centering: scanData.frontCentering || {},
-      back_centering: scanData.backCentering || {},
-      dings: scanData.dings || [],
-      notes: scanData.notes || null,
-      // AI grading data (from Claude) - includes both standard and deep AI
-      // Structure: { psa, bgs, sgc, cgc, tag, __deep__: { psa, bgs, ... } }
-      ai_grades: scanData.deepAiGrades
-        ? { ...(scanData.aiGrades || {}), __deep__: scanData.deepAiGrades }
-        : (scanData.aiGrades || null),
-      ai_condition: scanData.deepAiCondition
-        ? { ...(scanData.aiCondition || {}), __deep__: scanData.deepAiCondition }
-        : (scanData.aiCondition || null),
-      ai_summary: scanData.deepAiSummary
-        ? { ...(scanData.aiSummary || {}), __deep__: scanData.deepAiSummary }
-        : (scanData.aiSummary || null),
-      ai_centering: scanData.aiCentering || null,  // { front: {leftRight, topBottom}, back: {...} }
-      card_info: scanData.cardInfo || null,        // { name, hp, cardNumber, setName, rarity, year, variant, language }
-      tcgdex_image: scanData.tcgdexImage || null,  // High-quality card image URL from TCGDex
-      tcgdex_id: scanData.tcgdexId || null,        // TCGDex card ID for future lookups
-      // Note: user_card_image is set via upload below (URL, not base64)
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
+  let scan;
+  if (existingId) {
+    const { data, error } = await supabase
+      .from('scans')
+      .update(scanRowFromSaveData(scanData))
+      .eq('id', existingId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+    if (error) throw error;
+    scan = data;
+  } else {
+    const { data, error } = await supabase
+      .from('scans')
+      .insert({ user_id: userId, ...scanRowFromSaveData(scanData) })
+      .select()
+      .single();
+    if (error) throw error;
+    scan = data;
+  }
 
   // If images provided, upload them to bucket and update the scan with URLs
-  const hasImagesToUpload = scanData.enhancedFront || scanData.enhancedBack || scanData.userCardImage;
+  const hasImagesToUpload = !skipImages && (scanData.enhancedFront || scanData.enhancedBack || scanData.userCardImage);
 
   if (hasImagesToUpload) {
     console.log('[saveScan] Images to upload:', {
       enhancedFront: !!scanData.enhancedFront,
       enhancedBack: !!scanData.enhancedBack,
       userCardImage: !!scanData.userCardImage,
+      update: !!existingId,
     });
 
     const updates = {};
 
     if (scanData.enhancedFront) {
-      console.log('[saveScan] Uploading enhanced front...');
       const url = await uploadCardImage(userId, scan.id, scanData.enhancedFront, 'enhanced_front');
-      console.log('[saveScan] Enhanced front upload:', url ? 'success' : 'failed');
       if (url) updates.enhanced_front_path = url;
     }
 
     if (scanData.enhancedBack) {
-      console.log('[saveScan] Uploading enhanced back...');
       const url = await uploadCardImage(userId, scan.id, scanData.enhancedBack, 'enhanced_back');
-      console.log('[saveScan] Enhanced back upload:', url ? 'success' : 'failed');
       if (url) updates.enhanced_back_path = url;
     }
 
     if (scanData.userCardImage) {
-      console.log('[saveScan] Uploading user card image...');
       const url = await uploadCardImage(userId, scan.id, scanData.userCardImage, 'user_card');
-      console.log('[saveScan] User card image upload:', url ? 'success' : 'failed');
       if (url) updates.user_card_image = url;
     }
 
@@ -147,6 +165,11 @@ export async function saveScan(userId, scanData) {
   }
 
   return scan;
+}
+
+/** Insert a new scan (kept for existing callers). */
+export async function saveScan(userId, scanData) {
+  return upsertScan(userId, scanData, null);
 }
 
 /**
