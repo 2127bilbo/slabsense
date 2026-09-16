@@ -87,6 +87,12 @@ def main(argv=None) -> Path:
     model = build_detector(num_classes=len(SURFACE_CLASSES) + 1, pretrained=pretrained).to(device)
     if args.init:
         model.load_state_dict(torch.load(args.init, map_location="cpu", weights_only=False)["model"])
+        # Building without pretrained weights leaves every backbone layer trainable (torchvision's
+        # trainable_backbone_layers=5); a run from COCO weights trains only layer2-4 (=3). Freeze the
+        # stem and layer1 so a fine-tune from a checkpoint uses the same regime as the run it starts from.
+        for name, p in model.backbone.body.named_parameters():
+            if not name.startswith(("layer2", "layer3", "layer4")):
+                p.requires_grad_(False)
     if args.min_size:
         model.transform.min_size = (args.min_size,); model.transform.max_size = args.min_size
     params = [p for p in model.parameters() if p.requires_grad]

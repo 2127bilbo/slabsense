@@ -33,3 +33,29 @@ def test_train_one_epoch_cpu_writes_artifacts(tmp_path):
                                "--min-size", "96", "--init", str(run_dir / "best.pt"), "--views", "sfx"])
     assert (run2 / "best.pt").exists()
     assert json.loads((run2 / "args.json").read_text())["views"] == "sfx"
+
+
+def test_init_freezes_stem_and_layer1_like_a_pretrained_build(tmp_path):
+    import torch
+    from trainlib import detector
+
+    m_pre = detector.build_detector(num_classes=8, pretrained=False)
+    ck = tmp_path / "init.pt"
+    detector.save_checkpoint(m_pre, ck, ["A"] * 7, 1, 0.0)
+    cache, idx = make_tile_index(tmp_path, n=4, size=96)
+    idx.to_parquet(cache / "tiles" / "val.parquet", index=False)
+    cfg = tmp_path / "config.toml"
+    (tmp_path / "ds.toml").write_text('[bucket]\nendpoint="e"\nregion="auto"\nname="b"\nprefix="p"\n', encoding="utf-8")
+    cfg.write_text('[paths]\ndataset_dir = "dataset"\nsplits_path = "splits.parquet"\ncache_dir = "cache"\nruns_dir = "runs"\n'
+                   '[r2]\nconfig_toml = "ds.toml"\n', encoding="utf-8")
+    run_dir = train_surface.main(["--config", str(cfg), "--run-name", "t3", "--epochs", "1", "--batch-size", "2",
+                                  "--device", "cpu", "--workers", "0", "--warmup-iters", "1", "--min-size", "96",
+                                  "--init", str(ck)])
+    ckpt = torch.load(run_dir / "best.pt", map_location="cpu", weights_only=False)
+    m = detector.build_detector(num_classes=8, pretrained=False)
+    m.load_state_dict(ckpt["model"])
+    # stem/layer1 weights must be identical to the init checkpoint (frozen); layer4 must have moved
+    init = torch.load(ck, map_location="cpu", weights_only=False)["model"]
+    assert torch.equal(init["backbone.body.conv1.weight"], ckpt["model"]["backbone.body.conv1.weight"])
+    assert torch.equal(init["backbone.body.layer1.0.conv1.weight"], ckpt["model"]["backbone.body.layer1.0.conv1.weight"])
+    assert not torch.equal(init["backbone.body.layer4.0.conv1.weight"], ckpt["model"]["backbone.body.layer4.0.conv1.weight"])
