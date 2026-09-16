@@ -51,6 +51,7 @@ targets. Metrics are reported overall (per epoch, in `log.csv`) and per grade (`
 | Date | Task | Targets | Cards (train/val) | Epochs | s/epoch | Peak VRAM | Best val loss | auroc_wear | mae_deduction | mae_angle |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 2026-09-16 | corners | wear / deduction / angle | 500/100 | 3 | 107, 88, 105 | 5.93 GiB | 0.2424 (epoch 2) | 0.828 (final epoch) | 160 pts (final epoch) | 2.6 pts (final epoch) |
+| 2026-09-16 | edges | wear / deduction | 500/100 | 3 | 320, 308, 305 | 4.07 GiB | 0.2811 (epoch 3) | 0.779 (final epoch) | 323 pts (final epoch) | n/a (no angle target) |
 
 **Metric definitions changed on 2026-09-16** with the corner/edge target
 redesign (`docs/superpowers/plans/2026-09-16-corner-edge-targets.md`):
@@ -95,3 +96,26 @@ lr_scheduler.step() before optimizer.step()` on the very first AMP step —
 gradients while calibrating its loss scale, so the scheduler's `.step()`
 runs first that one time. This is expected AMP warm-up behavior, not a bug,
 and does not recur after step 1.
+
+### Edge smoke (2026-09-16)
+
+Same 500/100-card sample and seed as the corner smoke, `wear`/`deduction`
+targets only (edges have no `angle` target). Cache: 4,795 of 4,800 strips
+downloaded in 162 s (about 29 files/s, ~17 GB) — 4 unavailable upstream for
+the same cert Z9219918 front side as the corners cache, plus 1 further
+transient failure (`train.log` reports `dropped 5 rows with no cached
+crop`). Trained with `--batch-size 16 --workers 0`; the run was CPU-bound,
+not GPU-bound (3.75 MB strips decoded in-process on the CPU, GPU utilization
+only 2–7% during training) — this is why edge epochs (305–320 s) run far
+longer than corner epochs (88–107 s) despite a smaller batch size and lower
+peak VRAM (4.07 GiB vs 5.93 GiB). `precision_wear`/`recall_wear` at 0.5 are
+NaN/0.0 for the same reason as corners (no sigmoid output above threshold
+yet after 3 short epochs); use `auroc_wear` instead. Per-grade eval
+(`runs/edges/smoke/eval.log`, `eval_val.csv`): several grades show NaN
+AUROC where `npos_wear` is 0 for that grade in this 100-card sample (no
+positive edge-wear rows to rank against); `ALL` row: `auroc_wear` 0.780,
+`mae_deduction` 323 pts, `npos_wear` 80 of 800.
+
+Edge strips will be cached **pre-resized to 1024×192** before any full run,
+because the full-resolution edge object set in the bucket is 833 GB — far
+too large to cache as-is on a single training box.
