@@ -74,6 +74,29 @@ def test_tile_skips_sides_without_cached_image_and_is_resumable(surface_tables, 
     assert idx2.equals(idx)
 
 
+def test_tile_survives_corrupt_cached_image(surface_tables, tmp_path):
+    ds, sp = surface_tables
+    cache = tmp_path / "cache"
+    sides, boxes = st.load_surface_split(ds, sp, "train")
+    bad_key = sides.image_key.iloc[0]
+    for k in sides.image_key:
+        p = cache / k; p.parent.mkdir(parents=True, exist_ok=True)
+        if k == bad_key:
+            p.write_bytes(b"not a real image")
+        else:
+            Image.fromarray(np.full((2100, 2000, 3), 120, dtype=np.uint8)).save(p, format="JPEG")
+    idx = scc.build_tile_index(cache, "train", sides, boxes, workers=1, seed=0, neg_per_side=1)
+    assert (cache / "tiles" / "train.parquet").exists()
+    assert idx.attrs["failed_sides"] == 1
+    bad_row = sides[sides.image_key == bad_key].iloc[0]
+    # the corrupt side-view contributes no rows; every other side-view still produced tiles
+    assert not ((idx.cert == bad_row.cert) & (idx.side == bad_row.side) & (idx.view == bad_row.view)).any()
+    assert len(idx) > 0
+    assert set(zip(idx.cert, idx.side, idx.view)) == {
+        (r.cert, r.side, r.view) for r in sides.itertuples() if r.image_key != bad_key
+    }
+
+
 def test_cli_parses_splits_with_limits(monkeypatch, tmp_path):
     seen = {}
     monkeypatch.setattr(scc, "_run_pull", lambda cfg, split, limit, workers, seed: seen.setdefault("pull", []).append((split, limit)))
