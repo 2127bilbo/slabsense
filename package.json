@@ -14,6 +14,7 @@
     "test:lib": "node src/lib/gradingEngine.test.js && node src/lib/detectors.test.js && node src/lib/softwareGrade.test.js && node src/lib/f16.test.js && node src/lib/card-db-client.test.js && node src/lib/stage-view.test.js && node src/lib/line-color.test.js && node api/_lib/credits.test.js && node api/_lib/gradeJobs.test.js && node api/_lib/detectionPrompt.test.js",
     "cards:build-initial": "node scripts/card-db/build-initial.mjs",
     "cards:update": "node scripts/card-db/update.mjs",
+    "storage:cleanup": "node scripts/storage/cleanup-grade-uploads.mjs",
     "harness:identify": "node --expose-gc scripts/harness/identify.mjs"
   },
   "dependencies": {

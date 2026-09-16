@@ -13,6 +13,10 @@
  */
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
+import { resizeImage } from '../lib/image-utils.js';
+
+/** Long-edge cap for photos uploaded for AI grading (see uploadImageFor*Analysis). */
+const GRADE_UPLOAD_MAX_PX = 2000;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // UNIFIED ENDPOINT MAPPING
@@ -209,8 +213,9 @@ async function uploadImageForStandardAnalysis(dataUrl, side, userId) {
   }
 
   try {
-    // Convert data URL to blob
-    const response = await fetch(dataUrl);
+    // Claude downsizes anything past ~1,568 px on the long edge before it looks at it, so a 2,000 px
+    // copy keeps every pixel it uses at roughly a fifth of the bytes (and of the bucket storage).
+    const response = await fetch(await resizeImage(dataUrl, GRADE_UPLOAD_MAX_PX, GRADE_UPLOAD_MAX_PX, 0.9));
     const blob = await response.blob();
 
     // Generate unique filename under user's folder (required by RLS policy)
@@ -338,8 +343,9 @@ async function uploadImageForDeepAnalysis(dataUrl, side, userId) {
   }
 
   try {
-    // Convert data URL to blob
-    const response = await fetch(dataUrl);
+    // Claude downsizes anything past ~1,568 px on the long edge before it looks at it, so a 2,000 px
+    // copy keeps every pixel it uses at roughly a fifth of the bytes (and of the bucket storage).
+    const response = await fetch(await resizeImage(dataUrl, GRADE_UPLOAD_MAX_PX, GRADE_UPLOAD_MAX_PX, 0.9));
     const blob = await response.blob();
 
     // Generate unique filename under user's folder (required by RLS policy)
