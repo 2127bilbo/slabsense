@@ -1,7 +1,7 @@
 /**
  * Deep AI Grade V3 - Multi-Provider Two-Pass DETECTION + Engine Grading
  *
- * REWRITTEN for the grading engine (GRADING_SCALE.md / AI_WIRING.md):
+ * REWRITTEN for the grading engine (docs/GRADING_SYSTEM.md):
  *   AI detects + classifies defects. gradingEngine.js computes ALL scores.
  *   Shares its prompt with ai-analyze-unified.js via api/_lib/detectionPrompt.js.
  *
@@ -49,7 +49,7 @@ const DEFAULT_CONFIG = {
 };
 
 // NOTE: service-role key strongly preferred. The anon-key fallback only works
-// if RLS on graded_references allows anon SELECT — see AI_WIRING.md §6.
+// if RLS on graded_references allows anon SELECT.
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
@@ -412,7 +412,7 @@ ${JSON.stringify(det2 ? { imageQuality: det2.imageQuality, defects: sanitizeDefe
     console.log('[DeepAnalyzeV3] Final AI defects:', JSON.stringify(finalDetection.defects, null, 2));
 
     // ========================================================================
-    // ENGINE: all grading math (GRADING_SCALE.md) + unified assembly
+    // ENGINE: all grading math (docs/GRADING_SYSTEM.md) + unified assembly
     // ========================================================================
     const elapsed = Date.now() - startTime;
     const analysis = assembleUnifiedOutput({
@@ -448,7 +448,7 @@ ${JSON.stringify(det2 ? { imageQuality: det2.imageQuality, defects: sanitizeDefe
     return res.status(200).json({
       success: true,
       version: 'v3-engine',
-      analysis, // ← FULL unified schema (GRADING_OUTPUT_SCHEMA.md) — migrate to this
+      analysis, // ← FULL unified schema (docs/GRADING_SYSTEM.md) — migrate to this
       passes: {
         quickEstimate: {
           detection: pass1Detection,
@@ -457,7 +457,7 @@ ${JSON.stringify(det2 ? { imageQuality: det2.imageQuality, defects: sanitizeDefe
         referencesUsed: references.length,
         referenceGrades: references.map((r) => r.grade),
       },
-      // Legacy-shaped conveniences (see AI_WIRING.md §5 for migration map)
+      // Legacy-shaped conveniences (top-level copies of analysis.*)
       cardInfo: analysis.cardInfo,
       centering: analysis.centering,
       defects: analysis.defects,

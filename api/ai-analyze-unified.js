@@ -1,10 +1,10 @@
 /**
  * Unified AI Card Grading Analysis — REWRITTEN for the grading engine
  *
- * ARCHITECTURE (GRADING_SCALE.md / AI_WIRING.md):
+ * ARCHITECTURE (docs/GRADING_SYSTEM.md):
  *   AI detects + classifies defects → gradingEngine.js computes ALL scores
  *   and company grades → response is the unified schema
- *   (GRADING_OUTPUT_SCHEMA.md). The AI never grades.
+ *   (output schema in docs/GRADING_SYSTEM.md). The AI never grades.
  *
  * Shares its prompt with deep-analyze-v2.js via api/_lib/detectionPrompt.js
  * — single-pass here, no reference comparison, fastest response.

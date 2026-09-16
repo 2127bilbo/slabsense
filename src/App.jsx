@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { GRADING_COMPANIES, getGradeFromScore, getCompanyOptions, DEFAULT_GRADING_COMPANY } from "./utils/gradingScales.js";
+import { GRADING_COMPANIES, getCompanyOptions, DEFAULT_GRADING_COMPANY } from "./utils/gradingScales.js";
 import { shapeAiResult, shapeDeepResult } from "./services/api.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { AuthModal } from "./components/Auth/AuthModal.jsx";
@@ -20,14 +20,6 @@ import { DamageReportModal } from "./components/DamageReport";
 import { CreditBalance, PricingPage } from "./components/Billing";
 import { getGradeJob } from "./services/credits.js";
 import { GRADE_TIERS, creditsLabel } from "./lib/grade-tiers.js";
-import {
-  TAG_CENTERING_THRESHOLDS,
-  GRADE_CEILINGS,
-  DEFECT_GRADE_CAPS,
-  getMaxGradeByDefects,
-  getCenteringGrade,
-  ratioToDeviation,
-} from "./lib/tag-calibration.js";
 import { getGyroInput } from "./lib/gyro-input.js";
 import { loadImg, genMaps, LUM } from "./lib/image-utils.js";
 import { cropToOuterBounds, getBoundsFromCorners } from "./lib/centering-utils.js";
@@ -1450,7 +1442,7 @@ export default function SlabSense(){
   const autosaveArmedRef=useRef(null);    // gradeType whose result should be auto-saved on the next render
   const[show3DViewer,setShow3DViewer]=useState(false); // 3D viewer modal visibility
   const[cardInfo,setCardInfo]=useState(null); // Card info: { name, cardNumber, setName, etc. }
-  // AI grade results (unified schema - GRADING_OUTPUT_SCHEMA.md)
+  // AI grade results (unified schema - docs/GRADING_SYSTEM.md)
   const[aiSubgrades,setAiSubgrades]=useState(null); // AI subgrades: 8 keys (frontCentering...backSurface), 0-100 scale
   const[aiOverall,setAiOverall]=useState(null); // AI overall: { score, grade, label, displayGrade, capsApplied, minSubgrade }
   const[aiGrades,setAiGrades]=useState(null); // AI company grades: { psa, bgs, sgc, cgc, tag }
@@ -1458,7 +1450,7 @@ export default function SlabSense(){
   const[aiSummary,setAiSummary]=useState(null); // AI summary: { positives, concerns, recommendation }
   const[aiGradingNotes,setAiGradingNotes]=useState(null); // AI grading notes (derived): { positives, concerns, estimatedGrade }
 
-  // Deep AI grade results (unified schema - GRADING_OUTPUT_SCHEMA.md)
+  // Deep AI grade results (unified schema - docs/GRADING_SYSTEM.md)
   const[deepAiSubgrades,setDeepAiSubgrades]=useState(null); // Deep AI subgrades: 8 keys, 0-100 scale
   const[deepAiOverall,setDeepAiOverall]=useState(null); // Deep AI overall: { score, grade, label, displayGrade, capsApplied }
   const[deepAiGrades,setDeepAiGrades]=useState(null); // Deep AI company grades: { psa, bgs, sgc, cgc, tag }

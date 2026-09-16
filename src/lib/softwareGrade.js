@@ -9,7 +9,35 @@
  * ============================================================================
  */
 import { gradeCard, scoreToGrade, ENGINE_VERSION } from './gradingEngine.js';
-import { GRADING_COMPANIES, DEFAULT_GRADING_COMPANY, GRADE_COLORS, calculateSoftwareConfidence } from './masterweights.js';
+import { GRADING_COMPANIES, DEFAULT_GRADING_COMPANY, GRADE_COLORS } from '../utils/gradingScales.js';
+
+/**
+ * Software-path confidence from photo quality (SlabSense heuristic, not a grading-company rule).
+ * Returns { confidence: 0.1–1.0, factors: string[] }.
+ */
+export function calculateSoftwareConfidence(imageQuality, options = {}) {
+  let confidence = 1.0;
+  const factors = [];
+  const m = imageQuality?.metrics || {};
+  if (m.sharpness !== undefined) {
+    if (m.sharpness < 100) { confidence -= 0.30; factors.push('Very blurry image'); }
+    else if (m.sharpness < 300) { confidence -= 0.15; factors.push('Slightly blurry'); }
+    else if (m.sharpness > 800) confidence += 0.05;
+  }
+  if (m.brightRatio !== undefined) {
+    if (m.brightRatio > 30) { confidence -= 0.25; factors.push('Significant glare/overexposure'); }
+    else if (m.brightRatio > 15) { confidence -= 0.10; factors.push('Some glare detected'); }
+  }
+  if (m.darkRatio !== undefined) {
+    if (m.darkRatio > 40) { confidence -= 0.20; factors.push('Image too dark'); }
+    else if (m.darkRatio > 25) { confidence -= 0.10; factors.push('Low lighting'); }
+  }
+  if (m.contrast !== undefined && m.contrast < 50) { confidence -= 0.15; factors.push('Low contrast'); }
+  if (options.manualCentering) { confidence += 0.10; factors.push('Manual centering (higher accuracy)'); }
+  if (options.imageWidth && options.imageWidth > 2000) { confidence += 0.05; factors.push('High resolution image'); }
+  confidence = Math.max(0.1, Math.min(1.0, confidence));
+  return { confidence: Math.round(confidence * 100) / 100, factors };
+}
 
 // Legacy GRADES array for backwards compatibility (uses selected company's scale)
 export const getGradesForCompany = (companyId) => {
@@ -27,9 +55,7 @@ export const getGrade = (s, companyId = DEFAULT_GRADING_COMPANY) => {
 
 /* ═══════════════════════════════════════════
    UNIFIED SCORING — adapter over gradingEngine.js
-   Engine math: docs/GRADING_SCALE.md (100-pt subgrades, TAG baseline)
-   Output contract: docs/GRADING_OUTPUT_SCHEMA.md
-   Company conversion: docs/COMPANY_OFFSETS.md
+   Everything (engine math, output contract, company conversion): docs/GRADING_SYSTEM.md
    ═══════════════════════════════════════════ */
 
 // Map legacy numeric ding severity (1/2/3, 4+) → engine severity keys.
@@ -43,7 +69,7 @@ export function mapDingSeverity(sev) {
 }
 
 // Map legacy ding type strings → engine deduction type keys
-// (GRADING_SCALE.md §3.1). Order matters: specific surface types first,
+// (docs/GRADING_SYSTEM.md, defect types). Order matters: specific surface types first,
 // generic SURFACE fallback last.
 export function mapDingType(typeStr) {
   const t = (typeStr || "").toUpperCase();
@@ -61,7 +87,7 @@ export function mapDingType(typeStr) {
 }
 
 // Legacy ding → engine defect. Returns null for CENTERING/unknown dings
-// (centering is measured, never a defect item — GRADING_SCALE.md §7).
+// (centering is measured, never a defect item — docs/GRADING_SYSTEM.md).
 export function dingToEngineDefect(ding) {
   if (!ding || ding.type === "CENTERING") return null;
   const type = mapDingType(ding.type);
@@ -164,7 +190,7 @@ export function computeGrade(frontDings, backDings, frontCenter, backCenter, com
     confidence: confidenceResult.confidence,
     confidenceFactors: confidenceResult.factors,
 
-    // ——— UNIFIED SCHEMA (GRADING_OUTPUT_SCHEMA.md) — new canonical data ———
+    // ——— UNIFIED SCHEMA (docs/GRADING_SYSTEM.md, output schema) — canonical data ———
     subgrades,            // 8 keys, 0–100 scale (frontCentering ... backSurface)
     overall,              // { score, grade, label, displayGrade, capsApplied, minSubgrade }
     companyGrades,        // { tag, psa, bgs, cgc, sgc } each with native grade/label/subgrades

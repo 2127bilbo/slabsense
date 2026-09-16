@@ -4,9 +4,8 @@
  * ============================================================================
  * THE single source of truth for all grading math.
  *
- * Implements: /docs/GRADING_SCALE.md  (deductions, subgrades, compounding, caps)
- *             /docs/grading-research/sources/*_verbatim.md (PSA/BGS/CGC/SGC/TAG published standards;
- *             combination methods described in /docs/COMPANY_OFFSETS.md, which is otherwise superseded)
+ * Documented in: /docs/GRADING_SYSTEM.md (the one grading document) and the verbatim company
+ *                standards in /docs/grading-research/sources/*_verbatim.md that every company rule cites.
  *
  * Consumers:  src/App.jsx computeGrade()  → import { gradeCard }
  *             api/ai-analyze-unified.js   → import { gradeCard }
@@ -16,7 +15,7 @@
  * RULES FOR EDITING THIS FILE:
  *  - Pure functions only. No fetch, no AI, no UI, no side effects.
  *  - Never rename exported functions or constant keys (API contract).
- *  - Any numeric change must be reflected in GRADING_SCALE.md first.
+ *  - Any numeric change must be reflected in docs/GRADING_SYSTEM.md (and cite a sources/* doc).
  *  - Run `node gradingEngine.test.js` after ANY edit. All tests must pass.
  * ============================================================================
  */
@@ -24,7 +23,7 @@
 export const ENGINE_VERSION = '1.1';
 
 /* ============================================================================
- * SECTION 1 — CONSTANTS (GRADING_SCALE.md §3)
+ * SECTION 1 — CONSTANTS (GRADING_SYSTEM.md, "Defect deductions")
  * ========================================================================== */
 
 export const BASE_DEDUCTIONS = {
@@ -55,7 +54,7 @@ export const SIDE_MULTIPLIERS = {
 export const CATEGORY_FLOOR = 10;
 export const CATEGORY_CEILING = 100;
 
-/** Score → grade bands (GRADING_SCALE.md §6). Order matters: highest first. */
+/** Score → grade bands (TAG scale page; GRADING_SYSTEM.md). Order matters: highest first. */
 export const GRADE_TABLE = [
   { min: 99.0, grade: 10, label: 'Pristine', displayGrade: '10P' },
   { min: 95.0, grade: 10, label: 'Gem Mint', displayGrade: '10' },
@@ -78,7 +77,7 @@ export const GRADE_TABLE = [
   { min: 0.0, grade: 1, label: 'Poor', displayGrade: '1' },
 ];
 
-/** TCG centering deviation → score (GRADING_SCALE.md §2). deviation = |ratio − 50|. */
+/** TCG centering deviation → score (TAG rubric; GRADING_SYSTEM.md). deviation = |ratio − 50|. */
 export const CENTERING_SCORE_TABLE = {
   FRONT: [
     // TAG rubric, TCG column (docs/grading-research/sources/TAG_scale_and_rubric_verbatim.md, 2026-09-15):
@@ -128,7 +127,7 @@ const SURFACE_TYPES = new Set([
 ]);
 
 /* ============================================================================
- * SECTION 2 — DEFECT DEDUCTION MATH (GRADING_SCALE.md §3)
+ * SECTION 2 — DEFECT DEDUCTION MATH (GRADING_SYSTEM.md, "Defect deductions")
  * ========================================================================== */
 
 /**
@@ -145,7 +144,7 @@ export function calculateDeduction(type, severity, side) {
   return base * sev * sideM;
 }
 
-/** Diminishing returns factor (GRADING_SCALE.md §3.4). index 0 = worst defect. */
+/** Diminishing returns factor (GRADING_SYSTEM.md). index 0 = worst defect. */
 export function diminishFactor(index) {
   return 1 / (1 + index * 0.15);
 }
@@ -184,7 +183,7 @@ export function scoreCategory(defects) {
 }
 
 /* ============================================================================
- * SECTION 3 — CENTERING (GRADING_SCALE.md §2)
+ * SECTION 3 — CENTERING (GRADING_SYSTEM.md, "Centering")
  * ========================================================================== */
 
 /** The ONLY valid deviation formula. A 55/45 card → 5.0. */
@@ -203,7 +202,7 @@ export function centeringScore(maxDev, side) {
 }
 
 /* ============================================================================
- * SECTION 4 — SUBGRADES + COMPOUNDING + CAPS (GRADING_SCALE.md §4–5)
+ * SECTION 4 — SUBGRADES + COMPOUNDING + CAPS (GRADING_SYSTEM.md)
  * ========================================================================== */
 
 /**
@@ -271,7 +270,7 @@ function bandCeiling(score) {
 }
 
 /**
- * Hard caps (GRADING_SCALE.md §5) + the min-subgrade clamp (§4 invariant).
+ * Hard caps + the min-subgrade clamp (GRADING_SYSTEM.md, "Caps").
  * Returns { score, capsApplied[] }.
  */
 export function applyCaps(rawScore, defects, subgradeMin, centering, subgrades) {
@@ -297,7 +296,7 @@ export function applyCaps(rawScore, defects, subgradeMin, centering, subgrades) 
   if (defects.length >= 5) cap(85, 'DEFECT_COUNT_CAP_8.5');
   if (has((d) => d.type === 'CORNER' || d.type === 'EDGE')) cap(98.9, 'PRISTINE_BLOCK');
 
-  // Pristine gate (GRADING_SCALE.md §5): structural + centering + surface requirements.
+  // Pristine gate (GRADING_SYSTEM.md): structural + centering + surface requirements.
   if (score >= 99.0) {
     const frontDevOK = centering.front.maxDev <= 2.0;
     const backDevOK = !centering.back || centering.back.maxDev <= 2.0;
@@ -318,7 +317,7 @@ export function applyCaps(rawScore, defects, subgradeMin, centering, subgrades) 
 }
 
 /* ============================================================================
- * SECTION 5 — COMPANY CONVERSION (COMPANY_OFFSETS.md)
+ * SECTION 5 — COMPANY CONVERSION (GRADING_SYSTEM.md, "Company conversions"; numbers cite sources/*)
  * ========================================================================== */
 
 export const ALLOWED_SUBGRADES = {
@@ -337,7 +336,7 @@ export function snapDown(raw, allowedList) {
   return best;
 }
 
-/** 8 → 3 condition subgrades, front-weighted 0.65/0.35 (COMPANY_OFFSETS.md §1.1). */
+/** 8 → 3 condition subgrades, front-weighted 0.65/0.35 (SlabSense-internal; GRADING_SYSTEM.md). */
 export function mergeSubgrades(sub) {
   const merge = (f, b) => (b === null || b === undefined ? f : f * 0.65 + b * 0.35);
   return {
@@ -347,13 +346,13 @@ export function mergeSubgrades(sub) {
   };
 }
 
-/** Merged 0–100 → company subgrade (COMPANY_OFFSETS.md §1.2). */
+/** Merged 0–100 → company subgrade: score/10 snapped down to the company's grade steps. */
 export function toCompanySubgrade(score100, company) {
   return snapDown(score100 / 10, ALLOWED_SUBGRADES[company]);
 }
 
 /** Company centering threshold tables: [grade, frontDevMax, backDevMax]. */
-const COMPANY_CENTERING = {
+export const COMPANY_CENTERING = {
   psa: [
     [10, 5.0, 25.0], [9, 10.0, 40.0], [8, 15.0, 40.0], [7, 20.0, 40.0],
     [6, 30.0, 40.0], [5, 35.0, 40.0], [4, 35.0, 40.0], [3, 40.0, 40.0], [2, 40.0, 40.0],
@@ -387,18 +386,20 @@ export function centeringSubgrade(maxDevF, maxDevB, company) {
   return table[table.length - 1][0];
 }
 
-const PSA_LABELS = {
+export const PSA_LABELS = {
   10: 'Gem Mint', 9: 'Mint', 8.5: 'NM-MT+', 8: 'NM-MT', 7.5: 'NM+', 7: 'NM',
   6.5: 'EX-MT+', 6: 'EX-MT', 5.5: 'EX+', 5: 'EX', 4.5: 'VG-EX+', 4: 'VG-EX',
   3.5: 'VG+', 3: 'VG', 2.5: 'Good+', 2: 'Good', 1.5: 'Fair', 1: 'Poor',
 };
-const BGS_LABELS = { ...PSA_LABELS, 9.5: 'Gem Mint', 10: 'Pristine' };
-const CGC_LABELS = { ...PSA_LABELS, 9.5: 'Mint+', 9: 'Mint', 10: 'Gem Mint' };
-const SGC_LABELS = { ...PSA_LABELS, 9.5: 'Mint+', 10: 'Gem Mint' };
+export const BGS_LABELS = { ...PSA_LABELS, 9.5: 'Gem Mint', 10: 'Pristine' };
+export const CGC_LABELS = { ...PSA_LABELS, 9.5: 'Mint+', 9: 'Mint', 10: 'Gem Mint' };
+export const SGC_LABELS = { ...PSA_LABELS, 9.5: 'Mint+', 10: 'Gem Mint' };
+/** Per-company grade labels (UI + conversions). */
+export const COMPANY_LABELS = { psa: PSA_LABELS, bgs: BGS_LABELS, cgc: CGC_LABELS, sgc: SGC_LABELS };
 
 const sevRank = { minor: 0, moderate: 1, severe: 2, extreme: 3 };
 
-/** PSA — lowest score wins + caps (COMPANY_OFFSETS.md §3). */
+/** PSA — lowest subgrade wins + caps from psacard.com (sources/PSA_gradingstandards_verbatim.md). */
 function convertPSA(merged, centering, defects) {
   const subs = {
     centering: centeringSubgrade(centering.front.maxDev, centering.back?.maxDev ?? null, 'psa'),
@@ -424,7 +425,7 @@ function convertPSA(merged, centering, defects) {
   return { grade, label: PSA_LABELS[grade] ?? '', displayGrade: String(grade), subgrades: subs };
 }
 
-/** BGS — four subgrades + 0.5 rule (COMPANY_OFFSETS.md §4). */
+/** BGS — four subgrades + 0.5 rule (combination rule is NOT published by Beckett; caps/centering from sources/BGS_gradingstandards_verbatim.md). */
 function convertBGS(merged, centering, defects) {
   let corners = toCompanySubgrade(merged.corners, 'bgs');
   const cornerDefects = defects.filter((d) => d.type === 'CORNER');
@@ -484,7 +485,7 @@ function convertBGS(merged, centering, defects) {
   return { grade, label, displayGrade: String(grade), subgrades: subs };
 }
 
-/** CGC — holistic, centering compensatable up to 1.0 (COMPANY_OFFSETS.md §5). */
+/** CGC — holistic, centering compensatable up to 1.0 (SlabSense-internal); caps/centering from sources/CGC_gradingscale_verbatim.md. */
 function convertCGC(merged, centering, defects) {
   const subs = {
     centering: centeringSubgrade(centering.front.maxDev, centering.back?.maxDev ?? null, 'cgc'),
@@ -534,7 +535,7 @@ function convertCGC(merged, centering, defects) {
   return { grade, label, displayGrade: String(grade), subgrades: subs };
 }
 
-/** SGC — lowest factor + 3-category compounding penalty (COMPANY_OFFSETS.md §6). */
+/** SGC — lowest subgrade wins; caps/centering from sources/SGC_gradingscale_verbatim.md. */
 function convertSGC(merged, centering, defects) {
   const subs = {
     centering: centeringSubgrade(centering.front.maxDev, centering.back?.maxDev ?? null, 'sgc'),
@@ -584,7 +585,7 @@ function convertSGC(merged, centering, defects) {
   return { grade, label, displayGrade: String(grade), subgrades: subs };
 }
 
-/** Full company conversion (COMPANY_OFFSETS.md §8 call-out). */
+/** Full company conversion (GRADING_SYSTEM.md, "Company conversions"). */
 export function convertToCompany(subgrades, centering, defects, company) {
   const merged = mergeSubgrades(subgrades);
   switch (company) {
@@ -611,7 +612,7 @@ export function convertToCompany(subgrades, centering, defects, company) {
  * @param {boolean} [input.frontOnly=false]
  *
  * @returns {Object} { centering, defects, subgrades, overall, companyGrades }
- *                   — drop-in sections of GRADING_OUTPUT_SCHEMA.md
+ *                   — drop-in sections of the output schema (GRADING_SYSTEM.md)
  */
 export function gradeCard({ defects = [], centering, frontOnly = false }) {
   if (!centering?.front) throw new Error('gradeCard: centering.front is required (manual tool values)');

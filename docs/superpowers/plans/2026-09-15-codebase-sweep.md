@@ -99,7 +99,10 @@ Inventory for that session:
   55/45 back; creases 4 / 3 / 1; corners, edges, print, scuffing, stains, tears per the chart. Beckett does NOT
   publish the four-subgrade combination formula; the engine's "lowest + 0.5" rule stays but is marked unverified.
 - **Purge done 2026-09-15 (owner's instruction):** all unverified grading-service research deleted; only
-  `docs/grading-research/sources/*` (verbatim captures) and the owner's TAG DIG calibration data remain.
-  `docs/COMPANY_OFFSETS.md` carries a SUPERSEDED banner (it still documents the combination methods).
+  `docs/grading-research/sources/*` (verbatim captures + the owner's DIG data) remain.
+- **One document (2026-09-15):** `docs/GRADING_SYSTEM.md` replaces GRADING_SCALE.md, COMPANY_OFFSETS.md,
+  GRADING_OUTPUT_SCHEMA.md, Masterweights.md, the 2026-09-13 review and TAG_DEFECT_WEIGHTS.md. The in-code copy of
+  the old research (`src/lib/masterweights.js`, `tag-calibration.js`) was deleted; `src/utils/gradingScales.js`
+  derives all UI metadata from the engine's exported tables.
 
 Not done (noted): `GradeResultDisplay.jsx` is still imported but unrendered while the Grade tab hand-rolls three blocks; `cardType: 'modern_holo'` is still hard-coded for the Deep reference pool; a worker-based queue (and a "rush" credit tier) can sit on `ai_grade_jobs.status = 'queued'` later.

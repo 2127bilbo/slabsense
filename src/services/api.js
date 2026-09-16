@@ -1059,7 +1059,7 @@ export async function deepGradingAnalysisV2(
 
     const result = await postGrade(ENDPOINTS.DEEP_ANALYZE_V2, requestBody, { timeoutMs: 320000 });
 
-    // Extract from unified schema (result.analysis contains full GRADING_OUTPUT_SCHEMA)
+    // Extract from unified schema (result.analysis; see docs/GRADING_SYSTEM.md)
     const analysis = result.analysis || {};
 
     console.log('[Deep AI V2] Analysis complete:', {

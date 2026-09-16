@@ -6,7 +6,7 @@
  *   - api/ai-analyze-unified.js  (single-pass AI Grade)
  *   - api/deep-analyze-v2.js     (two-pass Deep AI Grade with references)
  *
- * ARCHITECTURE RULE (GRADING_SCALE.md):
+ * ARCHITECTURE RULE (docs/GRADING_SYSTEM.md):
  *   The AI DETECTS AND CLASSIFIES defects. It NEVER computes grades, scores,
  *   or subgrades. All scoring math runs in src/lib/gradingEngine.js after
  *   detection. This is what keeps Software / AI / Deep grades uniform.
@@ -22,7 +22,7 @@
 import { gradeCard, ENGINE_VERSION } from '../../src/lib/gradingEngine.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ENUMS (must match GRADING_OUTPUT_SCHEMA.md exactly — API contract)
+// ENUMS (must match the output schema in docs/GRADING_SYSTEM.md exactly — API contract)
 // ─────────────────────────────────────────────────────────────────────────────
 export const DEFECT_TYPES = [
   'CORNER', 'EDGE', 'SCRATCH', 'DENT', 'PRINT_DEFECT',
@@ -467,7 +467,7 @@ export function confidenceFromImageQuality(iq, { referencesUsed = 0 } = {}) {
 
 /**
  * Run the engine on a sanitized detection and assemble the FULL unified
- * output per GRADING_OUTPUT_SCHEMA.md. Used by both endpoints.
+ * output per the schema in docs/GRADING_SYSTEM.md. Used by both endpoints.
  */
 export function assembleUnifiedOutput({ detection, centering, gradePath, frontOnly = false, meta = {} }) {
   const defects = sanitizeDefects(detection?.defects);

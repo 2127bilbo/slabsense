@@ -2,8 +2,8 @@
  * gradingEngine.test.js — run with: node gradingEngine.test.js
  * (Requires "type": "module" in package.json, or rename both files to .mjs)
  *
- * Fixtures come from GRADING_SCALE.md §9 worked examples plus company
- * conversion scenarios from COMPANY_OFFSETS.md. If a doc number changes,
+ * Fixtures: worked examples plus company conversion scenarios; every company
+ * expectation cites docs/grading-research/sources/*. If a doc number changes,
  * change it here too — these tests ARE the drift detector.
  */
 
@@ -34,7 +34,7 @@ function check(name, actual, expected) {
 function section(t) { console.log(`\n— ${t}`); }
 
 /* ------------------------------------------------------------------ */
-section('Deduction math (GRADING_SCALE.md §3)');
+section('Deduction math');
 check('minor front corner = 4', calculateDeduction('CORNER', 'minor', 'FRONT'), 4.0);
 check('moderate front corner = 10', calculateDeduction('CORNER', 'moderate', 'FRONT'), 10.0);
 check('moderate front edge = 12.5', calculateDeduction('EDGE', 'moderate', 'FRONT'), 12.5);
@@ -45,7 +45,7 @@ check('diminish index 0 = 1.0', diminishFactor(0), 1.0);
 check('diminish index 1 ≈ 0.8696', diminishFactor(1), 0.8696);
 
 /* ------------------------------------------------------------------ */
-section('Centering (GRADING_SCALE.md §2)');
+section('Centering (TAG rubric TCG column)');
 check('55/45 deviation = 5', centeringDeviation(55), 5.0);
 check('45/55 deviation = 5 (symmetric)', centeringDeviation(45), 5.0);
 check('front dev 0.9 (51/49) → 99.5 Pristine band', centeringScore(0.9, 'FRONT'), 99.5);
@@ -71,7 +71,7 @@ check('score 99 → Pristine', scoreToGrade(99).label, 'Pristine');
 check('score 94.9 → Mint (never round up)', scoreToGrade(94.9).grade, 9);
 
 /* ------------------------------------------------------------------ */
-section('Worked Example B — mid-grade 8.5 (GRADING_SCALE.md §9)');
+section('Worked Example B — mid-grade 8.5');
 const exB = gradeCard({
   centering: { front: { lrRatio: 56.2, tbRatio: 51.0 }, back: { lrRatio: 63.6, tbRatio: 52.0 } },
   defects: [
@@ -252,7 +252,7 @@ check('edges merge → 87', merged.edges, 87.0);
 check('surface merge → 82.5', merged.surface, 82.5);
 
 /* ------------------------------------------------------------------ */
-section('Invariants (GRADING_OUTPUT_SCHEMA.md §13)');
+section('Invariants (output schema, GRADING_SYSTEM.md)');
 for (const [name, r] of [['A', exA], ['B', exB], ['C', exC], ['gem', gem], ['creased', creased]]) {
   const minBand = scoreToGrade(r.overall.minSubgrade.value).grade;
   check(`${name}: overall.grade ≤ grade(min subgrade)`, r.overall.grade <= minBand, true);
