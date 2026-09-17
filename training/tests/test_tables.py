@@ -6,7 +6,7 @@ from trainlib import tables
 
 
 def test_tasks_spec():
-    assert set(tables.TASKS) == {"corners", "edges", "surface_sfx", "surface_rgb"}
+    assert set(tables.TASKS) == {"corners", "edges", "surface_sfx", "surface_rgb", "surface_front_sfx", "surface_front_rgb"}
     assert tables.TASKS["corners"]["targets"] == [
         tables.Target("wear", "binary", "ding_count"),
         tables.Target("deduction", "regress", "marker_deduction"),
@@ -133,3 +133,26 @@ def test_surface_tasks_load_through_load_task_table(surface_tables):
         assert "grade_label" in df.columns and "split" in df.columns
     with pytest.raises(ValueError):
         tables.load_task_table("surface_sfx", ds, sp, "test")
+
+
+def test_surface_front_rows_front_only_with_two_targets(surface_tables):
+    ds, sp = surface_tables
+    man = pd.read_parquet(ds / "manifest.parquet")
+    rows = tables.surface_front_rows(man, "sfx")
+    assert list(rows.columns) == ["cert", "side", "crop_path", "score_front", "rollup"]
+    assert rows.cert.tolist() == ["A1", "B2", "C3", "D4"] and (rows.side == "F").all()
+    assert rows.crop_path.iloc[0] == "tag-dataset/A1/sfx_front.jpg"
+    assert rows.score_front.tolist() == [1000.0, 110.0, 981.0, 705.0]
+    assert rows.rollup.iloc[1] == 215.0 and pd.isna(rows.rollup.iloc[2])      # C3 rollup missing -> masked, row kept
+    assert tables.surface_front_rows(man, "rgb").crop_path.iloc[0] == "tag-dataset/A1/front.jpg"
+
+
+def test_surface_front_tasks_load_and_key_set(surface_tables):
+    ds, sp = surface_tables
+    for task in ("surface_front_sfx", "surface_front_rgb"):
+        assert tables.target_names(task) == ["score_front", "rollup"]
+        assert tables.target_kinds(task) == ["regress", "regress"]
+        assert tables.TASKS[task]["cache_resize"] == (896, 1248)
+        df = tables.load_task_table(task, ds, sp, "train")
+        assert df.cert.tolist() == ["A1", "B2"] and "grade_label" in df.columns
+    assert {"surface_front_sfx", "surface_front_rgb"} <= set(tables.TASKS)

@@ -392,6 +392,27 @@ find /workspace/cache/resized/896x1248 -type f -name 'sfx_*' | wc -l    # expect
 df -h /workspace
 ```
 
+### Step 8.1b: outcome of the first per-side run, and the corrected target
+
+`surface_sfx` v1 (2026-09-17) converged to a constant predictor by epoch 2:
+val `mae_score` 232, which is exactly the per-side-median baseline. The
+back-side score is the reason: TAG's per-side back score does not follow
+the back image (a creased back with no markers scores 1000; unmarked backs
+are routinely scored down), so a model looking at the pixels correctly
+gives up. The front score and the card-level rollup do track the marked
+damage (front: median 1000 with no markers, 279 with 3+; rollup: 1000 vs
+364). The corrected tasks are `surface_front_sfx` / `surface_front_rgb`:
+front image only, two regression targets `score_front` (= `surface_front`)
+and `rollup` (= `rollup_surface`), masked per row when missing. They reuse
+the 896×1248 resized cache from Step 8.1 (same front image files), so no
+new cache step. Run Steps 8.2–8.4 below with `surface_front_sfx` in place
+of `surface_sfx` and `surface_front_rgb` in place of `surface_rgb`; the
+log/eval columns are `mae_score_front` and `mae_rollup`. Acceptance: val
+`ALL` `mae_rollup` ≤ 119 (grade-median baseline for the rollup is of the
+same order as the per-side one; the operator reports both MAEs and the
+decision is the main session's). Half the images per epoch, so expect
+roughly 12–25 min/epoch. Do not run `surface_sfx`/`surface_rgb` again.
+
 ### Step 8.2: train `surface_sfx` v1
 
 ```bash

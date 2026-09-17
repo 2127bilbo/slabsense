@@ -26,6 +26,32 @@ def surface_side_rows(manifest: pd.DataFrame, view: str) -> pd.DataFrame:
     return rows.sort_values(["cert", "side"]).reset_index(drop=True)
 
 
+def surface_front_rows(manifest: pd.DataFrame, view: str) -> pd.DataFrame:
+    """One row per cert (front side only) for the front-score + rollup task. TAG's per-side back
+    score does not follow the back image (unmarked backs are scored down, marked-up fronts leave
+    the back at 1000), so the learnable targets are the front score and the card-level rollup;
+    both are predicted from the front image. Either target may be missing (masked per row)."""
+    _back_col, front_col = _VIEW_PATHS[view]
+    rows = pd.DataFrame({"cert": manifest.cert, "side": "F", "crop_path": manifest[front_col],
+                         "score_front": manifest["surface_front"].astype("float64"),
+                         "rollup": manifest["rollup_surface"].astype("float64")})
+    rows = rows[rows.crop_path.notna() & (rows.score_front.notna() | rows.rollup.notna())]
+    return rows.sort_values("cert").reset_index(drop=True)
+
+
+def _surface_front_task(view: str) -> dict:
+    return {
+        "table": "manifest.parquet",
+        "rows": lambda df, v=view: surface_front_rows(df, v),
+        "view": view,
+        "targets": [Target("score_front", "regress", "score_front"), Target("rollup", "regress", "rollup")],
+        "key_cols": ["side"],
+        "input_size": (896, 1248),
+        "long_side_horizontal": False,
+        "cache_resize": (896, 1248),
+    }
+
+
 TASKS = {
     "corners": {
         "table": "corners.parquet",
@@ -70,6 +96,8 @@ TASKS = {
         "long_side_horizontal": False,
         "cache_resize": (896, 1248),
     },
+    "surface_front_sfx": _surface_front_task("sfx"),
+    "surface_front_rgb": _surface_front_task("rgb"),
 }
 
 
