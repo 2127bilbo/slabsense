@@ -36,13 +36,21 @@ export const OUTPUT_CHANNELS = {
 export const POINT_SCALE = 1000;
 
 /**
- * Calibrated on the 507-card DIG harness (scripts/harness/results/), see
- * training/README.md. `wearThreshold` is the probability a slot must clear to
- * become a ding; `severityCuts` are predicted-deduction points, ascending.
+ * Calibrated 2026-09-17 on the DIG harness (`scripts/harness/model-sweep.mjs`,
+ * 216 settings, chosen on the 404 training-split cards and reported on the 102
+ * held-out ones). `wearThreshold` is the probability a slot must clear to become
+ * a ding; `severityCuts` are predicted-deduction points, ascending.
+ *
+ * These are not the lowest-error thresholds available. Firing more, harsher
+ * corner dings scores better overall (MAE 1.40 vs 1.84) purely by punishing
+ * heavily damaged cards whose real problem is creases and stains that no model
+ * covers yet — it buys accuracy with false corner dings, makes clean cards worse
+ * (9-10 bucket MAE 0.28 vs 0.12) and would have to be undone when a surface
+ * model lands. This setting keeps each ding meaning what it says.
  */
 export const MODEL_DEFAULTS = {
-  corners: { wearThreshold: 0.5, severityCuts: { moderate: 250, severe: 450, extreme: 700 } },
-  edges: { wearThreshold: 0.5, severityCuts: { moderate: 350, severe: 650, extreme: 950 } },
+  corners: { wearThreshold: 0.3, severityCuts: { moderate: 150, severe: 300, extreme: 500 } },
+  edges: { wearThreshold: 0.5, severityCuts: { moderate: 150, severe: 300, extreme: 500 } },
 };
 
 const DING_TYPE = { corners: 'CORNER WEAR', edges: 'EDGE WEAR' };

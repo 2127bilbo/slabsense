@@ -52,14 +52,16 @@ const sample = [
   { key: 'BL', location: 'BOTTOMLEFT', wear: 0.55, deduction: 800, angle: 900 },
   { key: 'BR', location: 'BOTTOMRIGHT', wear: 0.5, deduction: 460, angle: 900 },
 ];
-const dings = slotsToDings('corners', 'front', sample);
+// Pin the threshold here: this tests the rule, not the calibrated default.
+const half = { wearThreshold: 0.5, severityCuts: cuts };
+const dings = slotsToDings('corners', 'front', sample, half);
 check('only slots over the threshold fire', dings.length === 3 && !dings.some((x) => x.location === 'TOPRIGHT'));
 check('the threshold itself fires', dings.some((x) => x.location === 'BOTTOMRIGHT'));
 check('severity comes from the deduction', dings.find((x) => x.location === 'TOPLEFT').severity === 'minor' && dings.find((x) => x.location === 'BOTTOMLEFT').severity === 'extreme');
 check('side is upper-cased for the engine', dings.every((x) => x.side === 'FRONT'));
-check('back side label', slotsToDings('corners', 'back', sample)[0].side === 'BACK');
+check('back side label', slotsToDings('corners', 'back', sample, half)[0].side === 'BACK');
 check('predictions are carried for the report', dings[0].wear === 0.9 && dings[0].deduction === 120 && dings[0].source === 'model');
-check('edge dings are typed as edge wear', slotsToDings('edges', 'front', [{ key: 'T', location: 'TOP', wear: 0.9, deduction: 100 }])[0].type === 'EDGE WEAR');
+check('edge dings are typed as edge wear', slotsToDings('edges', 'front', [{ key: 'T', location: 'TOP', wear: 0.9, deduction: 100 }], half)[0].type === 'EDGE WEAR');
 check('a threshold override is respected', slotsToDings('corners', 'front', sample, { corners: { wearThreshold: 0.95, severityCuts: cuts } }).length === 0);
 
 console.log('— the engine accepts what we emit');
@@ -88,6 +90,7 @@ console.log('— defaults');
 check('both tasks have defaults', OUTPUT_CHANNELS.corners.length === 3 && OUTPUT_CHANNELS.edges.length === 2 && MODEL_DEFAULTS.corners && MODEL_DEFAULTS.edges);
 check('cut lines ascend', Object.values(MODEL_DEFAULTS.corners.severityCuts).every((v, i, a) => i === 0 || a[i - 1] < v));
 check('thresholds are probabilities', [MODEL_DEFAULTS.corners.wearThreshold, MODEL_DEFAULTS.edges.wearThreshold].every((v) => v > 0 && v < 1));
+check('defaults are the calibrated ones (scripts/harness/model-sweep.mjs)', MODEL_DEFAULTS.corners.wearThreshold === 0.3 && MODEL_DEFAULTS.edges.wearThreshold === 0.5 && MODEL_DEFAULTS.corners.severityCuts.moderate === 150);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

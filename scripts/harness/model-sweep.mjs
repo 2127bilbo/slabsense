@@ -87,7 +87,7 @@ function score(opts, keep = false) {
     exact: r2((100 * list.filter((r) => r.err === 0).length) / list.length),
     within05: r2((100 * list.filter((r) => Math.abs(r.err) <= 0.5).length) / list.length),
   });
-  const out = { all: summarize(rows), held: summarize(rows.filter((r) => r.held)) };
+  const out = { all: summarize(rows), held: summarize(rows.filter((r) => r.held)), train: summarize(rows.filter((r) => !r.held)) };
   out.byBucket = {};
   for (const b of ['9-10', '7-8.5', '5-6.5', '1-4.5']) {
     const list = rows.filter((r) => bucketOf(r.tagGrade) === b);
@@ -107,48 +107,51 @@ console.log(`cards ${cards.length} (held out ${baseRows.filter((r) => r.held).le
 console.log(`baseline detectors      MAE ${baseSummary.all.mae}  signed ${baseSummary.all.signed}   | held-out MAE ${baseSummary.held.mae} signed ${baseSummary.held.signed}\n`);
 
 if (GRID) {
-  // Corners and edges fire at very different rates, so they are swept independently.
-  const wears = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+  // Thresholds are CHOSEN on the cards the models trained on and REPORTED on the
+  // held-out ones, so the held-out column never takes part in the selection.
+  const wears = [0.05, 0.1, 0.15, 0.2, 0.3, 0.5];
   const cutSets = {
-    'tight   (150/300/500)': { moderate: 150, severe: 300, extreme: 500 },
-    'mid     (250/450/700)': { moderate: 250, severe: 450, extreme: 700 },
-    'wide    (350/650/950)': { moderate: 350, severe: 650, extreme: 950 },
-    'all minor': { moderate: 1e9, severe: 1e9, extreme: 1e9 },
+    'all extreme': { moderate: 0, severe: 0, extreme: 0 },
+    'harsh      (40/80/150)': { moderate: 40, severe: 80, extreme: 150 },
+    'very tight (75/150/250)': { moderate: 75, severe: 150, extreme: 250 },
+    'tight      (150/300/500)': { moderate: 150, severe: 300, extreme: 500 },
+    'mid        (250/450/700)': { moderate: 250, severe: 450, extreme: 700 },
+    'wide       (350/650/950)': { moderate: 350, severe: 650, extreme: 950 },
   };
-  const cutsFor = (name) => cutSets[name];
 
-  // Stage 1: wear thresholds, with the middle cut set.
-  console.log('stage 1 — wear thresholds (severity cuts: mid)');
-  console.log('| corners | edges | MAE | signed | within0.5 | held MAE | held signed |');
-  console.log('|---|---|---|---|---|---|---|');
-  const stage1 = [];
+  const candidates = [];
   for (const cw of wears) {
     for (const ew of wears) {
-      const s = score({
-        corners: { wearThreshold: cw, severityCuts: cutsFor('mid     (250/450/700)') },
-        edges: { wearThreshold: ew, severityCuts: cutsFor('mid     (250/450/700)') },
-      });
-      stage1.push({ cw, ew, mae: s.all.mae, signed: s.all.signed, heldMae: s.held.mae, heldSigned: s.held.signed });
-      console.log(`| ${cw} | ${ew} | ${s.all.mae} | ${s.all.signed} | ${s.all.within05} | ${s.held.mae} | ${s.held.signed} |`);
+      for (const [name, cuts] of Object.entries(cutSets)) {
+        const opts = { corners: { wearThreshold: cw, severityCuts: cuts }, edges: { wearThreshold: ew, severityCuts: cuts } };
+        const s = score(opts, true);
+        candidates.push({ cw, ew, name, cuts, opts, train: s.train, held: s.held, all: s.all, byBucket: s.byBucket, dingStats: s.dingStats });
+      }
     }
   }
-  stage1.sort((a, b) => a.heldMae - b.heldMae);
-  const best = stage1[0];
-  console.log(`\nbest wear thresholds by held-out MAE: corners ${best.cw}, edges ${best.ew} -> held MAE ${best.heldMae}, all ${best.mae}`);
-
-  // Stage 2: severity cut lines at those thresholds.
-  console.log('\nstage 2 — severity cuts at those thresholds');
-  console.log('| cuts | MAE | signed | within0.5 | held MAE | held signed |');
-  console.log('|---|---|---|---|---|---|');
-  const stage2 = [];
-  for (const [name, cuts] of Object.entries(cutSets)) {
-    const s = score({ corners: { wearThreshold: best.cw, severityCuts: cuts }, edges: { wearThreshold: best.ew, severityCuts: cuts } });
-    stage2.push({ name, cuts, mae: s.all.mae, heldMae: s.held.mae, heldSigned: s.held.signed });
-    console.log(`| ${name} | ${s.all.mae} | ${s.all.signed} | ${s.all.within05} | ${s.held.mae} | ${s.held.signed} |`);
+  candidates.sort((a, b) => a.train.mae - b.train.mae);
+  console.log(`swept ${candidates.length} settings; ranked by MAE on the ${candidates[0].train.cards} training-split cards
+`);
+  console.log('| corners | edges | severity cuts | train MAE | signed | 9-10 | 7-8.5 | 5-6.5 | 1-4.5 | held MAE | corner P/R | edge P/R |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const c of candidates.slice(0, 14)) {
+    const b = (k) => (c.byBucket[k] ? `${c.byBucket[k].mae}` : '-');
+    const pr = (t) => `${c.dingStats[t].precision}/${c.dingStats[t].recall}`;
+    console.log(`| ${c.cw} | ${c.ew} | ${c.name.trim()} | ${c.train.mae} | ${c.train.signed} | ${b('9-10')} | ${b('7-8.5')} | ${b('5-6.5')} | ${b('1-4.5')} | ${c.held.mae} | ${pr('CORNER')} | ${pr('EDGE')} |`);
   }
-  stage2.sort((a, b) => a.heldMae - b.heldMae);
-  console.log(`\nbest cuts by held-out MAE: ${stage2[0].name.trim()} -> held MAE ${stage2[0].heldMae}`);
-  console.log(`\nsuggested MODEL_DEFAULTS: corners wear ${best.cw}, edges wear ${best.ew}, cuts ${JSON.stringify(stage2[0].cuts)}`);
+  const best = candidates[0];
+  console.log(`
+best by training-split MAE: corners ${best.cw}, edges ${best.ew}, cuts ${JSON.stringify(best.cuts)}`);
+  console.log(`  -> held-out MAE ${best.held.mae} (baseline ${baseSummary.held.mae}), 9-10 bucket MAE ${best.byBucket['9-10'].mae}`);
+
+  // The 9-10 bucket is the one the owner is watching (the 975 plateau), so also show
+  // the best setting that does not make clean cards worse than the baseline does.
+  const cleanFirst = candidates.filter((c) => c.byBucket['9-10'] && c.byBucket['9-10'].mae <= 0.3).sort((a, b) => a.train.mae - b.train.mae)[0];
+  if (cleanFirst && cleanFirst !== best) {
+    console.log(`
+best with the 9-10 bucket kept under 0.3 MAE: corners ${cleanFirst.cw}, edges ${cleanFirst.ew}, cuts ${JSON.stringify(cleanFirst.cuts)}`);
+    console.log(`  -> train MAE ${cleanFirst.train.mae}, held-out MAE ${cleanFirst.held.mae}, 9-10 ${cleanFirst.byBucket['9-10'].mae}`);
+  }
 }
 
 // ── the configured defaults ────────────────────────────────────────────────
