@@ -560,3 +560,51 @@ the full run.
 | Date | Task | Cards (train/val) | Rows (train/val) | Epochs | s/epoch | Peak VRAM | Best val loss | mae_score (val ALL) |
 |---|---|---|---|---|---|---|---|---|
 | 2026-09-17 | surface_sfx smoke | 300/60 | 599/120 | 2 | 73.2, 57.9 | 3.16 GiB | 0.26387 (epoch 2) | 288.2876 |
+
+## ONNX export (on-device copies)
+
+`export_onnx.py` makes ONNX copies of a checkpoint; the `.pt` originals are
+never touched. Outputs land in `weights/onnx/` (the `.onnx` files are
+gitignored like the checkpoints; the two JSON sidecars are tracked).
+
+```
+.venv/Scripts/python.exe export_onnx.py --task corners --checkpoint weights/corners/v2/best.pt --run-name v2 --parity-rows 400
+.venv/Scripts/python.exe export_onnx.py --task edges   --checkpoint weights/edges/v1/best.pt   --run-name v1 --parity-rows 400
+```
+
+Per run: `<task>-<run>.fp32.onnx` (exact), `.fp16.onnx` (weights halved,
+fp32 I/O), `.int8.onnx` (dynamic int8 weights), `<task>-<run>.json` (the
+preprocessing/I-O contract the app must follow: resize, ImageNet mean/std,
+`sides` 0 = front / 1 = back, sigmoid on `logits`, x1000 for deduction) and
+`<task>-<run>.parity.json` (torch vs each ONNX file on cached val rows).
+Parity uses `--split val` locally because the test crops are only cached on
+the GPU box.
+
+### 2026-09-17 export (corners v2, edges v1)
+
+| file | MB | max abs diff vs torch (400 val rows) | auroc_wear (torch -> onnx) | mae_deduction (torch -> onnx) |
+|---|---|---|---|---|
+| corners-v2.fp32 | 107.0 | 0.0000 | 0.9361 -> 0.9361 | 100.18 -> 100.18 |
+| corners-v2.fp16 | 53.6 | 0.0004 | 0.9361 -> 0.9361 | 100.18 -> 100.18 |
+| corners-v2.int8 | 27.1 | 0.0309 | 0.9361 -> 0.9367 | 100.18 -> 100.58 |
+| edges-v1.fp32 | 107.0 | 0.0000 | 0.9409 -> 0.9409 | 188.39 -> 188.39 |
+| edges-v1.fp16 | 53.6 | 0.0007 | 0.9409 -> 0.9409 | 188.39 -> 188.36 |
+| edges-v1.int8 | 27.1 | 0.0379 | 0.9409 -> 0.9405 | 188.39 -> 187.90 |
+
+Browser timing (onnxruntime-web 1.30, headless Chrome on the dev PC, batch
+of 1, ms per crop after warm-up; WebGPU needs `--use-angle=d3d11` headless):
+
+| model | WebGPU | WASM (4 threads) |
+|---|---|---|
+| corners fp16 | 10 | 286 |
+| corners fp32 | 11 | 194 |
+| corners int8 | 603 (int8 matmul falls back to CPU) | 356 |
+| edges fp16 | 11 | 354 |
+| edges fp32 | 27 | 261 |
+| edges int8 | - | 512 |
+
+Takeaways: ship **fp16** (54 MB per model) for WebGPU phones; int8 only
+helps download size, it is slower everywhere in the browser. A card is 8
+corner crops + 8 edge crops, so on WASM-only phones expect on the order of
+10-30 s per card; on WebGPU well under a second. First-run shader compile
+on WebGPU is ~0.6-1.2 s per model.

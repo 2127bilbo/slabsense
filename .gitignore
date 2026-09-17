@@ -66,3 +66,4 @@ training/trainlib.egg-info/
 # model checkpoints stay on disk / R2, never in git
 training/weights/**/*.pt
 training/weights/**/*.joblib
+training/weights/**/*.onnx
