@@ -37,13 +37,22 @@ export function modelsAvailable() {
   return Boolean(MODELS_BASE) && typeof fetch === 'function';
 }
 
-/** Opt-in flag. Off until the owner turns it on, so grading behaviour never changes silently. */
+/**
+ * Whether the software grade uses the models. A per-device choice: the toggle in
+ * Settings writes localStorage, VITE_MODEL_GRADING sets the build's default, and
+ * with neither set the models are ON (owner's call, 2026-09-17). Turning it off
+ * anywhere falls straight back to the pixel detectors.
+ */
 export function modelGradingEnabled() {
   try {
     const v = localStorage.getItem(FLAG_KEY);
     if (v !== null) return v === '1';
   } catch { /* private mode */ }
-  try { return import.meta.env?.VITE_MODEL_GRADING === '1'; } catch { return false; }
+  try {
+    const env = import.meta.env?.VITE_MODEL_GRADING;
+    if (env !== undefined && env !== '') return env === '1';
+  } catch { /* no import.meta */ }
+  return true;
 }
 
 export function setModelGrading(on) {
@@ -55,19 +64,64 @@ export function preferredBackend() {
   try { return navigator.gpu ? 'webgpu' : 'wasm'; } catch { return 'wasm'; }
 }
 
-async function cachedModelBytes(file, onProgress) {
-  const url = `${MODELS_BASE}/${file}`;
+/** Fetch with Cache API persistence, so a phone downloads each part once. */
+async function cachedFetch(url) {
   let cache = null;
   try { cache = typeof caches !== 'undefined' ? await caches.open(CACHE_NAME) : null; } catch { /* no Cache API */ }
   if (cache) {
     const hit = await cache.match(url);
-    if (hit) return hit.arrayBuffer();
+    if (hit) return hit;
   }
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`${url.split('/').pop()}: HTTP ${res.status}`);
   if (cache) { try { await cache.put(url, res.clone()); } catch { /* quota */ } }
-  if (onProgress) onProgress(file);
-  return res.arrayBuffer();
+  return res;
+}
+
+let manifestPromise = null;
+/** models.json lists each model's parts; see scripts/models/upload.mjs. */
+async function getManifest() {
+  if (!manifestPromise) {
+    manifestPromise = cachedFetch(`${MODELS_BASE}/models.json`)
+      .then((r) => r.json())
+      .catch((e) => { manifestPromise = null; throw e; });
+  }
+  return manifestPromise;
+}
+
+async function sha256Hex(bytes) {
+  try {
+    const d = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('');
+  } catch { return null; } // no WebCrypto (insecure context): skip verification
+}
+
+/**
+ * The bytes of one model. Supabase caps an object at 50 MB and the models are
+ * 53.6 MB, so they are stored in parts and joined here.
+ */
+async function cachedModelBytes(task, onProgress) {
+  const manifest = await getManifest();
+  const entry = manifest?.models?.[task];
+  if (!entry) throw new Error(`models.json has no entry for ${task}`);
+  const chunks = [];
+  for (const part of entry.parts) {
+    const res = await cachedFetch(`${MODELS_BASE}/${part.path}`);
+    chunks.push(new Uint8Array(await res.arrayBuffer()));
+    if (onProgress) onProgress({ task, part: part.path, loaded: chunks.reduce((s, c) => s + c.length, 0), total: entry.bytes });
+  }
+  const bytes = chunks.length === 1 ? chunks[0] : (() => {
+    const out = new Uint8Array(entry.bytes);
+    let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.length; }
+    return out;
+  })();
+  if (bytes.length !== entry.bytes) throw new Error(`${entry.file}: expected ${entry.bytes} bytes, got ${bytes.length}`);
+  if (entry.sha256) {
+    const sha = await sha256Hex(bytes);
+    if (sha !== null && sha !== entry.sha256) throw new Error(`${entry.file}: checksum mismatch`);
+  }
+  return bytes;
 }
 
 let runner = null;
@@ -97,7 +151,7 @@ export async function getRunner({ onProgress = null } = {}) {
           : Object.assign(document.createElement('canvas'), { width: w, height: h })),
         baseUrl: MODELS_BASE,
         executionProviders: [preferredBackend(), 'wasm'],
-        loadModel: (task, file) => cachedModelBytes(file, onProgress),
+        loadModel: (task) => cachedModelBytes(task, onProgress),
       });
       runner = created;
       return created;

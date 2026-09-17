@@ -6,9 +6,16 @@
  *
  *   node scripts/models/upload.mjs [--dry-run] [--bucket models] [--only models|ort]
  *
+ * Supabase caps a single object at 50 MB on this project, and the fp16 models
+ * are 53.6 MB, so anything over the cap is uploaded in parts and listed in
+ * `models.json`; the browser fetches the parts and concatenates them
+ * (src/services/cornerEdgeModels.js). Parts are immutable — a new model gets a
+ * new filename — which also makes them safe to cache forever.
+ *
  * Reads SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY from the environment or
  * .env.local. Secrets are never printed.
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +31,7 @@ const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] :
 const DRY = args.includes('--dry-run');
 const BUCKET = opt('--bucket', 'models');
 const ONLY = opt('--only', null);
+const PART_SIZE = Number(opt('--part-size', 45 * 1024 * 1024)); // under the 50 MB object cap
 
 // Read .env.local without printing anything from it.
 for (const line of fs.existsSync(path.join(ROOT, '.env.local')) ? fs.readFileSync(path.join(ROOT, '.env.local'), 'utf8').split(/\r?\n/) : []) {
@@ -34,33 +42,61 @@ const URL_ = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!URL_ || !KEY) { console.error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set (env or .env.local)'); process.exit(1); }
 
-/** published path -> local file. The fp16 copies are what the app runs. */
-const MODEL_FILES = {
-  'corners-v2.fp16.onnx': path.join(ONNX, 'corners-v2.fp16.onnx'),
-  'edges-v1.fp16.onnx': path.join(ONNX, 'edges-v1.fp16.onnx'),
-  'corners-v2.json': path.join(ONNX, 'corners-v2.json'),
-  'edges-v1.json': path.join(ONNX, 'edges-v1.json'),
+/** The models the app runs, by task. The fp16 copies are the ones to ship. */
+const MODELS = {
+  corners: { file: 'corners-v2.fp16.onnx', contract: 'corners-v2.json' },
+  edges: { file: 'edges-v1.fp16.onnx', contract: 'edges-v1.json' },
 };
-// Only the two builds the app asks for: the JSEP build backs WebGPU, the plain
-// one backs WASM-only devices. Each needs its loader beside it.
-const ORT_FILES = {
-  'ort/ort.min.mjs': path.join(ORT, 'ort.min.mjs'),
-  'ort/ort-wasm-simd-threaded.jsep.wasm': path.join(ORT, 'ort-wasm-simd-threaded.jsep.wasm'),
-  'ort/ort-wasm-simd-threaded.jsep.mjs': path.join(ORT, 'ort-wasm-simd-threaded.jsep.mjs'),
-  'ort/ort-wasm-simd-threaded.wasm': path.join(ORT, 'ort-wasm-simd-threaded.wasm'),
-  'ort/ort-wasm-simd-threaded.mjs': path.join(ORT, 'ort-wasm-simd-threaded.mjs'),
-};
+// Only the two runtime builds the app asks for: the JSEP build backs WebGPU, the
+// plain one backs WASM-only devices. Each needs its loader beside it.
+const ORT_FILES = [
+  'ort.min.mjs',
+  'ort-wasm-simd-threaded.jsep.wasm',
+  'ort-wasm-simd-threaded.jsep.mjs',
+  'ort-wasm-simd-threaded.wasm',
+  'ort-wasm-simd-threaded.mjs',
+];
 const CONTENT_TYPE = { '.onnx': 'application/octet-stream', '.wasm': 'application/wasm', '.mjs': 'text/javascript', '.json': 'application/json' };
+const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
 
-const plan = { ...(ONLY === 'ort' ? {} : MODEL_FILES), ...(ONLY === 'models' ? {} : ORT_FILES) };
-const missing = Object.entries(plan).filter(([, f]) => !fs.existsSync(f));
-if (missing.length) { console.error('missing locally:\n  ' + missing.map(([k]) => k).join('\n  ')); process.exit(1); }
+// ── plan ────────────────────────────────────────────────────────────────────
+/** @type {{dest:string, body:Buffer, type:string}[]} */
+const uploads = [];
+const manifest = { generatedAt: new Date().toISOString(), partSize: PART_SIZE, models: {} };
 
-const total = Object.values(plan).reduce((s, f) => s + fs.statSync(f).size, 0);
-console.log(`bucket ${BUCKET}: ${Object.keys(plan).length} files, ${(total / 1048576).toFixed(1)} MB${DRY ? ' (dry run)' : ''}`);
-for (const [dest, file] of Object.entries(plan)) console.log(`  ${dest.padEnd(42)} ${(fs.statSync(file).size / 1048576).toFixed(1)} MB`);
+if (ONLY !== 'ort') {
+  for (const [task, m] of Object.entries(MODELS)) {
+    const file = path.join(ONNX, m.file);
+    const contract = path.join(ONNX, m.contract);
+    if (!fs.existsSync(file)) { console.error(`missing ${file}`); process.exit(1); }
+    const bytes = fs.readFileSync(file);
+    const parts = [];
+    for (let off = 0, i = 0; off < bytes.length; off += PART_SIZE, i++) {
+      const slice = bytes.subarray(off, Math.min(off + PART_SIZE, bytes.length));
+      const dest = bytes.length > PART_SIZE ? `${m.file}.part${i}` : m.file;
+      uploads.push({ dest, body: slice, type: CONTENT_TYPE['.onnx'] });
+      parts.push({ path: dest, bytes: slice.length });
+    }
+    manifest.models[task] = { file: m.file, bytes: bytes.length, sha256: sha256(bytes), parts };
+    if (fs.existsSync(contract)) uploads.push({ dest: m.contract, body: fs.readFileSync(contract), type: CONTENT_TYPE['.json'] });
+  }
+  uploads.push({ dest: 'models.json', body: Buffer.from(JSON.stringify(manifest, null, 2)), type: CONTENT_TYPE['.json'] });
+}
+if (ONLY !== 'models') {
+  for (const f of ORT_FILES) {
+    const file = path.join(ORT, f);
+    if (!fs.existsSync(file)) { console.error(`missing ${file}`); process.exit(1); }
+    uploads.push({ dest: `ort/${f}`, body: fs.readFileSync(file), type: CONTENT_TYPE[path.extname(f)] || 'application/octet-stream' });
+  }
+}
+
+const total = uploads.reduce((s, u) => s + u.body.length, 0);
+console.log(`bucket ${BUCKET}: ${uploads.length} objects, ${mb(total)}${DRY ? ' (dry run)' : ''}`);
+for (const u of uploads) console.log(`  ${u.dest.padEnd(42)} ${mb(u.body.length)}`);
 if (DRY) process.exit(0);
 
+// ── upload ──────────────────────────────────────────────────────────────────
 const supabase = createClient(URL_, KEY, { auth: { persistSession: false } });
 const { data: buckets, error: listErr } = await supabase.storage.listBuckets();
 if (listErr) { console.error('listBuckets failed:', listErr.message); process.exit(1); }
@@ -71,15 +107,14 @@ if (!buckets.some((b) => b.name === BUCKET)) {
 }
 
 let failed = 0;
-for (const [dest, file] of Object.entries(plan)) {
-  const body = fs.readFileSync(file);
-  const { error } = await supabase.storage.from(BUCKET).upload(dest, body, {
+for (const u of uploads) {
+  const { error } = await supabase.storage.from(BUCKET).upload(u.dest, u.body, {
     upsert: true,
-    contentType: CONTENT_TYPE[path.extname(dest)] || 'application/octet-stream',
+    contentType: u.type,
     cacheControl: '31536000', // immutable: a new model gets a new filename
   });
-  if (error) { failed++; console.error(`  x ${dest}: ${error.message}`); }
-  else console.log(`  uploaded ${dest}`);
+  if (error) { failed++; console.error(`  x ${u.dest}: ${error.message}`); }
+  else console.log(`  uploaded ${u.dest} (${mb(u.body.length)})`);
 }
 console.log(failed ? `${failed} upload(s) failed` : `done — public base ${URL_}/storage/v1/object/public/${BUCKET}`);
 process.exit(failed ? 1 : 0);
