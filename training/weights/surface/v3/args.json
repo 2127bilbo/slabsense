@@ -1,0 +1,21 @@
+{
+ "config": "config.toml",
+ "run_name": "v3",
+ "epochs": 12,
+ "batch_size": 8,
+ "lr": 0.01,
+ "weight_decay": 0.0001,
+ "warmup_iters": 500,
+ "workers": 8,
+ "limit_tiles": null,
+ "val_limit_tiles": null,
+ "no_pretrained": false,
+ "seed": 42,
+ "device": "cuda",
+ "min_size": null,
+ "init": null,
+ "views": "sfx",
+ "neg_grades": "8 NM MT,8.5 NM MT+,9 MINT,10 GEM MINT,10 PRISTINE",
+ "balance": true,
+ "classes": "CREASE,SCRATCH"
+}
