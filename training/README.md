@@ -624,3 +624,33 @@ helps download size, it is slower everywhere in the browser. A card is 8
 corner crops + 8 edge crops, so on WASM-only phones expect on the order of
 10-30 s per card; on WebGPU well under a second. First-run shader compile
 on WebGPU is ~0.6-1.2 s per model.
+
+### Shipping the models in the app (2026-09-17)
+
+The exported fp16 copies run on the free software grade. The app cuts TAG's own
+crop framing out of the user's card with `src/lib/tag-crops.js`, runs both models
+with onnxruntime-web, and turns each slot into an engine `CORNER` / `EDGE` defect
+(`src/lib/corner-edge-model.js`). Full write-up, thresholds and caveats:
+`docs/GRADING_SYSTEM.md`, "Corner and edge models".
+
+Hosting: `npm run models:upload` publishes the two fp16 models, their contract
+sidecars and the four onnxruntime-web runtime files to the public `models`
+bucket. Supabase caps a single object at 50 MB on this project and each model is
+53.6 MB, so the script splits them and records the parts in `models.json`; the
+browser fetches the parts, joins them, checks the sha256 and caches each part.
+Nothing model-related is bundled — the runtime is imported from the bucket at
+runtime, because letting Vite bundle it also emits its 27 MB `.wasm` into the
+deploy.
+
+Harness effect, held out from the models' training split, with TAG's centering
+held fixed (`scripts/harness/model-sweep.mjs`):
+
+| | detectors | + models |
+|---|---|---|
+| mean grade error | 2.98 | 1.72 |
+| TAG 9-10 bucket | 0.59 | 0.12 |
+| corner precision / recall | never fired | 0.66 / 0.84 |
+
+Downscaling those cards to the app's 2000 px upload cap costs very little: mean
+grade error 1.72 -> 1.79, 1.6 % of corner ding decisions flip, 83 % of cards keep
+an identical grade (`scripts/harness/model-resolution.mjs`).

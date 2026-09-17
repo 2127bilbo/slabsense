@@ -14,7 +14,7 @@ or in the verbatim company standards next to it. Nothing else in the repo may de
 - Rule: **no grading number without a citation.** Every per-company rule in the engine cites a `sources/*` file.
   Values marked *internal* below are SlabSense choices (calibrated against DIG reports), not company rules.
 
-Last updated 2026-09-15 (engine 1.1).
+Last updated 2026-09-17 (engine 1.1; corner/edge models on the software path).
 
 ---
 
@@ -50,6 +50,69 @@ x, y, width, height   0–100 % of the card image
 
 Software detectors emit only CORNER, EDGE, PLAY_WEAR (and measure centering); the AI paths can emit every type.
 Category: CORNER → corners, EDGE → edges, everything else → surface.
+
+### Corner and edge models (software path) *(added 2026-09-17)*
+
+On the software path, corner and edge wear comes from two trained models instead of the pixel detectors.
+Nothing downstream changes: the models emit the same `CORNER` / `EDGE` defects the engine already accepts, so
+the engine math, the damage report and the saved-card shape are untouched. The detectors' own corner and edge
+dings are dropped when the models run; their surface dings (creases, scratches, stains) are kept, because no
+surface model is wired in yet.
+
+| | |
+|---|---|
+| Models | `corners-v2` (wear, deduction, angle) and `edges-v1` (wear, deduction); convnext_tiny, fp16 ONNX, 54 MB each |
+| Trained on | TAG's own per-slot crops over 22 202 cards — see `training/README.md` |
+| Code | `src/lib/tag-crops.js` (framing), `corner-edge-model.js` (outputs → defects), `corner-edge-runner.js` (inference), `src/services/cornerEdgeModels.js` (browser) |
+| Switch | Settings → Corner & Edge Models, per device; `VITE_MODEL_GRADING` sets the build default; **on** when neither is set |
+| Hosting | the public `models` bucket, fetched at runtime and cached; never bundled. Supabase caps an object at 50 MB, so each model is stored in parts listed in `models.json` |
+
+**Crop framing.** TAG grades from one crop per slot: a corner square of 0.1250 W × 0.0903 H, edge strips
+filling the span between the corners, and a shorter bottom strip of 0.0739 H (measured over 598 cached dataset
+cards, every card within ±1.5 %). `tag-crops.js` reproduces that on the card rectangle at any resolution,
+including the 90° counter-clockwise rotation training applied to the left and right strips. Checked against
+TAG's published crops on the 16 cards that have both a harness photo and cached crops: mean pixel difference
+under 2/255, model wear agreeing within 0.01, and 0 threshold flips in 128 corner slots
+(`scripts/harness/verify-crops.mjs`).
+
+**Outputs → defects.** Each slot returns a wear probability and a deduction in TAG points (sigmoid × 1000).
+A slot becomes a ding when wear clears its threshold, and the predicted deduction picks the engine severity.
+Both are *internal* — TAG publishes neither — and both were calibrated on the DIG harness, never guessed.
+
+| | corners | edges |
+|---|---|---|
+| wear threshold | 0.30 | 0.50 |
+| severity: moderate / severe / extreme at | 150 / 300 / 500 predicted points | 150 / 300 / 500 |
+
+Calibration (`scripts/harness/model-sweep.mjs`, 216 settings) was chosen on the 404 harness cards that were in
+the models' training split and reported on the 102 held-out ones, with TAG's own centering held fixed so the
+comparison isolates the defect change:
+
+| held out, vs the detector baseline | baseline | models |
+|---|---|---|
+| mean grade error | 2.98 | 1.72 |
+| TAG 9–10 bucket, mean error | 0.59 | 0.12 |
+| TAG 9–10 bucket, within half a grade | — | 89 % |
+| corner detection, precision / recall | never fired | 0.66 / 0.84 |
+
+The held-out improvement is 1.26 grades (95 % paired bootstrap 0.94 to 1.69, n = 102).
+
+**Why the thresholds are not the lowest-error ones.** Firing more and harsher corner dings scores better
+overall (1.40 vs 1.84 mean error) but earns it by punishing creased and stained cards through corner dings
+that TAG never marked. That trade costs clean-card accuracy (9–10 bucket 0.28 vs 0.12), makes the damage
+report name the wrong defect, and would have to be undone once a surface model exists. The remaining leniency
+on low grades is surface-detection debt, not a threshold left untuned.
+
+**Limits to know.**
+
+- Low grades stay lenient (1–4.5 bucket, mean error 3.84): those cards are creased and stained, which no model
+  covers yet.
+- The models have only ever seen TAG studio scans. Phone photos are a domain gap the harness cannot measure,
+  because every photo in the repo is a TAG scan.
+- Resolution costs little. TAG's crops are 550 px; the app's 2000 px upload cap leaves about 180 px per corner.
+  Re-running the held-out cards from 2000 px copies moved mean grade error from 1.72 to 1.79, flipped 1.6 % of
+  corner ding decisions, and left 83 % of cards on an identical grade
+  (`scripts/harness/model-resolution.mjs`). That measures resolution alone — the images are still TAG scans.
 
 ---
 
