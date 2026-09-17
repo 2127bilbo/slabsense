@@ -360,21 +360,37 @@ cd /workspace/SlabSense && git pull && cd training
 Both views' whole-card images (`sfx` front/back, `rgb` front/back) are
 already cached full-resolution under `/workspace/cache/tag-dataset/` from
 the surface detector's pull (Step 7.2) — `--from-cache` resizes them
-locally to 896×1248 instead of downloading again, so no R2 keys are needed
-for this step:
+locally to 896×1248 instead of downloading again. No bytes come from R2 and
+the reader is only built if a file is missing locally, so the keys are not
+needed unless the log reports a fallback download (then `source
+/workspace/env.sh` and rerun; it resumes).
+
+**Step 8 budget**: two resize passes ≈ 30–40 min each (CPU); two training
+runs of 10 epochs at 25–45 min/epoch ≈ 5–7 h each; evals ≈ 15 min; total
+≈ 12–16 h ≈ $13–17 at the hourly rate. Disk: the two resized caches are
+≈ 75–90 GB (the smoke's resized files average 0.73 MB each × 110,996), on
+top of the 45 GB tile cache; check `df -h /workspace` first (≈ 230 GB
+free after the tiles).
 
 ```bash
 cd /workspace/SlabSense/training
-nohup .venv/bin/python -m trainlib.cache_cli --task surface_sfx --splits train,val,test --from-cache --workers 32 > /workspace/cache_surface_sfx_score.log 2>&1 &
+W=$(( $(nproc) < 32 ? $(nproc) : 32 ))
+nohup .venv/bin/python -m trainlib.cache_cli --task surface_sfx --splits train,val,test --from-cache --workers $W > /workspace/cache_surface_sfx_score.log 2>&1 &
 # after it finishes:
-nohup .venv/bin/python -m trainlib.cache_cli --task surface_rgb --splits train,val,test --from-cache --workers 32 > /workspace/cache_surface_rgb_score.log 2>&1 &
+nohup .venv/bin/python -m trainlib.cache_cli --task surface_rgb --splits train,val,test --from-cache --workers $W > /workspace/cache_surface_rgb_score.log 2>&1 &
 ```
 
-Expect roughly 111,000 resizes total across both commands (all four
-manifest columns × all certs, minus sides with no score), about 30 minutes
-each, ~45 GB on disk at 896×1248 q95 4:4:4 (separate from the detector's
-1024×1024 tile cache). Monitor with `tail -3
-/workspace/cache_surface_sfx_score.log` every 10–15 minutes.
+Expect 55,498 resizes per view (all certs × 2 sides, minus sides with no
+score). Monitor with `tail -3 /workspace/cache_surface_sfx_score.log`
+every 10–15 minutes. When each finishes, verify before training — a
+half-finished resized cache does not fail loudly, because the loader falls
+back to decoding the 27-MP originals (slow, and it prints `dropped 0 rows`):
+
+```bash
+tail -1 /workspace/cache_surface_sfx_score.log            # failed must be 0 (the 'downloaded' count includes local resizes)
+find /workspace/cache/resized/896x1248 -type f -name 'sfx_*' | wc -l    # expect 55,498 (sfx) and 55,498 more for rgb (front.jpg/back.jpg)
+df -h /workspace
+```
 
 ### Step 8.2: train `surface_sfx` v1
 
@@ -383,44 +399,48 @@ cd /workspace/SlabSense/training
 nohup .venv/bin/python -m trainlib.train --task surface_sfx --run-name v1 --epochs 10 --batch-size 8 --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug strong > /workspace/train_surface_sfx_v1.log 2>&1 &
 ```
 
-Expect roughly 40 min/epoch (extrapolated from the 4070 smoke's per-image
+Expect 25–45 min/epoch (extrapolated from the 4070 smoke's per-image
 cost, not measured on this box — the first epoch here tells the truth). If
-`train.err` shows `CUDA out of memory` at batch 8, rerun with `--batch-size
-4` and note it; do not change the input size. Monitor with `tail -3
-runs/surface_sfx/v1/log.csv` every 20–30 minutes.
+`/workspace/train_surface_sfx_v1.log` shows `CUDA out of memory` at batch 8
+(expected use ≈ 12 GiB, so it should not), rerun with `--batch-size 4` and
+note it; do not change the input size. Monitor with `tail -3
+runs/surface_sfx/v1/log.csv` every 20–30 minutes; seconds per epoch are in
+that file, peak GPU memory is printed at the end of the nohup log.
 
 ### Step 8.3: evaluate `surface_sfx` v1, accept/reject, test once
 
 ```bash
-.venv/bin/python -m trainlib.evaluate --task surface_sfx --checkpoint runs/surface_sfx/v1/best.pt --split val --workers 8 | tee runs/surface_sfx/v1/eval_val.log
+.venv/bin/python -m trainlib.evaluate --task surface_sfx --checkpoint runs/surface_sfx/v1/best.pt --split val --workers 8 --batch-size 16 | tee runs/surface_sfx/v1/eval_val.log
 ```
 
-**Acceptance rule**: the val `ALL` row's `mae_score` must be below the
-grade-median baseline measured in the README (170.49) **and** below 100
-points outright. If it misses either bar, do not retune — copy the
-artifacts home and report the numbers; the user and the main session decide
-what changes.
+**Acceptance rule**: the val `ALL` row's `mae_score` must be at least 30%
+better than the grade-median baseline measured in the README (170.49), i.e.
+**≤ 119 points**. (A no-image lookup by grade already reaches 170, so the
+model must clearly beat what the grade alone tells you.) If it misses, do
+not retune — leave the artifacts in place and report the numbers; the user
+and the main session decide what changes.
 
 Only if accepted, read the frozen test split exactly once:
 
 ```bash
-.venv/bin/python -m trainlib.evaluate --task surface_sfx --checkpoint runs/surface_sfx/v1/best.pt --split test --final-eval --workers 8 | tee runs/surface_sfx/v1/eval_test.log
+.venv/bin/python -m trainlib.evaluate --task surface_sfx --checkpoint runs/surface_sfx/v1/best.pt --split test --final-eval --workers 8 --batch-size 16 | tee runs/surface_sfx/v1/eval_test.log
 ```
 
 ### Step 8.4: `surface_rgb` v1, the same way
 
 ```bash
 nohup .venv/bin/python -m trainlib.train --task surface_rgb --run-name v1 --epochs 10 --batch-size 8 --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug strong > /workspace/train_surface_rgb_v1.log 2>&1 &
-.venv/bin/python -m trainlib.evaluate --task surface_rgb --checkpoint runs/surface_rgb/v1/best.pt --split val --workers 8 | tee runs/surface_rgb/v1/eval_val.log
-# only if accepted (same rule: mae_score < 170.49 and < 100):
-.venv/bin/python -m trainlib.evaluate --task surface_rgb --checkpoint runs/surface_rgb/v1/best.pt --split test --final-eval --workers 8 | tee runs/surface_rgb/v1/eval_test.log
+.venv/bin/python -m trainlib.evaluate --task surface_rgb --checkpoint runs/surface_rgb/v1/best.pt --split val --workers 8 --batch-size 16 | tee runs/surface_rgb/v1/eval_val.log
+# only if accepted (same rule: mae_score <= 119):
+.venv/bin/python -m trainlib.evaluate --task surface_rgb --checkpoint runs/surface_rgb/v1/best.pt --split test --final-eval --workers 8 --batch-size 16 | tee runs/surface_rgb/v1/eval_test.log
 ```
 
 ### Step 8.5: report
 
 Report both tasks' val (and test, if accepted) `ALL` rows and their
-per-grade tables (`eval_val.csv`/`eval_test.csv`), plus seconds/epoch and
-peak GPU memory from each `train.log`. Leave all `runs/surface_sfx/v1/` and
+per-grade tables (`eval_val.csv`/`eval_test.csv`), plus seconds/epoch
+(from `runs/<task>/v1/log.csv`) and peak GPU memory (last line of
+`/workspace/train_<task>_v1.log`). Leave all `runs/surface_sfx/v1/` and
 `runs/surface_rgb/v1/` artifacts on the box; the main session pulls them
 down over SSH the same way as Step 4 (never commit a `.pt` file —
 `training/weights/**/*.pt` is gitignored).

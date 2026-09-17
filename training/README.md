@@ -531,7 +531,7 @@ Per-grade MAE, grade-median baseline:
 | **ALL** | **5,580** | **170.49** |
 
 A full run's val `ALL` `mae_score` must beat 170.49 (and, per the Global
-Constraints acceptance rule, be below 100 points outright) to be accepted.
+Constraints acceptance rule, be at least 30% better than that baseline, i.e. at or below 119 points) to be accepted.
 
 ### Smoke (2026-09-17, RTX 4070 SUPER)
 

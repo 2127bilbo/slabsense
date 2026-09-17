@@ -12,6 +12,25 @@ from .r2 import reader_from_config
 from .tables import TASKS, load_task_table
 
 
+class _LazyReader:
+    """Builds the R2 reader on first use, so a --from-cache run whose files are all local needs no keys."""
+
+    def __init__(self, cfg):
+        self._cfg = cfg
+        self._reader = None
+
+    def _get(self):
+        if self._reader is None:
+            self._reader = reader_from_config(self._cfg)
+        return self._reader
+
+    def get(self, key: str) -> bytes:
+        return self._get().get(key)
+
+    def size(self, key: str) -> int:
+        return self._get().size(key)
+
+
 def main(argv=None) -> dict:
     p = argparse.ArgumentParser(prog="cache")
     p.add_argument("--config", default="config.toml"); p.add_argument("--task", choices=list(TASKS), required=True)
@@ -23,6 +42,8 @@ def main(argv=None) -> dict:
     args = p.parse_args(argv)
     cfg = load_config(args.config)
     resize = None if args.no_resize else TASKS[args.task]["cache_resize"]
+    if args.from_cache and not resize:
+        p.error("--from-cache only applies to a resized cache; drop --no-resize or use a task with cache_resize")
     keys: list[str] = []
     for part in args.splits.split(","):
         split, _, limit = part.partition(":")
@@ -43,9 +64,10 @@ def main(argv=None) -> dict:
         if time.time() - last[0] > 5:
             last[0] = time.time(); print(f"\r{c}  {sum(c.values()) / (time.time() - t0):.1f}/s", end="", flush=True)
 
-    counts = build_cache(reader_from_config(cfg), keys, cfg.cache_dir, args.workers, progress, resize=resize,
+    counts = build_cache(_LazyReader(cfg), keys, cfg.cache_dir, args.workers, progress, resize=resize,
                          rotate=TASKS[args.task]["long_side_horizontal"], local_full=args.from_cache)
-    print(f"\ncache done: {counts} in {time.time() - t0:.0f}s")
+    note = " ('downloaded' counts local resizes too)" if args.from_cache else ""
+    print(f"\ncache done: {counts} in {time.time() - t0:.0f}s{note}")
     return counts
 
 

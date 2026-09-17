@@ -1,3 +1,4 @@
+import pytest
 from PIL import Image
 
 from conftest import FakeReader, png_bytes
@@ -72,3 +73,30 @@ def test_cache_cli_from_cache_resizes_from_local_full_res_files(surface_tables, 
         assert dest.exists()
         with Image.open(dest) as im:
             assert im.size == (896, 1248)
+
+
+def test_cache_cli_from_cache_needs_no_reader_when_all_files_are_local(surface_tables, tmp_path, monkeypatch):
+    ds, sp = surface_tables
+    cfg = _write_config(tmp_path, ds, sp)
+    cache_dir = tmp_path / "cache"
+    for key in tables.load_task_table("surface_sfx", ds, sp, "train").crop_path:
+        p = cache.cache_path(cache_dir, key)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(png_bytes(20, 30))
+
+    def boom(cfg):
+        raise RuntimeError("Set B2_KEY_ID and B2_APP_KEY in the environment")
+
+    monkeypatch.setattr(cache_cli, "reader_from_config", boom)
+    counts = cache_cli.main(["--config", str(cfg), "--task", "surface_sfx", "--splits", "train",
+                             "--from-cache", "--workers", "1"])
+    assert counts["failed"] == 0 and counts["downloaded"] == 3
+
+
+def test_cache_cli_rejects_from_cache_with_no_resize(surface_tables, tmp_path, monkeypatch):
+    ds, sp = surface_tables
+    cfg = _write_config(tmp_path, ds, sp)
+    monkeypatch.setattr(cache_cli, "reader_from_config", lambda cfg: FakeReader({}))
+    with pytest.raises(SystemExit):
+        cache_cli.main(["--config", str(cfg), "--task", "surface_sfx", "--splits", "train",
+                        "--from-cache", "--no-resize"])
