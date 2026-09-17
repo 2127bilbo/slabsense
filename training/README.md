@@ -448,3 +448,115 @@ the image cache):
 | ALL | 2,492 | 65.8 | 112.1 |
 
 `mae < baseline_mae` for CREASE, DENT, SCRATCH, PIT as required by Task 9.
+
+## Surface score (per side)
+
+The surface detector (above) finds and classifies individual defect boxes,
+but its own diagnosis ("Surface v1 diagnosis") found that about half of
+TAG's labeled defects get no matching prediction at all, and boxes are
+loose even when found — box-level recall is the detector's known ceiling.
+The rollup (spec §7) needs one number per side: TAG's own per-side surface
+score (0–1000), which already exists in the manifest independent of any
+box the detector does or doesn't find. So a direct regressor is trained on
+the whole-card image against that score, as a second, box-free path to the
+same subscore, rather than reconstructing it by summing predicted
+per-box deductions.
+
+Two tasks, one per view, same target: `surface_sfx` (relief image) and
+`surface_rgb` (color image) each take the whole front or back card image
+and regress `score` = TAG's per-side surface score, scaled to 0–1
+(`data.SCALE = 1000`) like every other regression target in this repo.
+Rows come from `tables.surface_side_rows`, one row per cert per side, built
+from the manifest's `surface_front`/`surface_back` columns and joined to
+the split/grade tables the same way as corners/edges
+(`tables.load_task_table("surface_sfx"|"surface_rgb", ...)`); a side with no
+image or no score is dropped.
+
+Input size is **896×1248** (portrait, no rotation — `long_side_horizontal:
+False`, unlike edges), about **0.2×** of the card's native ~4391×6063 frame.
+That downscale keeps whole-card defects that matter for an overall surface
+score — creases, dents, tears, stains — visible, while the hairline detail
+the box detector needs (pit edges, thin scratches) is exactly what gets
+lost; the two models are complementary for that reason, not redundant.
+`cache_resize` matches `input_size`, so once cached at 896×1248 no
+resize happens at load time.
+
+Cache command for a rented box that already has the full-resolution
+card images cached (from the surface detector's pull, `surface_cache_cli
+pull`, under `cache_dir/tag-dataset/...`): resize locally, no R2 keys
+needed.
+
+```bash
+python -m trainlib.cache_cli --task surface_sfx --splits train,val,test --from-cache --workers 32
+python -m trainlib.cache_cli --task surface_rgb --splits train,val,test --from-cache --workers 32
+```
+
+### Baseline (2026-09-17)
+
+The number a trained model must beat: predicting each val-split side's
+score with the **train-split median score of its `grade_label`** (a
+per-grade lookup table with no image input), computed once with pandas
+from `load_task_table("surface_sfx", ...)` (`surface_sfx` and `surface_rgb`
+share the same manifest rows/scores, so this baseline is the same for both
+tasks). Train 44,400 rows, val 5,580 rows.
+
+| Baseline | MAE (val, TAG points) |
+|---|---|
+| Overall-median (single train-wide median, 705.0) | 254.49 |
+| Grade-median (per `grade_label`) | **170.49** |
+
+Per-grade MAE, grade-median baseline:
+
+| grade_label | n | mae |
+|---|---|---|
+| 1 POOR | 124 | 103.05 |
+| 1.5 FAIR | 58 | 152.36 |
+| 2 GOOD | 112 | 222.21 |
+| 2.5 GOOD+ | 104 | 230.37 |
+| 3 VG | 286 | 229.34 |
+| 3.5 VG+ | 186 | 224.73 |
+| 4 VG EX | 498 | 220.21 |
+| 4.5 VG EX+ | 360 | 225.63 |
+| 5 EXCELLENT | 810 | 206.64 |
+| 5.5 EXCELLENT+ | 522 | 205.96 |
+| 6 EX MT | 310 | 187.74 |
+| 6.5 EX MT+ | 310 | 198.33 |
+| 7 NEAR MINT | 306 | 181.19 |
+| 7.5 NEAR MINT+ | 310 | 146.15 |
+| 8 NM MT | 310 | 122.36 |
+| 8.5 NM MT+ | 308 | 109.28 |
+| 9 MINT | 312 | 43.63 |
+| 10 GEM MINT | 308 | 6.76 |
+| 10 PRISTINE | 46 | 0.33 |
+| **ALL** | **5,580** | **170.49** |
+
+A full run's val `ALL` `mae_score` must beat 170.49 (and, per the Global
+Constraints acceptance rule, be below 100 points outright) to be accepted.
+
+### Smoke (2026-09-17, RTX 4070 SUPER)
+
+300 train / 60 val cards, `convnext_tiny` (pretrained), batch size 2,
+`--workers 0`, `--drop-path 0.1 --ema-decay 0.999 --aug strong`, run
+detached outside the interactive shell for the same reason as the corner
+smoke (memory guard). Cache: 719 of 720 crops downloaded (1 permanent
+upstream miss) in 61 s (~11.7 files/s), 896×1248 JPEG q95 4:4:4. Rows after
+`filter_cached`: 599 train / 120 val. No OOM at batch size 2 (peak GPU
+memory 3.16 GiB).
+
+| epoch | train_loss | val_loss | lr | seconds | mae_score |
+|---|---|---|---|---|---|
+| 1 | 0.24549 | 0.27135 | 1.17e-04 | 73.2 | 295.1910 |
+| 2 | 0.24151 | 0.26387 | 2.49e-09 | 57.9 | 288.2876 |
+
+Best val loss 0.26387 (epoch 2, `best.pt`). `evaluate --split val
+--limit-cards 60` `ALL` row: 120 rows, `mae_score` 288.2876 (matches the
+epoch-2 training-time metric exactly, as expected on a fixed val set).
+`mae_score` at this 2-epoch/300-card scale is worse than the grade-median
+baseline (288 vs 170) — expected for a plumbing smoke, not a signal about
+the full run.
+
+### Results
+
+| Date | Task | Cards (train/val) | Rows (train/val) | Epochs | s/epoch | Peak VRAM | Best val loss | mae_score (val ALL) |
+|---|---|---|---|---|---|---|---|---|
+| 2026-09-17 | surface_sfx smoke | 300/60 | 599/120 | 2 | 73.2, 57.9 | 3.16 GiB | 0.26387 (epoch 2) | 288.2876 |

@@ -247,3 +247,27 @@ def test_light_aug_is_the_default_and_rejects_unknown_modes(tables, tmp_path):
     assert data.CropDataset(df, "corners", cache, train=True).aug == "light"
     with pytest.raises(ValueError):
         data.load_crop(cache / df.iloc[0].crop_path, "corners", True, np.random.default_rng(0), aug="wild")
+
+
+def test_surface_sfx_dataset_shapes_and_first_row_targets(surface_tables, tmp_path):
+    from PIL import Image
+
+    from trainlib import cache as cache_mod
+
+    ds, sp = surface_tables
+    df = tables_mod.load_task_table("surface_sfx", ds, sp, "train")
+    cache = tmp_path / "cache"
+    for p in df.crop_path:
+        dest = cache_mod.resized_path(cache, p, (896, 1248))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (896, 1248), (128, 128, 128)).save(dest, format="JPEG", quality=95)
+    d = data.CropDataset(df, "surface_sfx", cache, train=False)
+    img, side, target, mask = d[0]
+    assert img.shape == (3, 1248, 896) and img.dtype == torch.float32
+    row = df.iloc[0]
+    assert side.item() == (1.0 if row.side == "B" else 0.0)
+    assert target.shape == (1,) and mask.shape == (1,)
+    assert abs(target[0].item() - row.score / 1000.0) < 1e-6
+    assert mask[0].item() == 1.0
+    kept, dropped = tables_mod.filter_cached(df, cache, "surface_sfx")
+    assert dropped == 0 and len(kept) == len(df)

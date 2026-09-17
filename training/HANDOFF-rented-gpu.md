@@ -339,6 +339,92 @@ table will show only CREASE and SCRATCH with `n_gt > 0`, and `map50` is the
 mean of those two. Compare CREASE AP50 against v2 (0.44). Report; do not
 read the test split.
 
+## Step 8: surface score regressors
+
+**For the Claude instance taking this over.** New models: a whole-card
+regressor per view (`surface_sfx`, `surface_rgb`) that predicts TAG's
+per-side surface score (0–1000) directly, as a box-free complement to the
+surface detector above. Read `training/README.md`'s new "Surface score (per
+side)" section first (why, input size, the local smoke, the baseline table).
+The local smoke (300 train / 60 val cards, 2 epochs, both on `surface_sfx`)
+already ran on the 4070 and passed plumbing checks; your job is the two full
+runs.
+
+```bash
+cd /workspace/SlabSense && git pull && cd training
+.venv/bin/python -m pytest -q     # expect 114 passed (113 + the surface-score dataset test)
+```
+
+### Step 8.1: cache (from the local full-res files already on the box)
+
+Both views' whole-card images (`sfx` front/back, `rgb` front/back) are
+already cached full-resolution under `/workspace/cache/tag-dataset/` from
+the surface detector's pull (Step 7.2) — `--from-cache` resizes them
+locally to 896×1248 instead of downloading again, so no R2 keys are needed
+for this step:
+
+```bash
+cd /workspace/SlabSense/training
+nohup .venv/bin/python -m trainlib.cache_cli --task surface_sfx --splits train,val,test --from-cache --workers 32 > /workspace/cache_surface_sfx_score.log 2>&1 &
+# after it finishes:
+nohup .venv/bin/python -m trainlib.cache_cli --task surface_rgb --splits train,val,test --from-cache --workers 32 > /workspace/cache_surface_rgb_score.log 2>&1 &
+```
+
+Expect roughly 111,000 resizes total across both commands (all four
+manifest columns × all certs, minus sides with no score), about 30 minutes
+each, ~45 GB on disk at 896×1248 q95 4:4:4 (separate from the detector's
+1024×1024 tile cache). Monitor with `tail -3
+/workspace/cache_surface_sfx_score.log` every 10–15 minutes.
+
+### Step 8.2: train `surface_sfx` v1
+
+```bash
+cd /workspace/SlabSense/training
+nohup .venv/bin/python -m trainlib.train --task surface_sfx --run-name v1 --epochs 10 --batch-size 8 --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug strong > /workspace/train_surface_sfx_v1.log 2>&1 &
+```
+
+Expect roughly 40 min/epoch (extrapolated from the 4070 smoke's per-image
+cost, not measured on this box — the first epoch here tells the truth). If
+`train.err` shows `CUDA out of memory` at batch 8, rerun with `--batch-size
+4` and note it; do not change the input size. Monitor with `tail -3
+runs/surface_sfx/v1/log.csv` every 20–30 minutes.
+
+### Step 8.3: evaluate `surface_sfx` v1, accept/reject, test once
+
+```bash
+.venv/bin/python -m trainlib.evaluate --task surface_sfx --checkpoint runs/surface_sfx/v1/best.pt --split val --workers 8 | tee runs/surface_sfx/v1/eval_val.log
+```
+
+**Acceptance rule**: the val `ALL` row's `mae_score` must be below the
+grade-median baseline measured in the README (170.49) **and** below 100
+points outright. If it misses either bar, do not retune — copy the
+artifacts home and report the numbers; the user and the main session decide
+what changes.
+
+Only if accepted, read the frozen test split exactly once:
+
+```bash
+.venv/bin/python -m trainlib.evaluate --task surface_sfx --checkpoint runs/surface_sfx/v1/best.pt --split test --final-eval --workers 8 | tee runs/surface_sfx/v1/eval_test.log
+```
+
+### Step 8.4: `surface_rgb` v1, the same way
+
+```bash
+nohup .venv/bin/python -m trainlib.train --task surface_rgb --run-name v1 --epochs 10 --batch-size 8 --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug strong > /workspace/train_surface_rgb_v1.log 2>&1 &
+.venv/bin/python -m trainlib.evaluate --task surface_rgb --checkpoint runs/surface_rgb/v1/best.pt --split val --workers 8 | tee runs/surface_rgb/v1/eval_val.log
+# only if accepted (same rule: mae_score < 170.49 and < 100):
+.venv/bin/python -m trainlib.evaluate --task surface_rgb --checkpoint runs/surface_rgb/v1/best.pt --split test --final-eval --workers 8 | tee runs/surface_rgb/v1/eval_test.log
+```
+
+### Step 8.5: report
+
+Report both tasks' val (and test, if accepted) `ALL` rows and their
+per-grade tables (`eval_val.csv`/`eval_test.csv`), plus seconds/epoch and
+peak GPU memory from each `train.log`. Leave all `runs/surface_sfx/v1/` and
+`runs/surface_rgb/v1/` artifacts on the box; the main session pulls them
+down over SSH the same way as Step 4 (never commit a `.pt` file —
+`training/weights/**/*.pt` is gitignored).
+
 ## Failure playbook
 
 | Symptom | Do this |
