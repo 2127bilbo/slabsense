@@ -319,6 +319,26 @@ against v1's `sfx` view row and `v1-sfx`. Report; do not read the test
 split. The two-view question (what phone photos need) is decided after
 this run, from these numbers.
 
+### Step 7.10: crease + scratch detector (`v3`), after v2's eval
+
+v2 (sfx-only, clean negatives, balanced) landed at map50 0.107 on the sfx
+val tiles, the same as v1's sfx view: the noise is in the positive boxes
+(markers on invisible defects, unmarked defects), not in the negatives. A
+box-tightening pass was tried and does not help: TAG's crease and scratch
+boxes are already tight where the defect is visible. v3 therefore keeps the
+two classes with signal and drops the rest, so all capacity goes to them.
+
+```bash
+cd /workspace/SlabSense && git pull && cd training && .venv/bin/python -m pytest -q     # expect 107 passed
+nohup .venv/bin/python -m trainlib.train_surface --run-name v3 --epochs 12 --batch-size 8 --workers 8   --views sfx --classes CREASE,SCRATCH --neg-grades "8 NM MT,8.5 NM MT+,9 MINT,10 GEM MINT,10 PRISTINE" --balance   > /workspace/train_surface_v3.log 2>&1 < /dev/null &
+```
+
+Tiles whose only boxes were other classes are dropped (not kept as
+negatives). Evaluate with `--views sfx --full-cards 100`; the per-class
+table will show only CREASE and SCRATCH with `n_gt > 0`, and `map50` is the
+mean of those two. Compare CREASE AP50 against v2 (0.44). Report; do not
+read the test split.
+
 ## Failure playbook
 
 | Symptom | Do this |

@@ -39,17 +39,28 @@ def build_parser() -> argparse.ArgumentParser:
                         "empty = keep all negatives")
     p.add_argument("--balance", action="store_true",
                    help="class-balanced tile sampling (WeightedRandomSampler over tile_weights)")
+    p.add_argument("--classes", default="",
+                   help="comma-separated SURFACE_CLASSES names to detect (e.g. CREASE,SCRATCH); empty = all")
     return p
 
 
 def _index(cache_dir: Path, split: str, limit: int | None, seed: int, views: str = "sfx,rgb",
-           neg_grades: str = "") -> pd.DataFrame:
+           neg_grades: str = "", classes: str = "") -> pd.DataFrame:
     """Tile index for a split, filtered to `views`. `neg_grades` (comma-separated grade labels) keeps
     box-free tiles only from cards of those grades: TAG marks a subset of the defects on a card, so a
     'clean' side of a low-grade card often carries unmarked defects that would be taught as background;
-    sides of 9+ cards are genuinely clean."""
+    sides of 9+ cards are genuinely clean. `classes` (comma-separated SURFACE_CLASSES names) restricts
+    the detector to those classes: boxes of other classes are removed, and a tile whose boxes were all
+    removed is dropped rather than kept as a negative (it still contains an unmarked defect of a class
+    the model is not asked to learn). Label ids keep their SURFACE_CLASSES numbering."""
     df = pd.read_parquet(Path(cache_dir) / "tiles" / f"{split}.parquet")
     df = df[df.view.isin([v.strip() for v in views.split(",")])]
+    if classes:
+        keep_labels = {SURFACE_CLASSES.index(c.strip()) + 1 for c in classes.split(",")}
+        kept = [[b for b in json.loads(s) if int(b[0]) in keep_labels] for s in df.boxes]
+        had = df.n_boxes.to_numpy() > 0
+        df = df.assign(boxes=[json.dumps(b) for b in kept], n_boxes=[len(b) for b in kept])
+        df = df[~(had & (df.n_boxes == 0))]
     if neg_grades:
         keep_grades = {g.strip() for g in neg_grades.split(",")}
         df = df[(df.n_boxes > 0) | df.grade_label.isin(keep_grades)]
@@ -107,8 +118,8 @@ def main(argv=None) -> Path:
     cfg = load_config(args.config)
     torch.manual_seed(args.seed)
     device = torch.device(args.device)
-    train_idx = _index(cfg.cache_dir, "train", args.limit_tiles, args.seed, args.views, args.neg_grades)
-    val_idx = _index(cfg.cache_dir, "val", args.val_limit_tiles, args.seed, args.views)
+    train_idx = _index(cfg.cache_dir, "train", args.limit_tiles, args.seed, args.views, args.neg_grades, args.classes)
+    val_idx = _index(cfg.cache_dir, "val", args.val_limit_tiles, args.seed, args.views, classes=args.classes)
     sampler = None
     if args.balance:
         g = torch.Generator(); g.manual_seed(args.seed)

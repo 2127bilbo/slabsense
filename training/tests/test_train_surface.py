@@ -94,3 +94,12 @@ def test_balance_flag_trains(tmp_path):
                                   "--min-size", "96", "--balance", "--neg-grades", "7 NEAR MINT"])
     assert (run_dir / "best.pt").exists()
     assert json.loads((run_dir / "args.json").read_text())["balance"] is True
+
+
+def test_classes_filter_drops_other_labels_and_emptied_tiles(tmp_path):
+    cache, idx = make_tile_index(tmp_path, n=4, size=96)
+    # tiles 0..2 carry labels 1, 2, 3; tile 3 is a negative
+    kept = train_surface._index(cache, "train", None, 42, "sfx,rgb", classes="CREASE,SCRATCH")
+    assert kept.n_boxes.tolist() == [1, 0]                 # label-1 tile kept, negative kept, label-2/3 tiles dropped
+    assert json.loads(kept.boxes.iloc[0])[0][0] == 1
+    assert len(train_surface._index(cache, "train", None, 42, "sfx,rgb")) == 4
