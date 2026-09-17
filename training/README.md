@@ -291,6 +291,22 @@ side, plus a separate gradient-boosted regressor that predicts the TAG
 deduction (0–1000 points) for a given box's class and geometry. Reads
 `surface.parquet` (spec §7); never modifies it.
 
+### Surface detector v2 and v3 (2026-09-17)
+
+| Run | Data | Epochs | s/epoch | map50 (sfx val tiles) | CREASE AP50 | SCRATCH AP50 |
+|---|---|---|---|---|---|---|
+| v1 | both views, 7 classes | 8 | 3,900 | 0.105 (sfx view row) | 0.337 | 0.058 |
+| v2 | sfx only, negatives from grades 8+, class-balanced | 8 | 1,180 | 0.109 | 0.438 | 0.092 |
+| v3 | as v2, CREASE + SCRATCH only | 12 | 847 | 0.291 | 0.470 | 0.112 |
+
+v2 matched v1's sfx view, so the noise is in the positive markers rather
+than the negatives or the color view. v3 puts all capacity on the two
+classes with signal: creases reach 0.47 (recall 0.48 at score 0.5),
+scratches stay label-limited at 0.11. Per-side scores for the surface
+subgrade come from the separate surface-score regressors (handoff Step 8);
+v3 is the candidate for drawing crease boxes, pending its full-card
+false-alarm rate. Test split not read for any surface checkpoint.
+
 ### Surface v1 diagnosis (2026-09-17, epoch 6 of 8)
 
 `log.csv` at epoch 6: map50 0.072, precision 0.29 / recall 0.20 at score 0.5;
