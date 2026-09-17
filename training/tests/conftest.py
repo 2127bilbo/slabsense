@@ -124,6 +124,8 @@ def make_surface_tables(tmp_path: Path):
         "path_sfx_back": [f"tag-dataset/{c}/sfx_back.jpg" for c in certs],
         "path_front": [f"tag-dataset/{c}/front.jpg" for c in certs],
         "path_back": [f"tag-dataset/{c}/back.jpg" for c in certs],
+        "surface_front": [1000.0, 110.0, 981.0, 705.0],
+        "surface_back": [1000.0, None, 422.0, 350.0],
     }).to_parquet(ds / "manifest.parquet", index=False)
     rows = [
         # cert, side, engine_type, x, y, w, h, deduction

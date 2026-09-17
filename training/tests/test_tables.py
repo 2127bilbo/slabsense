@@ -6,7 +6,7 @@ from trainlib import tables
 
 
 def test_tasks_spec():
-    assert set(tables.TASKS) == {"corners", "edges"}
+    assert set(tables.TASKS) == {"corners", "edges", "surface_sfx", "surface_rgb"}
     assert tables.TASKS["corners"]["targets"] == [
         tables.Target("wear", "binary", "ding_count"),
         tables.Target("deduction", "regress", "marker_deduction"),
@@ -109,3 +109,27 @@ def test_filter_cached_task_with_no_cache_resize_behaves_like_before(tables, tmp
     (cache / df.crop_path.iloc[0]).unlink()
     filtered, dropped = tables_mod().filter_cached(df, cache, task="corners")
     assert dropped == 1 and len(filtered) == len(df) - 1
+
+
+def test_surface_side_rows_one_row_per_side_with_scores(surface_tables):
+    ds, sp = surface_tables
+    man = pd.read_parquet(ds / "manifest.parquet")
+    rows = tables.surface_side_rows(man, "sfx")
+    assert list(rows.columns) == ["cert", "side", "crop_path", "score"]
+    assert rows[["cert", "side"]].values.tolist()[:3] == [["A1", "B"], ["A1", "F"], ["B2", "F"]]   # B2/B dropped: null score
+    assert rows.crop_path.iloc[1] == "tag-dataset/A1/sfx_front.jpg" and rows.score.iloc[1] == 1000.0
+    rgb = tables.surface_side_rows(man, "rgb")
+    assert rgb.crop_path.iloc[0] == "tag-dataset/A1/back.jpg" and len(rgb) == 7
+
+
+def test_surface_tasks_load_through_load_task_table(surface_tables):
+    ds, sp = surface_tables
+    for task in ("surface_sfx", "surface_rgb"):
+        spec = tables.TASKS[task]
+        assert spec["input_size"] == (896, 1248) and spec["cache_resize"] == (896, 1248)
+        assert spec["long_side_horizontal"] is False and tables.target_names(task) == ["score"]
+        df = tables.load_task_table(task, ds, sp, "train")
+        assert set(df.cert) == {"A1", "B2"} and len(df) == 3
+        assert "grade_label" in df.columns and "split" in df.columns
+    with pytest.raises(ValueError):
+        tables.load_task_table("surface_sfx", ds, sp, "test")

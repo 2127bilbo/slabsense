@@ -10,6 +10,22 @@ from .cache import resized_path
 
 Target = namedtuple("Target", "name kind column")
 
+_VIEW_PATHS = {"sfx": ("path_sfx_back", "path_sfx_front"), "rgb": ("path_back", "path_front")}
+
+
+def surface_side_rows(manifest: pd.DataFrame, view: str) -> pd.DataFrame:
+    """One row per cert per side for the surface-score task: the whole-card image key of `view`
+    and TAG's per-side surface score (0-1000). Sides with no image or no score are dropped."""
+    back_col, front_col = _VIEW_PATHS[view]
+    parts = []
+    for side, col, score_col in (("B", back_col, "surface_back"), ("F", front_col, "surface_front")):
+        parts.append(pd.DataFrame({"cert": manifest.cert, "side": side, "crop_path": manifest[col],
+                                   "score": manifest[score_col].astype("float64")}))
+    rows = pd.concat(parts)
+    rows = rows[rows.crop_path.notna() & rows.score.notna()]
+    return rows.sort_values(["cert", "side"]).reset_index(drop=True)
+
+
 TASKS = {
     "corners": {
         "table": "corners.parquet",
@@ -34,6 +50,26 @@ TASKS = {
         "long_side_horizontal": True,
         "cache_resize": (1024, 192),
     },
+    "surface_sfx": {
+        "table": "manifest.parquet",
+        "rows": lambda df: surface_side_rows(df, "sfx"),
+        "view": "sfx",
+        "targets": [Target("score", "regress", "score")],
+        "key_cols": ["side"],
+        "input_size": (896, 1248),
+        "long_side_horizontal": False,
+        "cache_resize": (896, 1248),
+    },
+    "surface_rgb": {
+        "table": "manifest.parquet",
+        "rows": lambda df: surface_side_rows(df, "rgb"),
+        "view": "rgb",
+        "targets": [Target("score", "regress", "score")],
+        "key_cols": ["side"],
+        "input_size": (896, 1248),
+        "long_side_horizontal": False,
+        "cache_resize": (896, 1248),
+    },
 }
 
 
@@ -51,6 +87,8 @@ def load_task_table(task: str, dataset_dir: Path, splits_path: Path, split: str,
         raise ValueError("the test split is frozen; pass allow_test=True only from evaluate --final-eval")
     spec = TASKS[task]
     df = pd.read_parquet(Path(dataset_dir) / spec["table"])
+    if spec.get("rows") is not None:
+        df = spec["rows"](df)
     splits = pd.read_parquet(splits_path)[["cert", "split"]]
     grades = pd.read_parquet(Path(dataset_dir) / "manifest.parquet")[["cert", "grade_label"]]
     df = df.merge(splits, on="cert", how="inner").merge(grades, on="cert", how="left")
