@@ -59,3 +59,38 @@ def test_init_freezes_stem_and_layer1_like_a_pretrained_build(tmp_path):
     assert torch.equal(init["backbone.body.conv1.weight"], ckpt["model"]["backbone.body.conv1.weight"])
     assert torch.equal(init["backbone.body.layer1.0.conv1.weight"], ckpt["model"]["backbone.body.layer1.0.conv1.weight"])
     assert not torch.equal(init["backbone.body.layer4.0.conv1.weight"], ckpt["model"]["backbone.body.layer4.0.conv1.weight"])
+
+
+def test_neg_grades_keeps_positives_and_filters_negatives_by_grade(tmp_path):
+    cache, idx = make_tile_index(tmp_path, n=4, size=96)
+    # tile 3 is the only negative; its grade is "7 NEAR MINT"
+    kept = train_surface._index(cache, "train", None, 42, "sfx,rgb", neg_grades="9 MINT,10 GEM MINT")
+    assert len(kept) == 3 and (kept.n_boxes > 0).all()
+    kept2 = train_surface._index(cache, "train", None, 42, "sfx,rgb", neg_grades="7 NEAR MINT")
+    assert len(kept2) == 4
+    assert len(train_surface._index(cache, "train", None, 42, "sfx,rgb")) == 4
+
+
+def test_tile_weights_favor_rare_classes_and_leave_negatives_at_one():
+    import json as _json
+    idx = pd.DataFrame({"boxes": [_json.dumps([[1, 0, 0, 5, 5]])] * 9 + [_json.dumps([[3, 0, 0, 5, 5]])] + ["[]"] * 2,
+                        "n_boxes": [1] * 10 + [0, 0]})
+    w = train_surface.tile_weights(idx)
+    assert w.shape == (12,) and w.dtype == torch.double
+    assert w[10] == 1.0 and w[11] == 1.0
+    assert w[9] > w[0]                                   # the single PIT tile outweighs a crease tile
+    assert abs(float(w[:10].mean()) - 1.0) < 1e-9          # positives normalized to mean 1
+
+
+def test_balance_flag_trains(tmp_path):
+    cache, idx = make_tile_index(tmp_path, n=4, size=96)
+    idx.to_parquet(cache / "tiles" / "val.parquet", index=False)
+    cfg = tmp_path / "config.toml"
+    (tmp_path / "ds.toml").write_text('[bucket]\nendpoint="e"\nregion="auto"\nname="b"\nprefix="p"\n', encoding="utf-8")
+    cfg.write_text('[paths]\ndataset_dir = "dataset"\nsplits_path = "splits.parquet"\ncache_dir = "cache"\nruns_dir = "runs"\n'
+                   '[r2]\nconfig_toml = "ds.toml"\n', encoding="utf-8")
+    run_dir = train_surface.main(["--config", str(cfg), "--run-name", "tb", "--epochs", "1", "--batch-size", "2",
+                                  "--no-pretrained", "--device", "cpu", "--workers", "0", "--warmup-iters", "1",
+                                  "--min-size", "96", "--balance", "--neg-grades", "7 NEAR MINT"])
+    assert (run_dir / "best.pt").exists()
+    assert json.loads((run_dir / "args.json").read_text())["balance"] is True

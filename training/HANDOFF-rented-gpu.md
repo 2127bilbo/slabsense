@@ -295,6 +295,30 @@ beat v1, report the numbers and leave the artifacts in place; v1 stays.
 Leave all `runs/<task>/v2/` artifacts on the box; the main session pulls
 them down over SSH.
 
+### Step 7.9: surface v2 (sfx-only, clean negatives, class-balanced)
+
+v1 (epoch 6 diagnosis, 2026-09-17): map50 0.07 overall; only creases found
+(AP50 0.34); about half the labeled defects get no prediction at all, boxes
+are loose (AP rises from 0.12 to 0.21 when the overlap requirement drops from
+0.5 to 0.1), and many rgb-view labels mark defects invisible under flat light.
+v2 removes the two label-noise sources that can be removed without new
+labels: it trains on the relief view only, keeps box-free negatives only from
+cards graded 8 and up (sides of low-grade cards carry unmarked defects that
+v1 was taught to call background), and draws rare classes more often.
+
+```bash
+cd /workspace/SlabSense && git pull && cd training
+.venv/bin/python -m pytest -q     # expect 106 passed
+nohup .venv/bin/python -m trainlib.train_surface --run-name v2 --epochs 8 --batch-size 8 --workers 8   --views sfx --neg-grades "8 NM MT,8.5 NM MT+,9 MINT,10 GEM MINT,10 PRISTINE" --balance   > /workspace/train_surface_v2.log 2>&1 < /dev/null &
+```
+
+The first log line prints the tile counts; expect roughly 20k positive sfx
+tiles plus the high-grade negatives, so about a third of v1's epoch time.
+Evaluate as in Step 7.5 with `--views sfx --full-cards 100` and compare
+against v1's `sfx` view row and `v1-sfx`. Report; do not read the test
+split. The two-view question (what phone photos need) is decided after
+this run, from these numbers.
+
 ## Failure playbook
 
 | Symptom | Do this |

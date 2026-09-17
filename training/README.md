@@ -291,6 +291,23 @@ side, plus a separate gradient-boosted regressor that predicts the TAG
 deduction (0–1000 points) for a given box's class and geometry. Reads
 `surface.parquet` (spec §7); never modifies it.
 
+### Surface v1 diagnosis (2026-09-17, epoch 6 of 8)
+
+`log.csv` at epoch 6: map50 0.072, precision 0.29 / recall 0.20 at score 0.5;
+AP50 CREASE 0.34, DENT 0.03, PIT 0.01, PRINT_DEFECT 0.04, SCRATCH 0.06,
+STAIN 0.03. A 400-tile diagnostic on positive val tiles (`/workspace/diag`):
+map50 0.12 at IoU 0.5, 0.18 at IoU 0.3, 0.21 at IoU 0.1 (boxes are loose,
+so localization is part of the gap); recall at score >= 0.05 and IoU 0.3 is
+0.49 overall (CREASE 0.81, DENT 0.30, SCRATCH 0.30, PIT 0.05), and only 53%
+of labeled boxes have *any* prediction overlapping them, so about half the
+labels are simply not found. Drawn tiles show why: TAG's markers often
+enclose faint or, in the rgb view, invisible defects, and unmarked visible
+defects sit on "clean" sides that the negatives teach as background. Train
+tiles: 103,127 (35,707 with boxes, 67,420 box-free); boxes are large enough
+(median min-side 80 px; pits 9 px) that the 1024 tiling is not the cause.
+v2 (handoff Step 7.9): sfx only, negatives only from cards graded 8+,
+class-balanced sampling (`--views sfx --neg-grades ... --balance`).
+
 ### v2 outcome (2026-09-16)
 
 - **Corners v2 accepted.** EMA + drop-path 0.2 + strong augmentation over 8

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from .config import load_config
 from .det_metrics import evaluate_detections, filter_view_preds
@@ -34,15 +34,43 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--min-size", type=int, help="override the detector's internal resize (tests only)")
     p.add_argument("--init", help="start from this checkpoint's weights (fine-tuning)")
     p.add_argument("--views", default="sfx,rgb", help="comma-separated views to train and validate on")
+    p.add_argument("--neg-grades", default="",
+                   help="comma-separated grade labels whose box-free tiles are kept as negatives (train only); "
+                        "empty = keep all negatives")
+    p.add_argument("--balance", action="store_true",
+                   help="class-balanced tile sampling (WeightedRandomSampler over tile_weights)")
     return p
 
 
-def _index(cache_dir: Path, split: str, limit: int | None, seed: int, views: str = "sfx,rgb") -> pd.DataFrame:
+def _index(cache_dir: Path, split: str, limit: int | None, seed: int, views: str = "sfx,rgb",
+           neg_grades: str = "") -> pd.DataFrame:
+    """Tile index for a split, filtered to `views`. `neg_grades` (comma-separated grade labels) keeps
+    box-free tiles only from cards of those grades: TAG marks a subset of the defects on a card, so a
+    'clean' side of a low-grade card often carries unmarked defects that would be taught as background;
+    sides of 9+ cards are genuinely clean."""
     df = pd.read_parquet(Path(cache_dir) / "tiles" / f"{split}.parquet")
     df = df[df.view.isin([v.strip() for v in views.split(",")])]
+    if neg_grades:
+        keep_grades = {g.strip() for g in neg_grades.split(",")}
+        df = df[(df.n_boxes > 0) | df.grade_label.isin(keep_grades)]
     if limit is not None and limit < len(df):
         df = df.sample(n=limit, random_state=seed).sort_index()
     return df.reset_index(drop=True)
+
+
+def tile_weights(index: pd.DataFrame) -> torch.Tensor:
+    """Sampling weight per tile for class balancing: a tile with boxes is weighted by the inverse square
+    root of the frequency of its rarest class (normalized so the mean positive weight is 1); box-free
+    tiles get weight 1. Creases are ~37% of boxes and pits ~6%, so a pit tile is drawn ~2.5x as often."""
+    labels_per_tile = [[int(b[0]) for b in json.loads(s)] for s in index.boxes]
+    counts: dict[int, int] = {}
+    for labs in labels_per_tile:
+        for l in labs:
+            counts[l] = counts.get(l, 0) + 1
+    raw = [min(1.0 / math.sqrt(counts[l]) for l in labs) if labs else None for labs in labels_per_tile]
+    pos = [r for r in raw if r is not None]
+    mean_pos = (sum(pos) / len(pos)) if pos else 1.0
+    return torch.tensor([1.0 if r is None else r / mean_pos for r in raw], dtype=torch.double)
 
 
 def _to(device, imgs, tgts):
@@ -79,9 +107,15 @@ def main(argv=None) -> Path:
     cfg = load_config(args.config)
     torch.manual_seed(args.seed)
     device = torch.device(args.device)
-    train_idx = _index(cfg.cache_dir, "train", args.limit_tiles, args.seed, args.views)
+    train_idx = _index(cfg.cache_dir, "train", args.limit_tiles, args.seed, args.views, args.neg_grades)
     val_idx = _index(cfg.cache_dir, "val", args.val_limit_tiles, args.seed, args.views)
-    train_loader = DataLoader(TileDataset(train_idx, cfg.cache_dir, True), batch_size=args.batch_size, shuffle=True,
+    sampler = None
+    if args.balance:
+        g = torch.Generator(); g.manual_seed(args.seed)
+        sampler = WeightedRandomSampler(tile_weights(train_idx), num_samples=len(train_idx), replacement=True,
+                                        generator=g)
+    train_loader = DataLoader(TileDataset(train_idx, cfg.cache_dir, True), batch_size=args.batch_size,
+                              shuffle=(sampler is None), sampler=sampler,
                               num_workers=args.workers, collate_fn=collate_det, pin_memory=(device.type == "cuda"),
                               persistent_workers=(args.workers > 0), drop_last=True)
     val_loader = DataLoader(TileDataset(val_idx, cfg.cache_dir, False), batch_size=args.batch_size, shuffle=False,
