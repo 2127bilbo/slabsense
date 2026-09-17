@@ -22,10 +22,12 @@ import { CreditBalance, PricingPage } from "./components/Billing";
 import { getGradeJob } from "./services/credits.js";
 import { GRADE_TIERS, creditsLabel } from "./lib/grade-tiers.js";
 import { getGyroInput } from "./lib/gyro-input.js";
-import { loadImg, genMaps, LUM } from "./lib/image-utils.js";
+import { loadImg, genMaps, LUM, loadImageElement } from "./lib/image-utils.js";
 import { cropToOuterBounds, getBoundsFromCorners } from "./lib/centering-utils.js";
 import { getGrade, computeGrade } from "./lib/softwareGrade.js";
 import { analyzePixels, findBounds, PX } from "./lib/detectors.js";
+import { modelGradingEnabled, modelDingsForSide } from "./services/cornerEdgeModels.js";
+import { mergeModelDings } from "./lib/corner-edge-model.js";
 import holoConfig from "../config/holo-config.json";
 
 /* ═══════════════════════════════════════════
@@ -166,7 +168,27 @@ async function analyzeCardFull(src, side, overrideBounds = null, overrideCenteri
   const { w, h, data, canvas } = await loadImg(src);
   const scaledImgUrl = canvas.toDataURL('image/jpeg', 0.92);
   const result = analyzePixels({ data: data.data, w, h }, side, overrideBounds, overrideCentering);
-  return { ...result, scaledImgUrl };
+  return withModelDings(src, side, { ...result, scaledImgUrl });
+}
+
+/**
+ * Replace the detector's corner and edge dings with the trained models' when model
+ * grading is switched on. Every downstream computeGrade() reads `allDings`, so this
+ * one hook covers the whole grade path. Fail-soft on purpose: a missing model, an
+ * offline phone or an unsupported browser leaves the detector result exactly as it was.
+ * Crops follow TAG's framing (src/lib/tag-crops.js); see docs/GRADING_SYSTEM.md.
+ */
+async function withModelDings(src, side, result) {
+  if (!modelGradingEnabled()) return result;
+  try {
+    const img = await loadImageElement(src); // natural resolution, not the 1400 px analysis copy
+    if (!img) throw new Error('could not decode the card image');
+    const dings = await modelDingsForSide(img, side);
+    return { ...result, allDings: mergeModelDings(result.allDings, dings), modelDings: dings, modelUsed: true };
+  } catch (e) {
+    console.warn(`corner/edge models skipped for ${side}:`, e?.message || e);
+    return { ...result, modelUsed: false, modelError: String(e?.message || e) };
+  }
 }
 
 

@@ -11,11 +11,12 @@
     "verify:label": "node scripts/verify-label.cjs",
     "harness": "node --expose-gc scripts/harness/run.mjs",
     "harness:compare": "node scripts/harness/compare.mjs",
-    "test:lib": "node src/lib/gradingEngine.test.js && node src/lib/detectors.test.js && node src/lib/softwareGrade.test.js && node src/lib/f16.test.js && node src/lib/card-db-client.test.js && node src/lib/stage-view.test.js && node src/lib/line-color.test.js && node api/_lib/credits.test.js && node api/_lib/gradeJobs.test.js && node api/_lib/detectionPrompt.test.js && node src/lib/grade-records.test.js",
+    "test:lib": "node src/lib/gradingEngine.test.js && node src/lib/detectors.test.js && node src/lib/softwareGrade.test.js && node src/lib/f16.test.js && node src/lib/card-db-client.test.js && node src/lib/stage-view.test.js && node src/lib/line-color.test.js && node src/lib/tag-crops.test.js && node src/lib/corner-edge-model.test.js && node api/_lib/credits.test.js && node api/_lib/gradeJobs.test.js && node api/_lib/detectionPrompt.test.js && node src/lib/grade-records.test.js",
     "cards:build-initial": "node scripts/card-db/build-initial.mjs",
     "cards:update": "node scripts/card-db/update.mjs",
     "storage:cleanup": "node scripts/storage/cleanup-grade-uploads.mjs",
-    "harness:identify": "node --expose-gc scripts/harness/identify.mjs"
+    "harness:identify": "node --expose-gc scripts/harness/identify.mjs",
+    "models:upload": "node scripts/models/upload.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
@@ -35,6 +36,7 @@
     "@xenova/transformers": "^2.17.2",
     "canvas": "^3.2.3",
     "jsqr": "^1.4.0",
+    "onnxruntime-web": "^1.30.0",
     "pngjs": "^7.0.0",
     "vite": "^6.0.0"
   }
