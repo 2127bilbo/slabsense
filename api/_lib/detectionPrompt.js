@@ -20,6 +20,7 @@
  */
 
 import { gradeCard, ENGINE_VERSION } from '../../src/lib/gradingEngine.js';
+import { cornerEdgeContextBlock, applyCornerEdge } from './cornerEdgeInput.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENUMS (must match the output schema in docs/GRADING_SYSTEM.md exactly — API contract)
@@ -185,8 +186,10 @@ into anything you output.`;
  * @param {string}  opts.imageLayout     describes which image is which
  * @param {string} [opts.referencesText] Deep grade only: TAG reference cards
  * @param {Object} [opts.priorFindings]  Deep grade Pass 2 only: Pass 1 defect list
+ * @param {Object} [opts.cornerEdge]     parsed corner/edge model table (cornerEdgeInput.js);
+ *                                       when present Claude is told to leave corners and edges alone
  */
-export function buildDetectionPrompt({ cardType, centering, imageLayout, referencesText = null, priorFindings = null }) {
+export function buildDetectionPrompt({ cardType, centering, imageLayout, referencesText = null, priorFindings = null, cornerEdge = null }) {
   const sections = [];
 
   sections.push(`Identify this ${cardType} card and perform a COMPLETE defect inspection.
@@ -204,6 +207,7 @@ STRUCTURE only (creases/dents/pits); use normal images for color-based
 defects (whitening, stains, print defects).`);
 
   sections.push(centeringContextBlock(centering));
+  if (cornerEdge) sections.push(cornerEdgeContextBlock(cornerEdge));
 
   sections.push(`## INSPECTION ORDER (complete EVERY step before responding)
 0. CATASTROPHIC SCAN — both sides FIRST: creases/wrinkles (line discontinuities
@@ -469,8 +473,10 @@ export function confidenceFromImageQuality(iq, { referencesUsed = 0 } = {}) {
  * Run the engine on a sanitized detection and assemble the FULL unified
  * output per the schema in docs/GRADING_SYSTEM.md. Used by both endpoints.
  */
-export function assembleUnifiedOutput({ detection, centering, gradePath, frontOnly = false, meta = {} }) {
-  const defects = sanitizeDefects(detection?.defects);
+export function assembleUnifiedOutput({ detection, centering, gradePath, frontOnly = false, meta = {}, cornerEdge = null }) {
+  // With a model table present, Claude's CORNER/EDGE findings are replaced by the
+  // model's so every path agrees on corners and edges (cornerEdgeInput.js).
+  const { defects, source: cornerEdgeSource } = applyCornerEdge(sanitizeDefects(detection?.defects), cornerEdge);
   const engine = gradeCard({ defects, centering, frontOnly });
 
   const iq = detection?.imageQuality || {};
@@ -512,6 +518,6 @@ export function assembleUnifiedOutput({ detection, centering, gradePath, frontOn
       recommendation: summary.recommendation || 'See defect report for details.',
     },
     confidence,
-    meta: { ...meta, gradePath, engineVersion: ENGINE_VERSION },
+    meta: { ...meta, gradePath, engineVersion: ENGINE_VERSION, cornerEdgeSource },
   };
 }

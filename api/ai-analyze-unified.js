@@ -26,6 +26,7 @@ import {
   parseDetection,
   assembleUnifiedOutput,
 } from './_lib/detectionPrompt.js';
+import { parseCornerEdgeInput } from './_lib/cornerEdgeInput.js';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -60,7 +61,11 @@ async function analyzeHandler(req, res) {
     cardType = 'pokemon',
     frontCentering,
     backCentering,
+    // Optional: the browser's corner/edge model table; when present it replaces
+    // Claude's corner/edge findings so the paid grade agrees with the free one.
+    cornerEdge: cornerEdgeRaw,
   } = req.body;
+  const cornerEdge = parseCornerEdgeInput(cornerEdgeRaw);
 
   // ── Manual centering is REQUIRED (AI never estimates centering) ──────────
   if (frontCentering?.lrRatio == null || frontCentering?.tbRatio == null) {
@@ -112,7 +117,7 @@ async function analyzeHandler(req, res) {
       ? '- IMAGE 1: Card FRONT\n- IMAGE 2: Card BACK'
       : '- IMAGE 1: Card FRONT (front-only grading — no back inspection possible)';
 
-    const prompt = buildDetectionPrompt({ cardType, centering, imageLayout });
+    const prompt = buildDetectionPrompt({ cardType, centering, imageLayout, cornerEdge });
 
     console.log('[AI-Unified] Direct mode:', {
       front: frontUrl.substring(0, 50) + '...',
@@ -162,6 +167,7 @@ async function analyzeHandler(req, res) {
       detection,
       centering: { front: centering.front, back: frontOnly ? null : centering.back },
       gradePath: 'ai',
+      cornerEdge,
       frontOnly,
       meta: {
         model: DIRECT_MODEL,

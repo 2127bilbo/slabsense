@@ -18,7 +18,7 @@
  * ============================================================================
  */
 import { createCornerEdgeRunner, DEFAULT_MODEL_FILES } from '../lib/corner-edge-runner.js';
-import { slotsToDings, mergeModelDings, MODEL_DEFAULTS } from '../lib/corner-edge-model.js';
+import { slotsToDings, mergeModelDings, MODEL_DEFAULTS, MODEL_TASKS } from '../lib/corner-edge-model.js';
 
 const CACHE_NAME = 'slabsense-models-v1';
 const FLAG_KEY = 'slabsense_modelGrading';
@@ -178,6 +178,35 @@ export async function preloadModels(onProgress = null) {
 export async function modelDingsForSide(source, rect, side, options = MODEL_DEFAULTS) {
   const r = await getRunner();
   return r.dingsForSide(source, rect, side, options);
+}
+
+/**
+ * Both the raw per-slot predictions and the dings for one side. The slots are
+ * what a paid grade sends to the server (`cornerEdge` in the request), so the AI
+ * paths judge corners and edges from the same numbers as the free grade.
+ * @returns {Promise<{slots: {corners: object[], edges: object[]}, dings: object[]}>}
+ */
+export async function modelSlotsForSide(source, rect, side, options = MODEL_DEFAULTS) {
+  const r = await getRunner();
+  const slots = await r.analyzeSide(source, rect, side);
+  const dings = MODEL_TASKS.flatMap((task) => slotsToDings(task, side, slots[task], options));
+  return { slots, dings };
+}
+
+/**
+ * The request field for a paid grade: every slot of both sides, rounded. Null
+ * when the models did not run on both sides, so the server falls back to
+ * Claude's own corner/edge findings rather than judging from half a table.
+ */
+export function cornerEdgeRequest(frontSlots, backSlots) {
+  const side = (s) => (s && s.corners && s.edges ? {
+    corners: s.corners.map((x) => ({ key: x.key, wear: +x.wear.toFixed(4), deduction: +x.deduction.toFixed(1), ...(x.angle === undefined ? {} : { angle: +x.angle.toFixed(1) }) })),
+    edges: s.edges.map((x) => ({ key: x.key, wear: +x.wear.toFixed(4), deduction: +x.deduction.toFixed(1) })),
+  } : null);
+  const front = side(frontSlots);
+  if (!front) return null;
+  const back = side(backSlots);
+  return back ? { front, back } : { front };
 }
 
 /**

@@ -26,7 +26,7 @@ import { loadImg, genMaps, LUM, loadImageElement } from "./lib/image-utils.js";
 import { cropToOuterBounds, getBoundsFromCorners } from "./lib/centering-utils.js";
 import { getGrade, computeGrade } from "./lib/softwareGrade.js";
 import { analyzePixels, findBounds, PX } from "./lib/detectors.js";
-import { modelGradingEnabled, modelDingsForSide } from "./services/cornerEdgeModels.js";
+import { modelGradingEnabled, modelSlotsForSide, cornerEdgeRequest } from "./services/cornerEdgeModels.js";
 import { mergeModelDings } from "./lib/corner-edge-model.js";
 import holoConfig from "../config/holo-config.json";
 
@@ -190,8 +190,10 @@ async function withModelDings(src, side, result, onProgress = null) {
     const scale = img.naturalWidth / (result.imgW || img.naturalWidth);
     const b = result.bounds;
     const rect = b ? { x: b.left * scale, y: b.top * scale, w: b.cardW * scale, h: b.cardH * scale } : null;
-    const dings = await modelDingsForSide(img, rect, side);
-    return { ...result, allDings: mergeModelDings(result.allDings, dings), modelDings: dings, modelUsed: true };
+    const { slots, dings } = await modelSlotsForSide(img, rect, side);
+    // `modelSlots` (every slot, clean or not) rides along to the paid grades so Claude
+    // judges corners and edges from the same numbers; see api/_lib/cornerEdgeInput.js.
+    return { ...result, allDings: mergeModelDings(result.allDings, dings), modelDings: dings, modelSlots: slots, modelUsed: true };
   } catch (e) {
     console.warn(`corner/edge models skipped for ${side}:`, e?.message || e);
     return { ...result, modelUsed: false, modelError: String(e?.message || e) };
@@ -2239,10 +2241,12 @@ export default function SlabSense(){
     rememberJob({ jobId, cardKey, gradeType, startedAt: Date.now() });
 
     const frontC = softwareCenteringFor('front'), backC = softwareCenteringFor('back');
+    // Corner/edge model table from the software analysis, so the paid grade agrees with the free one.
+    const cornerEdge = cornerEdgeRequest(fR?.modelSlots, bR?.modelSlots);
     try {
       const result = isDeep
-        ? await deepGradingAnalysisV2(fI, bI, frontCroppedImage || fI, backCroppedImage || bI, 'pokemon', 'modern_holo', auth.user.id, frontC, backC, { jobId, cardKey })
-        : await claudeGradingAnalysis(fI, bI, 'pokemon', auth.user.id, frontC, backC, { jobId, cardKey });
+        ? await deepGradingAnalysisV2(fI, bI, frontCroppedImage || fI, backCroppedImage || bI, 'pokemon', 'modern_holo', auth.user.id, frontC, backC, { jobId, cardKey, cornerEdge })
+        : await claudeGradingAnalysis(fI, bI, 'pokemon', auth.user.id, frontC, backC, { jobId, cardKey, cornerEdge });
       if (run !== gradeRunRef.current) {
         // Card changed while the grade ran: the result is stored on the job; offer it back
         setStatus(null); setProg('');

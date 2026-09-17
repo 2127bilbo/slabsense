@@ -275,7 +275,7 @@ export async function claudeGradingAnalysis(
   userId = null,
   frontCentering = null,
   backCentering = null,
-  { jobId = null, cardKey = null } = {}
+  { jobId = null, cardKey = null, cornerEdge = null } = {}
 ) {
   // The endpoint needs front centering; back is optional (front-only grading when no back image)
   const hasSoftwareCentering = frontCentering?.lrRatio != null && (backImageDataUrl == null || backCentering?.lrRatio != null);
@@ -303,6 +303,9 @@ export async function claudeGradingAnalysis(
 
     // Build request body (jobId/cardKey tie the result to this card for the durable job row)
     const requestBody = { frontUrl, backUrl, cardType, jobId, cardKey };
+    // Corner/edge model table (every slot, both sides): the server replaces Claude's
+    // corner/edge findings with it so the paid grade agrees with the free grade.
+    if (cornerEdge) requestBody.cornerEdge = cornerEdge;
 
     // Include software centering if available (more accurate than AI estimation)
     if (hasSoftwareCentering) {
@@ -989,7 +992,7 @@ export async function deepGradingAnalysisV2(
   // Optional software-calculated centering (from calculateCenteringFromBounds)
   frontCentering = null,  // { lrRatio, tbRatio }
   backCentering = null,   // { lrRatio, tbRatio }
-  { jobId = null, cardKey = null } = {}
+  { jobId = null, cardKey = null, cornerEdge = null } = {}
 ) {
   const hasSoftwareCentering = frontCentering?.lrRatio != null && backCentering?.lrRatio != null;
   console.log('[Deep AI V2] Starting two-pass reference comparison analysis...', hasSoftwareCentering ? '(with software centering)' : '');
@@ -1046,6 +1049,9 @@ export async function deepGradingAnalysisV2(
       cardKey,
       // Provider selection is server-side (deep-analyze-v2.js DEFAULT_CONFIG); the client never picks one
     };
+    // Corner/edge model table (every slot, both sides): the server replaces Claude's
+    // corner/edge findings with it so the paid grade agrees with the free grade.
+    if (cornerEdge) requestBody.cornerEdge = cornerEdge;
 
     // Include software centering if available (more accurate than AI estimation)
     if (hasSoftwareCentering) {

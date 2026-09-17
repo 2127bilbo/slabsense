@@ -24,9 +24,9 @@ Three grade paths, one engine:
 
 | Path | Who finds the defects | Who grades | Cost |
 |---|---|---|---|
-| Software | `detectors.js` on the user's crop (corners, edges, surface wear, centering) | engine | free |
-| AI | Claude, one pass, detection only | engine | 1 credit |
-| Deep AI | Claude, two passes (pass 2 sees pass 1 + TAG-graded reference cards), detection only | engine | 2 credits |
+| Software | corner/edge models on TAG-framed crops + `detectors.js` for surface wear; centering from the app | engine | free |
+| AI | Claude, one pass, surface detection; corners/edges from the models when the app ran them | engine | 1 credit |
+| Deep AI | Claude, two passes (pass 2 sees pass 1 + TAG-graded reference cards); corners/edges from the models when the app ran them | engine | 2 credits |
 
 The model **never grades**. It returns `{ cardInfo, imageQuality, defects[], summary }`; `gradeCard()` does all the
 math. Centering is **measured by the app** (the user's centering tool) and passed in; no path lets the model
@@ -53,11 +53,20 @@ Category: CORNER → corners, EDGE → edges, everything else → surface.
 
 ### Corner and edge models (software path) *(added 2026-09-17)*
 
-On the software path, corner and edge wear comes from two trained models instead of the pixel detectors.
+Corner and edge wear comes from two trained models instead of the pixel detectors — on **every path**.
 Nothing downstream changes: the models emit the same `CORNER` / `EDGE` defects the engine already accepts, so
 the engine math, the damage report and the saved-card shape are untouched. The detectors' own corner and edge
 dings are dropped when the models run; their surface dings (creases, scratches, stains) are kept, because no
 surface model is wired in yet.
+
+**Paid paths agree with the free one by construction** *(2026-09-17)*. When the app has run the models, a paid
+grade sends every slot's prediction in the request (`cornerEdge`, the way centering is sent). The server
+(`api/_lib/cornerEdgeInput.js`) validates the table, shows it to Claude as measured context so it skips
+corners and edges and spends its inspection on the surface, then replaces any CORNER / EDGE defect Claude
+still reports with the model's, at the same thresholds and severities as the free grade. The response carries
+`meta.cornerEdgeSource: 'model'`; without the table it is `'ai'` and the paid path behaves as before (models
+off, models failed, a saved card re-graded from the collection). Round-tripped over the 506 harness cards, the
+paid path reproduces the free grade's corner and edge subgrades on every card.
 
 | | |
 |---|---|

@@ -31,6 +31,7 @@ import {
   assembleUnifiedOutput,
   mergeStructural,
 } from './_lib/detectionPrompt.js';
+import { parseCornerEdgeInput } from './_lib/cornerEdgeInput.js';
 import { gradeCard } from '../src/lib/gradingEngine.js';
 import { requireUser, AuthError, sendAuthError } from './_lib/auth.js';
 import { runGradeJob, captureHandler } from './_lib/gradeJobs.js';
@@ -163,6 +164,9 @@ async function analyzeHandler(req, res) {
     // Software-calculated centering (REQUIRED)
     frontCentering, // { lrRatio, tbRatio }
     backCentering,  // { lrRatio, tbRatio }
+    // Optional: the browser's corner/edge model table; when present it replaces
+    // Claude's corner/edge findings so the paid grade agrees with the free one.
+    cornerEdge: cornerEdgeRaw,
 
     // Multi-provider options
     gradeMode = DEFAULT_CONFIG.mode,            // 'single' | 'parallel' | 'sequential' | 'synthesize'
@@ -170,6 +174,7 @@ async function analyzeHandler(req, res) {
     secondaryProvider = DEFAULT_CONFIG.secondary,
     synthesizerProvider = DEFAULT_CONFIG.synthesizer,
   } = req.body;
+  const cornerEdge = parseCornerEdgeInput(cornerEdgeRaw);
 
   // Validate provider selection
   const validProviders = Object.values(PROVIDERS);
@@ -225,7 +230,7 @@ async function analyzeHandler(req, res) {
 
     const pass1Result = await callProvider(primaryProvider, {
       systemPrompt: DETECTION_SYSTEM,
-      userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout }),
+      userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout, cornerEdge }),
       images: imageUrls,
       maxTokens: 3000, // the prompt asks for a full prose inspection before the JSON; 1500 truncated it
       temperature: 0.1,
@@ -279,6 +284,7 @@ async function analyzeHandler(req, res) {
         imageLayout,
         referencesText: formatReferences(references),
         priorFindings: { imageQuality: pass1Detection.imageQuality, defects: pass1Defects },
+        cornerEdge,
       }),
       images: imageUrls,
       maxTokens: 3000,
@@ -345,6 +351,7 @@ async function analyzeHandler(req, res) {
           imageLayout,
           referencesText: formatReferences(references),
           priorFindings: det1 ? { imageQuality: det1.imageQuality, defects: sanitizeDefects(det1.defects) } : null,
+          cornerEdge,
         }),
       });
       const det2 = parseDetection(result2.text);
@@ -419,6 +426,7 @@ ${JSON.stringify(det2 ? { imageQuality: det2.imageQuality, defects: sanitizeDefe
       detection: finalDetection,
       centering,
       gradePath: 'deep',
+      cornerEdge,
       meta: {
         model: null,
         gradeMode,
