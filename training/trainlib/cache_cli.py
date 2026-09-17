@@ -1,4 +1,5 @@
-"""Pull the crops a training run needs into the local cache."""
+"""Pull the crops a training run needs into the local cache, or resize them from an
+already-cached full-resolution copy with --from-cache."""
 from __future__ import annotations
 
 import argparse
@@ -17,6 +18,8 @@ def main(argv=None) -> dict:
     p.add_argument("--splits", default="train,val", help="e.g. train:500,val:100 (limit is cards; omit for all)")
     p.add_argument("--workers", type=int, default=16); p.add_argument("--seed", type=int, default=42)
     p.add_argument("--no-resize", action="store_true", help="cache full-resolution crops even for tasks with cache_resize")
+    p.add_argument("--from-cache", action="store_true",
+                   help="resize from the full-resolution file already in the cache instead of downloading")
     args = p.parse_args(argv)
     cfg = load_config(args.config)
     resize = None if args.no_resize else TASKS[args.task]["cache_resize"]
@@ -40,7 +43,8 @@ def main(argv=None) -> dict:
         if time.time() - last[0] > 5:
             last[0] = time.time(); print(f"\r{c}  {sum(c.values()) / (time.time() - t0):.1f}/s", end="", flush=True)
 
-    counts = build_cache(reader_from_config(cfg), keys, cfg.cache_dir, args.workers, progress, resize=resize)
+    counts = build_cache(reader_from_config(cfg), keys, cfg.cache_dir, args.workers, progress, resize=resize,
+                         rotate=TASKS[args.task]["long_side_horizontal"], local_full=args.from_cache)
     print(f"\ncache done: {counts} in {time.time() - t0:.0f}s")
     return counts
 

@@ -2,8 +2,11 @@
 
 When `resize` is set, `build_cache` instead writes a resized JPEG under
 cache_dir/resized/<w>x<h>/<key-with-.jpg-extension>, rotating so the long side is
-horizontal first (same rule as `data.load_crop`). The full-resolution copy is not
-written in that mode.
+horizontal first by default (same rule as `data.load_crop`; pass `rotate=False` for
+tasks whose crops must keep their original orientation, e.g. whole-card surface
+images). The full-resolution copy is not written in that mode. Pass `local_full=True`
+to resize from the full-resolution file already on disk at cache_dir/<key> instead of
+downloading it again; the reader is only used as a fallback when that file is missing.
 """
 from __future__ import annotations
 
@@ -25,11 +28,11 @@ def resized_path(cache_dir: Path, key: str, size: tuple[int, int]) -> Path:
     return Path(cache_dir) / "resized" / f"{w}x{h}" / Path(key).with_suffix(".jpg")
 
 
-def _resize_and_save(data: bytes, dest: Path, size: tuple[int, int], quality: int) -> None:
+def _resize_and_save(data: bytes, dest: Path, size: tuple[int, int], quality: int, rotate: bool = True) -> None:
     w, h = size
     with Image.open(BytesIO(data)) as im:
         img = im.convert("RGB")
-    if img.height > img.width:
+    if rotate and img.height > img.width:
         img = img.transpose(Image.Transpose.ROTATE_90)
     img = img.resize((w, h), Image.Resampling.LANCZOS)
     tmp = dest.with_suffix(dest.suffix + ".part")
@@ -39,17 +42,21 @@ def _resize_and_save(data: bytes, dest: Path, size: tuple[int, int], quality: in
     os.replace(tmp, dest)
 
 
-def _fetch(reader, key: str, dest: Path, resize: tuple[int, int] | None, quality: int) -> str:
+def _fetch(reader, key: str, dest: Path, resize: tuple[int, int] | None, quality: int,
+          rotate: bool = True, local_full: Path | None = None) -> str:
     if resize is not None:
         # No upstream size to compare against a resized derivative; existence means done.
         if dest.exists() and dest.stat().st_size > 0:
             return "skipped"
     elif dest.exists() and dest.stat().st_size == reader.size(key):
         return "skipped"
-    data = reader.get(key)
+    if local_full is not None and local_full.exists() and local_full.stat().st_size > 0:
+        data = local_full.read_bytes()
+    else:
+        data = reader.get(key)
     dest.parent.mkdir(parents=True, exist_ok=True)
     if resize is not None:
-        _resize_and_save(data, dest, resize, quality)
+        _resize_and_save(data, dest, resize, quality, rotate)
     else:
         tmp = dest.with_suffix(dest.suffix + ".part")
         tmp.write_bytes(data)
@@ -59,12 +66,14 @@ def _fetch(reader, key: str, dest: Path, resize: tuple[int, int] | None, quality
 
 def build_cache(reader, keys: list[str], cache_dir: Path, workers: int = 16,
                 progress: Callable[[dict], None] | None = None,
-                resize: tuple[int, int] | None = None, quality: int = 95) -> dict[str, int]:
+                resize: tuple[int, int] | None = None, quality: int = 95,
+                rotate: bool = True, local_full: bool = False) -> dict[str, int]:
     counts = {"downloaded": 0, "skipped": 0, "failed": 0}
     keys = list(dict.fromkeys(keys))
     dest_for = (lambda k: resized_path(cache_dir, k, resize)) if resize else (lambda k: cache_path(cache_dir, k))
     with ThreadPoolExecutor(max(1, workers)) as ex:
-        futures = {ex.submit(_fetch, reader, k, dest_for(k), resize, quality): k for k in keys}
+        futures = {ex.submit(_fetch, reader, k, dest_for(k), resize, quality, rotate,
+                             cache_path(cache_dir, k) if (local_full and resize) else None): k for k in keys}
         for f in as_completed(futures):
             try:
                 counts[f.result()] += 1

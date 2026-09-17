@@ -1,4 +1,7 @@
-from trainlib import cache_cli
+from PIL import Image
+
+from conftest import FakeReader, png_bytes
+from trainlib import cache, cache_cli, tables
 
 
 def _write_config(tmp_path, ds, sp):
@@ -48,3 +51,24 @@ def test_cache_cli_corners_has_no_resize_by_default(tables, tmp_path, monkeypatc
     _capture_build_cache(monkeypatch, calls)
     cache_cli.main(["--config", str(cfg), "--task", "corners"])
     assert calls == [{"resize": None}]
+
+
+def test_cache_cli_from_cache_resizes_from_local_full_res_files(surface_tables, tmp_path, monkeypatch):
+    ds, sp = surface_tables
+    cfg = _write_config(tmp_path, ds, sp)
+    cache_dir = tmp_path / "cache"
+    keys = tables.load_task_table("surface_sfx", ds, sp, "train").crop_path.tolist()
+    for key in keys:
+        p = cache.cache_path(cache_dir, key)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(png_bytes(20, 30))
+    reader = FakeReader({})
+    monkeypatch.setattr(cache_cli, "reader_from_config", lambda cfg: reader)
+    cache_cli.main(["--config", str(cfg), "--task", "surface_sfx", "--splits", "train",
+                    "--from-cache", "--workers", "1"])
+    assert reader.calls == []
+    for key in keys:
+        dest = cache.resized_path(cache_dir, key, (896, 1248))
+        assert dest.exists()
+        with Image.open(dest) as im:
+            assert im.size == (896, 1248)

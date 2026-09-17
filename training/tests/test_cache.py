@@ -110,3 +110,26 @@ def test_build_cache_resize_uses_444_chroma_subsampling(tmp_path):
     dest = cache.resized_path(cdir, key, (1024, 192))
     with Image.open(dest) as im:
         assert JpegImagePlugin.get_sampling(im) == 0
+
+
+def test_resize_without_rotation_keeps_portrait(tmp_path):
+    reader = FakeReader({"k/a.jpg": png_bytes(200, 300)})
+    counts = cache.build_cache(reader, ["k/a.jpg"], tmp_path, workers=1, resize=(20, 30), rotate=False)
+    assert counts["downloaded"] == 1
+    with Image.open(cache.resized_path(tmp_path, "k/a.jpg", (20, 30))) as im:
+        assert im.size == (20, 30)
+
+
+def test_resize_from_local_full_res_does_not_touch_the_reader(tmp_path):
+    reader = FakeReader({})
+    full = cache.cache_path(tmp_path, "k/b.jpg"); full.parent.mkdir(parents=True)
+    full.write_bytes(png_bytes(200, 300))
+    counts = cache.build_cache(reader, ["k/b.jpg"], tmp_path, workers=1, resize=(20, 30), rotate=False, local_full=True)
+    assert counts["downloaded"] == 1 and reader.calls == []
+    assert cache.resized_path(tmp_path, "k/b.jpg", (20, 30)).exists()
+
+
+def test_local_full_falls_back_to_reader_when_missing(tmp_path):
+    reader = FakeReader({"k/c.jpg": png_bytes(200, 300)})
+    counts = cache.build_cache(reader, ["k/c.jpg"], tmp_path, workers=1, resize=(20, 30), rotate=False, local_full=True)
+    assert counts["downloaded"] == 1 and reader.calls == ["k/c.jpg"]
