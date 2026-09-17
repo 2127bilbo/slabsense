@@ -28,9 +28,14 @@ const LIMIT = Number(opt('--limit', 0)) || 0;
 const OUT = opt('--out', path.join(here, 'results', 'model-predictions.json'));
 const RESUME = args.includes('--resume');
 const MAX_DIM = Number(opt('--max-dim', 0)) || 0; // simulate a phone upload by capping the long side
+const HELD_OUT = args.includes('--held-out'); // only cards the models never trained on
 
 const gt = JSON.parse(fs.readFileSync(path.join(here, 'ground-truth.json'), 'utf8'));
 let certs = Object.keys(gt.certs);
+if (HELD_OUT) {
+  const splits = JSON.parse(fs.readFileSync(path.join(here, 'card-splits.json'), 'utf8'));
+  certs = certs.filter((c) => splits[c] && splits[c] !== 'train');
+}
 if (LIMIT) certs = certs.slice(0, LIMIT);
 
 const store = RESUME && fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : { meta: {}, cards: {} };

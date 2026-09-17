@@ -164,11 +164,11 @@ function formatCaps(caps) {
     .toLowerCase()).join(', ');
 }
 
-async function analyzeCardFull(src, side, overrideBounds = null, overrideCentering = null) {
+async function analyzeCardFull(src, side, overrideBounds = null, overrideCentering = null, onProgress = null) {
   const { w, h, data, canvas } = await loadImg(src);
   const scaledImgUrl = canvas.toDataURL('image/jpeg', 0.92);
   const result = analyzePixels({ data: data.data, w, h }, side, overrideBounds, overrideCentering);
-  return withModelDings(src, side, { ...result, scaledImgUrl });
+  return withModelDings(src, side, { ...result, scaledImgUrl }, onProgress);
 }
 
 /**
@@ -178,9 +178,11 @@ async function analyzeCardFull(src, side, overrideBounds = null, overrideCenteri
  * offline phone or an unsupported browser leaves the detector result exactly as it was.
  * Crops follow TAG's framing (src/lib/tag-crops.js); see docs/GRADING_SYSTEM.md.
  */
-async function withModelDings(src, side, result) {
+async function withModelDings(src, side, result, onProgress = null) {
   if (!modelGradingEnabled()) return result;
   try {
+    // On a phone without WebGPU this is seconds, not milliseconds, so say what is happening.
+    if (onProgress) onProgress(`Checking corners and edges (${side})...`);
     const img = await loadImageElement(src); // natural resolution, not the 1400 px analysis copy
     if (!img) throw new Error('could not decode the card image');
     // The detectors ran on a 1400 px copy; scale their card bounds up to the full image so the
@@ -1688,11 +1690,11 @@ export default function SlabSense(){
       const backSrc  = backCroppedImage  || bI;
       setProg(frontCroppedImage ? "Analyzing cropped card (front)..." : "Detecting card bounds (front)...");
       await new Promise(r=>setTimeout(r,30));
-      const fr=await analyzeCardFull(frontSrc,"front", null, frontOverrideCentering); setFR(fr);
+      const fr=await analyzeCardFull(frontSrc,"front", null, frontOverrideCentering, setProg); setFR(fr);
 
       setProg(backCroppedImage ? "Analyzing cropped card (back)..." : "Detecting card bounds (back)...");
       await new Promise(r=>setTimeout(r,30));
-      const br=await analyzeCardFull(backSrc,"back", null, backOverrideCentering); setBR(br);
+      const br=await analyzeCardFull(backSrc,"back", null, backOverrideCentering, setProg); setBR(br);
 
       setProg(`Computing ${GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} grade...`);await new Promise(r=>setTimeout(r,30));
       const effFront = ignoreCentering ? PERFECT_CENTER : fr.centering;

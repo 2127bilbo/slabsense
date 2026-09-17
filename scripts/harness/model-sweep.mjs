@@ -134,8 +134,7 @@ if (GRID) {
   }
   stage1.sort((a, b) => a.heldMae - b.heldMae);
   const best = stage1[0];
-  console.log(`
-best wear thresholds by held-out MAE: corners ${best.cw}, edges ${best.ew} -> held MAE ${best.heldMae}, all ${best.mae}`);
+  console.log(`\nbest wear thresholds by held-out MAE: corners ${best.cw}, edges ${best.ew} -> held MAE ${best.heldMae}, all ${best.mae}`);
 
   // Stage 2: severity cut lines at those thresholds.
   console.log('\nstage 2 — severity cuts at those thresholds');
@@ -148,10 +147,8 @@ best wear thresholds by held-out MAE: corners ${best.cw}, edges ${best.ew} -> he
     console.log(`| ${name} | ${s.all.mae} | ${s.all.signed} | ${s.all.within05} | ${s.held.mae} | ${s.held.signed} |`);
   }
   stage2.sort((a, b) => a.heldMae - b.heldMae);
-  console.log(`
-best cuts by held-out MAE: ${stage2[0].name.trim()} -> held MAE ${stage2[0].heldMae}`);
-  console.log(`
-suggested MODEL_DEFAULTS: corners wear ${best.cw}, edges wear ${best.ew}, cuts ${JSON.stringify(stage2[0].cuts)}`);
+  console.log(`\nbest cuts by held-out MAE: ${stage2[0].name.trim()} -> held MAE ${stage2[0].heldMae}`);
+  console.log(`\nsuggested MODEL_DEFAULTS: corners wear ${best.cw}, edges wear ${best.ew}, cuts ${JSON.stringify(stage2[0].cuts)}`);
 }
 
 // ── the configured defaults ────────────────────────────────────────────────
@@ -164,11 +161,28 @@ for (const [b, s] of Object.entries(final.byBucket)) console.log(`    ${b.padEnd
 console.log('  detection vs TAG report:');
 for (const [t, s] of Object.entries(final.dingStats)) console.log(`    ${t.padEnd(7)} precision ${s.precision}  recall ${s.recall}  (tp ${s.tp} fp ${s.fp} fn ${s.fn})`);
 
+// Paired bootstrap on the held-out cards: is the improvement bigger than the noise
+// of a 100-card sample? Positive means the models beat the detectors.
+const baseErr = new Map(baseRows.map((r) => [r.cert, Math.abs(r.err)]));
+const paired = final.rows.filter((r) => r.held).map((r) => baseErr.get(r.cert) - Math.abs(r.err));
+const draws = [];
+let seed = 12345;
+const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+for (let b = 0; b < 2000; b++) {
+  let sum = 0;
+  for (let i = 0; i < paired.length; i++) sum += paired[Math.floor(rnd() * paired.length)];
+  draws.push(sum / paired.length);
+}
+draws.sort((a, b) => a - b);
+const ci = [draws[Math.floor(draws.length * 0.025)], draws[Math.floor(draws.length * 0.975)]];
+console.log(`  held-out improvement in MAE: ${r2(mean(paired))} grades (95% bootstrap ${r2(ci[0])} to ${r2(ci[1])}, n=${paired.length})`);
+final.bootstrap = { meanImprovement: r2(mean(paired)), ci95: [r2(ci[0]), r2(ci[1])], n: paired.length };
+
 const outFile = path.join(RESULTS, `${new Date().toISOString().slice(0, 10)}-${LABEL}.json`);
 fs.writeFileSync(outFile, JSON.stringify({
   meta: { baseline: path.basename(BASELINE), predictions: path.basename(PREDICTIONS), defaults: MODEL_DEFAULTS, generatedAt: new Date().toISOString() },
   baseline: baseSummary,
-  summary: { all: final.all, held: final.held, byBucket: final.byBucket, dingStats: final.dingStats },
+  summary: { all: final.all, held: final.held, byBucket: final.byBucket, dingStats: final.dingStats, bootstrap: final.bootstrap },
   cards: final.rows.map((r) => ({ cert: r.cert, tagGrade: r.tagGrade, softGrade: r.softGrade, err: r2(r.err), held: r.held, dings: r.dings.length })),
 }, null, 1));
 console.log(`\nwrote ${path.relative(path.join(here, '..', '..'), outFile)}`);

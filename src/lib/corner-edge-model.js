@@ -90,7 +90,10 @@ export function decodeSide(task, logits, boxes, nOut = OUTPUT_CHANNELS[task].len
  * and for the harness, and ignored by the engine.
  */
 export function slotsToDings(task, side, slots, options = {}) {
-  const cfg = { ...MODEL_DEFAULTS[task], ...(options[task] || options) };
+  // Accepts either a per-task map ({ corners: {...}, edges: {...} }) or one config
+  // object meant for this task; anything absent falls back to the calibrated defaults.
+  const own = options[task] || (options.wearThreshold !== undefined || options.severityCuts ? options : null);
+  const cfg = { ...MODEL_DEFAULTS[task], ...(own || {}) };
   const sideLabel = side === 'back' || side === 'BACK' ? 'BACK' : 'FRONT';
   const dings = [];
   for (const slot of slots) {
