@@ -107,25 +107,51 @@ console.log(`cards ${cards.length} (held out ${baseRows.filter((r) => r.held).le
 console.log(`baseline detectors      MAE ${baseSummary.all.mae}  signed ${baseSummary.all.signed}   | held-out MAE ${baseSummary.held.mae} signed ${baseSummary.held.signed}\n`);
 
 if (GRID) {
+  // Corners and edges fire at very different rates, so they are swept independently.
   const wears = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
   const cutSets = {
     'tight   (150/300/500)': { moderate: 150, severe: 300, extreme: 500 },
     'mid     (250/450/700)': { moderate: 250, severe: 450, extreme: 700 },
     'wide    (350/650/950)': { moderate: 350, severe: 650, extreme: 950 },
-    'minor-only (all minor)': { moderate: 1e9, severe: 1e9, extreme: 1e9 },
+    'all minor': { moderate: 1e9, severe: 1e9, extreme: 1e9 },
   };
-  console.log('| wear | severity cuts | MAE | signed | within0.5 | held MAE | held signed |');
+  const cutsFor = (name) => cutSets[name];
+
+  // Stage 1: wear thresholds, with the middle cut set.
+  console.log('stage 1 — wear thresholds (severity cuts: mid)');
+  console.log('| corners | edges | MAE | signed | within0.5 | held MAE | held signed |');
   console.log('|---|---|---|---|---|---|---|');
-  const grid = [];
-  for (const w of wears) {
-    for (const [name, cuts] of Object.entries(cutSets)) {
-      const s = score({ corners: { wearThreshold: w, severityCuts: cuts }, edges: { wearThreshold: w, severityCuts: cuts } });
-      grid.push({ wear: w, cuts: name, ...s.all, heldMae: s.held.mae, heldSigned: s.held.signed });
-      console.log(`| ${w} | ${name} | ${s.all.mae} | ${s.all.signed} | ${s.all.within05} | ${s.held.mae} | ${s.held.signed} |`);
+  const stage1 = [];
+  for (const cw of wears) {
+    for (const ew of wears) {
+      const s = score({
+        corners: { wearThreshold: cw, severityCuts: cutsFor('mid     (250/450/700)') },
+        edges: { wearThreshold: ew, severityCuts: cutsFor('mid     (250/450/700)') },
+      });
+      stage1.push({ cw, ew, mae: s.all.mae, signed: s.all.signed, heldMae: s.held.mae, heldSigned: s.held.signed });
+      console.log(`| ${cw} | ${ew} | ${s.all.mae} | ${s.all.signed} | ${s.all.within05} | ${s.held.mae} | ${s.held.signed} |`);
     }
   }
-  grid.sort((a, b) => a.heldMae - b.heldMae);
-  console.log(`\nbest by held-out MAE: wear ${grid[0].wear}, cuts ${grid[0].cuts.trim()} -> held MAE ${grid[0].heldMae} (all ${grid[0].mae})`);
+  stage1.sort((a, b) => a.heldMae - b.heldMae);
+  const best = stage1[0];
+  console.log(`
+best wear thresholds by held-out MAE: corners ${best.cw}, edges ${best.ew} -> held MAE ${best.heldMae}, all ${best.mae}`);
+
+  // Stage 2: severity cut lines at those thresholds.
+  console.log('\nstage 2 — severity cuts at those thresholds');
+  console.log('| cuts | MAE | signed | within0.5 | held MAE | held signed |');
+  console.log('|---|---|---|---|---|---|');
+  const stage2 = [];
+  for (const [name, cuts] of Object.entries(cutSets)) {
+    const s = score({ corners: { wearThreshold: best.cw, severityCuts: cuts }, edges: { wearThreshold: best.ew, severityCuts: cuts } });
+    stage2.push({ name, cuts, mae: s.all.mae, heldMae: s.held.mae, heldSigned: s.held.signed });
+    console.log(`| ${name} | ${s.all.mae} | ${s.all.signed} | ${s.all.within05} | ${s.held.mae} | ${s.held.signed} |`);
+  }
+  stage2.sort((a, b) => a.heldMae - b.heldMae);
+  console.log(`
+best cuts by held-out MAE: ${stage2[0].name.trim()} -> held MAE ${stage2[0].heldMae}`);
+  console.log(`
+suggested MODEL_DEFAULTS: corners wear ${best.cw}, edges wear ${best.ew}, cuts ${JSON.stringify(stage2[0].cuts)}`);
 }
 
 // ── the configured defaults ────────────────────────────────────────────────

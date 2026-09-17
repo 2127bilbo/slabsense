@@ -78,7 +78,7 @@ function stubCtx(w, h) {
   };
 }
 const ctx = stubCtx(384, 384);
-const batch = cropBatch(ctx, {}, 'corners', W, H);
+const batch = cropBatch(ctx, {}, 'corners', { x: 0, y: 0, w: W, h: H });
 check('batch holds every corner', batch.boxes.length === 4 && batch.images.length === 4 * 3 * 384 * 384);
 check('one drawImage per crop', ctx.calls.filter((c) => c[0] === 'drawImage').length === 4);
 check('drawImage receives the box, not the output size', ctx.calls.find((c) => c[0] === 'drawImage')[3] === cornerBoxes(W, H)[0].w);

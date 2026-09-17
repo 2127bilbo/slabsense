@@ -79,7 +79,7 @@ for (const cert of todo) {
     for (const side of ['front', 'back']) {
       const file = path.join(PHOTOS, side === 'front' ? 'Front' : 'Back', side === 'front' ? g.images.front : g.images.back);
       const photo = loadPhoto(file);
-      const slots = await runner.analyzeSide(photo, photo.width, photo.height, side);
+      const slots = await runner.analyzeSide(photo, null, side); // a TAG photo is the card, edge to edge
       card[side] = {
         size: [photo.width, photo.height],
         corners: slots.corners.map((s) => ({ key: s.key, wear: +s.wear.toFixed(4), deduction: +s.deduction.toFixed(1), angle: +s.angle.toFixed(1) })),

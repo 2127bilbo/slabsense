@@ -12,7 +12,7 @@
  * base URL. See training/README.md ("ONNX export") for sizes and timings.
  * ============================================================================
  */
-import { cropBatch, INPUT_SIZE } from './tag-crops.js';
+import { cropBatch, cardRect, INPUT_SIZE } from './tag-crops.js';
 import { decodeSide, slotsToDings, MODEL_TASKS, OUTPUT_CHANNELS } from './corner-edge-model.js';
 
 export const DEFAULT_MODEL_FILES = { corners: 'corners-v2.fp16.onnx', edges: 'edges-v1.fp16.onnx' };
@@ -64,8 +64,8 @@ export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, exec
   }
 
   /** Run one task over one side. Returns the decoded slots. */
-  async function runTask(task, source, cardW, cardH, side) {
-    const { images, boxes, w, h } = cropBatch(ctxFor(task), source, task, cardW, cardH);
+  async function runTask(task, source, rect, side) {
+    const { images, boxes, w, h } = cropBatch(ctxFor(task), source, task, rect);
     const n = boxes.length;
     const session = await sessionFor(task);
     const sides = new Float32Array(n).fill(side === 'back' || side === 'BACK' ? 1 : 0);
@@ -77,15 +77,20 @@ export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, exec
   }
 
   return {
-    /** Decoded corner and edge slots for one side of a card. */
-    async analyzeSide(source, cardW, cardH, side) {
+    /**
+     * Decoded corner and edge slots for one side of a card.
+     * @param rect where the card sits in `source` — the detector bounds on an
+     *   uncropped photo, or the image size once the user has cropped to the card.
+     */
+    async analyzeSide(source, rect, side) {
+      const r = cardRect(rect, source.naturalWidth || source.width, source.naturalHeight || source.height);
       const slots = {};
-      for (const task of MODEL_TASKS) slots[task] = await runTask(task, source, cardW, cardH, side);
+      for (const task of MODEL_TASKS) slots[task] = await runTask(task, source, r, side);
       return slots;
     },
     /** Legacy dings for one side, ready to merge with the detector output. */
-    async dingsForSide(source, cardW, cardH, side, options = {}) {
-      const slots = await this.analyzeSide(source, cardW, cardH, side);
+    async dingsForSide(source, rect, side, options = {}) {
+      const slots = await this.analyzeSide(source, rect, side);
       return MODEL_TASKS.flatMap((task) => slotsToDings(task, side, slots[task], options));
     },
     /** Warm both sessions (and, on WebGPU, their shader compile) before first use. */

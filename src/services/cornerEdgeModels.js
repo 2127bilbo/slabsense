@@ -115,15 +115,15 @@ export async function preloadModels(onProgress = null) {
 
 /**
  * Model dings for one side of a card.
- * @param {CanvasImageSource & {width:number,height:number}} source the card crop
+ * @param {CanvasImageSource & {width:number,height:number}} source the photo or crop
+ * @param {object|null} rect where the card sits in `source` — the detector bounds when
+ *   the photo still has background around the card, null once it is cropped to the card
  * @param {'front'|'back'} side
  * @returns {Promise<object[]>} legacy dings, ready for mergeModelDings
  */
-export async function modelDingsForSide(source, side, options = MODEL_DEFAULTS) {
+export async function modelDingsForSide(source, rect, side, options = MODEL_DEFAULTS) {
   const r = await getRunner();
-  const w = source.naturalWidth || source.width;
-  const h = source.naturalHeight || source.height;
-  return r.dingsForSide(source, w, h, side, options);
+  return r.dingsForSide(source, rect, side, options);
 }
 
 /**
@@ -131,11 +131,11 @@ export async function modelDingsForSide(source, side, options = MODEL_DEFAULTS) 
  * Returns the original dings untouched (and `used: false`) if anything fails,
  * so a model problem can never block a grade.
  */
-export async function applyModelDings({ frontSource, backSource, frontDings, backDings, options = MODEL_DEFAULTS }) {
+export async function applyModelDings({ frontSource, backSource, frontRect = null, backRect = null, frontDings, backDings, options = MODEL_DEFAULTS }) {
   try {
     const [front, back] = await Promise.all([
-      modelDingsForSide(frontSource, 'front', options),
-      modelDingsForSide(backSource, 'back', options),
+      modelDingsForSide(frontSource, frontRect, 'front', options),
+      modelDingsForSide(backSource, backRect, 'back', options),
     ]);
     return {
       used: true,

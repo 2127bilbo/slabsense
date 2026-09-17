@@ -129,14 +129,27 @@ export function rgbaToTensor(data, w, h, out = new Float32Array(3 * w * h), n = 
 }
 
 /**
+ * Normalize a card rectangle. Accepts the detector's bounds
+ * ({left, top, cardW, cardH}) or a plain {x, y, w, h}; a bare width/height pair
+ * means the whole image is the card, which is the case after the user crops.
+ */
+export function cardRect(rect, fallbackW, fallbackH) {
+  if (!rect) return { x: 0, y: 0, w: fallbackW, h: fallbackH };
+  if (rect.cardW !== undefined) return { x: rect.left || 0, y: rect.top || 0, w: rect.cardW, h: rect.cardH };
+  return { x: rect.x || 0, y: rect.y || 0, w: rect.w ?? fallbackW, h: rect.h ?? fallbackH };
+}
+
+/**
  * Cut every crop for one task out of `source` and stack them into one batch
  * tensor. `ctx` must belong to a canvas already sized to the task input.
+ * `rect` is where the card sits in `source`; pass the detector bounds when the
+ * photo has not been cropped to the card, or omit it when it has.
  *
  * @returns {{ images: Float32Array, boxes: object[], w: number, h: number }}
  */
-export function cropBatch(ctx, source, task, cardW, cardH, f = TAG_CROP_FRACTIONS) {
+export function cropBatch(ctx, source, task, rect, f = TAG_CROP_FRACTIONS) {
   const { w, h } = INPUT_SIZE[task];
-  const boxes = boxesForTask(task, cardW, cardH, f);
+  const boxes = boxesForTask(task, rect.w, rect.h, f).map((b) => ({ ...b, x: b.x + rect.x, y: b.y + rect.y }));
   const images = new Float32Array(boxes.length * 3 * w * h);
   boxes.forEach((box, n) => {
     drawBox(ctx, source, box, w, h);

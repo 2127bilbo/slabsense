@@ -97,7 +97,7 @@ for (const cert of certs) {
     if (!fs.existsSync(file)) continue;
     const photo = loadImage(file);
     for (const task of ['corners', 'edges']) {
-      const boxes = boxesForTask(task, photo.width, photo.height);
+      const boxes = boxesForTask(task, photo.width, photo.height); // a TAG photo is the card, edge to edge
       for (const box of boxes) {
         const tagFile = tagPath(cert, task, side, box.key);
         if (!fs.existsSync(tagFile)) continue;

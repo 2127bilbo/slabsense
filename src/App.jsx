@@ -183,7 +183,12 @@ async function withModelDings(src, side, result) {
   try {
     const img = await loadImageElement(src); // natural resolution, not the 1400 px analysis copy
     if (!img) throw new Error('could not decode the card image');
-    const dings = await modelDingsForSide(img, side);
+    // The detectors ran on a 1400 px copy; scale their card bounds up to the full image so the
+    // crops frame the card itself, whether or not the user cropped the photo.
+    const scale = img.naturalWidth / (result.imgW || img.naturalWidth);
+    const b = result.bounds;
+    const rect = b ? { x: b.left * scale, y: b.top * scale, w: b.cardW * scale, h: b.cardH * scale } : null;
+    const dings = await modelDingsForSide(img, rect, side);
     return { ...result, allDings: mergeModelDings(result.allDings, dings), modelDings: dings, modelUsed: true };
   } catch (e) {
     console.warn(`corner/edge models skipped for ${side}:`, e?.message || e);
