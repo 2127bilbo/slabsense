@@ -2,9 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from PIL import Image
 
-from conftest import make_cache
+from conftest import make_cache, make_boxes_table
+from trainlib import cache as cache_mod
 from trainlib import data
+from trainlib import surface_tables as st
 from trainlib import tables as tables_mod
 
 
@@ -271,3 +274,51 @@ def test_surface_sfx_dataset_shapes_and_first_row_targets(surface_tables, tmp_pa
     assert mask[0].item() == 1.0
     kept, dropped = tables_mod.filter_cached(df, cache, "surface_sfx")
     assert dropped == 0 and len(kept) == len(df)
+
+
+def _border_image(w=200, h=300, l=20, r=30, t=25, b=35):
+    arr = np.full((h, w, 3), 200, dtype=np.uint8)
+    arr[t:h - b, l:w - r] = 60                      # printed frame region darker than the border
+    return Image.fromarray(arr)
+
+
+def test_jitter_edges_moves_targets_with_the_crop():
+    img = _border_image()
+    pm = [20 / 200 * 1000, 30 / 200 * 1000, 25 / 300 * 1000, 35 / 300 * 1000]
+    out, pm2 = data.jitter_edges(img, pm, np.random.default_rng(0), j=0.05)
+    assert out.size == img.size
+    # locate the dark frame in the jittered image and compare with the predicted per-mille targets
+    a = np.asarray(out.convert("L")); dark = a < 120
+    cols = np.where(dark.any(axis=0))[0]; rows_ = np.where(dark.any(axis=1))[0]
+    l_px, r_px = cols[0], out.width - 1 - cols[-1]
+    t_px, b_px = rows_[0], out.height - 1 - rows_[-1]
+    for got, exp in ((l_px, pm2[0] / 1000 * out.width), (r_px, pm2[1] / 1000 * out.width),
+                     (t_px, pm2[2] / 1000 * out.height), (b_px, pm2[3] / 1000 * out.height)):
+        assert abs(got - exp) <= 2.0
+    assert pm2 != pm
+
+
+def test_jitter_edges_zero_is_identity():
+    img = _border_image(); pm = [100.0, 150.0, 83.3, 116.7]
+    out, pm2 = data.jitter_edges(img, pm, np.random.default_rng(1), j=0.0)
+    assert out.size == img.size and pm2 == pm
+
+
+def test_centering_dataset_applies_jitter_in_train_only(surface_tables, tmp_path, monkeypatch):
+    ds, sp = surface_tables
+    sides, _ = st.load_surface_split(ds, sp, "train")
+    boxes_path = make_boxes_table(tmp_path, sides[sides.view == "rgb"])
+    monkeypatch.setenv("TRAINLIB_BOXES", str(boxes_path))
+    df = tables_mod.load_task_table("centering_rgb", ds, sp, "train")
+    cache = tmp_path / "cache"
+    for p in df.crop_path:
+        dest = cache_mod.resized_path(cache, p, (896, 1248), "card"); dest.parent.mkdir(parents=True, exist_ok=True)
+        _border_image(896, 1248, 40, 60, 50, 70).save(dest, format="JPEG", quality=95)
+    ev = data.CropDataset(df, "centering_rgb", cache, train=False)
+    img, side, target, mask = ev[0]
+    assert img.shape == (3, 1248, 896) and mask.tolist() == [1.0] * 4
+    assert torch.allclose(target, torch.tensor([df.dte_l[0], df.dte_r[0], df.dte_t[0], df.dte_b[0]], dtype=torch.float32) / 1000)
+    tr = data.CropDataset(df, "centering_rgb", cache, train=True); tr.rng = np.random.default_rng(3)
+    img2, _, target2, _ = tr[0]
+    assert img2.shape == img.shape and not torch.allclose(target2, target)
+    assert tables_mod.filter_cached(df, cache, "centering_rgb")[1] == 0

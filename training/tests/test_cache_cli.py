@@ -1,8 +1,10 @@
+import numpy as np
 import pytest
 from PIL import Image
 
-from conftest import FakeReader, png_bytes
+from conftest import FakeReader, make_boxes_table, orange_card_png, png_bytes
 from trainlib import cache, cache_cli, tables
+from trainlib import surface_tables as st
 
 
 def _write_config(tmp_path, ds, sp):
@@ -100,3 +102,21 @@ def test_cache_cli_rejects_from_cache_with_no_resize(surface_tables, tmp_path, m
     with pytest.raises(SystemExit):
         cache_cli.main(["--config", str(cfg), "--task", "surface_sfx", "--splits", "train",
                         "--from-cache", "--no-resize"])
+
+
+def test_cache_cli_centering_uses_card_boxes_and_variant(surface_tables, tmp_path, monkeypatch):
+    ds, sp = surface_tables
+    cfg = _write_config(tmp_path, ds, sp)
+    sides, _ = st.load_surface_split(ds, sp, "train")
+    rgb = sides[sides.view == "rgb"]
+    make_boxes_table(tmp_path, rgb, box=(50, 50, 350, 550), W=400, H=600, not_ok=[("B2", "B")])
+    monkeypatch.setenv("TRAINLIB_BOXES", str(tmp_path / "derived" / "centering_boxes_rgb.parquet"))
+    for key in rgb.image_key:
+        p = cache.cache_path(tmp_path / "cache", key); p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(orange_card_png(400, 600, margin=50))
+    monkeypatch.setattr(cache_cli, "reader_from_config", lambda cfg: FakeReader({}))
+    cache_cli.main(["--config", str(cfg), "--task", "centering_rgb", "--splits", "train", "--from-cache", "--workers", "1"])
+    done = [k for k in rgb.image_key if cache.resized_path(tmp_path / "cache", k, (896, 1248), "card").exists()]
+    assert len(done) == 3                                       # the not-ok side is skipped
+    with Image.open(cache.resized_path(tmp_path / "cache", done[0], (896, 1248), "card")) as im:
+        assert im.size == (896, 1248) and np.asarray(im.convert("RGB"))[..., 0].max() < 200

@@ -62,6 +62,26 @@ def load_crop(
     return (t - MEAN) / STD
 
 
+def jitter_edges(img: Image.Image, targets_pm: list[float], rng: np.random.Generator, j: float):
+    """Shift each crop edge by up to ±j of the image size (negative cuts into the card, positive pads
+    with a random flat color), resize back, and move the per-mille border targets to match."""
+    if j <= 0:
+        return img, list(targets_pm)
+    W, H = img.size
+    dl, dr, dt, db = (float(rng.uniform(-j, j)) for _ in range(4))
+    pl, pr, pt, pb = dl * W, dr * W, dt * H, db * H
+    box = (int(round(-pl)), int(round(-pt)), int(round(W + pr)), int(round(H + pb)))
+    fill = tuple(int(v) for v in rng.integers(0, 256, size=3))
+    canvas = Image.new("RGB", (box[2] - box[0], box[3] - box[1]), fill)
+    canvas.paste(img, (-box[0], -box[1]))
+    out = canvas.resize((W, H), Image.Resampling.BILINEAR)
+    nW, nH = box[2] - box[0], box[3] - box[1]
+    l, r, t, b = targets_pm
+    new = [(l / 1000 * W - box[0]) / nW * 1000, (r / 1000 * W + (box[2] - W)) / nW * 1000,
+           (t / 1000 * H - box[1]) / nH * 1000, (b / 1000 * H + (box[3] - H)) / nH * 1000]
+    return out, [min(max(v, 0.0), 1000.0) for v in new]
+
+
 class CropDataset(Dataset):
     def __init__(
         self,
@@ -112,9 +132,25 @@ class CropDataset(Dataset):
 
     def __getitem__(self, i: int):
         row = self.df.iloc[i]
-        img = load_crop(self._resolve_path(row.crop_path), self.task, self.train, self._generator(), self.input_size,
-                        aug=self.aug)
+        spec = TASKS[self.task]
+        path = self._resolve_path(row.crop_path)
         side = torch.tensor([1.0 if row.side == "B" else 0.0])
+        if self.train and spec.get("edge_jitter", 0) > 0:
+            rng = self._generator()
+            w, h = self.input_size if self.input_size is not None else spec["input_size"]
+            with Image.open(path) as im:
+                img = im.convert("RGB")
+            img = img.resize((w, h), Image.Resampling.BILINEAR)
+            targets_pm = [float(row[column]) for _name, _kind, column in self.targets]
+            img, targets_pm = jitter_edges(img, targets_pm, rng, spec["edge_jitter"])
+            img = ImageEnhance.Brightness(img).enhance(float(rng.uniform(0.9, 1.1)))
+            img = ImageEnhance.Contrast(img).enhance(float(rng.uniform(0.9, 1.1)))
+            t = torch.from_numpy(np.asarray(img, dtype=np.float32) / 255.0).permute(2, 0, 1)
+            img_t = (t - MEAN) / STD
+            target = torch.tensor([v / SCALE for v in targets_pm])
+            mask = torch.tensor([1.0] * len(targets_pm))
+            return img_t, side, target, mask
+        img = load_crop(path, self.task, self.train, self._generator(), self.input_size, aug=self.aug)
         vals, masks = [], []
         for _name, kind, column in self.targets:
             raw = row[column]

@@ -1,6 +1,7 @@
 """Per-task table specs and the split/grade join (spec §6.1, §11)."""
 from __future__ import annotations
 
+import os
 from collections import namedtuple
 from pathlib import Path
 
@@ -37,6 +38,37 @@ def surface_front_rows(manifest: pd.DataFrame, view: str) -> pd.DataFrame:
                          "rollup": manifest["rollup_surface"].astype("float64")})
     rows = rows[rows.crop_path.notna() & (rows.score_front.notna() | rows.rollup.notna())]
     return rows.sort_values("cert").reset_index(drop=True)
+
+
+_DTE = {"F": ("dte_front_left", "dte_front_right", "dte_front_top", "dte_front_bottom"),
+        "B": ("dte_back_left", "dte_back_right", "dte_back_top", "dte_back_bottom")}
+
+
+def centering_rows(manifest: pd.DataFrame, boxes: pd.DataFrame) -> pd.DataFrame:
+    """One row per cert per side: the color image key and TAG's four border distances expressed in
+    per-mille of the card's width (left/right) or height (top/bottom), the card rectangle coming from
+    the measured boxes table. Sides with a bad box or any missing distance are dropped."""
+    parts = []
+    for side, cols in _DTE.items():
+        b = boxes[(boxes.side == side) & boxes.ok][["cert", "image_key", "x0", "y0", "x1", "y1"]]
+        m = manifest[["cert", *cols]].merge(b, on="cert", how="inner")
+        cw, ch = (m.x1 - m.x0).astype("float64"), (m.y1 - m.y0).astype("float64")
+        parts.append(pd.DataFrame({"cert": m.cert, "side": side, "crop_path": m.image_key,
+                                   "dte_l": m[cols[0]] / cw * 1000, "dte_r": m[cols[1]] / cw * 1000,
+                                   "dte_t": m[cols[2]] / ch * 1000, "dte_b": m[cols[3]] / ch * 1000}))
+    rows = pd.concat(parts)
+    rows = rows.dropna(subset=["dte_l", "dte_r", "dte_t", "dte_b"])
+    for c in ("dte_l", "dte_r", "dte_t", "dte_b"):
+        rows[c] = rows[c].astype("float64").clip(0.0, 1000.0)
+    return rows.sort_values(["cert", "side"]).reset_index(drop=True)
+
+
+def _centering_boxes_path() -> Path:
+    return Path(os.environ.get("TRAINLIB_BOXES") or (Path(__file__).resolve().parents[1] / "derived" / "centering_boxes_rgb.parquet"))
+
+
+def _centering_rows_from_manifest(df: pd.DataFrame) -> pd.DataFrame:
+    return centering_rows(df, pd.read_parquet(_centering_boxes_path()))
 
 
 def _surface_front_task(view: str) -> dict:
@@ -98,6 +130,23 @@ TASKS = {
     },
     "surface_front_sfx": _surface_front_task("sfx"),
     "surface_front_rgb": _surface_front_task("rgb"),
+    "centering_rgb": {
+        "table": "manifest.parquet",
+        "rows": _centering_rows_from_manifest,
+        "targets": [
+            Target("dte_l", "regress", "dte_l"),
+            Target("dte_r", "regress", "dte_r"),
+            Target("dte_t", "regress", "dte_t"),
+            Target("dte_b", "regress", "dte_b"),
+        ],
+        "key_cols": ["side"],
+        "input_size": (896, 1248),
+        "long_side_horizontal": False,
+        "cache_resize": (896, 1248),
+        "cache_variant": "card",
+        "crop_boxes": "derived/centering_boxes_rgb.parquet",
+        "edge_jitter": 0.03,
+    },
 }
 
 

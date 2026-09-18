@@ -127,6 +127,16 @@ def make_surface_tables(tmp_path: Path):
         "surface_front": [1000.0, 110.0, 981.0, 705.0],
         "surface_back": [1000.0, None, 422.0, 350.0],
         "rollup_surface": [1000.0, 215.0, None, 620.0],
+        "image_w": [4400, 4400, 4400, 4400],
+        "image_h": [6100] * 4,
+        "dte_front_left": [180.0, 200.0, None, 190.0],
+        "dte_front_right": [160.0, 210.0, 170.0, 190.0],
+        "dte_front_top": [185.0, 250.0, 175.0, 200.0],
+        "dte_front_bottom": [165.0, 240.0, 180.0, 200.0],
+        "dte_back_left": [175.0, 205.0, 172.0, 195.0],
+        "dte_back_right": [170.0, 200.0, 168.0, 195.0],
+        "dte_back_top": [190.0, 245.0, 178.0, 205.0],
+        "dte_back_bottom": [170.0, 235.0, 182.0, 205.0],
     }).to_parquet(ds / "manifest.parquet", index=False)
     rows = [
         # cert, side, engine_type, x, y, w, h, deduction
@@ -153,6 +163,14 @@ def make_surface_tables(tmp_path: Path):
 @pytest.fixture
 def surface_tables(tmp_path):
     return make_surface_tables(tmp_path)
+
+
+def make_boxes_table(tmp_path: Path, sides: pd.DataFrame, box=(50, 50, 4350, 6050), W=4400, H=6100, not_ok=()) -> Path:
+    rows = [{"cert": r.cert, "side": r.side, "image_key": r.image_key, "W": W, "H": H,
+             "x0": box[0], "y0": box[1], "x1": box[2], "y1": box[3], "ok": (r.cert, r.side) not in set(not_ok)}
+            for r in sides.itertuples()]
+    p = tmp_path / "derived" / "centering_boxes_rgb.parquet"; p.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_parquet(p, index=False); return p
 
 
 def make_tile_index(tmp_path: Path, n: int = 4, size: int = 128) -> tuple[Path, pd.DataFrame]:

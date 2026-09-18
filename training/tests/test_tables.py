@@ -1,12 +1,14 @@
 import pandas as pd
 import pytest
 
-from conftest import make_cache
+from conftest import make_cache, make_boxes_table
 from trainlib import tables
+from trainlib import surface_tables as st
 
 
 def test_tasks_spec():
-    assert set(tables.TASKS) == {"corners", "edges", "surface_sfx", "surface_rgb", "surface_front_sfx", "surface_front_rgb"}
+    assert set(tables.TASKS) == {"corners", "edges", "surface_sfx", "surface_rgb", "surface_front_sfx",
+                                 "surface_front_rgb", "centering_rgb"}
     assert tables.TASKS["corners"]["targets"] == [
         tables.Target("wear", "binary", "ding_count"),
         tables.Target("deduction", "regress", "marker_deduction"),
@@ -156,3 +158,21 @@ def test_surface_front_tasks_load_and_key_set(surface_tables):
         df = tables.load_task_table(task, ds, sp, "train")
         assert df.cert.tolist() == ["A1", "B2"] and "grade_label" in df.columns
     assert {"surface_front_sfx", "surface_front_rgb"} <= set(tables.TASKS)
+
+
+def test_centering_rows_per_mille_of_card_dims(surface_tables, tmp_path, monkeypatch):
+    ds, sp = surface_tables
+    man = pd.read_parquet(ds / "manifest.parquet")
+    sides, _ = st.load_surface_split(ds, sp, "train")
+    boxes_path = make_boxes_table(tmp_path, sides[sides.view == "rgb"], not_ok=[("B2", "B")])
+    rows = tables.centering_rows(man, pd.read_parquet(boxes_path))
+    assert list(rows.columns) == ["cert", "side", "crop_path", "dte_l", "dte_r", "dte_t", "dte_b"]
+    a1f = rows[(rows.cert == "A1") & (rows.side == "F")].iloc[0]
+    assert abs(a1f.dte_l - 180 / 4300 * 1000) < 1e-9 and abs(a1f.dte_t - 185 / 6000 * 1000) < 1e-9
+    assert a1f.crop_path == "tag-dataset/A1/front.jpg"
+    assert not ((rows.cert == "B2") & (rows.side == "B")).any()          # not-ok box dropped
+    monkeypatch.setenv("TRAINLIB_BOXES", str(boxes_path))
+    df = tables.load_task_table("centering_rgb", ds, sp, "train")
+    assert len(df) == 3 and tables.target_names("centering_rgb") == ["dte_l", "dte_r", "dte_t", "dte_b"]
+    spec = tables.TASKS["centering_rgb"]
+    assert spec["cache_variant"] == "card" and spec["edge_jitter"] == 0.03 and spec["crop_boxes"] == "derived/centering_boxes_rgb.parquet"
