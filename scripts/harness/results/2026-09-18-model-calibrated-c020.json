@@ -1,0 +1,4157 @@
+{
+ "meta": {
+  "baseline": "2026-09-17-2026-09-17-baseline-engine11.json",
+  "predictions": "model-predictions.json",
+  "defaults": {
+   "corners": {
+    "wearThreshold": 0.2,
+    "severityCuts": {
+     "moderate": 150,
+     "severe": 300,
+     "extreme": 500
+    }
+   },
+   "edges": {
+    "wearThreshold": 0.5,
+    "severityCuts": {
+     "moderate": 150,
+     "severe": 300,
+     "extreme": 500
+    }
+   }
+  },
+  "generatedAt": "2026-09-18T03:22:48.618Z"
+ },
+ "baseline": {
+  "all": {
+   "cards": 506,
+   "mae": 3.08,
+   "signed": 2.78
+  },
+  "held": {
+   "cards": 102,
+   "mae": 2.98,
+   "signed": 2.66
+  }
+ },
+ "summary": {
+  "all": {
+   "cards": 506,
+   "mae": 1.71,
+   "signed": 1.64,
+   "exact": 23.72,
+   "within05": 34.78
+  },
+  "held": {
+   "cards": 102,
+   "mae": 1.56,
+   "signed": 1.52,
+   "exact": 26.47,
+   "within05": 36.27
+  },
+  "byBucket": {
+   "9-10": {
+    "cards": 103,
+    "mae": 0.15,
+    "signed": -0.01,
+    "exact": 84.47,
+    "within05": 86.41
+   },
+   "7-8.5": {
+    "cards": 161,
+    "mae": 1.02,
+    "signed": 0.98,
+    "exact": 17.39,
+    "within05": 44.1
+   },
+   "5-6.5": {
+    "cards": 118,
+    "mae": 2.25,
+    "signed": 2.18,
+    "exact": 4.24,
+    "within05": 11.02
+   },
+   "1-4.5": {
+    "cards": 124,
+    "mae": 3.39,
+    "signed": 3.36,
+    "exact": 0,
+    "within05": 2.42
+   }
+  },
+  "dingStats": {
+   "CORNER": {
+    "precision": 0.6,
+    "recall": 0.9,
+    "tp": 683,
+    "fp": 458,
+    "fn": 74
+   },
+   "EDGE": {
+    "precision": 0.63,
+    "recall": 0.16,
+    "tp": 44,
+    "fp": 26,
+    "fn": 225
+   }
+  },
+  "bootstrap": {
+   "meanImprovement": 1.42,
+   "ci95": [
+    1.11,
+    1.84
+   ],
+   "n": 102
+  }
+ },
+ "cards": [
+  {
+   "cert": "C1240631",
+   "tagGrade": 7,
+   "softGrade": 8.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "C1287305",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "C1714354",
+   "tagGrade": 5,
+   "softGrade": 8,
+   "err": 3,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "C2020553",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "C2146206",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "C4050208",
+   "tagGrade": 1,
+   "softGrade": 6,
+   "err": 5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "C4110021",
+   "tagGrade": 1,
+   "softGrade": 4.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "C4409654",
+   "tagGrade": 5,
+   "softGrade": 7.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "C4704033",
+   "tagGrade": 8,
+   "softGrade": 8,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "C5787006",
+   "tagGrade": 7.5,
+   "softGrade": 8.5,
+   "err": 1,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "C6048086",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": true,
+   "dings": 1
+  },
+  {
+   "cert": "C6315771",
+   "tagGrade": 4,
+   "softGrade": 9,
+   "err": 5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "C6660561",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "C6665979",
+   "tagGrade": 3,
+   "softGrade": 5,
+   "err": 2,
+   "held": true,
+   "dings": 6
+  },
+  {
+   "cert": "C6795219",
+   "tagGrade": 3,
+   "softGrade": 6.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "C6997053",
+   "tagGrade": 5,
+   "softGrade": 6.5,
+   "err": 1.5,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "C7421486",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "C7832282",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "C8522239",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "C8902878",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "C9009046",
+   "tagGrade": 6,
+   "softGrade": 7.5,
+   "err": 1.5,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "C9144298",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "C9784175",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "C9915267",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "D1014167",
+   "tagGrade": 8,
+   "softGrade": 7.5,
+   "err": -0.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "D1098120",
+   "tagGrade": 4,
+   "softGrade": 9,
+   "err": 5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "D1374835",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "D2129858",
+   "tagGrade": 4,
+   "softGrade": 8,
+   "err": 4,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "D4014224",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "D4482296",
+   "tagGrade": 1,
+   "softGrade": 5,
+   "err": 4,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "D4720769",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "D4728339",
+   "tagGrade": 5,
+   "softGrade": 5.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "D6012395",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "D6271173",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "D6374625",
+   "tagGrade": 2,
+   "softGrade": 6.5,
+   "err": 4.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "D6441070",
+   "tagGrade": 8.5,
+   "softGrade": 6.5,
+   "err": -2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "D6690847",
+   "tagGrade": 4,
+   "softGrade": 9,
+   "err": 5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "D6805280",
+   "tagGrade": 8.5,
+   "softGrade": 10,
+   "err": 1.5,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "D6865557",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "D8408427",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": true,
+   "dings": 5
+  },
+  {
+   "cert": "D8520551",
+   "tagGrade": 1,
+   "softGrade": 5,
+   "err": 4,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "D8520582",
+   "tagGrade": 2,
+   "softGrade": 6,
+   "err": 4,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "D8865388",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "E1156198",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "E1464155",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E2621970",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "E3034011",
+   "tagGrade": 6.5,
+   "softGrade": 6.5,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "E3089107",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "E4122942",
+   "tagGrade": 1,
+   "softGrade": 7.5,
+   "err": 6.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "E4187804",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "E4266699",
+   "tagGrade": 4,
+   "softGrade": 7.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E4311670",
+   "tagGrade": 1,
+   "softGrade": 3,
+   "err": 2,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "E4338816",
+   "tagGrade": 8,
+   "softGrade": 8,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "E4799433",
+   "tagGrade": 1,
+   "softGrade": 6,
+   "err": 5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E4955843",
+   "tagGrade": 7.5,
+   "softGrade": 8.5,
+   "err": 1,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "E5135368",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E5142267",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "E5409497",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E5481456",
+   "tagGrade": 3,
+   "softGrade": 5,
+   "err": 2,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "E5628592",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "E5656192",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "E5671977",
+   "tagGrade": 6.5,
+   "softGrade": 8,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E5688504",
+   "tagGrade": 6.5,
+   "softGrade": 8.5,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E6359418",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "E6524976",
+   "tagGrade": 6,
+   "softGrade": 8,
+   "err": 2,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "E6611704",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "E6703918",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "E6899567",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "E7137187",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "E7320886",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "E8314263",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E8457832",
+   "tagGrade": 6.5,
+   "softGrade": 9,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E8675124",
+   "tagGrade": 6.5,
+   "softGrade": 8,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E8802331",
+   "tagGrade": 1,
+   "softGrade": 4.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "E9579583",
+   "tagGrade": 8,
+   "softGrade": 8.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "E9602606",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "F1134471",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "F1211514",
+   "tagGrade": 3,
+   "softGrade": 8,
+   "err": 5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "F1555020",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "F1581692",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "F1752666",
+   "tagGrade": 6,
+   "softGrade": 9,
+   "err": 3,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "F2332283",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "F2455096",
+   "tagGrade": 3,
+   "softGrade": 5,
+   "err": 2,
+   "held": true,
+   "dings": 6
+  },
+  {
+   "cert": "F3701551",
+   "tagGrade": 1,
+   "softGrade": 4.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 8
+  },
+  {
+   "cert": "F4026206",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "F4067237",
+   "tagGrade": 3,
+   "softGrade": 8,
+   "err": 5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "F4368939",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "F4452917",
+   "tagGrade": 7.5,
+   "softGrade": 8.5,
+   "err": 1,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "F5260980",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "F5978295",
+   "tagGrade": 10,
+   "softGrade": 9,
+   "err": -1,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "F7595136",
+   "tagGrade": 6.5,
+   "softGrade": 9,
+   "err": 2.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "F7650319",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "F7694572",
+   "tagGrade": 8.5,
+   "softGrade": 10,
+   "err": 1.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "F8198742",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "F8349601",
+   "tagGrade": 6.5,
+   "softGrade": 7,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "F8653027",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "F8974792",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "F9326607",
+   "tagGrade": 10,
+   "softGrade": 9,
+   "err": -1,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "F9652912",
+   "tagGrade": 5,
+   "softGrade": 9,
+   "err": 4,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "F9701200",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "F9773883",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "G1790411",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "G1837766",
+   "tagGrade": 3,
+   "softGrade": 5,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "G1952001",
+   "tagGrade": 6.5,
+   "softGrade": 10,
+   "err": 3.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "G3499699",
+   "tagGrade": 5,
+   "softGrade": 9,
+   "err": 4,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "G3983629",
+   "tagGrade": 1,
+   "softGrade": 5,
+   "err": 4,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "G4400846",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "G4474550",
+   "tagGrade": 3,
+   "softGrade": 10,
+   "err": 7,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "G5780237",
+   "tagGrade": 2,
+   "softGrade": 6.5,
+   "err": 4.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "G5960857",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "G6299360",
+   "tagGrade": 5,
+   "softGrade": 10,
+   "err": 5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "G6983385",
+   "tagGrade": 7,
+   "softGrade": 10,
+   "err": 3,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "G7535748",
+   "tagGrade": 8,
+   "softGrade": 8,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "G7774470",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "G8325776",
+   "tagGrade": 1,
+   "softGrade": 5,
+   "err": 4,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "G8531125",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "G9329289",
+   "tagGrade": 5,
+   "softGrade": 5.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "G9871996",
+   "tagGrade": 8,
+   "softGrade": 8,
+   "err": 0,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "G9954277",
+   "tagGrade": 7.5,
+   "softGrade": 8.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "G9979344",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "H1494379",
+   "tagGrade": 9,
+   "softGrade": 8.5,
+   "err": -0.5,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "H1568582",
+   "tagGrade": 8,
+   "softGrade": 8.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "H1676203",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "H1700117",
+   "tagGrade": 7.5,
+   "softGrade": 8,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "H1738741",
+   "tagGrade": 7,
+   "softGrade": 8.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "H2716563",
+   "tagGrade": 8,
+   "softGrade": 10,
+   "err": 2,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "H3262354",
+   "tagGrade": 7,
+   "softGrade": 8.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "H4431013",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "H4579250",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "H4810173",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "H5675516",
+   "tagGrade": 1,
+   "softGrade": 4.5,
+   "err": 3.5,
+   "held": true,
+   "dings": 7
+  },
+  {
+   "cert": "H5768730",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "H5916347",
+   "tagGrade": 10,
+   "softGrade": 9,
+   "err": -1,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "H6130519",
+   "tagGrade": 2,
+   "softGrade": 4,
+   "err": 2,
+   "held": false,
+   "dings": 7
+  },
+  {
+   "cert": "H6178233",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "H6654791",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "H8554052",
+   "tagGrade": 7.5,
+   "softGrade": 8.5,
+   "err": 1,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "H8807884",
+   "tagGrade": 3,
+   "softGrade": 3.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "H9264607",
+   "tagGrade": 8,
+   "softGrade": 10,
+   "err": 2,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "H9342328",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "H9479369",
+   "tagGrade": 1,
+   "softGrade": 5,
+   "err": 4,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "H9724627",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "J1092902",
+   "tagGrade": 6,
+   "softGrade": 7.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "J1610572",
+   "tagGrade": 5,
+   "softGrade": 6,
+   "err": 1,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "J2340051",
+   "tagGrade": 2,
+   "softGrade": 8,
+   "err": 6,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "J3085282",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": true,
+   "dings": 5
+  },
+  {
+   "cert": "J3850484",
+   "tagGrade": 1,
+   "softGrade": 5.5,
+   "err": 4.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "J4029754",
+   "tagGrade": 5,
+   "softGrade": 9,
+   "err": 4,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "J4458635",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "J4640987",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "J5306473",
+   "tagGrade": 6.5,
+   "softGrade": 9,
+   "err": 2.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "J5657753",
+   "tagGrade": 7.5,
+   "softGrade": 8.5,
+   "err": 1,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "J5730156",
+   "tagGrade": 8,
+   "softGrade": 8,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "J5833664",
+   "tagGrade": 7.5,
+   "softGrade": 7.5,
+   "err": 0,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "J5864289",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "J6189037",
+   "tagGrade": 8,
+   "softGrade": 10,
+   "err": 2,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "J7184486",
+   "tagGrade": 7,
+   "softGrade": 7.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "J8545406",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "J9042846",
+   "tagGrade": 3,
+   "softGrade": 9,
+   "err": 6,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "J9152884",
+   "tagGrade": 8,
+   "softGrade": 8.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "J9457558",
+   "tagGrade": 3,
+   "softGrade": 8,
+   "err": 5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "J9727079",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "K1242351",
+   "tagGrade": 7,
+   "softGrade": 7.5,
+   "err": 0.5,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "K1283967",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "K1720526",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "K1916397",
+   "tagGrade": 6.5,
+   "softGrade": 9,
+   "err": 2.5,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "K2188929",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "K2581343",
+   "tagGrade": 6,
+   "softGrade": 5.5,
+   "err": -0.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "K2621159",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "K3008372",
+   "tagGrade": 7,
+   "softGrade": 7,
+   "err": 0,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "K3514382",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "K3751105",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "K5336487",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "K6227238",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "K6367167",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "K6402430",
+   "tagGrade": 1,
+   "softGrade": 5,
+   "err": 4,
+   "held": true,
+   "dings": 5
+  },
+  {
+   "cert": "K6487106",
+   "tagGrade": 1,
+   "softGrade": 3.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "K7405232",
+   "tagGrade": 6.5,
+   "softGrade": 10,
+   "err": 3.5,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "K8445473",
+   "tagGrade": 8,
+   "softGrade": 8,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "K8842875",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "K9464365",
+   "tagGrade": 5,
+   "softGrade": 5,
+   "err": 0,
+   "held": true,
+   "dings": 5
+  },
+  {
+   "cert": "K9902773",
+   "tagGrade": 7.5,
+   "softGrade": 7.5,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "L1404395",
+   "tagGrade": 6.5,
+   "softGrade": 9,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "L1497539",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "L3303892",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "L3900584",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "L4274738",
+   "tagGrade": 2,
+   "softGrade": 3.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "L4829727",
+   "tagGrade": 8,
+   "softGrade": 10,
+   "err": 2,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "L5052465",
+   "tagGrade": 6.5,
+   "softGrade": 9,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "L5423060",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "L5724884",
+   "tagGrade": 4,
+   "softGrade": 6,
+   "err": 2,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "L6082859",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "L6367074",
+   "tagGrade": 1,
+   "softGrade": 5,
+   "err": 4,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "L6666884",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "L6751523",
+   "tagGrade": 6,
+   "softGrade": 7,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "L6891406",
+   "tagGrade": 4,
+   "softGrade": 8.5,
+   "err": 4.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "L7297267",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "L7478178",
+   "tagGrade": 6.5,
+   "softGrade": 8.5,
+   "err": 2,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "L7879755",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "L8134880",
+   "tagGrade": 8.5,
+   "softGrade": 10,
+   "err": 1.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "L8186906",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "L8958609",
+   "tagGrade": 7.5,
+   "softGrade": 8.5,
+   "err": 1,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "L9325870",
+   "tagGrade": 6,
+   "softGrade": 9,
+   "err": 3,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "L9453141",
+   "tagGrade": 8.5,
+   "softGrade": 10,
+   "err": 1.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "M1394075",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "M1439525",
+   "tagGrade": 7,
+   "softGrade": 10,
+   "err": 3,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "M1508407",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "M1609634",
+   "tagGrade": 3,
+   "softGrade": 9,
+   "err": 6,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "M2097651",
+   "tagGrade": 5,
+   "softGrade": 8,
+   "err": 3,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "M2347498",
+   "tagGrade": 1,
+   "softGrade": 6,
+   "err": 5,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "M2537851",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "M3351878",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "M4450900",
+   "tagGrade": 4,
+   "softGrade": 7.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "M4489599",
+   "tagGrade": 1,
+   "softGrade": 2.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 9
+  },
+  {
+   "cert": "M4991383",
+   "tagGrade": 5,
+   "softGrade": 10,
+   "err": 5,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "M5457641",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "M5958169",
+   "tagGrade": 3,
+   "softGrade": 5,
+   "err": 2,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "M6192817",
+   "tagGrade": 3,
+   "softGrade": 2,
+   "err": -1,
+   "held": false,
+   "dings": 8
+  },
+  {
+   "cert": "M6594420",
+   "tagGrade": 1,
+   "softGrade": 6,
+   "err": 5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "M7023108",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "M8924021",
+   "tagGrade": 2,
+   "softGrade": 6,
+   "err": 4,
+   "held": false,
+   "dings": 7
+  },
+  {
+   "cert": "M9014367",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "M9313485",
+   "tagGrade": 5,
+   "softGrade": 7.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "M9379718",
+   "tagGrade": 3,
+   "softGrade": 8,
+   "err": 5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "M9553752",
+   "tagGrade": 6.5,
+   "softGrade": 10,
+   "err": 3.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "M9671322",
+   "tagGrade": 5,
+   "softGrade": 9,
+   "err": 4,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "M9711393",
+   "tagGrade": 9,
+   "softGrade": 8.5,
+   "err": -0.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "M9757525",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "N1371265",
+   "tagGrade": 7.5,
+   "softGrade": 7.5,
+   "err": 0,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "N1605065",
+   "tagGrade": 7,
+   "softGrade": 10,
+   "err": 3,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "N1776532",
+   "tagGrade": 3,
+   "softGrade": 5,
+   "err": 2,
+   "held": true,
+   "dings": 5
+  },
+  {
+   "cert": "N2589521",
+   "tagGrade": 4,
+   "softGrade": 7.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "N2836540",
+   "tagGrade": 4,
+   "softGrade": 3.5,
+   "err": -0.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "N3010603",
+   "tagGrade": 7,
+   "softGrade": 8,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "N3253375",
+   "tagGrade": 4,
+   "softGrade": 7.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "N3414601",
+   "tagGrade": 5,
+   "softGrade": 7.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "N3657297",
+   "tagGrade": 6.5,
+   "softGrade": 8.5,
+   "err": 2,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "N3691291",
+   "tagGrade": 6.5,
+   "softGrade": 10,
+   "err": 3.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "N3723668",
+   "tagGrade": 5,
+   "softGrade": 8,
+   "err": 3,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "N4308503",
+   "tagGrade": 5,
+   "softGrade": 7.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "N4354510",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "N4621407",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "N5113491",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "N5446101",
+   "tagGrade": 2,
+   "softGrade": 7,
+   "err": 5,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "N5499411",
+   "tagGrade": 4,
+   "softGrade": 9,
+   "err": 5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "N5501298",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "N5708455",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "N5752191",
+   "tagGrade": 5,
+   "softGrade": 10,
+   "err": 5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "N5982203",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "N6067073",
+   "tagGrade": 5,
+   "softGrade": 8,
+   "err": 3,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "N6605457",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "N6632724",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "N6930656",
+   "tagGrade": 6,
+   "softGrade": 9,
+   "err": 3,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "N7325831",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "N8121015",
+   "tagGrade": 8,
+   "softGrade": 10,
+   "err": 2,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "N8241348",
+   "tagGrade": 1,
+   "softGrade": 4.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "N8262283",
+   "tagGrade": 5,
+   "softGrade": 7.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "N8290140",
+   "tagGrade": 8,
+   "softGrade": 10,
+   "err": 2,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "N8809328",
+   "tagGrade": 6,
+   "softGrade": 8.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "N9728499",
+   "tagGrade": 6,
+   "softGrade": 8,
+   "err": 2,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "P1319389",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "P1376552",
+   "tagGrade": 9,
+   "softGrade": 10,
+   "err": 1,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "P1595119",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "P1891838",
+   "tagGrade": 10,
+   "softGrade": 9,
+   "err": -1,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "P2099737",
+   "tagGrade": 7,
+   "softGrade": 8,
+   "err": 1,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "P2400174",
+   "tagGrade": 4,
+   "softGrade": 10,
+   "err": 6,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "P3101594",
+   "tagGrade": 6,
+   "softGrade": 8,
+   "err": 2,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "P4012731",
+   "tagGrade": 7,
+   "softGrade": 7.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "P4073209",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "P4293778",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "P4971832",
+   "tagGrade": 6,
+   "softGrade": 8,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "P5388964",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "P5579261",
+   "tagGrade": 8,
+   "softGrade": 8.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "P5826828",
+   "tagGrade": 8,
+   "softGrade": 8.5,
+   "err": 0.5,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "P6972120",
+   "tagGrade": 2,
+   "softGrade": 9,
+   "err": 7,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "P7331007",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "P8127132",
+   "tagGrade": 6.5,
+   "softGrade": 9,
+   "err": 2.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "P8131593",
+   "tagGrade": 6,
+   "softGrade": 8.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "P9046919",
+   "tagGrade": 6,
+   "softGrade": 7.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "Q1026519",
+   "tagGrade": 3,
+   "softGrade": 10,
+   "err": 7,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "Q1040781",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Q1388958",
+   "tagGrade": 8,
+   "softGrade": 8.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "Q1549547",
+   "tagGrade": 3,
+   "softGrade": 6,
+   "err": 3,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "Q1778156",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "Q1976874",
+   "tagGrade": 6,
+   "softGrade": 7.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Q2001091",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "Q2956338",
+   "tagGrade": 9,
+   "softGrade": 10,
+   "err": 1,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Q3600568",
+   "tagGrade": 6,
+   "softGrade": 10,
+   "err": 4,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Q3924307",
+   "tagGrade": 9,
+   "softGrade": 10,
+   "err": 1,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "Q4600112",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Q5350705",
+   "tagGrade": 8,
+   "softGrade": 8.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "Q5591973",
+   "tagGrade": 7.5,
+   "softGrade": 10,
+   "err": 2.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Q6239412",
+   "tagGrade": 5,
+   "softGrade": 8.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "Q6797435",
+   "tagGrade": 3,
+   "softGrade": 9,
+   "err": 6,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "Q6989794",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "Q7014870",
+   "tagGrade": 5,
+   "softGrade": 10,
+   "err": 5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Q7653924",
+   "tagGrade": 7,
+   "softGrade": 8.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "Q7677801",
+   "tagGrade": 2,
+   "softGrade": 4.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "Q7984785",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Q8198927",
+   "tagGrade": 1,
+   "softGrade": 4.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Q8243735",
+   "tagGrade": 7.5,
+   "softGrade": 10,
+   "err": 2.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Q8628594",
+   "tagGrade": 1,
+   "softGrade": 5,
+   "err": 4,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "Q9767734",
+   "tagGrade": 5,
+   "softGrade": 7.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "R1173265",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "R1219023",
+   "tagGrade": 7,
+   "softGrade": 8.5,
+   "err": 1.5,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "R1353770",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "R1739602",
+   "tagGrade": 7.5,
+   "softGrade": 8.5,
+   "err": 1,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "R1768662",
+   "tagGrade": 10,
+   "softGrade": 9,
+   "err": -1,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "R2462634",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "R2926658",
+   "tagGrade": 7,
+   "softGrade": 7,
+   "err": 0,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "R3163370",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "R3577159",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "R3631081",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "R3816077",
+   "tagGrade": 6,
+   "softGrade": 5,
+   "err": -1,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "R3966149",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "R4025544",
+   "tagGrade": 5,
+   "softGrade": 9,
+   "err": 4,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "R5023570",
+   "tagGrade": 1,
+   "softGrade": 5,
+   "err": 4,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "R5527974",
+   "tagGrade": 7,
+   "softGrade": 8.5,
+   "err": 1.5,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "R5568263",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "R5805548",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "R6037958",
+   "tagGrade": 1,
+   "softGrade": 6,
+   "err": 5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "R6251088",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "R6447886",
+   "tagGrade": 2,
+   "softGrade": 6,
+   "err": 4,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "R6884777",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "R6905357",
+   "tagGrade": 6,
+   "softGrade": 6.5,
+   "err": 0.5,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "R6924435",
+   "tagGrade": 7,
+   "softGrade": 8,
+   "err": 1,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "R6977528",
+   "tagGrade": 5,
+   "softGrade": 6,
+   "err": 1,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "R7405082",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "R9010993",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "R9512841",
+   "tagGrade": 4,
+   "softGrade": 7.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "R9753177",
+   "tagGrade": 8.5,
+   "softGrade": 10,
+   "err": 1.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "S1384279",
+   "tagGrade": 6,
+   "softGrade": 9,
+   "err": 3,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "S4258333",
+   "tagGrade": 5,
+   "softGrade": 6.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "S4367019",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "S5264605",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "S5340038",
+   "tagGrade": 7,
+   "softGrade": 8,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "S5424566",
+   "tagGrade": 8,
+   "softGrade": 8.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "S5529331",
+   "tagGrade": 6,
+   "softGrade": 5,
+   "err": -1,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "S5938694",
+   "tagGrade": 7.5,
+   "softGrade": 7,
+   "err": -0.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "S6556992",
+   "tagGrade": 7.5,
+   "softGrade": 8,
+   "err": 0.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "S7255632",
+   "tagGrade": 9,
+   "softGrade": 10,
+   "err": 1,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "S7512963",
+   "tagGrade": 9,
+   "softGrade": 10,
+   "err": 1,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "S9152376",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "S9360272",
+   "tagGrade": 1,
+   "softGrade": 3.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 9
+  },
+  {
+   "cert": "S9679172",
+   "tagGrade": 7,
+   "softGrade": 8,
+   "err": 1,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "T1075056",
+   "tagGrade": 8,
+   "softGrade": 8.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "T1454958",
+   "tagGrade": 6.5,
+   "softGrade": 8,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "T2445684",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "T2638029",
+   "tagGrade": 4,
+   "softGrade": 10,
+   "err": 6,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "T2770447",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "T3405124",
+   "tagGrade": 5,
+   "softGrade": 5,
+   "err": 0,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "T4610460",
+   "tagGrade": 6,
+   "softGrade": 10,
+   "err": 4,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "T5711052",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": true,
+   "dings": 5
+  },
+  {
+   "cert": "T5851340",
+   "tagGrade": 8,
+   "softGrade": 8,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "T5879042",
+   "tagGrade": 4,
+   "softGrade": 4.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "T6149043",
+   "tagGrade": 8,
+   "softGrade": 10,
+   "err": 2,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "T6388455",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "T8026856",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "T8095637",
+   "tagGrade": 4,
+   "softGrade": 6,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "T8314716",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "T8693570",
+   "tagGrade": 4,
+   "softGrade": 6.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "T9034468",
+   "tagGrade": 6,
+   "softGrade": 8,
+   "err": 2,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "T9832640",
+   "tagGrade": 8,
+   "softGrade": 8.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "U1239640",
+   "tagGrade": 5,
+   "softGrade": 10,
+   "err": 5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "U1604079",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "U2263940",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "U2431391",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "U2539139",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "U3607978",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "U4019914",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "U4094059",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "U5485906",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "U6189744",
+   "tagGrade": 1,
+   "softGrade": 10,
+   "err": 9,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "U6744669",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "U7215847",
+   "tagGrade": 2,
+   "softGrade": 4.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "U7227503",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "U7251916",
+   "tagGrade": 6.5,
+   "softGrade": 6.5,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "U7507044",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "U7976344",
+   "tagGrade": 5,
+   "softGrade": 5.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "U8334097",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "U8792797",
+   "tagGrade": 4,
+   "softGrade": 10,
+   "err": 6,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "U9165916",
+   "tagGrade": 3,
+   "softGrade": 5.5,
+   "err": 2.5,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "U9242086",
+   "tagGrade": 6,
+   "softGrade": 6.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "U9396288",
+   "tagGrade": 6,
+   "softGrade": 10,
+   "err": 4,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "V1189164",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "V1491665",
+   "tagGrade": 6.5,
+   "softGrade": 10,
+   "err": 3.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "V1871177",
+   "tagGrade": 6,
+   "softGrade": 9,
+   "err": 3,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "V1913576",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "V2228829",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "V2392521",
+   "tagGrade": 7.5,
+   "softGrade": 10,
+   "err": 2.5,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "V2556217",
+   "tagGrade": 5,
+   "softGrade": 9,
+   "err": 4,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "V2798381",
+   "tagGrade": 7.5,
+   "softGrade": 8.5,
+   "err": 1,
+   "held": true,
+   "dings": 5
+  },
+  {
+   "cert": "V3011677",
+   "tagGrade": 2,
+   "softGrade": 6,
+   "err": 4,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "V4063531",
+   "tagGrade": 8,
+   "softGrade": 8,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "V4709995",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "V5182438",
+   "tagGrade": 6,
+   "softGrade": 10,
+   "err": 4,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "V5395864",
+   "tagGrade": 7,
+   "softGrade": 8.5,
+   "err": 1.5,
+   "held": true,
+   "dings": 5
+  },
+  {
+   "cert": "V6089872",
+   "tagGrade": 4,
+   "softGrade": 6,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "V6177020",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "V6756678",
+   "tagGrade": 1,
+   "softGrade": 5,
+   "err": 4,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "V6940837",
+   "tagGrade": 2,
+   "softGrade": 5.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "V7179908",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "V7544071",
+   "tagGrade": 7,
+   "softGrade": 8,
+   "err": 1,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "V8678236",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "V9439139",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "V9476985",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "V9646561",
+   "tagGrade": 3,
+   "softGrade": 7,
+   "err": 4,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "V9973917",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "V9989726",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "W1273220",
+   "tagGrade": 4,
+   "softGrade": 6,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "W1355410",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "W1745781",
+   "tagGrade": 1,
+   "softGrade": 2.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 7
+  },
+  {
+   "cert": "W1836216",
+   "tagGrade": 5,
+   "softGrade": 5,
+   "err": 0,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "W1999507",
+   "tagGrade": 5,
+   "softGrade": 7.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "W2377793",
+   "tagGrade": 8,
+   "softGrade": 8,
+   "err": 0,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "W2783822",
+   "tagGrade": 6,
+   "softGrade": 8.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "W2822724",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "W3086368",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "W3099881",
+   "tagGrade": 8,
+   "softGrade": 10,
+   "err": 2,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "W3403188",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "W3684716",
+   "tagGrade": 7.5,
+   "softGrade": 8,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "W3778624",
+   "tagGrade": 6,
+   "softGrade": 8.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "W4269599",
+   "tagGrade": 9,
+   "softGrade": 10,
+   "err": 1,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "W5275550",
+   "tagGrade": 4,
+   "softGrade": 9,
+   "err": 5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "W5672055",
+   "tagGrade": 5,
+   "softGrade": 6.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "W6481273",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "W7116553",
+   "tagGrade": 6,
+   "softGrade": 4.5,
+   "err": -1.5,
+   "held": true,
+   "dings": 6
+  },
+  {
+   "cert": "W8644540",
+   "tagGrade": 6,
+   "softGrade": 7.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "W8943048",
+   "tagGrade": 7,
+   "softGrade": 7.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "W8953990",
+   "tagGrade": 1,
+   "softGrade": 4.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "W8986867",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "W9284293",
+   "tagGrade": 3,
+   "softGrade": 5.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "W9461128",
+   "tagGrade": 7.5,
+   "softGrade": 10,
+   "err": 2.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "W9907528",
+   "tagGrade": 7.5,
+   "softGrade": 8,
+   "err": 0.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "X1088276",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": true,
+   "dings": 5
+  },
+  {
+   "cert": "X1787851",
+   "tagGrade": 6,
+   "softGrade": 7.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "X2004214",
+   "tagGrade": 4,
+   "softGrade": 5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "X3019898",
+   "tagGrade": 10,
+   "softGrade": 9,
+   "err": -1,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "X3448548",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "X3581688",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "X3652777",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "X3923374",
+   "tagGrade": 7,
+   "softGrade": 9,
+   "err": 2,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "X4175230",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "X4254705",
+   "tagGrade": 7.5,
+   "softGrade": 8.5,
+   "err": 1,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "X4504825",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "X4564447",
+   "tagGrade": 6,
+   "softGrade": 8,
+   "err": 2,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "X4569795",
+   "tagGrade": 2,
+   "softGrade": 3.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "X5004970",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "X6301408",
+   "tagGrade": 4,
+   "softGrade": 9,
+   "err": 5,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "X6381434",
+   "tagGrade": 6.5,
+   "softGrade": 10,
+   "err": 3.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "X6473080",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "X6648503",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "X6689097",
+   "tagGrade": 6.5,
+   "softGrade": 7.5,
+   "err": 1,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "X6704870",
+   "tagGrade": 6,
+   "softGrade": 8.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "X7583393",
+   "tagGrade": 1,
+   "softGrade": 2.5,
+   "err": 1.5,
+   "held": true,
+   "dings": 7
+  },
+  {
+   "cert": "X7660179",
+   "tagGrade": 5,
+   "softGrade": 10,
+   "err": 5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "X7747761",
+   "tagGrade": 3,
+   "softGrade": 6,
+   "err": 3,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "X8331919",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "X8801494",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "X9049960",
+   "tagGrade": 3,
+   "softGrade": 5.5,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "X9254362",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "X9980148",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "Y2814578",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Y3065366",
+   "tagGrade": 2,
+   "softGrade": 5.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Y3285309",
+   "tagGrade": 6,
+   "softGrade": 7.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Y3582220",
+   "tagGrade": 3,
+   "softGrade": 5,
+   "err": 2,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "Y3600153",
+   "tagGrade": 7,
+   "softGrade": 10,
+   "err": 3,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Y3625619",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Y3625719",
+   "tagGrade": 10,
+   "softGrade": 9,
+   "err": -1,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "Y3688558",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "Y4552123",
+   "tagGrade": 7,
+   "softGrade": 10,
+   "err": 3,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Y5052437",
+   "tagGrade": 5,
+   "softGrade": 9,
+   "err": 4,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Y5551489",
+   "tagGrade": 6.5,
+   "softGrade": 9,
+   "err": 2.5,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "Y5732731",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Y6057315",
+   "tagGrade": 5,
+   "softGrade": 7.5,
+   "err": 2.5,
+   "held": true,
+   "dings": 4
+  },
+  {
+   "cert": "Y6317216",
+   "tagGrade": 6,
+   "softGrade": 10,
+   "err": 4,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "Y6587347",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Y7686378",
+   "tagGrade": 6.5,
+   "softGrade": 9,
+   "err": 2.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Y8042790",
+   "tagGrade": 9,
+   "softGrade": 10,
+   "err": 1,
+   "held": true,
+   "dings": 1
+  },
+  {
+   "cert": "Y8859090",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "Z1910611",
+   "tagGrade": 4,
+   "softGrade": 7,
+   "err": 3,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Z3009750",
+   "tagGrade": 4,
+   "softGrade": 8.5,
+   "err": 4.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Z3058395",
+   "tagGrade": 7,
+   "softGrade": 7,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Z3484356",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Z3905086",
+   "tagGrade": 5,
+   "softGrade": 8.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 1
+  },
+  {
+   "cert": "Z4088641",
+   "tagGrade": 6,
+   "softGrade": 9,
+   "err": 3,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Z4289999",
+   "tagGrade": 8.5,
+   "softGrade": 8.5,
+   "err": 0,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "Z4779268",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "Z5523316",
+   "tagGrade": 10,
+   "softGrade": 10,
+   "err": 0,
+   "held": true,
+   "dings": 0
+  },
+  {
+   "cert": "Z6021577",
+   "tagGrade": 8.5,
+   "softGrade": 9,
+   "err": 0.5,
+   "held": false,
+   "dings": 3
+  },
+  {
+   "cert": "Z6293727",
+   "tagGrade": 6,
+   "softGrade": 7.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Z6478868",
+   "tagGrade": 6.5,
+   "softGrade": 9,
+   "err": 2.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Z6681370",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 2
+  },
+  {
+   "cert": "Z7009101",
+   "tagGrade": 6.5,
+   "softGrade": 10,
+   "err": 3.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Z7149058",
+   "tagGrade": 2,
+   "softGrade": 5.5,
+   "err": 3.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Z7158681",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": true,
+   "dings": 3
+  },
+  {
+   "cert": "Z7254982",
+   "tagGrade": 8,
+   "softGrade": 9,
+   "err": 1,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Z7298003",
+   "tagGrade": 2,
+   "softGrade": 5,
+   "err": 3,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "Z7314367",
+   "tagGrade": 7.5,
+   "softGrade": 7.5,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Z7332289",
+   "tagGrade": 6,
+   "softGrade": 6.5,
+   "err": 0.5,
+   "held": false,
+   "dings": 6
+  },
+  {
+   "cert": "Z7370340",
+   "tagGrade": 7.5,
+   "softGrade": 9,
+   "err": 1.5,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Z7924793",
+   "tagGrade": 6,
+   "softGrade": 7.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 5
+  },
+  {
+   "cert": "Z8203513",
+   "tagGrade": 9,
+   "softGrade": 9,
+   "err": 0,
+   "held": false,
+   "dings": 0
+  },
+  {
+   "cert": "Z8422088",
+   "tagGrade": 6,
+   "softGrade": 8,
+   "err": 2,
+   "held": true,
+   "dings": 2
+  },
+  {
+   "cert": "Z9607962",
+   "tagGrade": 7,
+   "softGrade": 8.5,
+   "err": 1.5,
+   "held": false,
+   "dings": 4
+  },
+  {
+   "cert": "Z9877458",
+   "tagGrade": 6,
+   "softGrade": 8,
+   "err": 2,
+   "held": true,
+   "dings": 3
+  }
+ ]
+}

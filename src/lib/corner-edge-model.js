@@ -41,15 +41,21 @@ export const POINT_SCALE = 1000;
  * held-out ones). `wearThreshold` is the probability a slot must clear to become
  * a ding; `severityCuts` are predicted-deduction points, ascending.
  *
- * These are not the lowest-error thresholds available. Firing more, harsher
- * corner dings scores better overall (MAE 1.40 vs 1.84) purely by punishing
- * heavily damaged cards whose real problem is creases and stains that no model
- * covers yet — it buys accuracy with false corner dings, makes clean cards worse
- * (9-10 bucket MAE 0.28 vs 0.12) and would have to be undone when a surface
- * model lands. This setting keeps each ding meaning what it says.
+ * Corners fire at 0.20 (2026-09-18). The sweep had 0.30 and 0.20 close on TAG
+ * scans (held-out MAE 1.72 vs 1.56; 9-10 bucket 0.12 vs 0.15; corner
+ * precision/recall 0.66/0.84 vs 0.60/0.90). Phone photos are softer than TAG
+ * scans and score every corner 0.1-0.2 lower — the owner's worn card scored its
+ * four visibly rubbed back corners 0.21-0.38 — so 0.20 is the one that works
+ * on the photos the app actually gets.
+ *
+ * The severity cuts are deliberately NOT the lowest-error ones. Harsher cuts
+ * score better overall (MAE 1.40) purely by punishing heavily damaged cards
+ * whose real problem is creases and stains that no model covers yet — that buys
+ * accuracy with false corner dings, makes clean cards worse (9-10 bucket 0.28)
+ * and would have to be undone when a surface model lands.
  */
 export const MODEL_DEFAULTS = {
-  corners: { wearThreshold: 0.3, severityCuts: { moderate: 150, severe: 300, extreme: 500 } },
+  corners: { wearThreshold: 0.2, severityCuts: { moderate: 150, severe: 300, extreme: 500 } },
   edges: { wearThreshold: 0.5, severityCuts: { moderate: 150, severe: 300, extreme: 500 } },
 };
 

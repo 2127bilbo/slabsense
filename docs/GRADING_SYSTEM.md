@@ -90,21 +90,24 @@ Both are *internal* — TAG publishes neither — and both were calibrated on th
 
 | | corners | edges |
 |---|---|---|
-| wear threshold | 0.30 | 0.50 |
+| wear threshold | 0.20 *(0.30 until 2026-09-18; see below)* | 0.50 |
 | severity: moderate / severe / extreme at | 150 / 300 / 500 predicted points | 150 / 300 / 500 |
 
 Calibration (`scripts/harness/model-sweep.mjs`, 216 settings) was chosen on the 404 harness cards that were in
 the models' training split and reported on the 102 held-out ones, with TAG's own centering held fixed so the
 comparison isolates the defect change:
 
-| held out, vs the detector baseline | baseline | models |
-|---|---|---|
-| mean grade error | 2.98 | 1.72 |
-| TAG 9–10 bucket, mean error | 0.59 | 0.12 |
-| TAG 9–10 bucket, within half a grade | — | 89 % |
-| corner detection, precision / recall | never fired | 0.66 / 0.84 |
+| held out, vs the detector baseline | baseline | models, corners at 0.30 | models, corners at 0.20 (shipped) |
+|---|---|---|---|
+| mean grade error | 2.98 | 1.72 | 1.56 |
+| TAG 9–10 bucket, mean error | 0.59 | 0.12 | 0.15 |
+| TAG 9–10 bucket, within half a grade | — | 89 % | 86 % |
+| corner detection, precision / recall | never fired | 0.66 / 0.84 | 0.60 / 0.90 |
 
-The held-out improvement is 1.26 grades (95 % paired bootstrap 0.94 to 1.69, n = 102).
+The held-out improvement is 1.42 grades at 0.20 (95 % paired bootstrap 1.11 to 1.84, n = 102). 0.30 was chosen
+first for its clean-card precision; it moved to 0.20 on 2026-09-18 because phone photos are softer than TAG
+scans and score every corner 0.1–0.2 lower (the owner's worn card scored its four visibly rubbed back corners
+0.21–0.38), and the harness supports either.
 
 **Why the thresholds are not the lowest-error ones.** Firing more and harsher corner dings scores better
 overall (1.40 vs 1.84 mean error) but earns it by punishing creased and stained cards through corner dings
