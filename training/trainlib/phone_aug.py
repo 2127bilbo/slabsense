@@ -91,7 +91,7 @@ def loose_crop(img: Image.Image, outer_sides, rng, fill, max_frac=0.15):
 
 
 def _jpeg(img: Image.Image, quality: int) -> Image.Image:
-    buf = io.BytesIO(); img.save(buf, format="JPEG", quality=quality); buf.seek(0)
+    buf = io.BytesIO(); img.convert("RGB").save(buf, format="JPEG", quality=quality); buf.seek(0)
     with Image.open(buf) as im:
         return im.convert("RGB")
 

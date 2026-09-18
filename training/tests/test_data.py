@@ -321,4 +321,33 @@ def test_centering_dataset_applies_jitter_in_train_only(surface_tables, tmp_path
     tr = data.CropDataset(df, "centering_rgb", cache, train=True); tr.rng = np.random.default_rng(3)
     img2, _, target2, _ = tr[0]
     assert img2.shape == img.shape and not torch.allclose(target2, target)
+    with pytest.raises(ValueError):
+        data.CropDataset(df, "centering_rgb", cache, train=True, phone_sim=True)[0]
     assert tables_mod.filter_cached(df, cache, "centering_rgb")[1] == 0
+
+
+def test_phone_aug_mode_changes_the_backdrop_and_keeps_shape(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("corners", ds, sp, "train")
+    cache = make_cache(tmp_path, df, 96, 96)
+    # paint a TAG-orange backdrop on the outer corner of the first crop so the flood fill has a seed
+    p = cache / df.crop_path.iloc[0]
+    with Image.open(p) as im:
+        arr = np.asarray(im.convert("RGB")).copy()
+    arr[:30, :30] = (247, 126, 44); Image.fromarray(arr).save(p, format="PNG")
+    ev = data.load_crop(p, "corners", False)
+    ph = data.load_crop(p, "corners", True, np.random.default_rng(0), aug="phone")
+    assert ph.shape == ev.shape and torch.isfinite(ph).all()
+    sim = data.load_crop(p, "corners", False, phone_sim=True)
+    assert sim.shape == ev.shape and not torch.equal(sim, ev)
+    sim2 = data.load_crop(p, "corners", False, phone_sim=True)
+    assert torch.equal(sim, sim2)
+
+
+def test_phone_sim_is_passed_through_the_dataset(tables, tmp_path):
+    ds, sp = tables
+    df = tables_mod.load_task_table("edges", ds, sp, "val")
+    cache = make_cache(tmp_path, df, 3296, 550, vertical_for_lr=True)
+    plain = data.CropDataset(df, "edges", cache, train=False)[0][0]
+    sim = data.CropDataset(df, "edges", cache, train=False, phone_sim=True)[0][0]
+    assert sim.shape == plain.shape

@@ -30,6 +30,17 @@ def test_evaluate_val_writes_per_grade_table(tables, tmp_path):
     assert t.npos_wear.notna().all()
 
 
+def test_evaluate_phone_sim_writes_separate_csv(tables, tmp_path):
+    cfg, run_dir = _trained(tables, tmp_path)
+    out = evaluate.main(["--config", str(cfg), "--task", "corners", "--checkpoint", str(run_dir / "best.pt"),
+                         "--split", "val", "--device", "cpu", "--workers", "0", "--input-size", "64", "--phone-sim"])
+    assert out.name == "eval_val_phonesim.csv"
+    t = pd.read_csv(out)
+    expected_cols = ["grade_label", "n_rows", "auroc_wear", "precision_wear", "recall_wear", "npos_wear",
+                     "mae_deduction", "mae_angle"]
+    assert list(t.columns) == expected_cols
+
+
 def test_evaluate_refuses_test_without_final_eval(tables, tmp_path):
     cfg, run_dir = _trained(tables, tmp_path)
     with pytest.raises(ValueError):

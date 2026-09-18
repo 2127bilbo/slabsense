@@ -60,9 +60,9 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def make_loader(df, task, cache_dir, train, batch_size, workers, input_size=None, aug="light"):
+def make_loader(df, task, cache_dir, train, batch_size, workers, input_size=None, aug="light", phone_sim=False):
     ds = CropDataset(df, task, cache_dir, train=train, input_size=(input_size, input_size) if input_size else None,
-                     aug=aug)
+                     aug=aug, phone_sim=phone_sim)
     return DataLoader(ds, batch_size=batch_size, shuffle=train, num_workers=workers, collate_fn=collate,
                       pin_memory=(workers > 0), drop_last=False, persistent_workers=(workers > 0))
 

@@ -26,8 +26,8 @@ def _predict(model, loader, device):
 
 
 def per_grade_table(model, df: pd.DataFrame, task: str, cache_dir, device, kinds, target_names,
-                    batch_size=64, workers=0, input_size=None) -> pd.DataFrame:
-    loader = make_loader(df, task, cache_dir, False, batch_size, workers, input_size)
+                    batch_size=64, workers=0, input_size=None, phone_sim=False) -> pd.DataFrame:
+    loader = make_loader(df, task, cache_dir, False, batch_size, workers, input_size, phone_sim=phone_sim)
     pred, target, mask = _predict(model, loader, device)
     scores = to_scores(pred, kinds)
     rows = []
@@ -60,7 +60,11 @@ def main(argv=None) -> Path:
     p.add_argument("--final-eval", action="store_true"); p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--workers", type=int, default=6); p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--limit-cards", type=int); p.add_argument("--input-size", type=int)
+    p.add_argument("--phone-sim", action="store_true",
+                   help="deterministic phone-photo simulation (black backdrop, 1 px blur, 0.5x resolution) on the eval crops")
     args = p.parse_args(argv)
+    if args.phone_sim:
+        print("phone-sim: ON")
     cfg = load_config(args.config); device = torch.device(args.device)
     df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, args.split, args.limit_cards, allow_test=args.final_eval)
     df, dropped = filter_cached(df, cfg.cache_dir, args.task)
@@ -70,8 +74,9 @@ def main(argv=None) -> Path:
     model.load_state_dict(ckpt["model"]); model.to(device)
     kinds = ckpt["kinds"]; target_names = ckpt["target_names"]
     table = per_grade_table(model, df, args.task, cfg.cache_dir, device, kinds, target_names,
-                            args.batch_size, args.workers, args.input_size)
-    out = Path(args.checkpoint).parent / f"eval_{args.split}.csv"
+                            args.batch_size, args.workers, args.input_size, phone_sim=args.phone_sim)
+    suffix = "_phonesim" if args.phone_sim else ""
+    out = Path(args.checkpoint).parent / f"eval_{args.split}{suffix}.csv"
     table.to_csv(out, index=False)
     print(table.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
     return out
