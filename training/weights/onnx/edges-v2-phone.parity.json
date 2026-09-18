@@ -1,0 +1,49 @@
+{
+  "rows": 400,
+  "split": "val",
+  "max_abs_diff_vs_torch": {
+    "fp32": 8.195638656616211e-07,
+    "int8": 0.03035356104373932,
+    "fp16": 0.0006681680679321289
+  },
+  "mean_abs_diff_vs_torch": {
+    "fp32": 7.677794400251514e-08,
+    "int8": 0.0044095744378864765,
+    "fp16": 3.702833055285737e-05
+  },
+  "metrics": {
+    "torch": {
+      "auroc_wear": 0.8929342565706202,
+      "precision_wear": 0.5,
+      "recall_wear": 0.16216216216216217,
+      "npos_wear": 37,
+      "mae_deduction": 208.3150177001953
+    },
+    "fp32": {
+      "auroc_wear": 0.8929342565706202,
+      "precision_wear": 0.5,
+      "recall_wear": 0.16216216216216217,
+      "npos_wear": 37,
+      "mae_deduction": 208.31494140625
+    },
+    "int8": {
+      "auroc_wear": 0.8914451641724369,
+      "precision_wear": 0.5454545454545454,
+      "recall_wear": 0.16216216216216217,
+      "npos_wear": 37,
+      "mae_deduction": 205.6857147216797
+    },
+    "fp16": {
+      "auroc_wear": 0.8929342565706202,
+      "precision_wear": 0.5,
+      "recall_wear": 0.16216216216216217,
+      "npos_wear": 37,
+      "mae_deduction": 208.32591247558594
+    }
+  },
+  "ort_cpu_seconds_per_crop": {
+    "fp32": 0.11592125079594552,
+    "int8": 0.5070218910649419,
+    "fp16": 0.24443317694589495
+  }
+}

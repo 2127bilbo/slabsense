@@ -1,0 +1,90 @@
+{
+  "task": "corners",
+  "run": "v3-phone",
+  "backbone": "convnext_tiny",
+  "source_checkpoint": "runs/corners/v3-phone/best.pt",
+  "epoch": 6,
+  "val_loss": 0.18397925155808387,
+  "inputs": {
+    "images": {
+      "dtype": "float32",
+      "shape": [
+        "N",
+        3,
+        384,
+        384
+      ],
+      "layout": "NCHW",
+      "preprocess": {
+        "resize_to_wh": [
+          384,
+          384
+        ],
+        "long_side_horizontal": false,
+        "scale": "x/255",
+        "mean": [
+          0.48500001430511475,
+          0.4560000002384186,
+          0.4059999883174896
+        ],
+        "std": [
+          0.2290000021457672,
+          0.2240000069141388,
+          0.22499999403953552
+        ]
+      }
+    },
+    "sides": {
+      "dtype": "float32",
+      "shape": [
+        "N",
+        1
+      ],
+      "values": {
+        "front": 0.0,
+        "back": 1.0
+      }
+    }
+  },
+  "outputs": {
+    "logits": {
+      "shape": [
+        "N",
+        3
+      ],
+      "postprocess": "sigmoid",
+      "channels": [
+        {
+          "name": "wear",
+          "kind": "binary",
+          "scale": 1.0
+        },
+        {
+          "name": "deduction",
+          "kind": "regress",
+          "scale": 1000.0
+        },
+        {
+          "name": "angle",
+          "kind": "regress",
+          "scale": 1000.0
+        }
+      ]
+    }
+  },
+  "files": {
+    "corners-v3-phone.fp32.onnx": {
+      "bytes": 112162982,
+      "sha256": "2950cd0f84498a24783d5cf40677e4420efd635ce266a884386e5e736cc9e38b"
+    },
+    "corners-v3-phone.fp16.onnx": {
+      "bytes": 56159892,
+      "sha256": "3eb15ed646a088636bd2c8d09d95a001b9ab6fc28c9dac05f33b84609726bd9b"
+    },
+    "corners-v3-phone.int8.onnx": {
+      "bytes": 28430132,
+      "sha256": "2811effb96c312f8973b848da37832b9b9c7abf91abfa2cf908f92a5970b2ec2"
+    }
+  },
+  "opset": 17
+}

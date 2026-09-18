@@ -62,6 +62,8 @@ targets. Metrics are reported overall (per epoch, in `log.csv`) and per grade (`
 | 2026-09-16 | corners v2 (full, EMA 0.999 + drop-path 0.2 + strong aug) | wear / deduction / angle | 22,202/2,790 (all cards) | 8 | 541–549 | 11.55 GiB | 0.18282 (epoch 6) | 0.924 (val, best.pt) | 103.7 pts (val, best.pt) | 2.42 pts (val, best.pt) |
 | 2026-09-16 | edges v2 (full, EMA 0.999 + drop-path 0.1 + strong aug) — REJECTED, v1 stays | wear / deduction | 22,202/2,790 (all cards) | 12 | 691–734 | 7.86 GiB | 0.20536 (epoch 12) | 0.883 (val, best.pt) | 170 pts (val, best.pt) | n/a (no angle target) |
 | 2026-09-18 | centering_rgb v1 (full, EMA 0.999 + drop-path 0.1 + light aug + edge jitter) — ACCEPTED | dte_l / dte_r / dte_t / dte_b (per-mille of card size) | 22,202/2,790 (all cards) | 10 | ~990 | 10.98 GiB | 0.00010 (epoch 10) | n/a | mean MAE 1.48 per-mille (val), 1.49 (test) | n/a |
+| 2026-09-18 | corners v3-phone (v2 recipe + phone aug) — ACCEPTED, replaces v2 | wear / deduction / angle | 22,202/2,790 (all cards) | 8 | 531–556 | 11.55 GiB | 0.18398 (epoch 6) | 0.923 clean / 0.922 phone-sim (val) | 104.5 / 106.0 pts | 2.41 pts |
+| 2026-09-18 | edges v2-phone (v1 recipe + phone aug) — ACCEPTED, replaces v1 | wear / deduction | 22,202/2,790 (all cards) | 12 | 678–711 | 7.73 GiB | 0.19786 (epoch 11) | 0.894 clean / 0.875 phone-sim (val) | 162 / 165 pts | n/a |
 
 **Metric definitions changed on 2026-09-16** with the corner/edge target
 redesign (`docs/superpowers/plans/2026-09-16-corner-edge-targets.md`):
@@ -724,6 +726,32 @@ The full run recipe for both retrains (augmentation spec, seeds per slot,
 the phone-sim evaluation, acceptance rules, export and what to bring home)
 is **Step 9 of `training/HANDOFF-rented-gpu.md`**. Hand that to the training
 session; this README is the background.
+
+### Phone-augmented retrain: results (2026-09-18)
+
+Both runs accepted under the Step 9.5 rule (clean accuracy within 0.01
+AUROC / 5% MAE of the shipped model, phone-sim AUROC up by at least 0.03 with
+higher recall). Shipped-model phone-sim baselines were measured on the full
+val split first (corners v2: 0.863 AUROC, recall 0.19, MAE 133; edges v1:
+0.809, recall 0.006, MAE 198).
+
+| model | clean val auroc / mae | phone-sim val auroc / recall / mae | clean test | phone-sim test |
+|---|---|---|---|---|
+| corners v2 (shipped) | 0.924 / 103.7 | 0.863 / 0.19 / 133 | 0.927 / 105.1 | — |
+| **corners v3-phone** | 0.923 / 104.5 | **0.922 / 0.77 / 106** | 0.926 / 105.8 | 0.923 / 0.77 / 107 |
+| edges v1 (shipped) | 0.895 / 161 | 0.809 / 0.006 / 198 | 0.894 / 170 | — |
+| **edges v2-phone** | 0.894 / 162 | **0.875 / 0.18 / 165** | 0.890 / 171 | 0.875 / 0.17 / 176 |
+
+Corners lose nothing on clean scans and now perform the same under the
+phone simulation as on a scan; the backdrop dependence is gone. Edges gain
+0.066 phone-sim AUROC and go from finding nothing to finding 18% of marked
+wear at the default threshold (clean recall is 24%); edge recall in general
+remains the weak spot and is the double-resolution run's job (handoff Step
+9.4). Test read once per model, both ways. ONNX exports (fp32 exact, fp16
+mean abs diff 2e-5 corners) are in `weights/onnx/` with their contract and
+parity sidecars; the app session recalibrates thresholds on the harness and
+swaps the fp16 files into the models bucket.
+
 
 ### Phone-photo augmentation (2026-09-18)
 
