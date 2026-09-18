@@ -654,3 +654,16 @@ held fixed (`scripts/harness/model-sweep.mjs`):
 Downscaling those cards to the app's 2000 px upload cap costs very little: mean
 grade error 1.72 -> 1.79, 1.6 % of corner ding decisions flip, 83 % of cards keep
 an identical grade (`scripts/harness/model-resolution.mjs`).
+
+### Next training run: backdrop augmentation (2026-09-17)
+
+Every TAG crop has TAG's orange backdrop beyond the card corner, and the
+models learned it: on held-out scans, repainting that backdrop black keeps only
+17 of 64 corner dings and invents 23 edge dings (`scripts/harness/model-domain.mjs`).
+The app bridges this by repainting a phone photo's table TAG orange before
+inference (`src/lib/tag-crops.js` `repaintBackdrop`), which recovers 49 of 64.
+The proper fix is in `trainlib/data.py`: at train time, flood-fill the orange
+backdrop from the crop's outer corner and recolour it to a random colour (black,
+white, wood, grey, random hue) on a fraction of samples, so the model stops
+reading the backdrop at all. Do this for corners and edges, keep the rest of the
+recipe, and re-run `verify-crops.mjs` + `model-sweep.mjs` before shipping.

@@ -112,6 +112,20 @@ that TAG never marked. That trade costs clean-card accuracy (9–10 bucket 0.28 
 report name the wrong defect, and would have to be undone once a surface model exists. The remaining leniency
 on low grades is surface-detection debt, not a threshold left untuned.
 
+**Phone photos: two things the app must get right** *(found 2026-09-17 on the owner's own worn card, which the
+models had scored as clean)*.
+
+1. *No synthetic corners.* The crop used to clip the card with a drawn 4.8 % rounded corner, which replaced
+   the real corner tip — where wear lives — with a perfect arc. Removed; the crop now shows the real corner and
+   a little of the table beyond it.
+2. *TAG's backdrop is baked into the models.* Every training crop has TAG's orange backdrop beyond the corner.
+   Measured on held-out scans (`scripts/harness/model-domain.mjs`): with the backdrop repainted black the
+   models keep 17 of 64 corner dings and invent 23 edge dings; white keeps 26. So `tag-crops.js` flood-fills
+   the table beyond the card on each tile and paints it TAG orange before inference, which brings a black table
+   back to 49 of 64 and 5 false edge dings, at a cost of 3 of 64 on TAG's own scans. A leak guard leaves the
+   tile alone when the fill reaches the tile centre or exceeds 30 % of it. The durable fix is backdrop-colour
+   augmentation in the next training run; the repaint is the bridge until then.
+
 **Limits to know.**
 
 - Low grades stay lenient (1–4.5 bucket, mean error 3.84): those cards are creased and stained, which no model

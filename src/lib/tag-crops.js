@@ -19,6 +19,14 @@
  * COUNTER-clockwise, before the resize. That applies to the left and right edge
  * strips only; corners and the top/bottom strips are fed as cut.
  *
+ * Backdrop: every training crop shows TAG's orange backdrop beyond the card's
+ * corner. The models learned that. Measured on held-out scans
+ * (scripts/harness/model-domain.mjs): a black table keeps 17 of 64 corner
+ * dings, white keeps 26, repainting the table TAG orange first keeps 52. So
+ * `repaintBackdrop` flood-fills the backdrop from the tile's outer corner and
+ * paints it TAG orange before the tensor is built. Until the models are
+ * retrained with backdrop augmentation, this is what makes phone photos work.
+ *
  * Pure except for the 2D canvas handed in: no DOM lookups, no model code.
  * Shared by the app and scripts/harness. See docs/GRADING_SYSTEM.md.
  * ============================================================================
@@ -113,6 +121,84 @@ export function drawBox(ctx, source, box, outW, outH) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
+/** TAG's backdrop colour, the mean of the outer corner of 40 training crops. */
+export const TAG_BACKDROP_RGB = [247, 126, 44];
+
+/**
+ * Which tile corners touch the backdrop, per slot, in TILE coordinates (after
+ * the training rotation). Corners: the tile corner that is the card's corner.
+ * Edge strips: both ends of the outer side (top/bottom of the tile).
+ */
+const OUTER_SEEDS = {
+  corners: { TL: [[0, 0]], TR: [[1, 0]], BL: [[0, 1]], BR: [[1, 1]] },
+  edges: { T: [[0, 0], [1, 0]], B: [[0, 1], [1, 1]], L: [[0, 1], [1, 1]], R: [[0, 0], [1, 0]] },
+};
+
+/**
+ * Paint the backdrop beyond the card TAG orange, in place, on one tile's RGBA.
+ *
+ * From each seed corner, flood-fill over pixels within `tolerance` (sum of
+ * absolute RGB differences) of the seed pixel; grow the region by `grow` pixels
+ * so the anti-aliased card boundary goes with it; paint it. The backdrop can be
+ * a thin margin along a whole side (TAG's scans) or just the arc beyond a
+ * rounded corner (a tight phone crop), so the fill may roam the whole tile —
+ * two guards catch a leak into a card whose border matches the table: the fill
+ * may not exceed `maxFill` of the tile, and it may never reach the tile centre.
+ *
+ * @returns {number} fraction of the tile repainted (0 when nothing qualified)
+ */
+export function repaintBackdrop(data, w, h, task, key, {
+  rgb = TAG_BACKDROP_RGB, tolerance = 60, grow = 2, maxFill = 0.3, skipTolerance = 110,
+} = {}) {
+  const seeds = OUTER_SEEDS[task]?.[key];
+  if (!seeds) return 0;
+  const centre = (h >> 1) * w + (w >> 1);
+  let painted = 0;
+  for (const [cx, cy] of seeds) {
+    const sx = cx ? w - 1 : 0;
+    const sy = cy ? h - 1 : 0;
+    const si = (sy * w + sx) * 4;
+    const sr = data[si], sg = data[si + 1], sb = data[si + 2];
+    // Already an orange-ish backdrop (TAG's own scans vary a little): leave it as trained.
+    if (Math.abs(sr - rgb[0]) + Math.abs(sg - rgb[1]) + Math.abs(sb - rgb[2]) <= skipTolerance) continue;
+    const mask = new Uint8Array(w * h);
+    const stack = [sy * w + sx];
+    let count = 0;
+    let leaked = false;
+    while (stack.length && !leaked) {
+      const i = stack.pop();
+      if (mask[i]) continue;
+      const o = i * 4;
+      if (Math.abs(data[o] - sr) + Math.abs(data[o + 1] - sg) + Math.abs(data[o + 2] - sb) > tolerance) continue;
+      mask[i] = 1; count++;
+      if (i === centre || count > maxFill * w * h) { leaked = true; break; }
+      const x = i % w;
+      if (x > 0) stack.push(i - 1);
+      if (x < w - 1) stack.push(i + 1);
+      if (i >= w) stack.push(i - w);
+      if (i < w * (h - 1)) stack.push(i + w);
+    }
+    if (leaked) continue; // into the card: leave this seed alone
+    let m = mask;
+    for (let g = 0; g < grow; g++) {
+      const next = new Uint8Array(m);
+      for (let i = 0; i < m.length; i++) {
+        if (m[i]) continue;
+        const x = i % w;
+        if ((x > 0 && m[i - 1]) || (x < w - 1 && m[i + 1]) || (i >= w && m[i - w]) || (i < w * (h - 1) && m[i + w])) next[i] = 1;
+      }
+      m = next;
+    }
+    for (let i = 0; i < m.length; i++) {
+      if (!m[i]) continue;
+      const o = i * 4;
+      data[o] = rgb[0]; data[o + 1] = rgb[1]; data[o + 2] = rgb[2]; data[o + 3] = 255;
+      painted++;
+    }
+  }
+  return painted / (w * h);
+}
+
 /**
  * RGBA bytes -> normalized NCHW float32, written into `out` at image index `n`.
  * Matches training: x/255, then (x - mean) / std per channel.
@@ -147,13 +233,15 @@ export function cardRect(rect, fallbackW, fallbackH) {
  *
  * @returns {{ images: Float32Array, boxes: object[], w: number, h: number }}
  */
-export function cropBatch(ctx, source, task, rect, f = TAG_CROP_FRACTIONS) {
+export function cropBatch(ctx, source, task, rect, f = TAG_CROP_FRACTIONS, { backdrop = true } = {}) {
   const { w, h } = INPUT_SIZE[task];
   const boxes = boxesForTask(task, rect.w, rect.h, f).map((b) => ({ ...b, x: b.x + rect.x, y: b.y + rect.y }));
   const images = new Float32Array(boxes.length * 3 * w * h);
   boxes.forEach((box, n) => {
     drawBox(ctx, source, box, w, h);
-    rgbaToTensor(ctx.getImageData(0, 0, w, h).data, w, h, images, n);
+    const { data } = ctx.getImageData(0, 0, w, h);
+    if (backdrop) box.repainted = repaintBackdrop(data, w, h, task, box.key);
+    rgbaToTensor(data, w, h, images, n);
   });
   return { images, boxes, w, h };
 }

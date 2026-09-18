@@ -24,11 +24,13 @@ export const DEFAULT_MODEL_FILES = { corners: 'corners-v2.fp16.onnx', edges: 'ed
  * @param {string} opts.baseUrl      where the .onnx files live (trailing slash optional)
  * @param {object} [opts.files]      overrides DEFAULT_MODEL_FILES
  * @param {string[]} [opts.executionProviders] defaults to WebGPU then WASM
+ * @param {boolean} [opts.backdrop=true] repaint the table beyond the card TAG orange before
+ *        inference (tag-crops.js repaintBackdrop); off only for experiments
  * @param {(task:string,file:string)=>Promise<ArrayBuffer|string>} [opts.loadModel]
  *        supplies the model bytes instead of letting the runtime fetch the URL —
  *        the browser uses it to persist the download in the Cache API.
  */
-export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, executionProviders, loadModel }) {
+export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, executionProviders, loadModel, backdrop = true }) {
   if (!ort) throw new Error('corner-edge-runner: ort is required');
   if (!createCanvas) throw new Error('corner-edge-runner: createCanvas is required');
   const modelFiles = { ...DEFAULT_MODEL_FILES, ...(files || {}) };
@@ -65,7 +67,7 @@ export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, exec
 
   /** Run one task over one side. Returns the decoded slots. */
   async function runTask(task, source, rect, side) {
-    const { images, boxes, w, h } = cropBatch(ctxFor(task), source, task, rect);
+    const { images, boxes, w, h } = cropBatch(ctxFor(task), source, task, rect, undefined, { backdrop });
     const n = boxes.length;
     const session = await sessionFor(task);
     const sides = new Float32Array(n).fill(side === 'back' || side === 'BACK' ? 1 : 0);

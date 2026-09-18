@@ -2,6 +2,7 @@
 import {
   TAG_CROP_FRACTIONS, CORNER_KEYS, EDGE_KEYS, cornerBoxes, edgeBoxes, boxesForTask,
   boxTransform, rgbaToTensor, IMAGENET_MEAN, IMAGENET_STD, INPUT_SIZE, drawBox, cropBatch,
+  repaintBackdrop, TAG_BACKDROP_RGB,
 } from './tag-crops.js';
 
 let passed = 0, failed = 0;
@@ -86,6 +87,57 @@ check('smoothing turned on for the downscale', ctx.imageSmoothingEnabled === tru
 const ectx = stubCtx(1024, 192);
 drawBox(ectx, {}, edgeBoxes(W, H)[2], 1024, 192);
 check('rotated draw uses the CCW transform', JSON.stringify(ectx.calls.find((c) => c[0] === 'setTransform' && c[3] !== 0).slice(1, 7)) === JSON.stringify(boxTransform(left.w, left.h, 1024, 192, true)));
+
+console.log('— backdrop repaint');
+// A 40x40 tile: card is yellow, the table beyond a rounded corner at top-left is black.
+function tile(bg, cardRgb = [250, 220, 60], radius = 10) {
+  const w = 40, h = 40;
+  const data = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const outside = x < radius && y < radius && Math.hypot(radius - x, radius - y) > radius;
+    const c = outside ? bg : cardRgb;
+    const o = (y * w + x) * 4; data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = 255;
+  }
+  return { data, w, h };
+}
+const pxAt = (t, x, y) => Array.from(t.data.slice((y * t.w + x) * 4, (y * t.w + x) * 4 + 3));
+{
+  const t = tile([0, 0, 0]);
+  const frac = repaintBackdrop(t.data, t.w, t.h, 'corners', 'TL');
+  check('black table beyond the corner becomes TAG orange', JSON.stringify(pxAt(t, 0, 0)) === JSON.stringify(TAG_BACKDROP_RGB));
+  check('the card itself is untouched', JSON.stringify(pxAt(t, 20, 20)) === JSON.stringify([250, 220, 60]) && JSON.stringify(pxAt(t, 39, 39)) === JSON.stringify([250, 220, 60]));
+  check('a small fraction was painted', frac > 0 && frac < 0.1, String(frac));
+}
+{
+  const t = tile([245, 245, 245]);
+  repaintBackdrop(t.data, t.w, t.h, 'corners', 'TL');
+  check('white table repainted too', JSON.stringify(pxAt(t, 0, 0)) === JSON.stringify(TAG_BACKDROP_RGB));
+}
+{
+  const t = tile(TAG_BACKDROP_RGB);
+  const frac = repaintBackdrop(t.data, t.w, t.h, 'corners', 'TL');
+  check('already-orange backdrop is left alone', frac === 0);
+}
+{
+  const t = tile([0, 0, 0], [0, 0, 0]); // black-bordered card on a black table: indistinguishable
+  const frac = repaintBackdrop(t.data, t.w, t.h, 'corners', 'TL');
+  check('a fill that floods the card is refused', frac === 0);
+}
+{
+  const t = tile([0, 0, 0]);
+  repaintBackdrop(t.data, t.w, t.h, 'corners', 'BR'); // wrong seed corner: that corner is card
+  check("only the slot's own outer corner is a seed", JSON.stringify(pxAt(t, 0, 0)) === JSON.stringify([0, 0, 0]));
+}
+check('unknown slot is a no-op', repaintBackdrop(tile([0, 0, 0]).data, 40, 40, 'corners', 'XX') === 0);
+{
+  // An edge tile: the outer side is the top for T (both ends seeded).
+  const w = 60, h = 20; const data = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const o = (y * w + x) * 4; const bg = y < 2; data[o] = bg ? 0 : 250; data[o + 1] = bg ? 0 : 220; data[o + 2] = bg ? 0 : 60; data[o + 3] = 255; }
+  repaintBackdrop(data, w, h, 'edges', 'T');
+  check('edge strip: outer band repainted from both ends', data[0] === TAG_BACKDROP_RGB[0] && data[((1 * w) + (w - 1)) * 4] === TAG_BACKDROP_RGB[0]);
+  check('edge strip: card rows untouched', data[(10 * w + 30) * 4] === 250);
+}
+
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

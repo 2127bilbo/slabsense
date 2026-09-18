@@ -107,11 +107,11 @@ export async function cropToOuterBounds(imageDataUrl, corners, rotation = 0, sca
   canvas.height = Math.round(cropH);
   const ctx = canvas.getContext('2d');
 
-  // Apply rounded corners - real cards have ~3mm radius on 63mm width (~4.8%)
-  const cornerRadius = Math.round(cropW * 0.048);
-  ctx.beginPath();
-  ctx.roundRect(0, 0, Math.round(cropW), Math.round(cropH), cornerRadius);
-  ctx.clip();
+  // No synthetic rounded corners. This crop feeds the corner/edge models, which read
+  // wear at the corner tip; a drawn arc (the old 4.8 % clip) replaced exactly that tip
+  // with a perfect curve on a black ground and hid the damage (2026-09-17, Sabrina's
+  // Gengar: visibly rubbed corners scored 0.01-0.02 wear). The real corner, and a
+  // little of the photo background beyond it, is what the models were trained on.
 
   // Transform: position the rotated card in the output
   // cardAngle is the average of top and bottom edge angles (handles perspective)
