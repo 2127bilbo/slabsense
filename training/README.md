@@ -724,3 +724,44 @@ The full run recipe for both retrains (augmentation spec, seeds per slot,
 the phone-sim evaluation, acceptance rules, export and what to bring home)
 is **Step 9 of `training/HANDOFF-rented-gpu.md`**. Hand that to the training
 session; this README is the background.
+
+### Phone-photo augmentation (2026-09-18)
+
+Implemented in `trainlib/phone_aug.py` and wired into `data.load_crop` as
+`aug="phone"` (train) / `phone_sim=True` (eval, `--phone-sim` in
+`trainlib.evaluate`). Four transforms, applied in this order at the crop's
+native scale: **backdrop recolour** flood-fills the TAG-orange backdrop
+outside the card from its outer corner(s) and repaints it black, white, a
+grey, a wood brown, or a random hue; **loose crop** pads the outer side(s)
+by 0-15% with that same fill colour, simulating a bowed card sitting off the
+crop line; **softness** applies a 0.5-1.5 px Gaussian blur (scaled to native
+resolution) plus a JPEG re-encode at quality 60-90; **resolution loss**
+downscales 0.35-0.6x and upscales back, mimicking a phone upload's lower
+effective resolution. `phone_sim` is the deterministic eval-only version of
+the first, third and fourth (black backdrop, 1 px blur, 0.5x scale) used to
+measure the gap without training-time randomness.
+
+`phone` mode has **no random window** (unlike `strong`): a random window can
+cut into the crop's outer edge, which is both the flood-fill's seed pixel and,
+for corners, where the angle/fill/fray label lives — windowing it away would
+silently corrupt the augmentation or the label on exactly the crops this is
+meant to fix. The per-slot backdrop-seed table (which corner(s) of each
+corner/edge crop are the fill seed) lives in `trainlib/phone_aug.py`
+(`seeds_for`, `outer_sides_for`) and is reproduced in Step 9.1 of
+`training/HANDOFF-rented-gpu.md`.
+
+Local phone-sim baseline on the shipped models (RTX 4070 SUPER, 100-card val
+cache, `--limit-cards 100 --workers 0 --batch-size 8`):
+
+| model | mode | auroc_wear | precision_wear | recall_wear | mae_deduction |
+|---|---|---|---|---|---|
+| corners v2 | clean | 0.9201 | 0.7033 | 0.6957 | 102.5 |
+| corners v2 | phone-sim | 0.8600 | 0.5806 | 0.1957 | 126.3 |
+| edges v1 | clean | 0.9326 | 0.6500 | 0.3250 | 199.3 |
+| edges v1 | phone-sim | 0.8683 | 0.0000 | 0.0000 | 266.4 |
+
+`auroc_wear` degrades moderately under phone-sim, but `recall_wear` collapses
+(edges to 0, corners from 0.70 to 0.20): the model still ranks wear roughly
+right but stops firing at the operating threshold. This 100-card sample is a
+sanity check, not the acceptance baseline — Step 9.5 grades against the
+full-val phone-sim run made on the rented box.

@@ -682,7 +682,7 @@ down over SSH the same way as Step 4 above (never commit a `.pt` or
 | `CUDA out of memory` | rerun with `--batch-size 4` |
 | `map50` still `nan` after epoch 2 | stop and report — the model is producing no detections above score 0.05; this is almost certainly a tiling/index problem (e.g. an empty or misaligned tile index), not something a tuning change fixes |
 
-## Step 9: corners v3 and edges v2 — make the models work on phone photos
+## Step 9: corners v3-phone and edges v2-phone — make the models work on phone photos
 
 **For the Claude instance taking this over.** The shipped corner model
 (`runs/corners/v2/best.pt`) and edge model (`runs/edges/v1/best.pt`) are live
@@ -715,13 +715,16 @@ edges scored 0.08-0.12. Third, the edge model is weak even on scans: a side
 TAG marked scores a median of only 0.29. Fourth, a bowed card puts the
 user's crop line off the true edge, so a strip can be 10-45 % table.
 
-**Step 9 budget** (tell the user before starting): code + tests about 30
-min; corners v3, 8 epochs at about 10 min, about 80 min; edges v2, 12 epochs
-at about 12 min, about 150 min; the optional edges v3 at double resolution
-needs a new resized cache (about 40 min CPU) and about 4x the epoch time,
-about 8 h; evals about 30 min; **about 5 h without the optional run, about
-13 h with it, at about $1/h**. Disk: the optional 2048x384 edge cache is
-about 4x the 1024x192 one; check `df -h /workspace`.
+**Step 9 budget** (tell the user before starting): 9.1/9.2 (the augmentation
+and `--phone-sim`) are already implemented — see Step 9.1/9.2 below. What is
+left: corners v3-phone, 8 epochs at about 10 min, about 80 min; edges
+v2-phone, 12 epochs at about 12 min, about 150 min; the optional edges HR
+run at double resolution needs a new resized cache (about 40 min CPU) and
+about 4x the epoch time, about 8 h; evals about 30 min; **about 4.5 h
+without the optional run, about 12.5 h with it, at about $1/h**. Disk: the
+optional 2048x384 edge cache (~130 GB) now fits — the rejected surface
+caches were deleted, leaving 219 GB free on `/workspace` — but check
+`df -h /workspace` before starting it anyway.
 
 ### Step 9.0: update the code and verify tests
 
@@ -730,105 +733,101 @@ cd /workspace/SlabSense && git pull && cd training
 uv pip install --python .venv/bin/python -e ".[dev]" && .venv/bin/python -m pytest -q
 ```
 
-### Step 9.1: add the `phone` augmentation mode to `trainlib/data.py`
+### Step 9.1: the `phone` augmentation mode (DONE)
 
-Add `"phone"` to `AUG_MODES`. It is `strong` plus the four transforms below,
-applied inside `load_crop` **after** the rotation and the random window and
-**before** the resize (they must act at the crop's native scale), each with
-its own probability, all driven by the `rng` already passed in. The docstring
-currently says "No rotation or blur ... blur would erase the hairline marks";
-keep no rotation, but blur is now deliberate: the app's photos are blurred
-and the model must find wear through it.
+Implemented in `trainlib/phone_aug.py` (`apply_phone`, `phone_sim`, and the
+per-slot seed table `seeds_for`/`outer_sides_for`) and wired into
+`trainlib/data.py` as `AUG_MODES = ("light", "strong", "phone")` /
+`load_crop(..., aug="phone")`. It recolours the TAG backdrop outside the
+card, loosens the crop, softens (Gaussian blur + JPEG re-encode) and
+downsamples-then-upsamples, in that order, at the crop's native scale.
 
-1. **Backdrop recolour (p = 0.6).** Flood-fill from the crop's outer
-   corner(s) over pixels within a tolerance of the seed colour, dilate 3 px,
-   and fill with a random colour drawn from: black, white, greys, wood
-   browns, and a random hue at random saturation. Seeds, in the crop's own
-   pixel coordinates after the rotation step (the slot comes from the
-   filename: `corner_FTL.png` is corner `TL`, `edge_BL.png` is edge `L`):
+Unlike `strong`, `phone` has **no random window**: a random window can crop
+into the outer edge of the crop, which is both the flood-fill seed pixel
+(there is then no backdrop-coloured pixel left to seed from) and, for
+corners, where the angle/fill/fray label lives. Randomly windowing would
+silently break the augmentation or the label on the same crops it is meant
+to fix.
 
-   | slot | seed corner(s) of the crop |
-   |---|---|
-   | corner TL / TR / BL / BR | that corner |
-   | edge T | top-left and top-right |
-   | edge B | bottom-left and bottom-right |
-   | edge L (after ROTATE_90 the outer side is the BOTTOM) | bottom-left and bottom-right |
-   | edge R (after ROTATE_90 the outer side is the TOP) | top-left and top-right |
+Tests: `training/tests/test_phone_aug.py` (the fill recolours a synthetic
+orange corner and leaves the card; a black-on-black crop is refused; each
+edge key seeds the right side after rotation; `apply_phone` is reproducible
+per seed and `phone_sim` is deterministic). Local phone-sim baseline
+established 2026-09-18 (see the table below); run `pytest -q` under
+`training/` to confirm 9.1/9.2 still pass before training.
 
-   Use the same fill as the app so train and inference agree: tolerance 60
-   (sum of absolute RGB differences to the seed), and abandon the fill for
-   that seed if it reaches the crop centre or exceeds 30 % of the crop (a
-   card whose border matches the backdrop). Skip the seed if it is not
-   orange-ish (sum of absolute differences to (247,126,44) above 110). That
-   cannot happen in this dataset but keeps the function safe.
-2. **Loose crop (p = 0.3).** Pad the outer side(s), the seed sides above, by
-   a random 0-15 % of the crop size with the (possibly recoloured) backdrop
-   colour, so the card edge is no longer exactly at the crop boundary. This
-   is what a bowed card does to the user's crop line.
-3. **Softness (p = 0.5).** Gaussian blur with radius drawn uniformly from
-   0.5 to 1.5 px *at the model input size* (scale the radius by
-   native/input before applying at native scale), then JPEG re-encode at
-   quality 60-90.
-4. **Resolution loss (p = 0.3).** Downscale by 0.35-0.6 and upscale back
-   with bilinear, before the resize. A 2000 px phone upload gives about
-   180 px per corner against TAG's 550.
+### Step 9.2: `--phone-sim` in `trainlib/evaluate.py` (DONE)
 
-Add tests in `trainlib/tests/`: the fill recolours a synthetic orange
-corner and leaves the card; a black-on-black crop is refused; each edge key
-seeds the right side after rotation; `aug="phone"` produces a tensor of the
-right shape with `train=True` and changes nothing with `train=False`.
+Also implemented: `--phone-sim` runs the deterministic eval-time variant
+(seeded, no randomness in the choice — backdrop painted black, blur 1.0 px,
+downscale 0.5) and writes `eval_<split>_phonesim.csv` next to the normal
+`eval_<split>.csv`. It answers the only question that matters here: does
+the model still see the wear when the picture looks like a phone photo?
 
-### Step 9.2: add `--phone-sim` to `trainlib/evaluate.py`
+**Local reference (RTX 4070 SUPER, 100-card val cache, `--limit-cards 100
+--workers 0 --batch-size 8`, 2026-09-18)** — this is a smaller sample than
+the full val split the box will use in Step 9.3, so treat it as a sanity
+reference, not the number Step 9.5 grades against (Step 9.5 still uses the
+full-val phone-sim run produced at the front of the Step 9.3 chain):
 
-A deterministic eval-time variant of Step 9.1 (seeded rng, no randomness in
-the choice): backdrop painted black, blur 1.0 px, downscale 0.5. It answers
-the only question that matters here: does the model still see the wear when
-the picture looks like a phone photo? Print the same metric rows as the
-normal eval. Run it on the **current** models first so the baseline is on
-record:
+| model | mode | auroc_wear | precision_wear | recall_wear | mae_deduction |
+|---|---|---|---|---|---|
+| corners v2 | clean | 0.9201 | 0.7033 | 0.6957 | 102.5 |
+| corners v2 | phone-sim | 0.8600 | 0.5806 | 0.1957 | 126.3 |
+| edges v1 | clean | 0.9326 | 0.6500 | 0.3250 | 199.3 |
+| edges v1 | phone-sim | 0.8683 | 0.0000 | 0.0000 | 266.4 |
+
+Phone-sim collapses `recall_wear` on both models (edges to 0; corners from
+0.70 to 0.20) while `auroc_wear` degrades less sharply — the ranking survives
+better than the operating point does. That collapse is what corners
+v3-phone / edges v2-phone must close.
+
+### Step 9.3: train (shipped-model phone-sim baseline + both runs, chained)
+
+Chain the shipped-model full-val phone-sim baseline and both training runs
+in one `nohup bash -c "...; ..."` so the GPU never idles waiting for a human
+to notice one step finished and start the next. Run names: `runs/edges/v2/`
+already exists from the rejected regularized attempt (Step 6), so the phone
+run is **`v2-phone`**; corners uses **`v3-phone`** for symmetry. Use these
+names in every later reference (Step 9.4's optional HR variant, Step 9.5's
+eval paths, Step 9.6's export `--run-name` and "bring home" folders).
 
 ```bash
 cd /workspace/SlabSense/training && source /workspace/env.sh
-.venv/bin/python -m trainlib.evaluate --task corners --checkpoint runs/corners/v2/best.pt --split val --workers 8 --phone-sim | tee runs/corners/v2/eval_val_phonesim.log
-.venv/bin/python -m trainlib.evaluate --task edges   --checkpoint runs/edges/v1/best.pt   --split val --workers 8 --phone-sim | tee runs/edges/v1/eval_val_phonesim.log
+nohup bash -c '
+  .venv/bin/python -m trainlib.evaluate --task corners --checkpoint runs/corners/v2/best.pt --split val --workers 8 --phone-sim | tee runs/corners/v2/eval_val_phonesim.log &&
+  .venv/bin/python -m trainlib.evaluate --task edges   --checkpoint runs/edges/v1/best.pt   --split val --workers 8 --phone-sim | tee runs/edges/v1/eval_val_phonesim.log &&
+  .venv/bin/python -m trainlib.train --task corners --run-name v3-phone --epochs 8  --batch-size 64 --workers 8 --drop-path 0.2 --ema-decay 0.999 --aug phone > /workspace/train_corners_v3-phone.log 2>&1 &&
+  .venv/bin/python -m trainlib.train --task edges   --run-name v2-phone --epochs 12 --batch-size 32 --workers 8 --aug phone > /workspace/train_edges_v2-phone.log 2>&1
+' > /workspace/step9_chain.log 2>&1 &
 ```
 
-Expect these to be bad (that is the point); write the numbers down.
+(Edges v1 was the accepted recipe — no drop-path, no EMA, light aug; keep
+that and add only the `--aug phone` transforms.) Expect the two eval lines
+to be bad (that is the point — write the `ALL`-row numbers down and compare
+against the local reference table above). Monitor as in Step 3; augmented
+runs converge a little slower, so judge from epoch 3 onward.
 
-### Step 9.3: train
-
-Same recipes that were accepted before, plus the new augmentation:
-
-```bash
-nohup .venv/bin/python -m trainlib.train --task corners --run-name v3 --epochs 8 --batch-size 64 --workers 8 --drop-path 0.2 --ema-decay 0.999 --aug phone > /workspace/train_corners_v3.log 2>&1 &
-# after corners v3 finishes. Edges v1 was the accepted recipe (no drop-path, no EMA, light aug): keep that and add only the phone transforms.
-nohup .venv/bin/python -m trainlib.train --task edges --run-name v2 --epochs 12 --batch-size 32 --workers 8 --aug phone > /workspace/train_edges_v2.log 2>&1 &
-```
-
-Note the edge run name: `runs/edges/v2/` exists from the rejected
-regularized attempt (Step 6); move it to `runs/edges/v2-rejected/` first so
-nothing is overwritten. Monitor as in Step 3. Augmented runs converge a
-little slower; judge from epoch 3 onward.
-
-### Step 9.4: optional, if time allows — edges v3 at double resolution
+### Step 9.4: optional, if time allows — edges HR at double resolution
 
 The edge strip is 1024x192, about a 5x downscale of TAG's roughly 3300x550,
 which thins a fray line to 2-4 px. Add a task variant `edges_hr` in
 `trainlib/tables.py` identical to `edges` but with `input_size (2048, 384)`
 and `cache_resize (2048, 384)`; build its resized cache from the full-res
 files already on the box (`cache_cli --task edges_hr --splits train,val,test
---from-cache`), then train with `--aug phone --batch-size 8`. The ONNX
-export and the app both read the input size from the task spec and the
-contract sidecar, so nothing else changes; the app's crop step is
-resolution-agnostic.
+--from-cache`) — the ~130 GB it needs now fits in the 219 GB free on
+`/workspace` — then train with `--run-name v2-phone-hr --aug phone
+--batch-size 8`. The ONNX export and the app both read the input size from
+the task spec and the contract sidecar, so nothing else changes; the app's
+crop step is resolution-agnostic.
 
 ### Step 9.5: evaluate and accept
 
 For each new model run the normal val eval **and** the phone-sim eval:
 
 ```bash
-.venv/bin/python -m trainlib.evaluate --task corners --checkpoint runs/corners/v3/best.pt --split val --workers 8 | tee runs/corners/v3/eval_val.log
-.venv/bin/python -m trainlib.evaluate --task corners --checkpoint runs/corners/v3/best.pt --split val --workers 8 --phone-sim | tee runs/corners/v3/eval_val_phonesim.log
+.venv/bin/python -m trainlib.evaluate --task corners --checkpoint runs/corners/v3-phone/best.pt --split val --workers 8 | tee runs/corners/v3-phone/eval_val.log
+.venv/bin/python -m trainlib.evaluate --task corners --checkpoint runs/corners/v3-phone/best.pt --split val --workers 8 --phone-sim | tee runs/corners/v3-phone/eval_val_phonesim.log
 ```
 
 Accept a model only if **both** hold on the val `ALL` row:
@@ -837,7 +836,8 @@ Accept a model only if **both** hold on the val `ALL` row:
   0.924, edges v1: 0.895) and `mae_deduction` not worse by more than 5 %
   (corners 103.7, edges 161.3). The augmentation must not cost scan accuracy.
 - phone-sim val `auroc_wear` at least 0.03 higher than the shipped model's
-  phone-sim number from Step 9.2, and phone-sim `recall_wear` higher.
+  phone-sim number from the front of the Step 9.3 chain, and phone-sim
+  `recall_wear` higher.
 
 Then the test split, once per accepted model, both ways. If a model fails,
 report the numbers and leave the artifacts; the shipped model stays. Do not
@@ -851,16 +851,16 @@ fine) and the cached val crops for its parity check:
 
 ```bash
 uv pip install --python .venv/bin/python -e ".[dev,export]"
-.venv/bin/python export_onnx.py --task corners --checkpoint runs/corners/v3/best.pt --run-name v3 --parity-rows 400
-.venv/bin/python export_onnx.py --task edges   --checkpoint runs/edges/v2/best.pt   --run-name v2 --parity-rows 400
+.venv/bin/python export_onnx.py --task corners --checkpoint runs/corners/v3-phone/best.pt --run-name v3-phone --parity-rows 400
+.venv/bin/python export_onnx.py --task edges   --checkpoint runs/edges/v2-phone/best.pt   --run-name v2-phone --parity-rows 400
 ```
 
 Copy home, per accepted model, into `training/weights/<task>/<run>/` and
 `training/weights/onnx/` (create the folders locally first): `best.pt`,
 `args.json`, `log.csv`, every `eval_*.log` and `eval_*.csv`, and from
 `weights/onnx/` the three `.onnx` files plus the `<task>-<run>.json` and
-`<task>-<run>.parity.json` sidecars. Verify `best.pt` loads locally as in
-Step 4.
+`<task>-<run>.parity.json` sidecars (`<run>` is `v3-phone` / `v2-phone`).
+Verify `best.pt` loads locally as in Step 4.
 
 ### Step 9.7: report
 
