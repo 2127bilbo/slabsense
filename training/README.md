@@ -61,6 +61,7 @@ targets. Metrics are reported overall (per epoch, in `log.csv`) and per grade (`
 | 2026-09-16 | edges v1 (full) | wear / deduction | 22,202/2,790 (all cards) | 12 | 673–734 | 7.73 GiB | 0.19654 (epoch 10) | 0.895 (val, best.pt) | 161 pts (val, best.pt) | n/a (no angle target) |
 | 2026-09-16 | corners v2 (full, EMA 0.999 + drop-path 0.2 + strong aug) | wear / deduction / angle | 22,202/2,790 (all cards) | 8 | 541–549 | 11.55 GiB | 0.18282 (epoch 6) | 0.924 (val, best.pt) | 103.7 pts (val, best.pt) | 2.42 pts (val, best.pt) |
 | 2026-09-16 | edges v2 (full, EMA 0.999 + drop-path 0.1 + strong aug) — REJECTED, v1 stays | wear / deduction | 22,202/2,790 (all cards) | 12 | 691–734 | 7.86 GiB | 0.20536 (epoch 12) | 0.883 (val, best.pt) | 170 pts (val, best.pt) | n/a (no angle target) |
+| 2026-09-18 | centering_rgb v1 (full, EMA 0.999 + drop-path 0.1 + light aug + edge jitter) — ACCEPTED | dte_l / dte_r / dte_t / dte_b (per-mille of card size) | 22,202/2,790 (all cards) | 10 | ~990 | 10.98 GiB | 0.00010 (epoch 10) | n/a | mean MAE 1.48 per-mille (val), 1.49 (test) | n/a |
 
 **Metric definitions changed on 2026-09-16** with the corner/edge target
 redesign (`docs/superpowers/plans/2026-09-16-corner-edge-targets.md`):
@@ -282,6 +283,45 @@ Accept v2 only if its val `ALL` row beats v1 on auroc_wear and
 mae_deduction; otherwise v1 stays the shipped model. The test split is read
 once per accepted checkpoint, after val acceptance, and never to choose
 between versions.
+
+## Centering (per side, learned)
+
+`centering_rgb` predicts TAG's four border distances per card side (card edge
+to printed frame: left, right, top, bottom) from the color image of that side
+cropped to the card. Targets are in per-mille of the card's width (l/r) or
+height (t/b), so they are resolution-independent; 1 per-mille is about 4.3 px
+on a 4,309-px-wide card (6.0 px on the 6,004-px height). Centering ratios
+(l/(l+r), t/(t+b)) are derived from the four predictions.
+
+**Card rectangle.** TAG's color images carry a flat orange trim (~50 px) around
+the card, and TAG measures the distances from the card's physical edge, so
+each image is cropped to the card before training and serving.
+`trainlib.centering_prep` measures the card box per image: a fixed orange
+color mask failed 20% of sides (yellow card borders matched it, and the trim
+shade varies between scanning batches); the shipped rule scans inward from
+each side against that side's own outer-ring median color with a tolerance of
+35 per channel, which passes 55,078 of 55,499 sides (0.8% not ok, excluded).
+The table is committed at `training/derived/centering_boxes_rgb.parquet`.
+The crops are cached as the `card` variant (`resized/896x1248-card/`), kept
+apart from the uncropped surface-score cache.
+
+**Edge jitter.** User crops are imperfect, so at train time each crop edge is
+shifted by up to ±3% (cut into the card or padded with a random flat color)
+and the targets are moved to match (`data.jitter_edges`). No flips, no random
+window (the border is the label).
+
+**Baseline** (val, predicting the train median per side): l 4.87, r 4.72,
+t 4.23, b 4.36 per-mille (mean 4.54; 20–26 px). **v1** (10 epochs, RTX 5880
+Ada, ~16.5 min/epoch, peak 10.98 GiB): val l 1.75, r 1.87, t 1.09, b 1.21
+(mean 1.48 ≈ 6–7 px); test 1.80 / 1.87 / 1.12 / 1.17 (mean 1.49). Error is
+flat across grades (per-grade MAE 1.0–2.5 for every grade on both splits;
+one val outlier, 2.5 GOOD+ bottom 4.75, does not recur on test). Train loss
+stayed above val loss, so no overfitting; the last three epochs moved only in
+the third decimal. Test split read once. Artifacts in
+`training/weights/centering_rgb/v1/` (`best.pt` gitignored; logs and evals
+committed). The local 300-card, 2-epoch smoke on the 4070 (peak 3.16 GiB,
+70/56 s per epoch) only checked plumbing.
+
 
 ## Surface detector
 

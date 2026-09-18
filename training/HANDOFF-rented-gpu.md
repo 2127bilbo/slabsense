@@ -466,6 +466,19 @@ per-grade tables (`eval_val.csv`/`eval_test.csv`), plus seconds/epoch
 down over SSH the same way as Step 4 (never commit a `.pt` file —
 `training/weights/**/*.pt` is gitignored).
 
+## Step 10: centering model (DONE 2026-09-18, for the record)
+
+Ran ahead of Step 9 while its code was being written. `centering_rgb` v1:
+`cache_cli --task centering_rgb --splits train,val,test --from-cache
+--workers 32` (crop to the card box from `derived/centering_boxes_rgb.parquet`,
+resize to 896×1248, 55k images, ~35 min, 48 GB), then `train --task
+centering_rgb --run-name v1 --epochs 10 --batch-size 8 --workers 8
+--drop-path 0.1 --ema-decay 0.999 --aug light` (~16.5 min/epoch, peak
+10.98 GiB). Accepted: val mean MAE 1.48 per-mille vs bar 4.0 and baseline
+4.54; test 1.49, read once. Artifacts `runs/centering_rgb/v1/`; pulled home.
+The rejected surface caches (`cache/tiles`, `cache/resized/896x1248`) were
+deleted afterwards; 219 GB free.
+
 ## Failure playbook
 
 | Symptom | Do this |
