@@ -175,3 +175,11 @@ def make_tile_index(tmp_path: Path, n: int = 4, size: int = 128) -> tuple[Path, 
     idx = pd.DataFrame(rows)
     idx.to_parquet(cache / "tiles" / "train.parquet", index=False)
     return cache, idx
+
+
+def orange_card_png(w: int, h: int, margin: int = 50, card_value: int = 120) -> bytes:
+    """A TAG-style color image: flat orange trim `margin` px wide around a gray card."""
+    arr = np.zeros((h, w, 3), dtype=np.uint8)
+    arr[..., 0], arr[..., 1], arr[..., 2] = 235, 120, 40          # orange
+    arr[margin:h - margin, margin:w - margin] = card_value
+    buf = io.BytesIO(); Image.fromarray(arr).save(buf, format="PNG"); return buf.getvalue()
