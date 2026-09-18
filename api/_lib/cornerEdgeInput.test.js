@@ -30,18 +30,21 @@ check('values are clamped, not trusted', clamped.front.corners[0].wear === 1 && 
 check('slots come back in canonical order with engine locations', parseCornerEdgeInput({ front: wornSide() }).front.corners.map((s) => s.location).join(',') === 'TOPLEFT,TOPRIGHT,BOTTOMLEFT,BOTTOMRIGHT');
 check('angle is optional and kept when present', parseCornerEdgeInput({ front: { corners: slots([['TL', 0, 1], ['TR', 0, 1], ['BL', 0, 1], ['BR', 0, 1]]).map((s) => ({ ...s, angle: 990 })), edges: cleanSide().edges } }).front.corners[0].angle === 990);
 
+// Pin the thresholds: these tests check the plumbing, not the calibrated defaults.
+const PIN = { corners: { wearThreshold: 0.3, severityCuts: { moderate: 150, severe: 300, extreme: 500 } }, edges: { wearThreshold: 0.5, severityCuts: { moderate: 150, severe: 300, extreme: 500 } } };
+
 console.log('— prompt block');
 const input = parseCornerEdgeInput({ front: wornSide(), back: cleanSide() });
-const block = cornerEdgeContextBlock(input);
+const block = cornerEdgeContextBlock(input, PIN);
 check('empty without input', cornerEdgeContextBlock(null) === '');
 check('tells Claude corners and edges are measured', /ALREADY MEASURED/.test(block) && /Do NOT report CORNER or\s+EDGE/.test(block));
 check('lists every slot of both sides', (block.match(/^  corner /gm) || []).length === 8 && (block.match(/^  edge /gm) || []).length === 8);
 check('verdicts follow the calibrated thresholds', /TOP LEFT.*-> SEVERE corner wear/.test(block) && /BOTTOM LEFT.*-> clean/.test(block));
 check('an edge under 0.5 wear is reported clean', /LEFT EDGE.*-> clean/.test(block));
-check('front-only says so', /BACK: not measured/.test(cornerEdgeContextBlock(parseCornerEdgeInput({ front: cleanSide() }))));
+check('front-only says so', /BACK: not measured/.test(cornerEdgeContextBlock(parseCornerEdgeInput({ front: cleanSide() }), PIN)));
 
 console.log('— engine defects');
-const defects = cornerEdgeDefects(input);
+const defects = cornerEdgeDefects(input, PIN);
 check('clean back yields nothing', defects.every((d) => d.side === 'FRONT'));
 check('front fires per the thresholds (corners 0.3, edges 0.5)', defects.length === 4, String(defects.length));
 check('corner and edge types only', defects.every((d) => d.type === 'CORNER' || d.type === 'EDGE'));
@@ -58,7 +61,7 @@ const claude = sanitizeDefects([
   { side: 'FRONT', type: 'CREASE', severity: 'severe', location: 'MIDDLE CENTER', x: 50, y: 50, width: 40, height: 3, description: 'diagonal crease' },
   { side: 'BACK', type: 'SCRATCH', severity: 'minor', location: 'TOP CENTER', x: 50, y: 20, width: 5, height: 5, description: 'hairline' },
 ]);
-const merged = applyCornerEdge(claude, input);
+const merged = applyCornerEdge(claude, input, PIN);
 check('without input Claude is untouched', applyCornerEdge(claude, null).defects.length === 4 && applyCornerEdge(claude, null).source === 'ai');
 check('Claude corner/edge findings are dropped', !merged.defects.some((d) => d.description === 'claude corner' || d.description === 'claude edge'));
 check('Claude surface findings survive', merged.defects.some((d) => d.type === 'CREASE') && merged.defects.some((d) => d.type === 'SCRATCH'));
@@ -72,10 +75,10 @@ console.log('— same numbers as the free grade');
 // path must produce the same corner/edge subgrades for the same card.
 import('../../src/lib/softwareGrade.js').then(({ computeGrade }) => {
   import('../../src/lib/corner-edge-model.js').then(({ slotsToDings }) => {
-    const front = [...slotsToDings('corners', 'front', input.front.corners), ...slotsToDings('edges', 'front', input.front.edges)];
-    const back = [...slotsToDings('corners', 'back', input.back.corners), ...slotsToDings('edges', 'back', input.back.edges)];
+    const front = [...slotsToDings('corners', 'front', input.front.corners, PIN), ...slotsToDings('edges', 'front', input.front.edges, PIN)];
+    const back = [...slotsToDings('corners', 'back', input.back.corners, PIN), ...slotsToDings('edges', 'back', input.back.edges, PIN)];
     const free = computeGrade(front, back, { lrRatio: 52, tbRatio: 51 }, { lrRatio: 50, tbRatio: 50 }, 'tag');
-    const paid = gradeCard({ defects: cornerEdgeDefects(input), centering: { front: { lrRatio: 52, tbRatio: 51 }, back: { lrRatio: 50, tbRatio: 50 } } });
+    const paid = gradeCard({ defects: cornerEdgeDefects(input, PIN), centering: { front: { lrRatio: 52, tbRatio: 51 }, back: { lrRatio: 50, tbRatio: 50 } } });
     const same = (k) => free.subgrades[k] === paid.subgrades[k];
     check('corner and edge subgrades match the free path exactly', ['frontCorners', 'backCorners', 'frontEdges', 'backEdges'].every(same), JSON.stringify([free.subgrades, paid.subgrades]));
     check('overall matches when no surface defects are present', free.overall.grade === paid.overall.grade);

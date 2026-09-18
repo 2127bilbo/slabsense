@@ -90,7 +90,7 @@ Both are *internal* — TAG publishes neither — and both were calibrated on th
 
 | | corners | edges |
 |---|---|---|
-| wear threshold | 0.20 *(0.30 until 2026-09-18; see below)* | 0.50 |
+| wear threshold | 0.20 *(0.30 until 2026-09-18)* | 0.20 *(0.50 until 2026-09-18)* |
 | severity: moderate / severe / extreme at | 150 / 300 / 500 predicted points | 150 / 300 / 500 |
 
 Calibration (`scripts/harness/model-sweep.mjs`, 216 settings) was chosen on the 404 harness cards that were in
@@ -104,10 +104,15 @@ comparison isolates the defect change:
 | TAG 9–10 bucket, within half a grade | — | 89 % | 86 % |
 | corner detection, precision / recall | never fired | 0.66 / 0.84 | 0.60 / 0.90 |
 
-The held-out improvement is 1.42 grades at 0.20 (95 % paired bootstrap 1.11 to 1.84, n = 102). 0.30 was chosen
-first for its clean-card precision; it moved to 0.20 on 2026-09-18 because phone photos are softer than TAG
-scans and score every corner 0.1–0.2 lower (the owner's worn card scored its four visibly rubbed back corners
-0.21–0.38), and the harness supports either.
+0.30 was chosen first for its clean-card precision; corners moved to 0.20 on 2026-09-18 because phone photos
+are softer than TAG scans and score every corner 0.1–0.2 lower (the owner's worn card scored its four visibly
+rubbed back corners 0.21–0.38), and the harness supports either.
+
+Edges moved from 0.50 to 0.20 the same day. The edge model is the weaker of the two: on TAG's own scans a
+side TAG marked scores a median of only 0.29, so 0.50 caught 22 % of marked sides. At 0.20 it catches 63 %
+and fires on 10 % of unmarked sides. With both at 0.20 (shipped): held-out mean error **1.30**, 9–10 bucket
+0.17 with 85 % within half a grade, edge precision / recall 0.42 / 0.62, held-out improvement 1.68 grades
+(95 % paired bootstrap 1.27 to 2.21, n = 102).
 
 **Why the thresholds are not the lowest-error ones.** Firing more and harsher corner dings scores better
 overall (1.40 vs 1.84 mean error) but earns it by punishing creased and stained cards through corner dings

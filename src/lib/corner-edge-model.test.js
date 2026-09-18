@@ -90,7 +90,7 @@ console.log('— defaults');
 check('both tasks have defaults', OUTPUT_CHANNELS.corners.length === 3 && OUTPUT_CHANNELS.edges.length === 2 && MODEL_DEFAULTS.corners && MODEL_DEFAULTS.edges);
 check('cut lines ascend', Object.values(MODEL_DEFAULTS.corners.severityCuts).every((v, i, a) => i === 0 || a[i - 1] < v));
 check('thresholds are probabilities', [MODEL_DEFAULTS.corners.wearThreshold, MODEL_DEFAULTS.edges.wearThreshold].every((v) => v > 0 && v < 1));
-check('defaults are the calibrated ones (scripts/harness/model-sweep.mjs)', MODEL_DEFAULTS.corners.wearThreshold === 0.2 && MODEL_DEFAULTS.edges.wearThreshold === 0.5 && MODEL_DEFAULTS.corners.severityCuts.moderate === 150);
+check('defaults are the calibrated ones (scripts/harness/model-sweep.mjs)', MODEL_DEFAULTS.corners.wearThreshold === 0.2 && MODEL_DEFAULTS.edges.wearThreshold === 0.2 && MODEL_DEFAULTS.corners.severityCuts.moderate === 150);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

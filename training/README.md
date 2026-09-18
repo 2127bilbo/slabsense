@@ -667,3 +667,15 @@ backdrop from the crop's outer corner and recolour it to a random colour (black,
 white, wood, grey, random hue) on a fraction of samples, so the model stops
 reading the backdrop at all. Do this for corners and edges, keep the rest of the
 recipe, and re-run `verify-crops.mjs` + `model-sweep.mjs` before shipping.
+
+### Edges v2: what to fix (2026-09-18)
+
+The edge model is the weak one. On TAG's own scans a side with a TAG edge
+marker scores a median wear of only 0.29 (corners: clear separation), and on
+a phone photo of a heavily frayed edge it scored 0.08-0.12. Likely causes, in
+order: (1) the 1024x192 input is a ~5x downscale of TAG's 3300x550 strip, which
+thins a fray line to 2-4 px — try 2048x384 or tiling the strip into 3 squares;
+(2) no blur/sharpness augmentation, so phone softness is out of distribution;
+(3) the same orange-backdrop dependence as corners. Targets are right:
+`ding_count` tracks TAG's edge subgrade (rank corr 0.88) and 96% of cards with
+a reduced edge subgrade carry a marker; fray_px/fill_px do not track it (0.03).

@@ -48,6 +48,12 @@ export const POINT_SCALE = 1000;
  * four visibly rubbed back corners 0.21-0.38 — so 0.20 is the one that works
  * on the photos the app actually gets.
  *
+ * Edges fire at 0.20 (2026-09-18). The edge model is the weaker of the two:
+ * on TAG's own scans a side TAG marked scores a median of only 0.29, so the
+ * original 0.50 caught 22% of marked sides. At 0.20 it catches 63% and fires
+ * on 10% of unmarked sides; held-out MAE 1.56 -> 1.30, 9-10 bucket 0.15 ->
+ * 0.17. Lower still (0.10) catches 77% but fires on 15% of clean sides.
+ *
  * The severity cuts are deliberately NOT the lowest-error ones. Harsher cuts
  * score better overall (MAE 1.40) purely by punishing heavily damaged cards
  * whose real problem is creases and stains that no model covers yet — that buys
@@ -56,7 +62,7 @@ export const POINT_SCALE = 1000;
  */
 export const MODEL_DEFAULTS = {
   corners: { wearThreshold: 0.2, severityCuts: { moderate: 150, severe: 300, extreme: 500 } },
-  edges: { wearThreshold: 0.5, severityCuts: { moderate: 150, severe: 300, extreme: 500 } },
+  edges: { wearThreshold: 0.2, severityCuts: { moderate: 150, severe: 300, extreme: 500 } },
 };
 
 const DING_TYPE = { corners: 'CORNER WEAR', edges: 'EDGE WEAR' };
