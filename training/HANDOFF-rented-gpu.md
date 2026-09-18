@@ -794,16 +794,21 @@ eval paths, Step 9.6's export `--run-name` and "bring home" folders).
 
 ```bash
 cd /workspace/SlabSense/training && source /workspace/env.sh
+df -h /dev/shm     # needs >= 8 GB for 16 loader workers; if smaller use --workers 12
 nohup bash -c '
   .venv/bin/python -m trainlib.evaluate --task corners --checkpoint runs/corners/v2/best.pt --split val --workers 8 --phone-sim | tee runs/corners/v2/eval_val_phonesim.log &&
   .venv/bin/python -m trainlib.evaluate --task edges   --checkpoint runs/edges/v1/best.pt   --split val --workers 8 --phone-sim | tee runs/edges/v1/eval_val_phonesim.log &&
-  .venv/bin/python -m trainlib.train --task corners --run-name v3-phone --epochs 8  --batch-size 64 --workers 8 --drop-path 0.2 --ema-decay 0.999 --aug phone > /workspace/train_corners_v3-phone.log 2>&1 &&
-  .venv/bin/python -m trainlib.train --task edges   --run-name v2-phone --epochs 12 --batch-size 32 --workers 8 --aug phone > /workspace/train_edges_v2-phone.log 2>&1
+  .venv/bin/python -m trainlib.train --task corners --run-name v3-phone --epochs 8  --batch-size 64 --workers 16 --drop-path 0.2 --ema-decay 0.999 --aug phone > /workspace/train_corners_v3-phone.log 2>&1 ;
+  .venv/bin/python -m trainlib.train --task edges   --run-name v2-phone --epochs 12 --batch-size 32 --workers 16 --aug phone > /workspace/train_edges_v2-phone.log 2>&1
 ' > /workspace/step9_chain.log 2>&1 &
 ```
 
 (Edges v1 was the accepted recipe — no drop-path, no EMA, light aug; keep
-that and add only the `--aug phone` transforms.) Expect the two eval lines
+that and add only the `--aug phone` transforms.) `--workers 16`, not 8: the phone
+transforms run in the loader workers (flood fill + blur + JPEG per sample,
+~30 ms each on a rental core), and 8 workers would feed only ~60-80% of
+what the 5880 consumes; 16 keeps it GPU-bound. The `;` between the two
+train commands is deliberate: if corners fails, edges still runs. Expect the two eval lines
 to be bad (that is the point — write the `ALL`-row numbers down and compare
 against the local reference table above). Monitor as in Step 3; augmented
 runs converge a little slower, so judge from epoch 3 onward.

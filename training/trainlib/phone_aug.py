@@ -52,7 +52,7 @@ def random_fill_colour(rng: np.random.Generator) -> tuple[int, int, int]:
 
 
 def recolour_backdrop(img: Image.Image, seeds, rng, colour=None, tolerance=60, grow=2, max_fill=0.3,
-                      skip_tolerance=110, orange=TAG_ORANGE):
+                      skip_tolerance=200, orange=TAG_ORANGE):
     a = np.asarray(img.convert("RGB")).astype(np.int16)
     H, W = a.shape[:2]
     fill = np.zeros((H, W), dtype=bool)

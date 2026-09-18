@@ -727,6 +727,13 @@ session; this README is the background.
 
 ### Phone-photo augmentation (2026-09-18)
 
+Skip tolerance for the fill seed is 200 (sum of absolute RGB differences to
+TAG orange), not the app's 110: a batch of darker-orange scans (e.g.
+(172,62,15), sum-diff 116–168, clustered by cert) is 5.7% of corner crops and
+was being refused at 110, i.e. never augmented and left clean in phone-sim;
+at 200 refusals drop to 0.5% (all genuine leaks). The local baseline table
+below was measured at 110, so its phone-sim rows are slightly optimistic.
+
 Implemented in `trainlib/phone_aug.py` and wired into `data.load_crop` as
 `aug="phone"` (train) / `phone_sim=True` (eval, `--phone-sim` in
 `trainlib.evaluate`). Four transforms, applied in this order at the crop's
