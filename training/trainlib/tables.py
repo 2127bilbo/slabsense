@@ -135,10 +135,12 @@ def filter_cached(df: pd.DataFrame, cache_dir: Path, task: str | None = None) ->
     full-res file exists.
     """
     cache_dir = Path(cache_dir)
-    resize = TASKS[task]["cache_resize"] if task else None
+    spec = TASKS[task] if task else None
+    resize = spec["cache_resize"] if spec else None
     if resize:
+        variant = spec.get("cache_variant")
         present = df.crop_path.map(
-            lambda p: resized_path(cache_dir, p, resize).exists() or (cache_dir / p).exists()
+            lambda p: resized_path(cache_dir, p, resize, variant).exists() or (cache_dir / p).exists()
         )
     else:
         present = df.crop_path.map(lambda p: (cache_dir / p).exists())

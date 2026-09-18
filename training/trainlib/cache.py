@@ -23,15 +23,19 @@ def cache_path(cache_dir: Path, key: str) -> Path:
     return Path(cache_dir) / key
 
 
-def resized_path(cache_dir: Path, key: str, size: tuple[int, int]) -> Path:
+def resized_path(cache_dir: Path, key: str, size: tuple[int, int], variant: str | None = None) -> Path:
     w, h = size
-    return Path(cache_dir) / "resized" / f"{w}x{h}" / Path(key).with_suffix(".jpg")
+    folder = f"{w}x{h}" + (f"-{variant}" if variant else "")
+    return Path(cache_dir) / "resized" / folder / Path(key).with_suffix(".jpg")
 
 
-def _resize_and_save(data: bytes, dest: Path, size: tuple[int, int], quality: int, rotate: bool = True) -> None:
+def _resize_and_save(data: bytes, dest: Path, size: tuple[int, int], quality: int, rotate: bool = True,
+                     crop_box: tuple[int, int, int, int] | None = None) -> None:
     w, h = size
     with Image.open(BytesIO(data)) as im:
         img = im.convert("RGB")
+    if crop_box is not None:
+        img = img.crop(tuple(int(v) for v in crop_box))
     if rotate and img.height > img.width:
         img = img.transpose(Image.Transpose.ROTATE_90)
     img = img.resize((w, h), Image.Resampling.LANCZOS)
@@ -43,7 +47,8 @@ def _resize_and_save(data: bytes, dest: Path, size: tuple[int, int], quality: in
 
 
 def _fetch(reader, key: str, dest: Path, resize: tuple[int, int] | None, quality: int,
-          rotate: bool = True, local_full: Path | None = None) -> str:
+          rotate: bool = True, local_full: Path | None = None,
+          crop_box: tuple[int, int, int, int] | None = None) -> str:
     if resize is not None:
         # No upstream size to compare against a resized derivative; existence means done.
         if dest.exists() and dest.stat().st_size > 0:
@@ -56,7 +61,7 @@ def _fetch(reader, key: str, dest: Path, resize: tuple[int, int] | None, quality
         data = reader.get(key)
     dest.parent.mkdir(parents=True, exist_ok=True)
     if resize is not None:
-        _resize_and_save(data, dest, resize, quality, rotate)
+        _resize_and_save(data, dest, resize, quality, rotate, crop_box)
     else:
         tmp = dest.with_suffix(dest.suffix + ".part")
         tmp.write_bytes(data)
@@ -67,13 +72,16 @@ def _fetch(reader, key: str, dest: Path, resize: tuple[int, int] | None, quality
 def build_cache(reader, keys: list[str], cache_dir: Path, workers: int = 16,
                 progress: Callable[[dict], None] | None = None,
                 resize: tuple[int, int] | None = None, quality: int = 95,
-                rotate: bool = True, local_full: bool = False) -> dict[str, int]:
+                rotate: bool = True, local_full: bool = False, variant: str | None = None,
+                crops: dict[str, tuple[int, int, int, int]] | None = None) -> dict[str, int]:
     counts = {"downloaded": 0, "skipped": 0, "failed": 0}
     keys = list(dict.fromkeys(keys))
-    dest_for = (lambda k: resized_path(cache_dir, k, resize)) if resize else (lambda k: cache_path(cache_dir, k))
+    crops = crops or {}
+    dest_for = (lambda k: resized_path(cache_dir, k, resize, variant)) if resize else (lambda k: cache_path(cache_dir, k))
     with ThreadPoolExecutor(max(1, workers)) as ex:
         futures = {ex.submit(_fetch, reader, k, dest_for(k), resize, quality, rotate,
-                             cache_path(cache_dir, k) if (local_full and resize) else None): k for k in keys}
+                             cache_path(cache_dir, k) if (local_full and resize) else None,
+                             crops.get(k)): k for k in keys}
         for f in as_completed(futures):
             try:
                 counts[f.result()] += 1

@@ -1,9 +1,10 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from PIL import Image, JpegImagePlugin
 
-from conftest import FakeReader, make_cache, make_tables, png_bytes
+from conftest import FakeReader, make_cache, make_tables, orange_card_png, png_bytes
 from trainlib import cache
 
 
@@ -133,3 +134,20 @@ def test_local_full_falls_back_to_reader_when_missing(tmp_path):
     reader = FakeReader({"k/c.jpg": png_bytes(200, 300)})
     counts = cache.build_cache(reader, ["k/c.jpg"], tmp_path, workers=1, resize=(20, 30), rotate=False, local_full=True)
     assert counts["downloaded"] == 1 and reader.calls == ["k/c.jpg"]
+
+
+def test_resized_path_variant():
+    assert cache.resized_path(Path("c"), "k/a.jpg", (20, 30)) == Path("c") / "resized" / "20x30" / "k" / "a.jpg"
+    assert cache.resized_path(Path("c"), "k/a.jpg", (20, 30), "card") == Path("c") / "resized" / "20x30-card" / "k" / "a.jpg"
+
+
+def test_build_cache_crops_before_resizing(tmp_path):
+    reader = FakeReader({"k/a.png": orange_card_png(400, 600, margin=50)})
+    counts = cache.build_cache(reader, ["k/a.png"], tmp_path, workers=1, resize=(30, 50), rotate=False,
+                               variant="card", crops={"k/a.png": (50, 50, 350, 550)})
+    assert counts["downloaded"] == 1
+    dest = cache.resized_path(tmp_path, "k/a.png", (30, 50), "card")
+    with Image.open(dest) as im:
+        arr = np.asarray(im.convert("RGB"))
+    assert im.size == (30, 50)
+    assert arr[..., 0].max() < 200          # no orange survived the crop

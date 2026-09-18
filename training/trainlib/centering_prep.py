@@ -44,7 +44,7 @@ def _measure_one(args) -> dict | None:
         with Image.open(path) as im:
             (x0, y0, x1, y1), ok = detect_card_box(im)
             W, H = im.size
-    except (OSError, ValueError) as e:
+    except (OSError, ValueError, Image.DecompressionBombError) as e:
         print(f"centering_prep: failed {path}: {e}")
         return None
     return {"cert": cert, "side": side, "image_key": key, "W": W, "H": H, "x0": x0, "y0": y0, "x1": x1, "y1": y1, "ok": bool(ok)}

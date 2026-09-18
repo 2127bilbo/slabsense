@@ -3,8 +3,11 @@ already-cached full-resolution copy with --from-cache."""
 from __future__ import annotations
 
 import argparse
+import os
 import time
 from pathlib import Path
+
+import pandas as pd
 
 from .cache import build_cache
 from .config import load_config
@@ -41,9 +44,11 @@ def main(argv=None) -> dict:
                    help="resize from the full-resolution file already in the cache instead of downloading")
     args = p.parse_args(argv)
     cfg = load_config(args.config)
-    resize = None if args.no_resize else TASKS[args.task]["cache_resize"]
+    spec = TASKS[args.task]
+    resize = None if args.no_resize else spec["cache_resize"]
     if args.from_cache and not resize:
         p.error("--from-cache only applies to a resized cache; drop --no-resize or use a task with cache_resize")
+    variant = spec.get("cache_variant")
     keys: list[str] = []
     for part in args.splits.split(","):
         split, _, limit = part.partition(":")
@@ -51,9 +56,19 @@ def main(argv=None) -> dict:
                              int(limit) if limit else None, args.seed, allow_test=(split.strip() == "test"))
         keys += df.crop_path.tolist()
     keys = sorted(set(keys))
+    crops = None
+    if spec.get("crop_boxes"):
+        boxes_path = Path(os.environ.get("TRAINLIB_BOXES") or (Path(args.config).resolve().parent / spec["crop_boxes"]))
+        boxes = pd.read_parquet(boxes_path)
+        boxes = boxes[boxes.ok]
+        crops = {r.image_key: (r.x0, r.y0, r.x1, r.y1) for r in boxes.itertuples()}
+        before = len(keys)
+        keys = [k for k in keys if k in crops]
+        print(f"skipped {before - len(keys)} keys with no ok card box")
     if resize:
         w, h = resize
-        out_dir = Path(cfg.cache_dir) / "resized" / f"{w}x{h}"
+        folder = f"{w}x{h}" + (f"-{variant}" if variant else "")
+        out_dir = Path(cfg.cache_dir) / "resized" / folder
         print(f"{args.task}: {len(keys)} crops, resized to {w}x{h} → {out_dir}")
     else:
         out_dir = cfg.cache_dir
@@ -65,7 +80,8 @@ def main(argv=None) -> dict:
             last[0] = time.time(); print(f"\r{c}  {sum(c.values()) / (time.time() - t0):.1f}/s", end="", flush=True)
 
     counts = build_cache(_LazyReader(cfg), keys, cfg.cache_dir, args.workers, progress, resize=resize,
-                         rotate=TASKS[args.task]["long_side_horizontal"], local_full=args.from_cache)
+                         rotate=spec["long_side_horizontal"], local_full=args.from_cache,
+                         variant=variant, crops=crops)
     note = " ('downloaded' counts local resizes too)" if args.from_cache else ""
     print(f"\ncache done: {counts} in {time.time() - t0:.0f}s{note}")
     return counts

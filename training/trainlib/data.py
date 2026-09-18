@@ -96,11 +96,12 @@ class CropDataset(Dataset):
         return len(self.df)
 
     def _resolve_path(self, crop_path: str) -> Path:
-        resize = TASKS[self.task]["cache_resize"]
+        spec = TASKS[self.task]
+        resize = spec["cache_resize"]
         full_path = self.cache_dir / crop_path
         if not resize or self.full_res:
             return full_path
-        rpath = resized_path(self.cache_dir, crop_path, resize)
+        rpath = resized_path(self.cache_dir, crop_path, resize, spec.get("cache_variant"))
         if rpath.exists():
             return rpath
         if full_path.exists():
