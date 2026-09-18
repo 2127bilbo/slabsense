@@ -668,3 +668,195 @@ down over SSH the same way as Step 4 above (never commit a `.pt` or
 | `tile` step OOM / killed (32 workers, each holding a decoded ~26 MP image, is ~8 GB RSS) | rerun with `--workers 16`; it resumes (tiles already written are skipped) |
 | `CUDA out of memory` | rerun with `--batch-size 4` |
 | `map50` still `nan` after epoch 2 | stop and report — the model is producing no detections above score 0.05; this is almost certainly a tiling/index problem (e.g. an empty or misaligned tile index), not something a tuning change fixes |
+
+## Step 9: corners v3 and edges v2 — make the models work on phone photos
+
+**For the Claude instance taking this over.** The shipped corner model
+(`runs/corners/v2/best.pt`) and edge model (`runs/edges/v1/best.pt`) are live
+in the app as ONNX. They were trained on TAG's studio scans only and, measured
+in the app on 2026-09-17/18, they break on phone photos in specific, measured
+ways. This step retrains both with augmentations that close those gaps. Read
+`training/README.md` sections "Shipping the models in the app", "Next training
+run: backdrop augmentation" and "Edges v2: what to fix" first; everything you
+need to *do* is below. No new data is needed: the caches on `/workspace` are
+the inputs, unchanged.
+
+**Why (all measured, `scripts/harness/model-domain.mjs` on held-out TAG
+scans, 30 cards, 64 corner slots with a TAG ding):**
+
+| what the app hands the model | corner dings kept | false edge dings |
+|---|---|---|
+| TAG scan, untouched (the training domain) | 64 / 64 | 0 |
+| same scan, backdrop beyond the corner painted black | 17 / 64 | 23 |
+| painted white | 26 / 64 | 2 |
+| painted wood-brown (close to TAG orange) | 60 / 64 | 0 |
+
+Every training crop shows TAG's orange backdrop (mean RGB 247,126,44)
+beyond the card; the models learned the backdrop as part of "a corner". The
+app now paints a phone photo's table TAG orange before inference as a bridge
+(`src/lib/tag-crops.js`, `repaintBackdrop`), which recovers 49 of 64; the
+model should not need it. Second, phone photos are softer than a flatbed
+scan: on the owner's worn card the four visibly rubbed back corners scored
+0.21-0.38 wear (TAG-scan positives sit at 0.5-0.9) and two obviously frayed
+edges scored 0.08-0.12. Third, the edge model is weak even on scans: a side
+TAG marked scores a median of only 0.29. Fourth, a bowed card puts the
+user's crop line off the true edge, so a strip can be 10-45 % table.
+
+**Step 9 budget** (tell the user before starting): code + tests about 30
+min; corners v3, 8 epochs at about 10 min, about 80 min; edges v2, 12 epochs
+at about 12 min, about 150 min; the optional edges v3 at double resolution
+needs a new resized cache (about 40 min CPU) and about 4x the epoch time,
+about 8 h; evals about 30 min; **about 5 h without the optional run, about
+13 h with it, at about $1/h**. Disk: the optional 2048x384 edge cache is
+about 4x the 1024x192 one; check `df -h /workspace`.
+
+### Step 9.0: update the code and verify tests
+
+```bash
+cd /workspace/SlabSense && git pull && cd training
+uv pip install --python .venv/bin/python -e ".[dev]" && .venv/bin/python -m pytest -q
+```
+
+### Step 9.1: add the `phone` augmentation mode to `trainlib/data.py`
+
+Add `"phone"` to `AUG_MODES`. It is `strong` plus the four transforms below,
+applied inside `load_crop` **after** the rotation and the random window and
+**before** the resize (they must act at the crop's native scale), each with
+its own probability, all driven by the `rng` already passed in. The docstring
+currently says "No rotation or blur ... blur would erase the hairline marks";
+keep no rotation, but blur is now deliberate: the app's photos are blurred
+and the model must find wear through it.
+
+1. **Backdrop recolour (p = 0.6).** Flood-fill from the crop's outer
+   corner(s) over pixels within a tolerance of the seed colour, dilate 3 px,
+   and fill with a random colour drawn from: black, white, greys, wood
+   browns, and a random hue at random saturation. Seeds, in the crop's own
+   pixel coordinates after the rotation step (the slot comes from the
+   filename: `corner_FTL.png` is corner `TL`, `edge_BL.png` is edge `L`):
+
+   | slot | seed corner(s) of the crop |
+   |---|---|
+   | corner TL / TR / BL / BR | that corner |
+   | edge T | top-left and top-right |
+   | edge B | bottom-left and bottom-right |
+   | edge L (after ROTATE_90 the outer side is the BOTTOM) | bottom-left and bottom-right |
+   | edge R (after ROTATE_90 the outer side is the TOP) | top-left and top-right |
+
+   Use the same fill as the app so train and inference agree: tolerance 60
+   (sum of absolute RGB differences to the seed), and abandon the fill for
+   that seed if it reaches the crop centre or exceeds 30 % of the crop (a
+   card whose border matches the backdrop). Skip the seed if it is not
+   orange-ish (sum of absolute differences to (247,126,44) above 110). That
+   cannot happen in this dataset but keeps the function safe.
+2. **Loose crop (p = 0.3).** Pad the outer side(s), the seed sides above, by
+   a random 0-15 % of the crop size with the (possibly recoloured) backdrop
+   colour, so the card edge is no longer exactly at the crop boundary. This
+   is what a bowed card does to the user's crop line.
+3. **Softness (p = 0.5).** Gaussian blur with radius drawn uniformly from
+   0.5 to 1.5 px *at the model input size* (scale the radius by
+   native/input before applying at native scale), then JPEG re-encode at
+   quality 60-90.
+4. **Resolution loss (p = 0.3).** Downscale by 0.35-0.6 and upscale back
+   with bilinear, before the resize. A 2000 px phone upload gives about
+   180 px per corner against TAG's 550.
+
+Add tests in `trainlib/tests/`: the fill recolours a synthetic orange
+corner and leaves the card; a black-on-black crop is refused; each edge key
+seeds the right side after rotation; `aug="phone"` produces a tensor of the
+right shape with `train=True` and changes nothing with `train=False`.
+
+### Step 9.2: add `--phone-sim` to `trainlib/evaluate.py`
+
+A deterministic eval-time variant of Step 9.1 (seeded rng, no randomness in
+the choice): backdrop painted black, blur 1.0 px, downscale 0.5. It answers
+the only question that matters here: does the model still see the wear when
+the picture looks like a phone photo? Print the same metric rows as the
+normal eval. Run it on the **current** models first so the baseline is on
+record:
+
+```bash
+cd /workspace/SlabSense/training && source /workspace/env.sh
+.venv/bin/python -m trainlib.evaluate --task corners --checkpoint runs/corners/v2/best.pt --split val --workers 8 --phone-sim | tee runs/corners/v2/eval_val_phonesim.log
+.venv/bin/python -m trainlib.evaluate --task edges   --checkpoint runs/edges/v1/best.pt   --split val --workers 8 --phone-sim | tee runs/edges/v1/eval_val_phonesim.log
+```
+
+Expect these to be bad (that is the point); write the numbers down.
+
+### Step 9.3: train
+
+Same recipes that were accepted before, plus the new augmentation:
+
+```bash
+nohup .venv/bin/python -m trainlib.train --task corners --run-name v3 --epochs 8 --batch-size 64 --workers 8 --drop-path 0.2 --ema-decay 0.999 --aug phone > /workspace/train_corners_v3.log 2>&1 &
+# after corners v3 finishes. Edges v1 was the accepted recipe (no drop-path, no EMA, light aug): keep that and add only the phone transforms.
+nohup .venv/bin/python -m trainlib.train --task edges --run-name v2 --epochs 12 --batch-size 32 --workers 8 --aug phone > /workspace/train_edges_v2.log 2>&1 &
+```
+
+Note the edge run name: `runs/edges/v2/` exists from the rejected
+regularized attempt (Step 6); move it to `runs/edges/v2-rejected/` first so
+nothing is overwritten. Monitor as in Step 3. Augmented runs converge a
+little slower; judge from epoch 3 onward.
+
+### Step 9.4: optional, if time allows — edges v3 at double resolution
+
+The edge strip is 1024x192, about a 5x downscale of TAG's roughly 3300x550,
+which thins a fray line to 2-4 px. Add a task variant `edges_hr` in
+`trainlib/tables.py` identical to `edges` but with `input_size (2048, 384)`
+and `cache_resize (2048, 384)`; build its resized cache from the full-res
+files already on the box (`cache_cli --task edges_hr --splits train,val,test
+--from-cache`), then train with `--aug phone --batch-size 8`. The ONNX
+export and the app both read the input size from the task spec and the
+contract sidecar, so nothing else changes; the app's crop step is
+resolution-agnostic.
+
+### Step 9.5: evaluate and accept
+
+For each new model run the normal val eval **and** the phone-sim eval:
+
+```bash
+.venv/bin/python -m trainlib.evaluate --task corners --checkpoint runs/corners/v3/best.pt --split val --workers 8 | tee runs/corners/v3/eval_val.log
+.venv/bin/python -m trainlib.evaluate --task corners --checkpoint runs/corners/v3/best.pt --split val --workers 8 --phone-sim | tee runs/corners/v3/eval_val_phonesim.log
+```
+
+Accept a model only if **both** hold on the val `ALL` row:
+
+- clean val `auroc_wear` within 0.01 of the shipped model (corners v2:
+  0.924, edges v1: 0.895) and `mae_deduction` not worse by more than 5 %
+  (corners 103.7, edges 161.3). The augmentation must not cost scan accuracy.
+- phone-sim val `auroc_wear` at least 0.03 higher than the shipped model's
+  phone-sim number from Step 9.2, and phone-sim `recall_wear` higher.
+
+Then the test split, once per accepted model, both ways. If a model fails,
+report the numbers and leave the artifacts; the shipped model stays. Do not
+retune thresholds. That happens on the DIG harness at home, not here.
+
+### Step 9.6: export and bring home
+
+For each accepted model, export the ONNX copies on the box. The export
+script needs the `export` extra (onnx, onnxruntime, onnxscript; CPU is
+fine) and the cached val crops for its parity check:
+
+```bash
+uv pip install --python .venv/bin/python -e ".[dev,export]"
+.venv/bin/python export_onnx.py --task corners --checkpoint runs/corners/v3/best.pt --run-name v3 --parity-rows 400
+.venv/bin/python export_onnx.py --task edges   --checkpoint runs/edges/v2/best.pt   --run-name v2 --parity-rows 400
+```
+
+Copy home, per accepted model, into `training/weights/<task>/<run>/` and
+`training/weights/onnx/` (create the folders locally first): `best.pt`,
+`args.json`, `log.csv`, every `eval_*.log` and `eval_*.csv`, and from
+`weights/onnx/` the three `.onnx` files plus the `<task>-<run>.json` and
+`<task>-<run>.parity.json` sidecars. Verify `best.pt` loads locally as in
+Step 4.
+
+### Step 9.7: report
+
+Report, per task: the clean and phone-sim val numbers for the old and new
+model side by side, the test numbers once, the epoch that produced
+`best.pt`, and the export parity line. What happens next is the main
+session's job and is not yours: re-run `scripts/harness/verify-crops.mjs`,
+`model-predict.mjs`, `model-sweep.mjs` and `model-domain.mjs` on the new
+ONNX (the black-backdrop row should now keep most of the 64 corner dings
+without the app's repaint), recalibrate the thresholds on the harness,
+publish with new filenames via `npm run models:upload`, and point
+`DEFAULT_MODEL_FILES` in `src/lib/corner-edge-runner.js` at them.

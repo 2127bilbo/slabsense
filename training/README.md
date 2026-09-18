@@ -679,3 +679,8 @@ thins a fray line to 2-4 px — try 2048x384 or tiling the strip into 3 squares;
 (3) the same orange-backdrop dependence as corners. Targets are right:
 `ding_count` tracks TAG's edge subgrade (rank corr 0.88) and 96% of cards with
 a reduced edge subgrade carry a marker; fray_px/fill_px do not track it (0.03).
+
+The full run recipe for both retrains (augmentation spec, seeds per slot,
+the phone-sim evaluation, acceptance rules, export and what to bring home)
+is **Step 9 of `training/HANDOFF-rented-gpu.md`**. Hand that to the training
+session; this README is the background.
