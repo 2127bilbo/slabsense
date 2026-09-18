@@ -16,23 +16,37 @@ from .surface_tables import load_surface_split
 
 BOX_COLUMNS = ["cert", "side", "image_key", "W", "H", "x0", "y0", "x1", "y1", "ok"]
 MARGIN_MIN, MARGIN_MAX, FRACTION = 20, 200, 0.6
+RING, TOL, SCAN_LIMIT = 6, 35, 260
 
 
-def _leading(frac: np.ndarray) -> int:
+def _is_orange(med: np.ndarray) -> bool:
+    return bool(med[0] > 150 and med[2] < 0.55 * med[0] and med[1] < 0.8 * med[0])
+
+
+def _side_margin(lines: np.ndarray) -> int:
+    """Trim width along one side. `lines[i]` is the i-th row/column of pixels scanning inward from
+    that side. The trim color is taken from that side's own outermost RING lines (it varies between
+    scanning batches and across an image), and the margin is the run of lines on which more than
+    FRACTION of the pixels lie within TOL per channel of it. A yellow card border is outside TOL of
+    every trim shade (its G channel is ~50 higher), which a fixed orange threshold could not separate."""
+    med = np.median(lines[:RING].reshape(-1, 3), axis=0)
+    if not _is_orange(med):
+        return 0
     n = 0
-    while n < len(frac) and frac[n] > FRACTION:
-        n += 1
+    for i in range(min(SCAN_LIMIT, len(lines))):
+        if (np.abs(lines[i] - med).max(axis=1) <= TOL).mean() > FRACTION:
+            n += 1
+        else:
+            break
     return n
 
 
 def detect_card_box(img: Image.Image) -> tuple[tuple[int, int, int, int], bool]:
     a = np.asarray(img.convert("RGB")).astype(np.int16)
-    r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    orange = (r > 150) & (g > 60) & (g < 190) & (b < 110) & ((r - b) > 80)
-    col, row = orange.mean(axis=0), orange.mean(axis=1)
-    left, right = _leading(col), _leading(col[::-1])
-    top, bottom = _leading(row), _leading(row[::-1])
-    H, W = orange.shape
+    H, W = a.shape[:2]
+    top, bottom = _side_margin(a), _side_margin(a[::-1])
+    cols = a.transpose(1, 0, 2)
+    left, right = _side_margin(cols), _side_margin(cols[::-1])
     box = (left, top, W - right, H - bottom)
     ok = all(MARGIN_MIN <= m <= MARGIN_MAX for m in (left, right, top, bottom))
     return (box if ok else (0, 0, W, H)), ok
