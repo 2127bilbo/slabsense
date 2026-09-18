@@ -1,6 +1,6 @@
 # SlabSense grading models: what is done, where it lives, what remains
 
-Snapshot 2026-09-17. Branch `tag-dataset` (not merged to main; it also carries
+Snapshot 2026-09-18 (evening). Branch `tag-dataset` (not merged to main; it also carries
 unrelated work, so merging is your call). Box: vast.ai RTX 5880 Ada 48 GB,
 `ssh -p 22684 root@185.17.198.195`, repo at `/workspace/SlabSense`, caches
 under `/workspace/cache`, run artifacts under
@@ -43,36 +43,31 @@ under `/workspace/cache`, run artifacts under
 
 | Model | Status | Numbers (val unless noted) | Weights / artifacts |
 |---|---|---|---|
-| Corners v1 | done | auroc_wear 0.919, mae_deduction 105, test 0.923 / 107 | `training/weights/corners/v1/` (best.pt local only; logs/evals committed) |
-| Corners v2 (EMA, drop-path 0.2, strong aug) | done, **shipped version** | auroc 0.924, mae 103.7; test 0.927 / 105.1 / angle 2.37 | `training/weights/corners/v2/` |
-| Edges v1 | done, **shipped version** | auroc 0.895, mae 161; test 0.894 / 170 | `training/weights/edges/v1/` |
-| Edges v2 | done, rejected | auroc 0.883, mae 170 | `training/weights/edges/v2/` |
-| Surface detector v1 (7 classes, both views) | done, rejected | map50 0.075; creases only | box `runs/surface/v1/` |
-| Surface detector v2 (sfx only, clean negatives, balanced) | done, rejected | map50 0.109 on sfx; CREASE 0.44 | box `runs/surface/v2/` |
-| Surface detector v3 (CREASE+SCRATCH only) | **training now** (12 epochs, ~3 h) | epoch 3: CREASE 0.385 | box `runs/surface/v3/` |
-| Deduction regressor (box → points) | done | MAE 66 vs baseline 112 | box `weights/surface/v1/deduction.joblib` (+ local smoke copy) |
-| Surface score `surface_sfx` / `surface_rgb` | **next on the box** (handoff Step 8) | smoke plumbing ok; baseline 170; accept ≤ 119 | box `runs/surface_sfx/v1/`, `runs/surface_rgb/v1/` when run |
-| Rollup (subscores → total/grade) | not started (minutes, CPU) | | |
-| Centering model | not started | see `todo/centering-and-crop-models.md` | |
-| Card-crop corner model | not started | see `todo/centering-and-crop-models.md` | |
-| Crease/scratch detector, color view (boxes on phone photos) | not started; same command as v3 with `--views rgb` | | |
+| Corners v3-phone | **shipped candidate** (replaces v2) | clean auroc 0.923 / mae 104.5; phone-sim 0.922 / recall 0.77; test 0.926 / 0.923 | `training/weights/corners/v3-phone/` + `weights/onnx/corners-v3-phone.*`; R2 `weights/corners/v3-phone/` |
+| Corners v2 | superseded (still in the app until the swap) | auroc 0.924; phone-sim 0.863 / recall 0.19 | `training/weights/corners/v2/`; R2 |
+| Edges v2-phone | **shipped candidate** (replaces v1) | clean 0.894 / 162; phone-sim 0.875 / recall 0.18; test 0.890 / 0.875 | `training/weights/edges/v2-phone/` + `weights/onnx/edges-v2-phone.*`; R2 |
+| Edges v1 | superseded | 0.895 / 161; phone-sim 0.809 / recall 0.006 | `training/weights/edges/v1/`; R2 |
+| Centering_rgb v1 | **accepted** | mean MAE 1.48 per-mille val / 1.49 test (~6-7 px; baseline 4.54) | `training/weights/centering_rgb/v1/`; R2 |
+| Deduction regressor (box -> points) | done | MAE 66 vs baseline 112 | `training/weights/surface/v1/deduction.joblib` (local + box) |
+| Surface detectors v1/v2/v3 | rejected (crease AP 0.47 but 6 false boxes per card side) | | box `runs/surface/`; v3 checkpoint local |
+| Surface score regressors (per-side, front+rollup) | rejected: per-side back score does not follow the back image; front-only ties the grade-median baseline (173 vs 170) | | box `runs/surface_sfx/`, `runs/surface_front_sfx/` |
+| Rollup (subscores -> total/grade) | not started (minutes, CPU) | | |
+| Card-crop corner model | not started; see `todo/centering-and-crop-models.md`; user shooting photos | | |
+| Edges HR (2048x384, phone aug) | optional next run (handoff Step 9.4), ~8 h box | | |
 
-Test-split rule: read once per accepted checkpoint only. Read so far: corners v1, corners v2, edges v1. Never for any surface checkpoint yet.
+Test-split reads spent: corners v1, v2, v3-phone; edges v1, v3... (v2-phone); centering v1. Never for any surface checkpoint.
 
 ## Remaining, in order
 
-1. [ ] v3 finishes → val eval (`--views sfx --full-cards 100`) → decide if creases ship; pull artifacts home.
-2. [ ] Step 8 on the box: resized caches (two passes, CPU), `surface_sfx` v1, `surface_rgb` v1, val evals, test once if ≤ 119. Pull artifacts home.
-3. [ ] Color-view crease detector (`--views rgb --classes CREASE,SCRATCH`) if v3 creases are usable.
-4. [ ] Rollup model (LightGBM/HistGB on subscores + centering → score_total, grade). CPU, minutes.
-5. [ ] Centering model (`centering_rgb`), then classical snap.
-6. [ ] Card-crop corner model (synthetic bootstrap + user photos).
-7. [ ] Company offsets TAG → PSA/BGS/CGC/SGC from `docs/grading-research/sources/`.
-8. [ ] Inference service (`inference/`, Modal): load weights, `/grade` returning the unified schema (spec §8).
-9. [ ] App integration: model grade path; LLM identifies the card and writes the explanation only.
-10. [ ] Upload accepted weights to R2 under `weights/<task>/<version>/` (backup; `.pt` is git-ignored).
-11. [ ] Phone-photo fine-tune pass (all models) once testers deliver images.
-12. [ ] Destroy the vast.ai box only after every artifact is pulled home; merge `tag-dataset` to main (your call).
+1. [ ] App session: harness re-run on the new ONNX (`verify-crops`, `model-predict`, `model-sweep`, `model-domain`), recalibrate thresholds, `models:upload`, swap bucket entries (handoff Step 9.7 follow-up).
+2. [ ] Centering v1 -> ONNX export (`export_onnx.py --task centering_rgb`), app wiring: crop to the card, predict four distances, classical snap, ratios.
+3. [ ] Optional: edges HR at 2048x384 with phone aug (handoff Step 9.4; needs the `edges_hr` task entry, ~130 GB cache, fits in 218 GB free).
+4. [ ] Rollup model (LightGBM/HistGB on corner/edge/centering subscores -> score_total, grade). CPU, minutes.
+5. [ ] Company offsets TAG -> PSA/BGS/CGC/SGC from `docs/grading-research/sources/`.
+6. [ ] Card-crop corner model: synthetic bootstrap + the user's photo set (`todo/centering-and-crop-models.md`).
+7. [ ] Surface: revisit with a relabeling pass on phone photos (dents, scratches); the deduction regressor ships as-is.
+8. [ ] Phone-photo fine-tune pass (all models) once testers deliver images.
+9. [ ] Destroy the vast.ai box only after every artifact is pulled home (all accepted models are already home + in R2); merge `tag-dataset` to main (your call).
 
 ## Handy commands
 
