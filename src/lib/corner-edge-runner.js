@@ -15,7 +15,9 @@
 import { cropBatch, cardRect, INPUT_SIZE } from './tag-crops.js';
 import { decodeSide, slotsToDings, MODEL_TASKS, OUTPUT_CHANNELS } from './corner-edge-model.js';
 
-export const DEFAULT_MODEL_FILES = { corners: 'corners-v2.fp16.onnx', edges: 'edges-v1.fp16.onnx' };
+/** The shipped pair. v3-phone / v2-phone (2026-09-18) were trained with backdrop, blur and
+ *  resolution augmentation and no longer need the tile repaint; see training/README.md. */
+export const DEFAULT_MODEL_FILES = { corners: 'corners-v3-phone-safe.fp16.onnx', edges: 'edges-v2-phone-safe.fp16.onnx' };
 
 /**
  * @param {object} opts
@@ -24,13 +26,15 @@ export const DEFAULT_MODEL_FILES = { corners: 'corners-v2.fp16.onnx', edges: 'ed
  * @param {string} opts.baseUrl      where the .onnx files live (trailing slash optional)
  * @param {object} [opts.files]      overrides DEFAULT_MODEL_FILES
  * @param {string[]} [opts.executionProviders] defaults to WebGPU then WASM
- * @param {boolean} [opts.backdrop=true] repaint the table beyond the card TAG orange before
- *        inference (tag-crops.js repaintBackdrop); off only for experiments
+ * @param {boolean} [opts.backdrop=false] repaint the table beyond the card TAG orange before
+ *        inference (tag-crops.js repaintBackdrop). A bridge for the scan-only v2/v1 models;
+ *        with the phone-augmented models it costs accuracy (17 vs 5 false edge dings on a
+ *        black table), so it is off by default.
  * @param {(task:string,file:string)=>Promise<ArrayBuffer|string>} [opts.loadModel]
  *        supplies the model bytes instead of letting the runtime fetch the URL —
  *        the browser uses it to persist the download in the Cache API.
  */
-export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, executionProviders, loadModel, backdrop = true }) {
+export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, executionProviders, loadModel, backdrop = false }) {
   if (!ort) throw new Error('corner-edge-runner: ort is required');
   if (!createCanvas) throw new Error('corner-edge-runner: createCanvas is required');
   const modelFiles = { ...DEFAULT_MODEL_FILES, ...(files || {}) };
@@ -48,13 +52,21 @@ export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, exec
     return canvases[task];
   }
 
+  const modelBytes = {};
+  async function bytesFor(task) {
+    if (!modelBytes[task]) modelBytes[task] = loadModel ? loadModel(task, modelFiles[task]) : Promise.resolve(base + modelFiles[task]);
+    return modelBytes[task];
+  }
+
   async function sessionFor(task) {
     if (!sessions[task]) {
       sessions[task] = (async () => {
-        const src = loadModel ? await loadModel(task, modelFiles[task]) : base + modelFiles[task];
+        const src = await bytesFor(task);
         for (const ep of providers) {
           try {
-            return await ort.InferenceSession.create(src, { executionProviders: [ep] });
+            const session = await ort.InferenceSession.create(src, { executionProviders: [ep] });
+            session.__ep = ep;
+            return session;
           } catch (e) {
             if (ep === providers[providers.length - 1]) throw e;
           }
@@ -65,17 +77,30 @@ export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, exec
     return sessions[task];
   }
 
+  // WASM fallback for a batch whose GPU result is not finite. An fp16 kernel on WebGPU
+  // overflowed on one real tile (2026-09-20) and returned NaN, which would read as "clean";
+  // WASM upcasts and never did. The export now keeps the risky ops in fp32, this is the belt.
+  const fallbacks = {};
+  async function fallbackFor(task) {
+    if (!fallbacks[task]) fallbacks[task] = bytesFor(task).then((src) => ort.InferenceSession.create(src, { executionProviders: ['wasm'] }));
+    return fallbacks[task];
+  }
+
   /** Run one task over one side. Returns the decoded slots. */
   async function runTask(task, source, rect, side) {
     const { images, boxes, w, h } = cropBatch(ctxFor(task), source, task, rect, undefined, { backdrop });
     const n = boxes.length;
     const session = await sessionFor(task);
-    const sides = new Float32Array(n).fill(side === 'back' || side === 'BACK' ? 1 : 0);
-    const out = await session.run({
+    const feeds = () => ({
       images: new ort.Tensor('float32', images, [n, 3, h, w]),
-      sides: new ort.Tensor('float32', sides, [n, 1]),
+      sides: new ort.Tensor('float32', new Float32Array(n).fill(side === 'back' || side === 'BACK' ? 1 : 0), [n, 1]),
     });
-    return decodeSide(task, out.logits.data, boxes, OUTPUT_CHANNELS[task].length);
+    let logits = (await session.run(feeds())).logits.data;
+    if (!Array.from(logits).every(Number.isFinite) && session.__ep !== 'wasm') {
+      console.warn(`corner-edge-runner: non-finite ${task} output on ${session.__ep}, rerunning on wasm`);
+      logits = (await (await fallbackFor(task)).run(feeds())).logits.data;
+    }
+    return decodeSide(task, logits, boxes, OUTPUT_CHANNELS[task].length);
   }
 
   return {

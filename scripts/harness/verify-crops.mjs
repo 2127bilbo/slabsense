@@ -26,6 +26,7 @@ const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const LIMIT = Number(opt('--limit', 0)) || 0;
 const WITH_MODELS = args.includes('--models');
+const FILES = { corners: opt('--corners', 'corners-v3-phone-safe.fp16.onnx'), edges: opt('--edges', 'edges-v2-phone-safe.fp16.onnx') };
 
 // TAG's slot file names, in the order our boxes come out.
 const TAG_FILE = {
@@ -68,7 +69,7 @@ let ort = null;
 const sessions = {};
 if (WITH_MODELS) {
   ort = await import('onnxruntime-web');
-  for (const [task, file] of [['corners', 'corners-v2.fp16.onnx'], ['edges', 'edges-v1.fp16.onnx']]) {
+  for (const [task, file] of Object.entries(FILES)) {
     sessions[task] = await ort.InferenceSession.create(path.join(ONNX, file), { executionProviders: ['wasm'] });
   }
 }

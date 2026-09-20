@@ -1,0 +1,94 @@
+{
+  "task": "edges",
+  "run": "v2-phone-safe",
+  "backbone": "convnext_tiny",
+  "source_checkpoint": "weights/edges/v2-phone/best.pt",
+  "epoch": 11,
+  "val_loss": 0.1978574138985984,
+  "inputs": {
+    "images": {
+      "dtype": "float32",
+      "shape": [
+        "N",
+        3,
+        192,
+        1024
+      ],
+      "layout": "NCHW",
+      "preprocess": {
+        "resize_to_wh": [
+          1024,
+          192
+        ],
+        "long_side_horizontal": true,
+        "scale": "x/255",
+        "mean": [
+          0.48500001430511475,
+          0.4560000002384186,
+          0.4059999883174896
+        ],
+        "std": [
+          0.2290000021457672,
+          0.2240000069141388,
+          0.22499999403953552
+        ]
+      }
+    },
+    "sides": {
+      "dtype": "float32",
+      "shape": [
+        "N",
+        1
+      ],
+      "values": {
+        "front": 0.0,
+        "back": 1.0
+      }
+    }
+  },
+  "outputs": {
+    "logits": {
+      "shape": [
+        "N",
+        2
+      ],
+      "postprocess": "sigmoid",
+      "channels": [
+        {
+          "name": "wear",
+          "kind": "binary",
+          "scale": 1.0
+        },
+        {
+          "name": "deduction",
+          "kind": "regress",
+          "scale": 1000.0
+        }
+      ]
+    }
+  },
+  "files": {
+    "edges-v2-phone-safe.fp32.onnx": {
+      "bytes": 112161954,
+      "sha256": "ca42f7d29abffb0a0c2ba2ef710205dc2a106212a0e133ffe3c9bfcfccb00764"
+    },
+    "edges-v2-phone-safe.fp16.onnx": {
+      "bytes": 56641365,
+      "sha256": "ff6e7e21cd216a36607dc9fdaa9f725bb3c1120d0f072d5ed6c7be37f3966328"
+    },
+    "edges-v2-phone-safe.int8.onnx": {
+      "bytes": 28431464,
+      "sha256": "d97ca036043e009e96df96626e7c28cb1a3506faa2e148f936df668f2bb294fd"
+    }
+  },
+  "opset": 17,
+  "fp16_fp32_ops": [
+    "LayerNormalization",
+    "GlobalAveragePool",
+    "Gemm",
+    "Div",
+    "Erf",
+    "Flatten",
+    "Concat"
+  ]
+}

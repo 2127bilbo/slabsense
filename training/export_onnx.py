@@ -54,13 +54,20 @@ def export_fp32(model, task: str, out: Path) -> None:
     onnx.checker.check_model(onnx.load(str(out)))
 
 
-def convert_fp16(src: Path, dst: Path) -> bool:
+def convert_fp16(src: Path, dst: Path, block: list[str] | None = None) -> bool:
+    """fp16 weights and activations, fp32 I/O. `block` lists op types kept in fp32. The phone-augmented
+    edge model produced a deterministic NaN on WebGPU for one real tile (2026-09-20) although no stored
+    activation exceeded fp16 range, i.e. an fp16 accumulation inside a kernel overflowed (stage-3
+    activations of ~1700 summed over 192 positions in the global pool is the likely one). Keeping the
+    norm, pool, head and the GELU/division ops in fp32 fixed it at the cost of a few Cast nodes; the
+    convolutions and matmuls, which are the size and the speed, stay fp16. WASM never showed it (it
+    upcasts), so test fp16 exports on WebGPU, not just in Node."""
     try:
         from onnxruntime.transformers.float16 import convert_float_to_float16
     except Exception as e:  # pragma: no cover
         print(f"fp16 skipped ({e})"); return False
     m = onnx.load(str(src))
-    m16 = convert_float_to_float16(m, keep_io_types=True)
+    m16 = convert_float_to_float16(m, keep_io_types=True, op_block_list=list(block or []))
     onnx.save(m16, str(dst))
     return True
 
@@ -125,6 +132,9 @@ def main(argv=None) -> None:
     ap.add_argument("--split", choices=["val", "test"], default="val", help="split to draw parity rows from (test is only cached on the GPU box)")
     ap.add_argument("--batch-size", type=int, default=16)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--fp16-block", default="LayerNormalization,GlobalAveragePool,Gemm,Div,Erf,Flatten,Concat",
+                    help="comma-separated op types kept in fp32 in the fp16 export ('' for none). The default is what "
+                         "stopped a deterministic NaN on WebGPU (2026-09-20); the fp16 backbone is where the size and speed are")
     args = ap.parse_args(argv)
 
     cfg = load_config(args.config)
@@ -138,7 +148,8 @@ def main(argv=None) -> None:
     fp32 = out_dir / f"{stem}.fp32.onnx"; fp16 = out_dir / f"{stem}.fp16.onnx"; int8 = out_dir / f"{stem}.int8.onnx"
     print(f"[{stem}] exporting fp32 -> {fp32}")
     export_fp32(model, args.task, fp32)
-    print(f"[{stem}] fp16 ..."); has16 = convert_fp16(fp32, fp16)
+    block = [b for b in args.fp16_block.split(",") if b]
+    print(f"[{stem}] fp16 (fp32 kept for: {block or 'nothing'}) ..."); has16 = convert_fp16(fp32, fp16, block)
     print(f"[{stem}] int8 ..."); quantize_int8(fp32, int8)
 
     # ── parity on cached test rows ────────────────────────────────────────────
@@ -183,6 +194,7 @@ def main(argv=None) -> None:
                                              for n, k in zip(names, kinds)]}},
         "files": {p.name: {"bytes": p.stat().st_size, "sha256": sha256(p)} for p in [fp32, fp16, int8] if p.exists()},
         "opset": 17,
+        "fp16_fp32_ops": block,
     }
     (out_dir / f"{stem}.json").write_text(json.dumps(contract, indent=2))
     print(f"[{stem}] sizes: " + ", ".join(f"{n} {v['bytes']/1048576:.1f} MB" for n, v in contract["files"].items()))

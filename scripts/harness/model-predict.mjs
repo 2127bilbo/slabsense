@@ -29,6 +29,7 @@ const OUT = opt('--out', path.join(here, 'results', 'model-predictions.json'));
 const RESUME = args.includes('--resume');
 const MAX_DIM = Number(opt('--max-dim', 0)) || 0; // simulate a phone upload by capping the long side
 const HELD_OUT = args.includes('--held-out'); // only cards the models never trained on
+const FILES = { corners: opt('--corners', 'corners-v3-phone-safe.fp16.onnx'), edges: opt('--edges', 'edges-v2-phone-safe.fp16.onnx') };
 
 const gt = JSON.parse(fs.readFileSync(path.join(here, 'ground-truth.json'), 'utf8'));
 let certs = Object.keys(gt.certs);
@@ -41,7 +42,7 @@ if (LIMIT) certs = certs.slice(0, LIMIT);
 const store = RESUME && fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : { meta: {}, cards: {} };
 store.meta = {
   generatedAt: new Date().toISOString(),
-  models: { corners: 'corners-v2.fp16.onnx', edges: 'edges-v1.fp16.onnx' },
+  models: FILES,
   maxDim: MAX_DIM || 'native',
   note: 'raw per-slot model outputs; wear is a probability, deduction and angle are TAG points',
 };
@@ -71,6 +72,7 @@ const runner = createCornerEdgeRunner({
   ort,
   createCanvas: (w, h) => createCanvas(w, h),
   baseUrl: ONNX + path.sep,
+  files: FILES,
   executionProviders: ['wasm'],
 });
 await runner.preload();

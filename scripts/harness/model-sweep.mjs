@@ -24,7 +24,7 @@ const RESULTS = path.join(here, 'results');
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const BASELINE = opt('--baseline', path.join(RESULTS, '2026-09-17-2026-09-17-baseline-engine11.json'));
-const PREDICTIONS = opt('--predictions', path.join(RESULTS, 'model-predictions.json'));
+const PREDICTIONS = opt('--predictions', path.join(RESULTS, 'model-predictions-v3.json'));
 const GRID = args.includes('--grid');
 const LABEL = opt('--label', 'model');
 

@@ -44,8 +44,8 @@ if (!URL_ || !KEY) { console.error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY m
 
 /** The models the app runs, by task. The fp16 copies are the ones to ship. */
 const MODELS = {
-  corners: { file: 'corners-v2.fp16.onnx', contract: 'corners-v2.json' },
-  edges: { file: 'edges-v1.fp16.onnx', contract: 'edges-v1.json' },
+  corners: { file: 'corners-v3-phone-safe.fp16.onnx', contract: 'corners-v3-phone-safe.json' },
+  edges: { file: 'edges-v2-phone-safe.fp16.onnx', contract: 'edges-v2-phone-safe.json' },
 };
 // Only the two runtime builds the app asks for: the JSEP build backs WebGPU, the
 // plain one backs WASM-only devices. Each needs its loader beside it.

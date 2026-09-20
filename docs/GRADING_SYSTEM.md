@@ -14,7 +14,7 @@ or in the verbatim company standards next to it. Nothing else in the repo may de
 - Rule: **no grading number without a citation.** Every per-company rule in the engine cites a `sources/*` file.
   Values marked *internal* below are SlabSense choices (calibrated against DIG reports), not company rules.
 
-Last updated 2026-09-17 (engine 1.1; corner/edge models on the software path).
+Last updated 2026-09-20 (engine 1.1; phone-augmented corner/edge models on every path).
 
 ---
 
@@ -70,7 +70,7 @@ paid path reproduces the free grade's corner and edge subgrades on every card.
 
 | | |
 |---|---|
-| Models | `corners-v2` (wear, deduction, angle) and `edges-v1` (wear, deduction); convnext_tiny, fp16 ONNX, 54 MB each |
+| Models | `corners-v3-phone` (wear, deduction, angle) and `edges-v2-phone` (wear, deduction), shipped as the `-safe` fp16 ONNX exports, 54 MB each; convnext_tiny, trained 2026-09-18 with backdrop, blur and resolution augmentation *(v2 / v1 until 2026-09-20)* |
 | Trained on | TAG's own per-slot crops over 22 202 cards — see `training/README.md` |
 | Code | `src/lib/tag-crops.js` (framing), `corner-edge-model.js` (outputs → defects), `corner-edge-runner.js` (inference), `src/services/cornerEdgeModels.js` (browser) |
 | Switch | Settings → Corner & Edge Models, per device; `VITE_MODEL_GRADING` sets the build default; **on** when neither is set |
@@ -97,7 +97,7 @@ Calibration (`scripts/harness/model-sweep.mjs`, 216 settings) was chosen on the 
 the models' training split and reported on the 102 held-out ones, with TAG's own centering held fixed so the
 comparison isolates the defect change:
 
-| held out, vs the detector baseline | baseline | models, corners at 0.30 | models, corners at 0.20 (shipped) |
+| held out, vs the detector baseline | baseline | v2/v1, corners at 0.30 | v2/v1, corners at 0.20 |
 |---|---|---|---|
 | mean grade error | 2.98 | 1.72 | 1.56 |
 | TAG 9–10 bucket, mean error | 0.59 | 0.12 | 0.15 |
@@ -108,7 +108,13 @@ comparison isolates the defect change:
 are softer than TAG scans and score every corner 0.1–0.2 lower (the owner's worn card scored its four visibly
 rubbed back corners 0.21–0.38), and the harness supports either.
 
-Edges moved from 0.50 to 0.20 the same day. The edge model is the weaker of the two: on TAG's own scans a
+**2026-09-20, phone-augmented models** (`corners-v3-phone`, `edges-v2-phone`), same thresholds: held-out
+mean error **1.24**, 9–10 bucket 0.17 with 87 % within half a grade, corner precision / recall 0.59 / 0.90,
+edge 0.42 / 0.62, held-out improvement 1.75 grades (95 % bootstrap 1.34 to 2.28). Scan accuracy is
+unchanged by design; the gain is on phone photos (see the backdrop numbers above and the owner's card: all
+four back corners and the top edge now fire where the old pair found one to three corners).
+
+Edges moved from 0.50 to 0.20 on 2026-09-18. The edge model is the weaker of the two: on TAG's own scans a
 side TAG marked scores a median of only 0.29, so 0.50 caught 22 % of marked sides. At 0.20 it catches 63 %
 and fires on 10 % of unmarked sides. With both at 0.20 (shipped): held-out mean error **1.30**, 9–10 bucket
 0.17 with 85 % within half a grade, edge precision / recall 0.42 / 0.62, held-out improvement 1.68 grades
@@ -131,8 +137,14 @@ models had scored as clean)*.
    models keep 17 of 64 corner dings and invent 23 edge dings; white keeps 26. So `tag-crops.js` flood-fills
    the table beyond the card on each tile and paints it TAG orange before inference, which brings a black table
    back to 49 of 64 and 5 false edge dings, at a cost of 3 of 64 on TAG's own scans. A leak guard leaves the
-   tile alone when the fill reaches the tile centre or exceeds 30 % of it. The durable fix is backdrop-colour
-   augmentation in the next training run; the repaint is the bridge until then.
+   tile alone when the fill reaches the tile centre or exceeds 30 % of it. The durable fix was backdrop-colour
+   augmentation in the next training run, done 2026-09-18: with the phone-augmented models a black table
+   keeps 67 of 73 corner dings **without** the repaint, and the repaint now costs accuracy (17 vs 5 false
+   edge dings), so it is off by default and kept only as an option for the scan-only models.
+3. *fp16 on WebGPU can overflow inside a kernel.* The phone-augmented edge model returned a deterministic
+   NaN for one real tile on WebGPU (never on WASM, which upcasts) with no stored activation outside fp16
+   range. The export now keeps the norm, pool, head, GELU and division ops in fp32 (`-safe`), and the runner
+   reruns any batch with a non-finite output on WASM. A NaN would otherwise read as "clean".
 
 **Limits to know.**
 

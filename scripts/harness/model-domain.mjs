@@ -28,10 +28,12 @@ const ONNX = path.join(ROOT, 'training', 'weights', 'onnx');
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const LIMIT = Number(opt('--limit', 0)) || 0;
+const FILES = { corners: opt('--corners', 'corners-v3-phone-safe.fp16.onnx'), edges: opt('--edges', 'edges-v2-phone-safe.fp16.onnx') };
+const REF = opt('--reference', path.join(here, 'results', 'model-predictions.json'));
 
 const gt = JSON.parse(fs.readFileSync(path.join(here, 'ground-truth.json'), 'utf8'));
 const splits = JSON.parse(fs.readFileSync(path.join(here, 'card-splits.json'), 'utf8'));
-const ref = JSON.parse(fs.readFileSync(path.join(here, 'results', 'model-predictions.json'), 'utf8'));
+const ref = JSON.parse(fs.readFileSync(REF, 'utf8'));
 let certs = Object.keys(gt.certs).filter((c) => splits[c] && splits[c] !== 'train' && ref.cards[c] && !ref.cards[c].error);
 if (LIMIT) certs = certs.slice(0, LIMIT);
 
@@ -93,11 +95,13 @@ function repaintBackdrop(source, rgb, { tolerance = 60, grow = 3 } = {}) {
 }
 // Each variant: [transform, runner]. `raw` feeds the tile as is (how the app ran before
 // 2026-09-17); `fixed` repaints the backdrop TAG orange per tile (tag-crops.js).
-const raw = createCornerEdgeRunner({ ort, createCanvas, baseUrl: ONNX + path.sep, executionProviders: ['wasm'], backdrop: false });
-const fixed = createCornerEdgeRunner({ ort, createCanvas, baseUrl: ONNX + path.sep, executionProviders: ['wasm'], backdrop: true });
+const raw = createCornerEdgeRunner({ ort, createCanvas, baseUrl: ONNX + path.sep, files: FILES, executionProviders: ['wasm'], backdrop: false });
+const fixed = createCornerEdgeRunner({ ort, createCanvas, baseUrl: ONNX + path.sep, files: FILES, executionProviders: ['wasm'], backdrop: true });
 await raw.preload(); await fixed.preload();
 const VARIANTS = {
-  'untouched scan, tile repaint on': [(img) => img, fixed],
+  'untouched scan, raw': [(img) => img, raw],
+  'black backdrop, raw': [(img) => repaintBackdrop(img, [0, 0, 0]), raw],
+  'white backdrop, raw': [(img) => repaintBackdrop(img, [245, 245, 245]), raw],
   'black backdrop, tile repaint on': [(img) => repaintBackdrop(img, [0, 0, 0]), fixed],
 };
 const sharedImg = new Image();
