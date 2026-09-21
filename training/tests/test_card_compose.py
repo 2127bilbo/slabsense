@@ -58,12 +58,15 @@ def test_no_bow_no_distractor_mask_matches_quad_polygon():
 
 
 def test_bow_breaks_quad_iou_and_adds_contour_vertices():
+    # force_in_frame=False here: the in-frame guarantee (p 0.9 by default) shrinks the card to fit
+    # a homography-safety margin, which incidentally damps the bow's visibility at this epsilon;
+    # this test is specifically about the bow step, so it pins placement to the legacy behaviour.
     found = False
-    for seed in range(30):
+    for seed in range(200):
         rng = np.random.default_rng(seed)
         result = cc.compose(
             rng, _cutout(), _background(1), canvas=CANVAS, out=OUT,
-            degrade=False, force_bow=True, force_distractor=None,
+            degrade=False, force_bow=True, force_distractor=None, force_in_frame=False,
         )
         mask = result["mask"]
         quad = result["meta"]["quad"]
@@ -102,7 +105,7 @@ def test_compose_reproducible_with_same_seed_and_documented_shapes():
     assert r1["mask"].shape == (OUT, OUT)
     assert r1["mask"].dtype == np.uint8
     meta = r1["meta"]
-    assert set(meta.keys()) == {"quad", "bowed", "letterbox", "card_long_side", "distractor"}
+    assert set(meta.keys()) == {"quad", "bowed", "in_frame", "letterbox", "card_long_side", "distractor"}
     assert meta["quad"].shape == (4, 2)
     assert meta["quad"].dtype == np.float32
     assert isinstance(meta["bowed"], bool)
@@ -133,6 +136,36 @@ def test_distractor_under_does_not_leak_into_mask():
         canvas=CANVAS, out=OUT, degrade=False, force_bow=False, force_distractor=None,
     )
     assert not np.array_equal(with_d["image"], without_d["image"])
+
+
+def test_force_in_frame_true_keeps_every_corner_within_output_bounds():
+    cutout = _cutout()
+    bg = _background(5)
+    for seed in range(60):
+        rng = np.random.default_rng(seed)
+        result = cc.compose(
+            rng, cutout, bg, canvas=CANVAS, out=OUT, force_in_frame=True,
+        )
+        quad = result["meta"]["quad"]
+        assert result["meta"]["in_frame"] is True
+        assert np.all(quad >= 0.0) and np.all(quad <= OUT), f"seed {seed}: quad={quad}"
+
+
+def test_force_in_frame_false_can_leave_a_corner_outside():
+    cutout = _cutout()
+    bg = _background(5)
+    found_outside = False
+    for seed in range(60):
+        rng = np.random.default_rng(seed)
+        result = cc.compose(
+            rng, cutout, bg, canvas=CANVAS, out=OUT, force_in_frame=False,
+        )
+        assert result["meta"]["in_frame"] is False
+        quad = result["meta"]["quad"]
+        if np.any(quad < 0.0) or np.any(quad > OUT):
+            found_outside = True
+            break
+    assert found_outside, "expected at least one seed to place a corner outside the frame"
 
 
 def test_bow_field_displacement_shape_and_zero_at_box_edges():

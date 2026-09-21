@@ -4,18 +4,33 @@ Places a card cutout (RGBA, produced by `card_cutouts.make_cutout`) onto a backg
 random scale/rotation, an optional page-bow warp, a small homography (perspective) jitter, a cast
 shadow, optional foreground/background distractors, a chain of photometric/sensor degradations,
 and a final letterbox resize to the training resolution. Returns the composited image, the card's
-binary mask, and metadata (the card's quad corners in output space, whether it was bowed, the
-letterbox transform, its long side in output px, and which distractor -- if any -- was drawn).
+binary mask, and metadata (the card's quad corners in output space, whether it was bowed, whether
+it was kept fully in frame, the letterbox transform, its long side in output px, and which
+distractor -- if any -- was drawn). At render time, an "under"/"sleeve" distractor is composited
+onto the background, the shadow is then multiplied onto that same background (so it darkens the
+plain background only, not a bottom-layer distractor, per the brief's stated order), and only then
+is the main card alpha-composited on top; an "edge"/"hand" distractor is composited after that.
 
 Every random draw goes through the caller-supplied `rng` (a `np.random.Generator`), in this fixed
 order, so a given seed reproduces a sample bit-for-bit:
 
   1.  place:        scale factor s ~ U(0.30, 0.95);
+                     in-frame decision: whether ~ U() < 0.9, drawn immediately after the scale
+                                        factor regardless of `force_in_frame` (so the draw order
+                                        is identical whether or not the caller overrides the
+                                        outcome); `force_in_frame`, if given, overrides the drawn
+                                        outcome without skipping the draw;
                      rotation kind: U() < 0.85 -> continuous angle ~ U(-25, 25),
                                     else -> choice among {90, 180, 270};
-                     target centre x ~ U(half_w, canvas - half_w)  (skipped -- centred -- if the
-                                                                     rotated card doesn't fit);
-                     target centre y ~ U(half_h, canvas - half_h)  (same fallback rule).
+                     if in-frame: scale is reduced (deterministically, no draw) if needed so the
+                       rotated bounding box padded by 8% of the long side on every side (the
+                       homography's max corner shift) fits the canvas; target centre x/y are each
+                       drawn ~ U over the range where that padded box stays inside the canvas
+                       (this range can collapse to a single point, still consumed as a draw);
+                     if not in-frame (the current/legacy behaviour): target centre x
+                       ~ U(half_w, canvas - half_w) (skipped -- centred, no draw -- if the rotated
+                       card doesn't fit); target centre y ~ U(half_h, canvas - half_h) (same
+                       fallback rule).
   2.  bow:           (only if `force_bow` is None) whether-to-bow ~ U() < 0.5;
                      if bowing: axis ~ integers(0, 2); amplitude fraction ~ U(0.005, 0.025);
                                 sign ~ choice([-1, 1]).
@@ -159,17 +174,31 @@ def _transform_points(pts: np.ndarray, A: np.ndarray) -> np.ndarray:
     return cv2.transform(pts.reshape(1, -1, 2).astype(np.float32), A).reshape(-1, 2)
 
 
-def _place_card(cutout_rgba: np.ndarray, canvas: int, rng: np.random.Generator):
+def _place_card(cutout_rgba: np.ndarray, canvas: int, rng: np.random.Generator,
+                 force_in_frame: bool | None = None):
     """Scale + rotate the cutout about its own centre, then translate it to a random canvas
-    position such that its rotated bounding box stays inside the canvas (centring the axis that
-    doesn't fit, if any). Returns (card_rgba at canvas x canvas, quad [TL,TR,BR,BL], long_side,
-    scaled card width, scaled card height) -- the last two are the pre-rotation card footprint in
-    canvas pixels, used by the "sleeve" distractor."""
+    position.
+
+    With probability 0.9 (or `force_in_frame`, which overrides the outcome without skipping the
+    draw), the placement guarantees that the card stays fully inside the canvas even after the
+    later homography step: the rotated bounding box is padded by 8% of the long side on every
+    side (the homography's maximum per-corner shift), the scale is reduced -- only if needed --
+    until that padded box fits the canvas, and the translation is then drawn uniformly over the
+    range where the padded box stays inside the canvas. Otherwise (p 0.1, or `force_in_frame is
+    False`), the legacy behaviour applies: the rotated (unpadded) bounding box is translated to a
+    random in-canvas position, centring (without drawing) any axis that doesn't fit.
+
+    Returns (card_rgba at canvas x canvas, quad [TL,TR,BR,BL], long_side, scaled card width,
+    scaled card height, in_frame) -- the scaled dims are the pre-rotation card footprint in canvas
+    pixels, used by the "sleeve" distractor.
+    """
     h0, w0 = cutout_rgba.shape[:2]
     long_axis = max(w0, h0)
     s_factor = rng.uniform(0.30, 0.95)
     s = s_factor * canvas / long_axis
-    long_side = s_factor * canvas
+
+    in_frame_roll = rng.random()
+    in_frame = (in_frame_roll < 0.9) if force_in_frame is None else bool(force_in_frame)
 
     if rng.random() < 0.85:
         angle_deg = float(rng.uniform(-25.0, 25.0))
@@ -177,21 +206,45 @@ def _place_card(cutout_rgba: np.ndarray, canvas: int, rng: np.random.Generator):
         angle_deg = float(rng.choice(np.array([90.0, 180.0, 270.0])))
 
     center = (w0 / 2.0, h0 / 2.0)
-    M = cv2.getRotationMatrix2D(center, angle_deg, s)
     corners0 = np.array([[0, 0], [w0, 0], [w0, h0], [0, h0]], dtype=np.float32)  # TL, TR, BR, BL
-    corners_t = _transform_points(corners0, M)
-    half_w = float(np.max(np.abs(corners_t[:, 0] - center[0])))
-    half_h = float(np.max(np.abs(corners_t[:, 1] - center[1])))
 
-    if 2 * half_w <= canvas:
-        tx = rng.uniform(half_w, canvas - half_w)
-    else:
-        tx = canvas / 2.0
-    if 2 * half_h <= canvas:
-        ty = rng.uniform(half_h, canvas - half_h)
-    else:
-        ty = canvas / 2.0
+    # Rotation-only (scale=1) reference corners: since getRotationMatrix2D's offset from `center`
+    # is linear in its scale argument, half_w(s) = s * half_w(1), half_h(s) = s * half_h(1) -- so
+    # this lets us solve for a fitting scale analytically instead of iterating.
+    M1 = cv2.getRotationMatrix2D(center, angle_deg, 1.0)
+    corners_t1 = _transform_points(corners0, M1)
+    half_w1 = float(np.max(np.abs(corners_t1[:, 0] - center[0])))
+    half_h1 = float(np.max(np.abs(corners_t1[:, 1] - center[1])))
 
+    if in_frame:
+        margin_coef = 0.08 * long_axis  # margin(s) == 0.08 * long_side(s) == s * margin_coef
+        denom_w = half_w1 + margin_coef
+        denom_h = half_h1 + margin_coef
+        s_fit_w = canvas / (2.0 * denom_w) if denom_w > 0 else float("inf")
+        s_fit_h = canvas / (2.0 * denom_h) if denom_h > 0 else float("inf")
+        s = min(s, s_fit_w, s_fit_h)
+        long_side = s * long_axis
+        half_w = s * half_w1
+        half_h = s * half_h1
+        margin = 0.08 * long_side
+        half_w_pad = min(half_w + margin, canvas / 2.0)
+        half_h_pad = min(half_h + margin, canvas / 2.0)
+        tx = rng.uniform(half_w_pad, canvas - half_w_pad)
+        ty = rng.uniform(half_h_pad, canvas - half_h_pad)
+    else:
+        long_side = s * long_axis
+        half_w = s * half_w1
+        half_h = s * half_h1
+        if 2 * half_w <= canvas:
+            tx = rng.uniform(half_w, canvas - half_w)
+        else:
+            tx = canvas / 2.0
+        if 2 * half_h <= canvas:
+            ty = rng.uniform(half_h, canvas - half_h)
+        else:
+            ty = canvas / 2.0
+
+    M = cv2.getRotationMatrix2D(center, angle_deg, s)
     A = M.copy()
     A[0, 2] += tx - center[0]
     A[1, 2] += ty - center[1]
@@ -199,7 +252,7 @@ def _place_card(cutout_rgba: np.ndarray, canvas: int, rng: np.random.Generator):
     card_rgba = cv2.warpAffine(cutout_rgba, A, (canvas, canvas), flags=cv2.INTER_LINEAR,
                                 borderMode=cv2.BORDER_CONSTANT, borderValue=0)
     quad = _transform_points(corners0, A).astype(np.float32)
-    return card_rgba, quad, long_side, w0 * s, h0 * s
+    return card_rgba, quad, long_side, w0 * s, h0 * s, in_frame
 
 
 def _composite_rgba(base_rgb: np.ndarray, rgba_canvas: np.ndarray) -> np.ndarray:
@@ -305,6 +358,7 @@ def compose(
     degrade: bool = True,
     force_bow: bool | None = None,
     force_distractor: str | None = None,
+    force_in_frame: bool | None = None,
 ) -> dict:
     """Compose one synthetic training sample. See the module docstring for the exact, ordered
     sequence of random draws (a given `rng` state reproduces a sample bit-for-bit)."""
@@ -315,7 +369,9 @@ def compose(
     cutout_rgba = np.asarray(cutout.convert("RGBA"), dtype=np.float32)
 
     # 1. place
-    card_rgba, quad, long_side, card_w_canvas, card_h_canvas = _place_card(cutout_rgba, canvas, rng)
+    card_rgba, quad, long_side, card_w_canvas, card_h_canvas, in_frame = _place_card(
+        cutout_rgba, canvas, rng, force_in_frame=force_in_frame,
+    )
 
     # 2. bow
     do_bow = rng.random() < 0.5 if force_bow is None else bool(force_bow)
@@ -355,11 +411,9 @@ def compose(
         card_w_canvas, card_h_canvas,
     )
 
-    # --- render ---
+    # --- render --- (shadow multiplies the plain background BEFORE any "under"/"sleeve"
+    # distractor is composited onto it, per the brief's stated layering order.)
     bg = background.astype(np.float64).copy()
-
-    if distractor_name in ("under", "sleeve") and distractor_rgba is not None:
-        bg = _composite_rgba(bg, distractor_rgba)
 
     if shadow_params is not None:
         theta, shift_mag, darkness = shadow_params
@@ -372,6 +426,9 @@ def compose(
         shadow_mask = cv2.GaussianBlur(shadow_mask, (0, 0), sigma)
         bg = bg * (1.0 - darkness * shadow_mask[..., None])
         bg = np.clip(bg, 0, 255)
+
+    if distractor_name in ("under", "sleeve") and distractor_rgba is not None:
+        bg = _composite_rgba(bg, distractor_rgba)
 
     alpha = card_rgba[..., 3:4] / 255.0
     img = bg * (1.0 - alpha) + card_rgba[..., :3] * alpha
@@ -406,6 +463,7 @@ def compose(
     meta = {
         "quad": quad_out,
         "bowed": bowed,
+        "in_frame": in_frame,
         "letterbox": tf,
         "card_long_side": max(edge_lengths),
         "distractor": distractor_name,
