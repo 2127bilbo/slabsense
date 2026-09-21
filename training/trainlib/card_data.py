@@ -201,7 +201,13 @@ class RealCardVal(Dataset):
         quad_out = apply_letterbox_points(quad_src, tf).astype(np.float32)
         # The app's tl/tr/br/bl labels are whatever the user's corner-picking UI assigned, not
         # necessarily the card's true visual top-left/etc for a rotated scan -- canonicalize by
-        # geometry so this ground truth uses the same convention `card_metrics` matches against.
+        # geometry so this quad is TL-first for any downstream (display/storage) use. Note this is
+        # NOT what makes `corner_error_pct` correct against an unrotated-label quad: that metric
+        # matches corners by angle-order + a search over cyclic shifts, not by trusting either
+        # side's start corner (`canonical_quad`'s own tie-break is exact, and therefore unstable,
+        # at a 45-degree rotation -- see `card_metrics.corner_error_pct`), so it does not depend
+        # on this call. This canonicalization is kept anyway because it's harmless and keeps the
+        # returned `meta["quad"]` in the same human-facing convention as `mask_to_quad`'s output.
         quad_out = canonical_quad(quad_out).astype(np.float32)
 
         mask = np.zeros((self.out, self.out), dtype=np.uint8)

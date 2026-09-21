@@ -35,23 +35,32 @@ def largest_component(mask_bool: np.ndarray) -> np.ndarray:
     return labels == best_label
 
 
-def canonical_quad(quad: np.ndarray) -> np.ndarray:
-    """Order 4 corner points as TL, TR, BR, BL *by geometry*, regardless of whatever labels/order
-    they arrived in: sort by angle around the centroid (this walks the points around the polygon
-    in a consistent direction), then rotate the result so the point with the smallest `x + y`
-    (image coords, y down => the top-left-most point) comes first.
-
-    This is the metric's own labelling convention. It is deliberately independent of any upstream
-    convention (e.g. `card_compose._place_card` keeps the cutout's original TL/TR/BR/BL *index*
-    through its discrete 90/180/270 degree rotation branch, rather than re-labelling by resulting
-    visual position -- so its "TL" can land anywhere after such a rotation). Callers that need to
-    compare two quads positionally (`corner_error_pct`) must canonicalize both through this
-    function first rather than trust that they already share a convention.
-    """
+def _angle_sorted(quad: np.ndarray) -> np.ndarray:
+    """The 4 points of `quad`, sorted by angle around their own centroid. This walks the points
+    around the polygon in a consistent direction (given the shared image coordinate convention,
+    y down) but picks no particular starting corner -- it is the shared building block behind
+    both `canonical_quad` (which additionally fixes a start corner, for a human-facing label) and
+    `corner_error_pct`'s cyclic-shift matching (which deliberately does not, see there for why)."""
     quad = np.asarray(quad, dtype=np.float64)
     centroid = quad.mean(axis=0)
     angles = np.arctan2(quad[:, 1] - centroid[1], quad[:, 0] - centroid[0])
-    ordered = quad[np.argsort(angles)]
+    return quad[np.argsort(angles)]
+
+
+def canonical_quad(quad: np.ndarray) -> np.ndarray:
+    """Order 4 corner points as TL, TR, BR, BL *by geometry*, regardless of whatever labels/order
+    they arrived in: `_angle_sorted`, then rotate the result so the point with the smallest
+    `x + y` (image coords, y down => the top-left-most point) comes first.
+
+    This gives a human-facing, TL-first quad (what `mask_to_quad` returns, and what `RealCardVal`
+    stores) -- but note `corner_error_pct` does NOT use this function to match corners: the
+    `x + y` tie-break below is exact (not just close) at a 45-degree rotation for any rectangle,
+    so which point ends up "first" there is decided by sub-pixel rounding noise alone, silently
+    swapping in an adjacent physical corner and corrupting a distance-matched metric. Use
+    `_angle_sorted` plus a search over all 4 cyclic shifts (as `corner_error_pct` does) for
+    anything that compares two quads positionally; reserve this function for display/storage.
+    """
+    ordered = _angle_sorted(quad)
     start = int(np.argmin(ordered[:, 0] + ordered[:, 1]))
     return np.roll(ordered, -start, axis=0)
 
@@ -143,22 +152,35 @@ def quad_mask(quad: np.ndarray, h: int, w: int) -> np.ndarray:
 
 
 def corner_error_pct(quad_pred: np.ndarray, quad_true: np.ndarray, long_side: float) -> float:
-    """Mean Euclidean corner distance (matched by geometric order: both canonicalized to TL, TR,
-    BR, BL via `canonical_quad`) / `long_side` x 100.
+    """Mean Euclidean corner distance, matched by geometry, / `long_side` x 100.
 
-    Both quads are canonicalized here rather than trusted to already share a convention: a caller
-    may hand in a ground-truth quad whose TL/TR/BR/BL *labels* were carried through a discrete
+    Neither quad is trusted to already share a labelling convention with the other: a caller may
+    hand in a ground-truth quad whose TL/TR/BR/BL *labels* were carried through a discrete
     90/180/270 degree rotation without being re-derived from the rotated point's actual position
     (`card_compose._place_card` does exactly this), which would otherwise silently pair the wrong
-    corners. `canonical_quad` is idempotent, so this is a no-op for a quad that is already ordered
-    this way (e.g. `mask_to_quad`'s output).
+    corners.
+
+    This does NOT canonicalize through `canonical_quad` to fix that, because `canonical_quad`'s
+    own `x + y` tie-break is exact (not just close) at a 45-degree rotation for any rectangle --
+    both corner pairs tie exactly, so sub-pixel rounding noise alone decides which point is
+    "first", and a pixel-accurate prediction can land on the opposite tie-break outcome from the
+    ground truth, silently matching adjacent physical corners and reporting 80%+ error for an
+    otherwise perfect fit. Instead: both quads are ordered by angle around their own centroid only
+    (`_angle_sorted`, no start-corner tie-break -- both quads share the same winding, image
+    coordinates with y down, so this alone fixes *relative* order), and the reported error is the
+    MINIMUM, over the 4 cyclic shifts of the true quad against the (fixed) predicted order, of the
+    mean per-corner distance. This is exactly equivalent to `canonical_quad` matching whenever the
+    tie-break is unambiguous, and immune to it when it is not.
     """
     if long_side <= 0:
         return float("nan")
-    quad_pred = canonical_quad(quad_pred)
-    quad_true = canonical_quad(quad_true)
-    dists = np.linalg.norm(quad_pred - quad_true, axis=1)
-    return float(dists.mean() / long_side * 100.0)
+    pred_sorted = _angle_sorted(quad_pred)
+    true_sorted = _angle_sorted(quad_true)
+    best = min(
+        float(np.linalg.norm(pred_sorted - np.roll(true_sorted, -k, axis=0), axis=1).mean())
+        for k in range(4)
+    )
+    return best / long_side * 100.0
 
 
 def is_failure(quad: np.ndarray | None, frame_wh: tuple[int, int]) -> tuple[bool, str]:
