@@ -324,6 +324,111 @@ the third decimal. Test split read once. Artifacts in
 committed). The local 300-card, 2-epoch smoke on the 4070 (peak 3.16 GiB,
 70/56 s per epoch) only checked plumbing.
 
+### Centering v2 (2026-09-21)
+
+**Why.** The app-side measurement in `training/HANDOFF-card-and-centering.md`
+Step 11.0 (1,011 harness sides against TAG's DIG centering) found that v1
+**compresses off-centre cards toward 50/50**: when TAG says a card is off by
+0–2 points, v1 says 1.6 (n 165); TAG 2–5 → v1 2.7 vs TAG 3.5 (n 461); TAG
+5–10 → v1 4.6 vs TAG 6.8 (n 314); TAG 10–20 → v1 8.0 vs TAG 12.7 (n 68). Fed
+to the grading engine with corner/edge dings held fixed, that moves the grade
+on 15% of cards (72 lenient, 2 harsh) and lifts the TAG 9–10 bucket error
+from 0.17 to 0.33; a post-hoc gain of 1.22 on `(ratio − 50)` raises held-out
+within-2-points to 65% but does not remove the effect. v2 keeps the v1
+recipe (`convnext_tiny`, 896×1248 card crop, EMA 0.999, drop-path 0.1, edge
+jitter ±3%, 10 epochs, batch 8) and adds three flags to `trainlib.train`,
+all gated on the task having a `ratio_pairs` spec (today only
+`centering_rgb`, so corners/edges are unaffected):
+
+| Flag | What it does |
+|---|---|
+| `--ratio-weight 2.0` (new default, was 0.0/off) | adds an L1 term on the predicted vs. target `l/(l+r)` and `t/(t+b)` ratios to `models.masked_loss`, on top of the existing per-side Huber distance term — `total = dist + ratio_weight * ratio` |
+| `--balance-deviation` | a `WeightedRandomSampler` over training sides, bucketed by TAG's larger-axis deviation (0–2, 2–5, 5–10, 10–20, 20+ ratio points), weighted so the four upper buckets together draw as often as the first |
+| `--aug phone` | adds `phone_aug.soften` (0.5–1.5 px blur + JPEG re-encode) and `resolution_loss` (downscale 0.35–0.6x and back) at train time, on top of edge jitter; **no** backdrop recolour or loose-crop padding, because the crop edge is authoritative for this task and edge jitter already covers small crop error |
+
+`trainlib.evaluate` adds, for any task with `ratio_pairs`: **`mae_ratio_lr` /
+`mae_ratio_tb`** (mean absolute ratio error, in ratio points on a 0–100
+scale), **`within1` / `within2`** (fraction of rows where *both* axes are
+within 1 / 2 ratio points), and, on the `ALL` row only, **`slope`**: the
+ordinary-least-squares slope of TAG's deviation `|target_ratio*100 − 50|` on
+the predicted deviation `|pred_ratio*100 − 50|`, pooled over both axes.
+`slope = 1` means no compression (predicted deviation tracks TAG's 1:1);
+`slope < 1` means the model under-predicts deviation as TAG's grows — the
+signature of shrinking toward 50/50. `evaluate` also writes
+`eval_<split>[_phonesim]_buckets.csv`: `n`, `tag_mean_dev`, `pred_mean_dev`
+per deviation bucket (buckets 0–4, matching the flag above; bucket 4 is 20+
+points and is empty in the 60-card local sample below).
+
+**v1 baseline on the new metrics** (60 local val cards, 120 sides, 0 rows
+dropped for either run):
+
+| | mae_dte_l | mae_dte_r | mae_dte_t | mae_dte_b | mae_ratio_lr | mae_ratio_tb | within1 | within2 | slope |
+|---|---|---|---|---|---|---|---|---|---|
+| clean | 1.86 | 1.81 | 1.02 | 1.17 | 1.44 | 1.15 | 0.29 | 0.69 | 0.94 |
+| phone-sim | 1.89 | 1.86 | 1.21 | 1.16 | 1.49 | 1.35 | 0.26 | 0.63 | 0.93 |
+
+Bucket table (deviation in ratio points; `n`/`tag_mean_dev` are the same for
+both rows, only `pred_mean_dev` differs):
+
+| bucket | n | tag_mean_dev | pred_mean_dev clean | pred_mean_dev phone-sim |
+|---|---|---|---|---|
+| 0 (0–2) | 19 | 1.30 | 1.64 | 1.63 |
+| 1 (2–5) | 63 | 3.52 | 3.10 | 3.25 |
+| 2 (5–10) | 32 | 7.00 | 5.14 | 5.18 |
+| 3 (10–20) | 6 | 12.06 | 9.71 | 9.46 |
+| 4 (20+) | 0 | n/a | n/a | n/a |
+
+The same compression the app-side harness measured shows up here on a much
+smaller (60-card) local sample: bucket 2 predicts ~5.1–5.2 against a TAG mean
+of 7.00.
+
+**v2 smoke** (plumbing check, not an accuracy run — 2 epochs on 300 cards
+cannot beat a 10-epoch/full-dataset v1):
+
+```
+train --task centering_rgb --run-name v2smoke --epochs 2 --limit-cards 300 --val-limit-cards 60 \
+  --batch-size 2 --workers 0 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 2.0 --balance-deviation
+```
+
+599 train / 120 val rows (0 dropped, both splits). `--balance-deviation`'s
+realised draws for the epoch (of 599): bucket 0 (0–2): 282, bucket 1 (2–5):
+79, bucket 2 (5–10): 59, bucket 3 (10–20): 91, bucket 4 (20+): 88 — the four
+upper buckets (317) outnumber bucket 0 (282), as intended. 90.6 s then 70.8 s
+per epoch; peak GPU memory 3.16 GiB.
+
+| epoch | train_loss | val_loss | lr | loss_dist | loss_ratio | seconds | mae_dte_l | mae_dte_r | mae_dte_t | mae_dte_b |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0.76798 | 0.22310 | 1.17e-04 | 0.06156 | 0.35321 | 90.6 | 132.95 | 133.85 | 115.78 | 110.40 |
+| 2 | 0.62413 | 0.20266 | 2.49e-09 | 0.00758 | 0.30827 | 70.8 | 86.45 | 93.13 | 83.91 | 90.89 |
+
+Every new column populates end to end, but at this scale `loss_ratio`
+(0.308 at epoch 2) is about 40x `loss_dist` (0.0076), not the same order the
+Step 11.1 plan expects at convergence: `loss_dist` is a Huber term on
+per-mille distances normalized to 0–1 (numerically tiny at that scale),
+while `loss_ratio` is a plain L1 term directly on 0–1 ratios (inherently
+larger), so the two raw numbers are not directly comparable the way
+`--ratio-weight 2.0` might suggest. Whether the *gradient* contribution is
+balanced is a separate question from the printed magnitudes, and is worth
+watching on the full run rather than assumed from this smoke.
+
+`evaluate --checkpoint runs/centering_rgb/v2smoke/best.pt --limit-cards 60`,
+same format as the v1 baseline above:
+
+| | mae_dte_l | mae_dte_r | mae_dte_t | mae_dte_b | mae_ratio_lr | mae_ratio_tb | within1 | within2 | slope |
+|---|---|---|---|---|---|---|---|---|---|
+| clean | 86.45 | 93.13 | 83.91 | 90.89 | 3.54 | 3.42 | 0.04 | 0.13 | −3.05 |
+| phone-sim | 86.25 | 93.11 | 83.69 | 90.76 | 3.55 | 3.42 | 0.04 | 0.13 | −2.94 |
+
+The bucket table's `pred_mean_dev` is nearly flat (1.17–1.21 across every
+bucket, both modes) — two epochs on 300 cards is not enough to learn
+anything about deviation, so the model predicts close to the training median
+everywhere; that flatness (not a real anti-correlation) is why `slope` comes
+out negative. MAEs here are ~50x worse than v1, as expected for a plumbing
+smoke; the run confirms the loss terms, ratio MAEs, `within1`/`within2`,
+`slope`, and the bucket CSV all populate correctly on the local box before
+the real 10-epoch run on a rented GPU (Step 11 of
+`training/HANDOFF-card-and-centering.md`).
+
 
 ## Surface detector
 

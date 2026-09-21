@@ -250,7 +250,58 @@ within-2-points to 65 % but does not remove the effect (5–10 bucket: 5.3 vs
 6.75). It is a training-loss problem: a Huber loss on four distances that
 are mostly near their mean learns to hedge toward the mean.
 
+### 11.0b Cache: rebuilding the centering crop cache on a fresh box
+
+`trainlib.cache_cli --task centering_rgb --splits train,val,test --from-cache
+--workers 32` (the same command used for `surface_sfx`/`surface_rgb`, Step 8)
+resizes the 896×1248 card crop from the already-downloaded **rgb** original —
+it needs the full-resolution rgb whole-card images under
+`/workspace/cache/tag-dataset/` (the `cache.cache_path` layout shared with
+corners/surface, i.e. `cache_dir/tag-dataset/<cert>/front.jpg` /
+`back.jpg`) already on disk. **On a fresh box those are not there yet**, so
+they must be pulled first.
+
+The only puller for whole-card originals is `trainlib.surface_cache_cli
+pull`, which has no `--views` flag — `surface_tables.load_surface_split`
+always fetches both views (`sfx` **and** `rgb`, front + back) for every side
+in the requested splits, with no way to restrict it to `rgb` only. So:
+**pull both views, ~435 GB, ~$17, ~40 min** (`surface_cache_cli pull
+--splits train,val,test --workers 32`; this box already needed the `sfx`
+half for the surface-score models, so if that pull already ran the `rgb`
+half comes down in the same pass — check `df -h /workspace` and the pull
+log before re-running). Then:
+
+```bash
+cd /workspace/SlabSense/training && source /workspace/env.sh
+.venv/bin/python -m trainlib.surface_cache_cli pull --splits train,val,test --workers 32   # only if not already cached
+.venv/bin/python -m trainlib.cache_cli --task centering_rgb --splits train,val,test --from-cache --workers 32
+```
+
+`source /workspace/env.sh` (the `B2_KEY_ID`/`B2_APP_KEY` env file from Step
+7.1) is needed before the `pull` step; `cache_cli --from-cache` only resizes
+already-local files and needs no R2 credentials.
+
 ### 11.1 Changes
+
+The three flags below exist in `trainlib.train` as of the `tag-dataset`
+branch (verified 2026-09-21: local smoke on the 4070, see
+`training/README.md` "Centering v2"), each gated on the task having a
+`ratio_pairs` spec so corners/edges are untouched:
+
+- `--ratio-weight 2.0` (new default) — one-line: adds an L1 term on the
+  predicted vs. target `l/(l+r)`/`t/(t+b)` ratios to the training loss.
+- `--balance-deviation` — one-line: oversamples off-centre training sides via
+  a `WeightedRandomSampler` bucketed on TAG's larger-axis deviation.
+- `--aug phone` — one-line: adds blur/JPEG/downscale-upscale softness at
+  train time, without the backdrop recolour or loose-crop padding that
+  `phone` mode uses for corners/edges (the crop edge is authoritative here).
+
+Exact train command for the real run:
+
+```bash
+.venv/bin/python -m trainlib.train --task centering_rgb --run-name v2 --epochs 10 --batch-size 8 \
+  --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 2.0 --balance-deviation
+```
 
 Keep the v1 recipe (`convnext_tiny`, 896×1248 card crop, EMA 0.999,
 drop-path 0.1, light aug, edge jitter ±3 %, 10 epochs, batch 8) and change
@@ -294,6 +345,53 @@ r 1.87, t 1.09, b 1.21), ratio MAE ≤ 1.4 on both axes, compression slope
 ≥ 0.95, per-bucket means within 10 % of TAG's for the 5–10 and 10–20
 buckets, both-within-2 ≥ 68 %; and phone-sim within 0.3 ratio points of
 clean. If v2 misses, report and leave v1; do not tune on the numbers.
+
+Eval commands, in order (v1's box-baseline pair first, since the local
+4070's v1 numbers in the README were only a 60-card sample — the rented
+box's full 2,790-card val split is the real baseline to compare v2 against):
+
+```bash
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint weights/centering_rgb/v1/best.pt \
+  --split val --workers 8 --batch-size 16
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint weights/centering_rgb/v1/best.pt \
+  --split val --workers 8 --batch-size 16 --phone-sim
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2/best.pt \
+  --split val --workers 8 --batch-size 16
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2/best.pt \
+  --split val --workers 8 --batch-size 16 --phone-sim
+# only if v2 is accepted on val:
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2/best.pt \
+  --split test --final-eval --workers 8 --batch-size 16
+```
+
+A single chained job so the GPU never idles between cache, baseline evals,
+training, and v2 evals:
+
+```bash
+cd /workspace/SlabSense/training
+nohup bash -c '
+  source /workspace/env.sh
+  set -e
+  .venv/bin/python -m trainlib.surface_cache_cli pull --splits train,val,test --workers 32
+  .venv/bin/python -m trainlib.cache_cli --task centering_rgb --splits train,val,test --from-cache --workers 32
+  .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint weights/centering_rgb/v1/best.pt --split val --workers 8 --batch-size 16
+  .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint weights/centering_rgb/v1/best.pt --split val --workers 8 --batch-size 16 --phone-sim
+  .venv/bin/python -m trainlib.train --task centering_rgb --run-name v2 --epochs 10 --batch-size 8 --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 2.0 --balance-deviation
+  .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2/best.pt --split val --workers 8 --batch-size 16
+  .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2/best.pt --split val --workers 8 --batch-size 16 --phone-sim
+' > /workspace/centering_v2_chain.log 2>&1 &
+```
+
+Skip the `pull`/`cache_cli` lines if 11.0b's cache already exists on the box
+(check `df -h /workspace` and for `weights/centering_rgb` crops under the
+cache dir first). Run the `test` eval separately, by hand, only after
+reading the val numbers and deciding to accept v2 — never inside this
+unattended chain, so the frozen test split is never read automatically.
+
+Budget: cache ~40 min (11.0b, if needed); train 10 epochs at ~16.5 min/epoch
+(the v1 rate) ≈ 2.8 h; evals (four val passes plus, if accepted, one test
+pass) ~20 min; **≈ $4 of GPU time + the ~$17 of R2 bandwidth from 11.0b if
+the cache pull is needed**.
 
 ### 11.3 Export and what to bring home
 
