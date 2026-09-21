@@ -10,7 +10,8 @@ from PIL import Image, ImageEnhance
 from torch.utils.data import Dataset, get_worker_info
 
 from .cache import resized_path
-from .phone_aug import apply_phone, phone_sim as phone_sim_fn, resolution_loss as phone_resolution_loss, soften as phone_soften
+from .phone_aug import (apply_phone, phone_sim as phone_sim_fn, phone_sim_soft, resolution_loss as phone_resolution_loss,
+                        soften as phone_soften)
 from .tables import TASKS
 
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
@@ -151,14 +152,27 @@ class CropDataset(Dataset):
             f"no cached crop for {crop_path!r}: checked resized ({rpath}) and full-res ({full_path})"
         )
 
+    def _target_and_mask(self, row) -> tuple[torch.Tensor, torch.Tensor]:
+        vals, masks = [], []
+        for _name, kind, column in self.targets:
+            raw = row[column]
+            missing = pd.isna(raw)
+            if kind == "binary":
+                vals.append(1.0 if (not missing and float(raw) > 0) else 0.0)
+            else:
+                vals.append(0.0 if missing else min(max(float(raw) / SCALE, 0.0), 1.0))
+            masks.append(0.0 if missing else 1.0)
+        return torch.tensor(vals), torch.tensor(masks)
+
     def __getitem__(self, i: int):
         row = self.df.iloc[i]
         spec = TASKS[self.task]
         path = self._resolve_path(row.crop_path)
         side = torch.tensor([1.0 if row.side == "B" else 0.0])
-        if self.train and spec.get("edge_jitter", 0) > 0:
+        is_jitter_task = spec.get("edge_jitter", 0) > 0
+        w, h = self.input_size if self.input_size is not None else spec["input_size"]
+        if self.train and is_jitter_task:
             rng = self._generator()
-            w, h = self.input_size if self.input_size is not None else spec["input_size"]
             with Image.open(path) as im:
                 img = im.convert("RGB")
             img = img.resize((w, h), Image.Resampling.BILINEAR)
@@ -176,19 +190,21 @@ class CropDataset(Dataset):
             target = torch.tensor([v / SCALE for v in targets_pm])
             mask = torch.tensor([1.0] * len(targets_pm))
             return img_t, side, target, mask
+        if is_jitter_task and self.phone_sim:
+            # No crop stem to seed a corner/edge-style backdrop flood fill from for a whole-card
+            # centering image, so eval phone-sim uses the stem-free `phone_sim_soft` (blur +
+            # downsample only) instead of routing through `load_crop`'s `phone_sim_fn`.
+            with Image.open(path) as im:
+                img = im.convert("RGB")
+            img = img.resize((w, h), Image.Resampling.BILINEAR)
+            img = phone_sim_soft(img, (w, h))
+            t = torch.from_numpy(np.asarray(img, dtype=np.float32) / 255.0).permute(2, 0, 1)
+            img_t = (t - MEAN) / STD
+            target, mask = self._target_and_mask(row)
+            return img_t, side, target, mask
         img = load_crop(path, self.task, self.train, self._generator(), self.input_size, aug=self.aug,
                         phone_sim=self.phone_sim)
-        vals, masks = [], []
-        for _name, kind, column in self.targets:
-            raw = row[column]
-            missing = pd.isna(raw)
-            if kind == "binary":
-                vals.append(1.0 if (not missing and float(raw) > 0) else 0.0)
-            else:
-                vals.append(0.0 if missing else min(max(float(raw) / SCALE, 0.0), 1.0))
-            masks.append(0.0 if missing else 1.0)
-        target = torch.tensor(vals)
-        mask = torch.tensor(masks)
+        target, mask = self._target_and_mask(row)
         return img, side, target, mask
 
 

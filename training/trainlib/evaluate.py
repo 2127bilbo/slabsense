@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import torch
 
@@ -11,8 +12,12 @@ from . import metrics
 from .config import load_config
 from .data import SCALE
 from .models import ScoreRegressor, to_scores
-from .tables import TASKS, filter_cached, load_task_table
+from .tables import TASKS, centering_deviation_bucket, filter_cached, load_task_table, target_index
 from .train import make_loader
+
+# Channel-pair labels, positional: `pairs[0]` -> `lr`, `pairs[1]` -> `tb` (matches the order of
+# `TASKS["centering_rgb"]["ratio_pairs"]`, the only task with ratio pairs today).
+_RATIO_AXES = ("lr", "tb")
 
 
 @torch.no_grad()
@@ -25,11 +30,102 @@ def _predict(model, loader, device):
     return torch.cat(preds), torch.cat(targets), torch.cat(masks)
 
 
-def per_grade_table(model, df: pd.DataFrame, task: str, cache_dir, device, kinds, target_names,
-                    batch_size=64, workers=0, input_size=None, phone_sim=False) -> pd.DataFrame:
-    loader = make_loader(df, task, cache_dir, False, batch_size, workers, input_size, phone_sim=phone_sim)
-    pred, target, mask = _predict(model, loader, device)
-    scores = to_scores(pred, kinds)
+def _rows_with_every_pair_column_present(masks: torch.Tensor, pairs: list[tuple[int, int]]) -> torch.Tensor:
+    idx_cols = sorted({i for pair in pairs for i in pair})
+    keep = torch.ones(masks.shape[0], dtype=torch.bool)
+    for i in idx_cols:
+        keep &= masks[:, i] > 0
+    return keep
+
+
+def ratio_metrics(scores: torch.Tensor, targets: torch.Tensor, masks: torch.Tensor,
+                  pairs: list[tuple[int, int]]) -> dict:
+    """Compression-ratio metrics for `pairs` (channel-index tuples into `scores`/`targets`/
+    `masks`, e.g. `[(dte_l_idx, dte_r_idx), (dte_t_idx, dte_b_idx)]`; positionally labelled via
+    `_RATIO_AXES`, i.e. the first pair is `lr` and the second is `tb`).
+
+    For each pair `(i, j)`, `r = x[:, i] / (x[:, i] + x[:, j] + 1e-6)` on the 0-1 scale, for both
+    `scores` and `targets`, restricted to rows where every mask column referenced by any pair is
+    1 (the centering task's four distances are always present or all missing together, but this
+    keeps the function correct regardless). Returns a dict with:
+
+    - `mae_ratio_<axis>`: mean `|pred_ratio - target_ratio| * 100` (ratio points) for that axis;
+      NaN if no row qualifies.
+    - `within1` / `within2`: fraction of qualifying rows where, for EVERY axis, that row's delta
+      is `<= 1` / `<= 2` ratio points; NaN if no row qualifies.
+    - `slope`: ordinary least-squares slope (`numpy.polyfit` degree 1, intercept free) of the TAG
+      deviation `|target_ratio*100 - 50|` on the predicted deviation `|pred_ratio*100 - 50|`,
+      pooled over every axis and qualifying row. NaN with fewer than 2 pooled points or when the
+      predicted deviation has zero spread (an undefined/degenerate fit).
+    """
+    keep = _rows_with_every_pair_column_present(masks, pairs)
+    result: dict[str, float] = {}
+    deltas, pred_devs, target_devs = [], [], []
+    for axis, (i, j) in zip(_RATIO_AXES, pairs):
+        s_i, s_j = scores[keep, i], scores[keep, j]
+        t_i, t_j = targets[keep, i], targets[keep, j]
+        pred_r = s_i / (s_i + s_j + 1e-6)
+        target_r = t_i / (t_i + t_j + 1e-6)
+        delta = (pred_r - target_r).abs() * 100
+        result[f"mae_ratio_{axis}"] = float(delta.mean()) if delta.numel() else float("nan")
+        deltas.append(delta)
+        pred_devs.append((pred_r * 100 - 50).abs())
+        target_devs.append((target_r * 100 - 50).abs())
+
+    if deltas and deltas[0].numel():
+        row_max = torch.stack(deltas, dim=1).amax(dim=1)
+        result["within1"] = float((row_max <= 1).float().mean())
+        result["within2"] = float((row_max <= 2).float().mean())
+    else:
+        result["within1"] = float("nan")
+        result["within2"] = float("nan")
+
+    if pred_devs and pred_devs[0].numel():
+        x = torch.cat(pred_devs).numpy()
+        y = torch.cat(target_devs).numpy()
+        result["slope"] = float(np.polyfit(x, y, 1)[0]) if len(x) >= 2 and np.ptp(x) > 0 else float("nan")
+    else:
+        result["slope"] = float("nan")
+    return result
+
+
+def bucket_table(scores: torch.Tensor, targets: torch.Tensor, masks: torch.Tensor,
+                 pairs: list[tuple[int, int]], buckets) -> pd.DataFrame:
+    """Group rows by `buckets` (bucket labels 0-4, e.g. from `tables.centering_deviation_bucket`
+    on the targets) and report, per bucket: `n` (row count) and the mean TAG / predicted
+    deviation in ratio points (`max` over `pairs`' axes of `|ratio*100 - 50|`), restricted to
+    rows where every mask column referenced by `pairs` is 1. Always returns 5 rows (buckets
+    0-4); a bucket with no qualifying rows gets `n=0` and NaN means.
+    """
+    keep = _rows_with_every_pair_column_present(masks, pairs).numpy()
+    pred_devs, target_devs = [], []
+    for i, j in pairs:
+        s_i, s_j = scores[:, i], scores[:, j]
+        t_i, t_j = targets[:, i], targets[:, j]
+        pred_devs.append((s_i / (s_i + s_j + 1e-6) * 100 - 50).abs())
+        target_devs.append((t_i / (t_i + t_j + 1e-6) * 100 - 50).abs())
+    pred_dev = torch.stack(pred_devs, dim=1).amax(dim=1).numpy()
+    target_dev = torch.stack(target_devs, dim=1).amax(dim=1).numpy()
+
+    bucket_arr = pd.Series(buckets).reset_index(drop=True).to_numpy()
+    rows = []
+    for k in range(5):
+        sel = keep & (bucket_arr == k)
+        n = int(sel.sum())
+        rows.append({
+            "bucket": k,
+            "n": n,
+            "tag_mean_dev": float(target_dev[sel].mean()) if n else float("nan"),
+            "pred_mean_dev": float(pred_dev[sel].mean()) if n else float("nan"),
+        })
+    return pd.DataFrame(rows)
+
+
+def _grade_table(df: pd.DataFrame, task: str, target_names, kinds, scores: torch.Tensor,
+                 target: torch.Tensor, mask: torch.Tensor) -> pd.DataFrame:
+    ratio_pair_names = TASKS[task].get("ratio_pairs")
+    pairs = ([(target_index(task, a), target_index(task, b)) for a, b in ratio_pair_names]
+             if ratio_pair_names else None)
     rows = []
     groups = list(df.groupby("grade_label").indices.items()) + [("ALL", list(range(len(df))))]
     for grade, idx in groups:
@@ -49,8 +145,23 @@ def per_grade_table(model, df: pd.DataFrame, task: str, cache_dir, device, kinds
                 row[f"precision_{name}"] = precision
                 row[f"recall_{name}"] = recall
                 row[f"npos_{name}"] = int((lb == 1).sum().item()) if lb.numel() else 0
+        if pairs:
+            rm = ratio_metrics(scores[idx], target[idx], mask[idx], pairs)
+            row["mae_ratio_lr"] = rm["mae_ratio_lr"]
+            row["mae_ratio_tb"] = rm["mae_ratio_tb"]
+            row["within1"] = rm["within1"]
+            row["within2"] = rm["within2"]
+            row["slope"] = rm["slope"] if grade == "ALL" else float("nan")
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+def per_grade_table(model, df: pd.DataFrame, task: str, cache_dir, device, kinds, target_names,
+                    batch_size=64, workers=0, input_size=None, phone_sim=False) -> pd.DataFrame:
+    loader = make_loader(df, task, cache_dir, False, batch_size, workers, input_size, phone_sim=phone_sim)
+    pred, target, mask = _predict(model, loader, device)
+    scores = to_scores(pred, kinds)
+    return _grade_table(df, task, target_names, kinds, scores, target, mask)
 
 
 def main(argv=None) -> Path:
@@ -73,12 +184,25 @@ def main(argv=None) -> Path:
     model = ScoreRegressor(ckpt["n_out"], ckpt["backbone"], pretrained=False)
     model.load_state_dict(ckpt["model"]); model.to(device)
     kinds = ckpt["kinds"]; target_names = ckpt["target_names"]
-    table = per_grade_table(model, df, args.task, cfg.cache_dir, device, kinds, target_names,
-                            args.batch_size, args.workers, args.input_size, phone_sim=args.phone_sim)
+    loader = make_loader(df, args.task, cfg.cache_dir, False, args.batch_size, args.workers, args.input_size,
+                         phone_sim=args.phone_sim)
+    pred, target, mask = _predict(model, loader, device)
+    scores = to_scores(pred, kinds)
+    table = _grade_table(df, args.task, target_names, kinds, scores, target, mask)
     suffix = "_phonesim" if args.phone_sim else ""
     out = Path(args.checkpoint).parent / f"eval_{args.split}{suffix}.csv"
     table.to_csv(out, index=False)
     print(table.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
+
+    ratio_pair_names = TASKS[args.task].get("ratio_pairs")
+    if ratio_pair_names:
+        pairs = [(target_index(args.task, a), target_index(args.task, b)) for a, b in ratio_pair_names]
+        target_df = pd.DataFrame({name: (target[:, j] * SCALE).numpy() for j, name in enumerate(target_names)})
+        buckets = centering_deviation_bucket(target_df)
+        bt = bucket_table(scores, target, mask, pairs, buckets)
+        bt_out = Path(args.checkpoint).parent / f"eval_{args.split}{suffix}_buckets.csv"
+        bt.to_csv(bt_out, index=False)
+        print(bt.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
     return out
 
 
