@@ -124,7 +124,7 @@ def metric_table(scores: np.ndarray, target: np.ndarray, mask: np.ndarray, kinds
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(prog="export_onnx")
     ap.add_argument("--config", default="config.toml")
-    ap.add_argument("--task", choices=["corners", "edges"], required=True)
+    ap.add_argument("--task", choices=["corners", "edges", "centering_rgb"], required=True)
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--run-name", required=True)
     ap.add_argument("--out-dir", default="weights/onnx")

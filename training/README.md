@@ -800,3 +800,41 @@ cache, `--limit-cards 100 --workers 0 --batch-size 8`):
 right but stops firing at the operating threshold. This 100-card sample is a
 sanity check, not the acceptance baseline — Step 9.5 grades against the
 full-val phone-sim run made on the rented box.
+
+### Centering model, app-side tests (2026-09-21) — not live
+
+`centering_rgb-v1` exported to ONNX (`weights/onnx/centering_rgb-v1.*`, fp16
+within 0.0001 of PyTorch, safe block list). Tested with
+`scripts/harness/centering-model.mjs` on the 507 harness cards (1,011 sides,
+203 held out) against TAG's DIG centering, whole trimmed scan as the card:
+
+| source | mean L/R error | mean T/B error | both within 1 pt | within 2 pts |
+|---|---|---|---|---|
+| model, held out | 1.90 | 1.43 | 21 % | 56 % |
+| model, all | 1.66 | 1.56 | 26 % | 58 % |
+| app pixel detector | 18.4 | 15.9 | 3 % | 5 % |
+
+Two properties that decide how it can be used:
+
+1. **It measures from the crop edge, by construction.** Edge jitter at train
+   time moved the targets with the crop, so a loose crop shifts the answer
+   like a ruler would (±3 % random edge jitter: mean error 10-13 points). The
+   outer card line must be right; the model then places the inner frame. It
+   is not a card detector and cannot crop a card on its own.
+2. **It compresses off-centre cards toward 50/50** (regression to the mean):
+   cards TAG puts 5-10 points off it calls 4.6; 10-20 → 8.0. On the harness
+   with the corner/edge dings held fixed, swapping TAG's centering for the
+   model's moves the grade on 15 % of cards, almost always lenient (72 vs 2),
+   TAG 9-10 bucket MAE 0.17 → 0.33. A gain of 1.22 on (ratio − 50), fitted on
+   the training split, lifts held-out within-2-points to 65 % but does not
+   remove the effect. The fix is in training: a loss that does not shrink
+   (L1 on the ratio, or deviation-balanced sampling), not a post-hoc gain.
+
+Browser: WebGPU 52 ms per side after a 0.4 s first run; WASM 1.7 s per side
+(896×1248 input). Finite outputs on the safe export.
+
+Recommended use once retrained: auto-place the artwork line in the centering
+tool after the user's outer crop, user-adjustable; the card edge stays with
+the user (or a future card-edge detector — `derived/centering_boxes_rgb.parquet`
+is a label source for one, on orange trim only, so it would need the same
+backdrop augmentation as Step 9).

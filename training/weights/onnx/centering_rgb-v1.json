@@ -1,0 +1,104 @@
+{
+  "task": "centering_rgb",
+  "run": "v1",
+  "backbone": "convnext_tiny",
+  "source_checkpoint": "weights/centering_rgb/v1/best.pt",
+  "epoch": 10,
+  "val_loss": 0.0001011219934764966,
+  "inputs": {
+    "images": {
+      "dtype": "float32",
+      "shape": [
+        "N",
+        3,
+        1248,
+        896
+      ],
+      "layout": "NCHW",
+      "preprocess": {
+        "resize_to_wh": [
+          896,
+          1248
+        ],
+        "long_side_horizontal": false,
+        "scale": "x/255",
+        "mean": [
+          0.48500001430511475,
+          0.4560000002384186,
+          0.4059999883174896
+        ],
+        "std": [
+          0.2290000021457672,
+          0.2240000069141388,
+          0.22499999403953552
+        ]
+      }
+    },
+    "sides": {
+      "dtype": "float32",
+      "shape": [
+        "N",
+        1
+      ],
+      "values": {
+        "front": 0.0,
+        "back": 1.0
+      }
+    }
+  },
+  "outputs": {
+    "logits": {
+      "shape": [
+        "N",
+        4
+      ],
+      "postprocess": "sigmoid",
+      "channels": [
+        {
+          "name": "dte_l",
+          "kind": "regress",
+          "scale": 1000.0
+        },
+        {
+          "name": "dte_r",
+          "kind": "regress",
+          "scale": 1000.0
+        },
+        {
+          "name": "dte_t",
+          "kind": "regress",
+          "scale": 1000.0
+        },
+        {
+          "name": "dte_b",
+          "kind": "regress",
+          "scale": 1000.0
+        }
+      ]
+    }
+  },
+  "files": {
+    "centering_rgb-v1.fp32.onnx": {
+      "bytes": 112164010,
+      "sha256": "44969995d499d251d1ea9a2d8eba71d0561a6d89c92b2649af3e2d2f6a091422"
+    },
+    "centering_rgb-v1.fp16.onnx": {
+      "bytes": 56643495,
+      "sha256": "5d8a5150f5a8de4fce30df447377daf3c2164b8f80a01bc9d0bed6b822d497a6"
+    },
+    "centering_rgb-v1.int8.onnx": {
+      "bytes": 28432042,
+      "sha256": "cead91cb9820b3a3eaf63cc9eee302f702bf74588b9f9948daf6578404f1913c"
+    }
+  },
+  "opset": 17,
+  "fp16_fp32_ops": [
+    "LayerNormalization",
+    "GlobalAveragePool",
+    "Gemm",
+    "Div",
+    "Erf",
+    "Flatten",
+    "Concat"
+  ]
+}
