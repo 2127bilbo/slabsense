@@ -495,8 +495,9 @@ centering.md` Step 10 is the original spec (targets, compositor, metrics).
 cd /workspace/SlabSense && git pull && cd training
 uv pip install --python .venv/bin/python -e ".[dev]" && .venv/bin/python -m pytest -q
 ```
-Expect the same pass count the local session recorded (225 passed before
-Task 7's own work, no library code changed by it).
+Expect **233 passed** (the 2026-09-21 final-review fix round added 7 tests
+to the 226 the branch had before it — the review's own numbers below already
+assume that round is on `main`/this branch).
 
 ### Step 12.1: bring up backgrounds and the real-val folder, if the owner has them
 
@@ -505,6 +506,18 @@ From the PC (not the box):
 scp -r "G:\Grading App\SlabSense\training\data\backgrounds" root@<host>:/workspace/SlabSense/training/data/backgrounds
 scp -r "G:\Grading App\SlabSense\training\data\card-val" root@<host>:/workspace/SlabSense/training/data/card-val
 ```
+These land at `training/data/backgrounds` and `training/data/card-val` under
+the box's repo checkout, which is now also where `train_card.py`,
+`evaluate_card.py`, and `export_card_model.py` default `--backgrounds`/
+`--real` to (package-root-relative, not cwd-relative — final review
+2026-09-21, finding 2: the old `training/data/...` defaults silently
+resolved to `training/training/data/...` from this document's own `cd
+training` commands and were never found). Every command below can drop
+`--backgrounds`/`--real` entirely and get the right path; each of the three
+scripts prints the resolved absolute path and how many files/sides it found
+there at startup (or a loud `NOT FOUND` line) — check that line before
+trusting a run's background mix or its real-photo eval.
+
 If either folder does not exist locally, skip its copy: an empty/missing
 `backgrounds/` makes every background draw fall back to procedural (already
 true of the local smoke); a missing `card-val/` makes `evaluate_card` skip
@@ -516,57 +529,94 @@ reason the result is provisional (Step 12.4).
 
 A fresh instance has **not** pre-fetched the `rgb`-view full-resolution
 originals `card_cutouts` needs (unlike the corners/edges image cache Step 2
-pulls from) — the CLI downloads each one it needs from R2 directly:
+pulls from) — the CLI streams each one it needs from R2 directly and writes
+**only the cutout**; `r2.Reader.get` does not cache the original, so nothing
+else touches disk (final review 2026-09-21, finding 4 — this document
+previously double-counted ~250 GB of "downloaded originals" that are never
+written at all).
 
 ```bash
 source /workspace/env.sh
 cd /workspace/SlabSense/training
-.venv/bin/python -m trainlib.card_cutouts --splits train --workers 32
-.venv/bin/python -m trainlib.card_cutouts --splits val --workers 32
-.venv/bin/python -m trainlib.card_cutouts --splits test --workers 32
+nohup .venv/bin/python -m trainlib.card_cutouts --splits train,val --workers 32 \
+  > /workspace/card_cutouts.log 2>&1 &
 ```
-(Three calls, one per split — `--splits` takes comma-separated split
-*names* only, no `name:count` syntax; see the README's "Cutout cache" note.)
-Budget: ~55,499 `rgb` originals (27,751 certs × front/back) at ~4.5 MB
-average ≈ 250 GB over the network, about $10 at $40/TB, about 1 h at
-~50 files/s (the corners/edges cache pulls' measured per-file rate on this
-box family). **Disk for the cutouts themselves: budget ~100 GB, not the
-~14 GB this document originally assumed** — the local smoke measured 991
-cutout PNGs at 1.8 GB (1.84 MB/file average, RGBA at 1024 px long side); at
-that same average, the full ~55,062 `ok`-boxed sides come to ~100 GB, not
-~14 GB. **Total disk needed for this step: ~350 GB** (250 GB of downloaded
-originals, most of which can be deleted once cutouts are written, + ~100 GB
-of cutouts). Confirm free disk with `df -h /workspace` before starting, and
-delete the downloaded full-resolution originals afterward if the box's disk
-is tight for the cutouts-only cost going forward — `card_cutouts` itself
-does not need them again once every cutout exists (it skips any cert/side
-whose output file is already there).
+One call, comma-separated split names in `--splits` (always supported,
+despite what an earlier version of this document said); **skip `test`** —
+nothing in the card-model code reads the `test` split (train = train split,
+val/eval/export = val split), so cutting it out saves real time and ~a few
+GB for nothing lost. `--splits train:N` (a count-limited split, matching
+`cache_cli`'s `split:N` form) also works if you want a fast partial run.
+`nohup` this in the background (it's ~1.5 h of otherwise-foreground SSH) and
+poll `/workspace/card_cutouts.log` every few minutes rather than blocking
+the shell on it.
+
+Budget: ~55,499 `rgb` originals (27,751 certs × front/back) streamed from R2
+at ~4.5 MB average ≈ 250 GB over the network, about $10 at $40/TB — but this
+is network cost, not disk. **Cutouts are CPU-bound, not network-bound**:
+per file, a 27 MP JPEG decode (~0.2 s) + `rounded_alpha`'s four full-crop
+int16 diffs and `ndi.label` (~1.9 s) + resize/encode (~0.1 s) ≈ **2.2 s**
+measured locally; at 32 box workers that's roughly 55k x 2.2 s / 32 ≈
+**~1.5 h**, not "1 h at 50 files/s" (a stale estimate from the
+corners/edges image cache, a different and much lighter per-file cost).
+**Disk: cutouts are stored as WebP (`.webp`, q90, lossless alpha), not
+PNG** — measured on 991 local cutouts, WebP is ~14 GB at the full
+~55,062-`ok`-boxed-side scale vs. PNG's ~99 GB, with RGB error (mean abs
+diff 3.4) below the compositor's own noise/JPEG degradations and alpha
+exact (final review 2026-09-21, finding 4). Confirm free disk with `df -h
+/workspace` before starting (14 GB is comfortable on any box sized for this
+step), and note in the report if the deployed code still writes PNG (an
+older checkout) — that changes the disk math back to ~100 GB.
 
 ### Step 12.3: train v1
+
+Pre-check shared memory before starting (32 train workers + 8 *persistent*
+val workers, each x prefetch 2 x ~100 MB batches, add up):
+```bash
+df -h /dev/shm   # need >= 8 GB for 32 train workers; this box family is known to run small here
+```
 
 ```bash
 cd /workspace/SlabSense/training && source /workspace/env.sh
 nohup .venv/bin/python -m trainlib.train_card --run-name v1 --epochs 12 --samples-per-epoch 60000 \
-  --batch-size 32 --workers 32 --val-n 2000 --backgrounds training/data/backgrounds \
+  --batch-size 32 --workers 32 --val-workers 8 --val-n 2000 \
   > /workspace/train_card_v1.log 2>&1 &
 ```
-`--workers 32`: the local smoke found the compositor (~271 ms/sample/worker)
-under-fed even a small, fast model at `--workers 6` on 20 cores (GPU idle
-77% of sampled ticks) — this is a pure-CPU, embarrassingly-parallel,
-no-shared-state workload, so start high on a 128-core box and confirm with
-`nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader` a few minutes
-in; raise further (48-64) if it is still mostly idle, since there is no
-GPU-memory cost to more loader workers here (peak VRAM locally was 1.14 GiB
-at batch 8 — this model is tiny). Monitor `runs/card/v1/log.csv` every
-60-90 s as in Step 3; never `Start-Sleep` longer than that per check.
+(`--backgrounds` omitted: it now defaults to `training/data/backgrounds`,
+package-root-relative — see Step 12.1. `--val-workers 8`: the val loader's
+workers are *persistent* for the whole run, on top of a full set of train
+workers rebuilt every epoch, so it is capped independently of `--workers`
+to bound `/dev/shm` and RAM regardless of how high `--workers` goes.)
+
+`--workers 32`: measured on this PC, per-sample loader cost is background
+94 ms + compose 187 ms + the main cutout plus 1-2 distractor PNG decodes
+(~26 ms) + tensor conversion ≈ **320-350 ms**, not the ~271 ms an earlier
+version of this document estimated (that number omitted the distractor
+decodes card_data.py's `SyntheticCards` always pays for). Server cores are
+typically slower than this desktop's, so at `--workers 32` expect roughly
+75-90 samples/s (not "130-170") — a 60,000-sample epoch in **~12-13 min**
+(not "6-8 min") plus ~30 s for the (now heavier, see the README's "Card
+model" section) `SyntheticVal` pass, so **12 epochs ≈ 2.5-3 h** at
+`--workers 32`. Confirm with `nvidia-smi --query-gpu=utilization.gpu
+--format=csv,noheader` a few minutes in: this is a pure-CPU,
+embarrassingly-parallel, no-shared-state workload and the GPU is never the
+bottleneck (3.1 M params; peak VRAM locally was 1.14 GiB at batch 8), so if
+GPU utilization is under 50%, raise `--workers` toward 64 (~1.5 h for the
+same 12 epochs, if the box's "cores" are real and `/dev/shm`/RAM allow it —
+each worker's clutter cache can hold up to 200 RGBA images at ~3 MB each,
+so budget **~25 GB RAM** at `--workers 32`, roughly double at 64). Monitor
+`runs/card/v1/log.csv` every 60-90 s as in Step 3; never `Start-Sleep`
+longer than that per check.
 
 ### Step 12.4: evaluate
 
 ```bash
 .venv/bin/python -m trainlib.evaluate_card --checkpoint runs/card/v1/best.pt \
-  --real training/data/card-val --synthetic-n 2000 --batch-size 32 --workers 16 \
-  --backgrounds training/data/backgrounds | tee runs/card/v1/eval.log
+  --synthetic-n 2000 --batch-size 32 --workers 16 | tee runs/card/v1/eval.log
 ```
+(`--real`/`--backgrounds` omitted: they default to `training/data/card-val`
+and `training/data/backgrounds` — see Step 12.1. Pass them explicitly only
+if the data lives somewhere else.)
 Acceptance rule (`trainlib/evaluate_card.py`'s own constants, matches Step
 10.4 of `HANDOFF-card-and-centering.md`): **accept** when the real val set
 has ≥ 100 samples and, on it, IoU ≥ 0.97, mean corner error ≤ 0.8% of the
@@ -576,6 +626,18 @@ synthetic-val IoU ≥ 0.98 — and the report must say the real test is still
 owed. Do not retune thresholds on the box. Also record the failure-reason
 breakdown (`eval_synth.csv` / `eval_real.csv`, count the `reason` column:
 `no_card`, `small`, `aspect`).
+
+**Fail rate is now "gated"** (final review 2026-09-21, finding 3): a row
+only counts as a failure where its own ground-truth quad *itself* passes
+`is_failure`'s gate (column `gated` in the CSVs) — i.e. `fail_rate` reads as
+"the app would reject a photo the labeller/compositor accepted", not
+diluted by the synthetic distribution's own ~40-50% share of geometrically
+implausible draws (near-square rectified aspect, tiny in-frame scale). The
+printed summary line reports `n_gated` alongside `fail_rate`; real-photo
+`fail_rate` is expected to be essentially unchanged by this (real ground
+truth almost always passes the gate), but do not compare it against a
+pre-final-review synthetic `fail_rate` number — they measure different
+things.
 
 ### Step 12.5: export
 
@@ -591,10 +653,18 @@ activations (an in-kernel accumulation issue), caught only by testing in an
 actual browser. Say in the report that this still needs to happen before
 the fp16 file ships.
 
+**int8 is for the record only, not gated** (final review 2026-09-21,
+finding 11): the local smoke's int8 parity is unusable (mask disagreement
+~20%, IoU vs. torch ~0.35) — only the fp16 export is gated, by
+`FP16_DISAGREEMENT_MAX`. Don't block the report on a bad int8 number; do
+block it on a bad fp16 one.
+
 ### Step 12.6: bring home
 
 - `runs/card/v1/{best.pt,args.json,log.csv,eval.log,eval_synth.csv,eval_real.csv}`
   → `training/weights/card/v1/`
+- `/workspace/train_card_v1.log` (the only place peak VRAM is printed) →
+  `training/weights/card/v1/train_card_v1.log`
 - `weights/onnx/card-v1.{fp32,fp16,int8}.onnx` + `card-v1.json` +
   `card-v1.parity.json` → `training/weights/onnx/`
 - Never commit a `.pt`/`.onnx` file (gitignored); never commit
@@ -602,35 +672,33 @@ the fp16 file ships.
 
 ### Step 12.7: budget
 
-No direct GPU-hours measurement exists yet for this model on any rented box
-— the number below is the local smoke's throughput scaled by the same ×3
-factor this document already uses elsewhere for the RTX 5880 Ada vs. this
-PC's RTX 4070 SUPER (e.g. centering v1's ~16.5 min/epoch on the 5880 against
-comparable local corners/edges smokes), **stated as an assumption, not a
-measurement**: local steady-state (epoch 2) was 4,000 samples in 349.9 s at
-`--workers 6`, loader-bound (GPU idle 77% of sampled ticks). At `--workers
-32` on the box the loader should scale close to linearly with worker count
-until some other bottleneck appears (disk I/O reading cutout PNGs, or the
-GPU itself once fed fast enough) — call it 4-5x this PC's throughput from
-workers alone, times the assumed 3x from the faster GPU if the loader can
-keep it fed: **roughly 12-15x local throughput as an optimistic upper
-bound**, i.e. somewhere around 130-170 samples/s, giving a 60,000-sample
-epoch in **roughly 6-8 minutes** and the full 12-epoch run in **roughly
-1.2-1.6 h**. Treat this as a rough planning number to be corrected by the
-first 1-2 epochs' actual `log.csv` timings, not a hard budget — the smoke's
-own loader-bound behavior at only 6-of-20 local cores means the real
-bottleneck on a 128-core box (disk I/O for ~55k cutout reads per epoch?
-Python object overhead in 32+ worker processes?) is genuinely unmeasured
-until the run starts.
+Measured (this PC) and final-review-corrected (2026-09-21, findings 4/5),
+**not yet measured on a rented box** — correct against the first 1-2
+epochs' actual `log.csv` timings once the run starts:
+
+| Phase | Estimate |
+|---|---|
+| Cutouts (`--splits train,val`, CPU-bound, 32 workers) | ~1.5 h |
+| Train, 12 epochs, `--workers 32` (~1.5 h at `--workers 64`) | 2.5-3 h |
+| Eval + export | ~10 min |
+| **Total** | **~4.5-5 h** |
+
+The GPU is never the bottleneck here (3.1 M params, peak VRAM 1.14 GiB) —
+the loader is, so the previous version of this document's "×3 GPU scaling"
+argument (borrowed from the centering/corners-edges models, which *are*
+GPU-bound) does not apply; more `--workers`, not a faster GPU, is what
+shortens this step. Disk ~14 GB (WebP cutouts, no originals kept — Step
+12.2); RAM ~25 GB at `--workers 32`; `/dev/shm` >= 8 GB (Step 12.3).
 
 ### Step 12.8: report
 
 Report: cutout counts/time per split, train s/epoch and peak VRAM, whether
 `nvidia-smi` showed the loader keeping the GPU busy at `--workers 32` (and
 what to change if not), the val `ALL`-row metrics (iou, corner_err_mean,
-corner_err_p95, fail_rate) for both synthetic and real (if present), the
-accept/provisional verdict and why, the export sizes and parity line, and
-the WebGPU check reminder above.
+corner_err_p95, fail_rate, n_gated) for both synthetic and real (if
+present), the accept/provisional verdict and why, the export sizes and
+parity line (int8 for the record only), and the WebGPU check reminder
+above.
 
 ## Failure playbook
 

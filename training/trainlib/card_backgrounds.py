@@ -123,6 +123,27 @@ def procedural(rng: np.random.Generator, size: int = 1024) -> np.ndarray:
     return _PROCEDURAL_GENERATORS[idx](rng, size)
 
 
+def report_data_path(label: str, path: Path, count: int, unit: str) -> None:
+    """Print a startup line for a `--backgrounds`/`--real` folder default: the resolved absolute
+    path and how many `unit` were found there, or a loud NOT FOUND line.
+
+    `train_card.py`/`evaluate_card.py`/`export_card_model.py` used to default these to a
+    `training/data/...` *relative* path -- correct only when run from the repo root, but every
+    documented command runs them from `training/`, where that default silently resolves to
+    `training/training/data/...` and is never found. `RealPool`/`RealCardVal` treat a missing
+    folder as an empty pool (by design, so tests don't need one), which made this failure mode
+    silent: the real-photo acceptance step would quietly fall back to synthetic-only and report
+    "provisional" even after the folder was in place (final review 2026-09-21, finding 2). This
+    always prints the resolved absolute path so that ambiguity can't recur, and never fails or
+    raises -- a missing folder is a supported (if regrettable) configuration.
+    """
+    resolved = Path(path).resolve()
+    if count > 0:
+        print(f"{label}: {resolved} ({count} {unit})")
+    else:
+        print(f"{label}: {resolved} NOT FOUND / empty -- no {unit}, falling back to synthetic-only")
+
+
 class RealPool:
     """A folder of owner-supplied photos to sample random crops from (empty folder allowed)."""
 

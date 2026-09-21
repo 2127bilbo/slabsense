@@ -68,7 +68,25 @@ order, so a given seed reproduces a sample bit-for-bit:
         brightness:   factor ~ U(0.75, 1.25)                    (always drawn).
         contrast:     factor ~ U(0.75, 1.25)                    (always drawn).
         resolution:   whether ~ U() < 0.3; if drawing: scale ~ U(0.4, 0.8).
-  7.  letterbox: deterministic (no draws) since canvas and out are both square.
+  7.  aspect crop (final review 2026-09-21, finding 7; accepted spec deviation): whether ~ U() <
+      0.5 (drawn regardless of `force_aspect`, which overrides the outcome without skipping the
+      draw, same convention as `force_bow`/`force_in_frame`);
+      if cropping: aspect ratio ~ U(3/4, 4/3); crop-origin x ~ U over the range that keeps the
+        crop inside the canvas (and, if `in_frame`, keeps the card's quad bounding box inside the
+        crop too); crop-origin y ~ U, same rule.
+      (this is placed LAST among the draws, after everything that determines the card/mask/quad's
+      own geometry and pixels, specifically so it never shifts the rng draws any earlier step
+      consumes -- every sample composed before this feature existed still reproduces bit-for-bit
+      as long as its own seed's step-7 draw doesn't happen to land on "crop", which no existing
+      pinned-seed test's assertions depend on.)
+  8.  letterbox: deterministic (no draws). The (possibly cropped by step 7, so no longer square)
+      canvas is letterboxed to `out` with the crop's own outer-8px-ring mean colour as the pad
+      colour -- exercising the pad band a real, non-square phone photo would produce, which an
+      always-square canvas never did (absent step 7, this is unchanged: canvas and out are both
+      square, so scale applies equally to both axes and no padding is ever added). The mask goes
+      through the identical crop + letterbox (pad colour 0 instead of the ring mean);
+      `meta["quad"]` is shifted by the crop origin (if any) and then letterboxed the same way as
+      any other point set; `meta["letterbox"]` is this (possibly non-trivial) transform.
 """
 from __future__ import annotations
 
@@ -82,11 +100,28 @@ from PIL import Image
 DISTRACTOR_KINDS = ("under", "edge", "sleeve", "hand")
 _HAND_COLOURS = ((224, 172, 105), (198, 134, 66), (141, 85, 36))
 _CANVAS_CORNER_FRACS = ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0))
+ASPECT_CROP_RANGE = (0.75, 4.0 / 3.0)
+OUTER_RING_PX = 8
 
 
 # --------------------------------------------------------------------------------------------
 # Letterbox: pure resize + pad to a square, and the point transforms that go with it.
 # --------------------------------------------------------------------------------------------
+
+
+def outer_ring_mean(img: np.ndarray, ring_px: int = OUTER_RING_PX) -> tuple[int, int, int]:
+    """Mean colour of `img`'s outer `ring_px`-wide border -- the letterbox pad colour used
+    throughout this module and by `card_data.RealCardVal` (a real photo's own edge colour, not an
+    arbitrary fixed one)."""
+    h, w = img.shape[:2]
+    r = min(ring_px, h, w)
+    mask = np.zeros((h, w), dtype=bool)
+    mask[:r, :] = True
+    mask[h - r:, :] = True
+    mask[:, :r] = True
+    mask[:, w - r:] = True
+    mean = img[mask].reshape(-1, img.shape[2]).mean(axis=0)
+    return tuple(int(round(v)) for v in mean)
 
 def letterbox(img: np.ndarray, size: int, pad_colour=(0, 0, 0)) -> tuple[np.ndarray, dict]:
     """Resize `img` so its long side is `size`, pad the short side to a square with `pad_colour`.
@@ -164,6 +199,40 @@ def random_homography(quad: np.ndarray, max_shift_px: float, rng: np.random.Gene
     new_quad = (quad + shift).astype(np.float32)
     H = cv2.getPerspectiveTransform(quad, new_quad)
     return H, new_quad
+
+
+def _random_aspect_crop(rng: np.random.Generator, canvas: int, quad: np.ndarray,
+                        in_frame: bool) -> tuple[int, int, int, int]:
+    """A `(x0, y0, w, h)` crop window of the `canvas x canvas` image with a random aspect in
+    `ASPECT_CROP_RANGE`, one side pinned to the full canvas extent and the other shrunk (so this
+    reads as a phone's own aspect crop of a square-ish shot, not an arbitrary sub-window). When
+    `in_frame`, the window is positioned (widened first, if the card's own bounding box wouldn't
+    otherwise fit) so the quad's bounding box stays fully inside it; otherwise the position is
+    drawn freely. 3 draws (ratio, x0, y0), always in that order."""
+    ratio = float(rng.uniform(*ASPECT_CROP_RANGE))
+    if ratio <= 1.0:
+        crop_h = canvas
+        crop_w = max(1, int(round(canvas * ratio)))
+    else:
+        crop_w = canvas
+        crop_h = max(1, int(round(canvas / ratio)))
+
+    if in_frame:
+        x_min, y_min = quad.min(axis=0)
+        x_max, y_max = quad.max(axis=0)
+        crop_w = int(min(canvas, max(crop_w, np.ceil(x_max - x_min))))
+        crop_h = int(min(canvas, max(crop_h, np.ceil(y_max - y_min))))
+        lo_x, hi_x = max(0.0, float(x_max) - crop_w), min(float(x_min), canvas - crop_w)
+        lo_y, hi_y = max(0.0, float(y_max) - crop_h), min(float(y_min), canvas - crop_h)
+        x0 = rng.uniform(lo_x, hi_x) if hi_x > lo_x else lo_x
+        y0 = rng.uniform(lo_y, hi_y) if hi_y > lo_y else lo_y
+    else:
+        x0 = rng.uniform(0.0, canvas - crop_w) if canvas > crop_w else 0.0
+        y0 = rng.uniform(0.0, canvas - crop_h) if canvas > crop_h else 0.0
+
+    x0i = int(np.clip(round(x0), 0, canvas - crop_w))
+    y0i = int(np.clip(round(y0), 0, canvas - crop_h))
+    return x0i, y0i, crop_w, crop_h
 
 
 # --------------------------------------------------------------------------------------------
@@ -359,6 +428,7 @@ def compose(
     force_bow: bool | None = None,
     force_distractor: str | None = None,
     force_in_frame: bool | None = None,
+    force_aspect: bool | None = None,
 ) -> dict:
     """Compose one synthetic training sample. See the module docstring for the exact, ordered
     sequence of random draws (a given `rng` state reproduces a sample bit-for-bit)."""
@@ -451,10 +521,24 @@ def compose(
     else:
         img_u8 = np.clip(img, 0, 255).astype(np.uint8)
 
-    # 7. letterbox
-    final_img, tf = letterbox(img_u8, out, pad_colour=(0, 0, 0))
-    mask_resized = cv2.resize(alpha_canvas_u8, (out, out), interpolation=cv2.INTER_AREA)
-    mask_final = (mask_resized > 127).astype(np.uint8) * 255
+    # 7. aspect crop (accepted spec deviation; see module docstring) -- placed last among the
+    # draws so it never shifts any earlier one.
+    do_aspect = rng.random() < 0.5 if force_aspect is None else bool(force_aspect)
+    if do_aspect:
+        x0, y0, crop_w, crop_h = _random_aspect_crop(rng, canvas, quad, in_frame)
+        img_u8 = img_u8[y0:y0 + crop_h, x0:x0 + crop_w]
+        alpha_canvas_u8 = alpha_canvas_u8[y0:y0 + crop_h, x0:x0 + crop_w]
+        quad = quad - np.array([x0, y0], dtype=np.float32)
+
+    # 8. letterbox (a no-op crop above leaves img_u8/alpha_canvas_u8 canvas x canvas, so this is
+    # unchanged from before step 7 existed: scale = out/canvas exactly, no padding).
+    pad_colour = outer_ring_mean(img_u8)
+    final_img, tf = letterbox(img_u8, out, pad_colour=pad_colour)
+    # alpha_canvas_u8 shares img_u8's (h, w) exactly (both went through the same crop, if any), so
+    # this letterbox call resolves to the identical scale/pad -- only the pad colour (0, not the
+    # ring mean) differs.
+    mask_letterboxed, _ = letterbox(alpha_canvas_u8, out, pad_colour=0)
+    mask_final = (mask_letterboxed > 127).astype(np.uint8) * 255
 
     quad_out = apply_letterbox_points(quad, tf).astype(np.float32)
     edge_lengths = [

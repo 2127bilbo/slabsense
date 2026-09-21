@@ -168,6 +168,27 @@ def test_force_in_frame_false_can_leave_a_corner_outside():
     assert found_outside, "expected at least one seed to place a corner outside the frame"
 
 
+def test_force_aspect_true_pads_and_keeps_mask_quad_iou():
+    """final-review.md finding 7 (accepted spec deviation): a forced aspect crop makes the
+    canvas non-square before letterboxing, so the model actually sees a pad band (`pad_x` or
+    `pad_y` > 0) the way a real, non-square phone photo would -- and `meta["quad"]`/the mask must
+    go through that same crop + letterbox, so their IoU stays as tight as the no-crop case."""
+    cutout = _cutout()
+    bg = _background(6)
+    for seed in range(20):
+        rng = np.random.default_rng(seed)
+        result = cc.compose(
+            rng, cutout, bg, canvas=CANVAS, out=OUT, degrade=False, force_bow=False,
+            force_distractor=None, force_in_frame=True, force_aspect=True,
+        )
+        tf = result["meta"]["letterbox"]
+        assert tf["pad_x"] > 0.0 or tf["pad_y"] > 0.0, (seed, tf)
+        mask = result["mask"]
+        quad = result["meta"]["quad"]
+        poly_mask = _quad_mask(quad, (OUT, OUT))
+        assert _iou(mask, poly_mask) >= 0.98
+
+
 def test_bow_field_displacement_shape_and_zero_at_box_edges():
     quad = np.array([[10, 10], [90, 10], [90, 90], [10, 90]], dtype=np.float32)
     rng = np.random.default_rng(0)

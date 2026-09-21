@@ -1,11 +1,17 @@
 """Metrics for the card segmentation model (plan 2026-09-21-card-model).
 
-`mask_to_quad` fits a 4-corner quadrilateral to a predicted (or ground-truth) binary mask: an
-`approxPolyDP` 4-point hit is used directly; otherwise the mask's convex hull is split at its four
-extreme points and a least-squares line is fit to each of the four resulting arcs, with the
-corners taken as the intersections of adjacent lines. This line-fit path is what makes the corner
-estimate robust to a bowed card edge, where the raw hull point nearest a corner can be off the
-true (straight-edges) corner by more than a naive polygon-approx would allow.
+`mask_to_quad` fits a 4-corner quadrilateral to a predicted (or ground-truth) binary mask:
+`cv2.minAreaRect` gives a coarse, rotation-robust orientation and the four edges of that box (this
+never degenerates the way a diagonal-extreme-point split does at/near a 45-degree rotation, where
+two of a rectangle's corners can tie exactly); every dense (`CHAIN_APPROX_NONE`) contour point is
+assigned to whichever of those four edges it is nearest, each edge's points are trimmed by 8% at
+each end (ordered along the edge, dropping the points nearest a corner, where a TAG card's rounded
+corner or an occlusion notch would bias a line fit), and a least-squares line is fit to the
+remaining middle 84%; the corners are the intersections of adjacent lines. A single
+approxPolyDP/hull "corner point" is deliberately never used as a final corner: a real TAG card's
+rounded corners put that point ~r(sqrt(2)-1) inside the true (virtual, sharp) corner the app's
+outline is defined against, which the edge-line fit below avoids by only ever measuring the
+straight parts of each edge.
 
 `iou`, `corner_error_pct`, and `is_failure` are the per-sample scalar metrics; `evaluate_batch`
 combines them into the per-sample records `train_card.py` and `evaluate_card.py` log.
@@ -80,49 +86,71 @@ def _intersect_lines(line_a: np.ndarray, line_b: np.ndarray) -> np.ndarray | Non
     return point
 
 
+# mask_to_quad: fraction of each edge arc's points dropped at each end before the line fit, so a
+# rounded corner's curvature (or a small occlusion notch right at the split point) never enters it.
+EDGE_TRIM_FRAC = 0.08
+
+
 def mask_to_quad(mask_bool: np.ndarray) -> tuple[np.ndarray | None, np.ndarray | None]:
     """Fit a 4-point quad (TL, TR, BR, BL) to `mask_bool`'s largest component.
 
-    Returns `(quad, contour)`; `quad` is `None` when there is no contour at all, or when the
-    convex-hull line-fit path degenerates (parallel adjacent edges, a non-finite intersection, or
-    fewer than 4 distinct hull extremes). `contour` is the largest external contour found (or
-    `None` if there was none), independent of whether the quad fit itself succeeded.
+    `cv2.minAreaRect` gives a coarse box (center, size, angle); every dense (`CHAIN_APPROX_NONE`)
+    contour point is assigned to whichever of that box's four edges it is nearest (in the box's own
+    rotated frame), each edge's points are ordered along the edge and trimmed by `EDGE_TRIM_FRAC`
+    at each end, and a least-squares line is fit to the rest (see module docstring for why the
+    corners themselves are never trusted directly, and why this is more robust than splitting the
+    contour at its own diagonal-extreme points, which can tie exactly at/near a 45-degree
+    rotation).
+
+    Returns `(quad, contour)`; `quad` is `None` when there is no contour at all, when the coarse
+    box degenerates (zero width/height), when an edge has too few assigned points left after
+    trimming, or when the fit itself degenerates (parallel adjacent edges or a non-finite
+    intersection). `contour` is the largest external contour found (or `None` if there was none),
+    independent of whether the quad fit itself succeeded.
     """
     mask = largest_component(mask_bool)
     mask_u8 = mask.astype(np.uint8) * 255
-    contours, _ = cv2.findContours(mask_u8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(mask_u8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if not contours:
         return None, None
     contour = max(contours, key=cv2.contourArea)
     if cv2.contourArea(contour) <= 0:
         return None, contour
 
-    perimeter = cv2.arcLength(contour, True)
-    approx = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
-
-    if len(approx) == 4:
-        quad = approx.reshape(4, 2).astype(np.float64)
-        return canonical_quad(quad).astype(np.float32), contour
-
-    hull = cv2.convexHull(contour)
-    hull_pts = hull.reshape(-1, 2).astype(np.float64)
-    if len(hull_pts) < 4:
+    pts = contour.reshape(-1, 2).astype(np.float64)
+    if len(pts) < 4:
         return None, contour
 
-    x, y = hull_pts[:, 0], hull_pts[:, 1]
-    extreme_idx = sorted({int(np.argmax(x + y)), int(np.argmax(x - y)),
-                          int(np.argmax(-x - y)), int(np.argmax(-x + y))})
-    if len(extreme_idx) != 4:
+    (cx, cy), (rw, rh), angle_deg = cv2.minAreaRect(contour.astype(np.float32))
+    if rw <= 0 or rh <= 0:
         return None, contour
+    theta = np.deg2rad(angle_deg)
+    c, s = np.cos(theta), np.sin(theta)
+    dx, dy = pts[:, 0] - cx, pts[:, 1] - cy
+    # local frame: lx/ly along the box's own (possibly rotated) width/height axes.
+    lx = dx * c + dy * s
+    ly = -dx * s + dy * c
+    half_w, half_h = rw / 2.0, rh / 2.0
+
+    # distance from each point to each of the box's 4 sides (top, right, bottom, left); the
+    # nearest side "owns" that point. order/trim key: position along the owning edge's own axis.
+    dists = np.stack([ly + half_h, half_w - lx, half_h - ly, lx + half_w], axis=1)
+    edge_id = np.argmin(dists, axis=1)
+    order_key = np.where((edge_id == 0) | (edge_id == 2), lx, ly)
 
     lines = []
-    for k in range(4):
-        i0, i1 = extreme_idx[k], extreme_idx[(k + 1) % 4]
-        arc = hull_pts[i0:i1 + 1] if i0 <= i1 else np.vstack([hull_pts[i0:], hull_pts[:i1 + 1]])
-        if len(arc) < 2:
+    for e in range(4):
+        idx_e = np.nonzero(edge_id == e)[0]
+        n_e = len(idx_e)
+        if n_e < 3:
             return None, contour
-        line = cv2.fitLine(arc.astype(np.float32), cv2.DIST_L2, 0, 0.01, 0.01).reshape(-1)
-        lines.append(line)
+        ordered = idx_e[np.argsort(order_key[idx_e])]
+        trim = int(round(EDGE_TRIM_FRAC * n_e))
+        core_idx = ordered[trim:n_e - trim] if trim > 0 else ordered
+        if len(core_idx) < 2:
+            return None, contour
+        line = cv2.fitLine(pts[core_idx].astype(np.float32), cv2.DIST_L2, 0, 0.01, 0.01).reshape(-1)
+        lines.append(line)  # order: top, right, bottom, left
 
     corners = []
     for k in range(4):
@@ -207,13 +235,23 @@ def is_failure(quad: np.ndarray | None, frame_wh: tuple[int, int]) -> tuple[bool
 
 
 def evaluate_batch(logits: torch.Tensor, masks_true: torch.Tensor, metas: list[dict]) -> list[dict]:
-    """Per-sample `iou` / `corner_err_pct` / `failure` / `reason`.
+    """Per-sample `iou` / `corner_err_pct` / `failure` / `reason` / `gated`.
 
     `iou` is the plain pixel IoU between the thresholded prediction and `masks_true`; the quad fit
-    (and therefore `corner_err_pct` and the failure rule) uses only the prediction -- `meta["quad"]`
-    is the ground truth it is compared against, and `meta["card_long_side"]` its normalizer.
-    `corner_err_pct` is NaN for a failed sample (there is no usable predicted quad to compare).
-    """
+    uses only the prediction -- `meta["quad"]` is the ground truth it is compared against, and
+    `meta["card_long_side"]` its normalizer.
+
+    `corner_err_pct` is computed for every sample that has a *fitted* predicted quad (regardless of
+    whether that quad passes `is_failure`) -- NaN only when `mask_to_quad` found no usable quad at
+    all (`reason == "no_card"`).
+
+    `gated` is whether the TRUE quad itself passes `is_failure` -- i.e. whether the app would even
+    accept this sample's ground truth. `failure` is `gated and pred_fails`: a failure is only
+    counted where the app's own gate would have accepted the photo, so `fail_rate` (over `gated`
+    samples; see `train_card.py`/`evaluate_card.py`) reads as "the app would reject a photo the
+    labeller accepted" rather than being dominated by the synthetic distribution's own share of
+    geometrically implausible (e.g. near-square, or heavily perspective-jittered) samples (final
+    review 2026-09-21, finding 3)."""
     pred_masks = (torch.sigmoid(logits) > 0.5).squeeze(1).detach().cpu().numpy().astype(bool)
     true_masks = (masks_true > 0.5).squeeze(1).detach().cpu().numpy().astype(bool)
 
@@ -222,13 +260,16 @@ def evaluate_batch(logits: torch.Tensor, masks_true: torch.Tensor, metas: list[d
         pred_mask = pred_masks[i]
         true_mask = true_masks[i]
         h, w = pred_mask.shape
+        meta = metas[i]
         iou_val = iou(pred_mask, true_mask)
         quad_pred, _ = mask_to_quad(pred_mask)
-        failure, reason = is_failure(quad_pred, (w, h))
-        if failure:
+        pred_fails, reason = is_failure(quad_pred, (w, h))
+        gated = not is_failure(meta["quad"], (w, h))[0]
+        failure = bool(gated and pred_fails)
+        if quad_pred is None:
             corner_err = float("nan")
         else:
-            meta = metas[i]
             corner_err = corner_error_pct(quad_pred, meta["quad"], float(meta["card_long_side"]))
-        results.append({"iou": iou_val, "corner_err_pct": corner_err, "failure": bool(failure), "reason": reason})
+        results.append({"iou": iou_val, "corner_err_pct": corner_err, "failure": failure,
+                        "reason": reason, "gated": bool(gated)})
     return results

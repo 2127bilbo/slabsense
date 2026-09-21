@@ -18,22 +18,24 @@ from PIL import Image, ImageOps
 from torch.utils.data import Dataset, IterableDataset, get_worker_info
 
 from .card_backgrounds import RealPool, sample_background
-from .card_compose import apply_letterbox_points, compose, letterbox
+from .card_compose import apply_letterbox_points, compose, letterbox, outer_ring_mean
 from .card_metrics import canonical_quad
 from .data import MEAN, STD
 
-OUTER_RING_PX = 8
-
 
 def list_cutouts(cache_dir: Path, splits_path: Path, split: str) -> list[Path]:
-    """All `<cache_dir>/cutouts/<cert>_<side>.png` whose cert is in `split`."""
+    """All `<cache_dir>/cutouts/<cert>_<side>.{webp,png}` whose cert is in `split`.
+
+    `.webp` is the current cutout format (final review 2026-09-21, finding 4: ~14 GB vs. PNG's
+    ~99 GB at the same quality); `.png` is accepted too for cutouts cached before that switch.
+    """
     splits = pd.read_parquet(splits_path)[["cert", "split"]]
     certs = set(splits.loc[splits.split == split, "cert"])
     cutouts_dir = Path(cache_dir) / "cutouts"
     if not cutouts_dir.is_dir():
         return []
     paths = []
-    for p in sorted(cutouts_dir.glob("*.png")):
+    for p in sorted(list(cutouts_dir.glob("*.webp")) + list(cutouts_dir.glob("*.png"))):
         cert = p.stem.rsplit("_", 1)[0]
         if cert in certs:
             paths.append(p)
@@ -58,10 +60,17 @@ def collate_cards(batch):
 
 class _LazyImageList:
     """Wraps a fixed list of paths; each is opened (RGBA) and cached only on first access, so a
-    worker that never draws a given clutter image never pays to decode it."""
+    worker that never draws a given clutter/distractor image never pays to decode it.
 
-    def __init__(self, paths: list[Path]) -> None:
+    `max_long_side`, if given, downscales (LANCZOS) a decoded image so its long side is at most
+    that many px, before caching -- for clutter, which `card_backgrounds._clutter` only ever
+    pastes at <= 0.45x the (1024) canvas (final review 2026-09-21, finding 8), so caching the
+    full 1024-px cutout wastes ~4x the decode time and cache RAM for no visible benefit.
+    """
+
+    def __init__(self, paths: list[Path], max_long_side: int | None = None) -> None:
         self.paths = paths
+        self.max_long_side = max_long_side
         self._cache: dict[int, Image.Image] = {}
 
     def __len__(self) -> int:
@@ -70,7 +79,15 @@ class _LazyImageList:
     def __getitem__(self, i: int) -> Image.Image:
         if i not in self._cache:
             with Image.open(self.paths[i]) as im:
-                self._cache[i] = im.convert("RGBA")
+                img = im.convert("RGBA")
+            if self.max_long_side is not None:
+                w, h = img.size
+                long_side = max(w, h)
+                if long_side > self.max_long_side:
+                    scale = self.max_long_side / long_side
+                    new_size = (max(1, round(w * scale)), max(1, round(h * scale)))
+                    img = img.resize(new_size, Image.Resampling.LANCZOS)
+            self._cache[i] = img
         return self._cache[i]
 
 
@@ -101,7 +118,7 @@ class SyntheticCards(IterableDataset):
         n = len(self.cutout_paths)
         n_clutter = min(self.n_clutter, n)
         clutter_idx = rng.choice(n, size=n_clutter, replace=False) if n_clutter else np.array([], dtype=int)
-        clutter = _LazyImageList([self.cutout_paths[i] for i in clutter_idx])
+        clutter = _LazyImageList([self.cutout_paths[i] for i in clutter_idx], max_long_side=512)
 
         count = self.samples_per_epoch // nw
         for _ in range(count):
@@ -110,19 +127,29 @@ class SyntheticCards(IterableDataset):
                 cutout = im.convert("RGBA")
             bg = sample_background(rng, self.canvas, self.bg_pool, clutter if len(clutter) else None)
             k = int(rng.integers(1, 3))  # 1 or 2 distractor cutouts
-            distractors = []
-            for _ in range(k):
-                with Image.open(self.cutout_paths[int(rng.integers(0, n))]) as im:
-                    distractors.append(im.convert("RGBA"))
+            # A lazy, per-sample list: `compose` only decodes an entry if its own "under"/"edge"
+            # distractor draw (~15% of samples, final review 2026-09-21, finding 8) actually reads
+            # it -- the other ~85% of samples pay only for the index draw below, not the decode.
+            distractor_paths = [self.cutout_paths[int(rng.integers(0, n))] for _ in range(k)]
+            distractors = _LazyImageList(distractor_paths)
             sample = compose(rng, cutout, bg, distractor_cutouts=distractors, canvas=self.canvas, out=self.out)
             yield _to_tensors(sample)
 
 
 class SyntheticVal(Dataset):
-    """Deterministic synthetic validation set: sample `i` composed with `default_rng(seed + i)`."""
+    """Deterministic synthetic validation set: sample `i` composed with `default_rng(seed + i)`.
+
+    `force_in_frame=True` on every sample: a card clipped by the canvas edge has an unclipped
+    `meta["quad"]` label but a clipped rendered mask, so its fitted quad and its label measure two
+    different things -- a real discrepancy, but not the one this val set means to measure. Up to
+    `n_aux` val cutouts (a fixed, seed-ordered prefix of the same cutout list, not per-epoch/worker
+    resampled like training's) are used as both the "under"/"edge" distractor pool and the
+    background's "clutter" pool -- the exact confusable-second-card case training sees, which the
+    old (distractor-free, clutter-free) val set never exercised (final review 2026-09-21, finding
+    6)."""
 
     def __init__(self, cutout_paths: list[Path], bg_pool: RealPool | None, n: int = 2000,
-                seed: int = 12345, canvas: int = 1024, out: int = 512) -> None:
+                seed: int = 12345, canvas: int = 1024, out: int = 512, n_aux: int = 50) -> None:
         self.cutout_paths = list(cutout_paths)
         self.bg_pool = bg_pool
         self.n = n
@@ -130,6 +157,9 @@ class SyntheticVal(Dataset):
         self.canvas = canvas
         self.out = out
         self._order = np.random.default_rng(seed).permutation(len(self.cutout_paths))
+        n_aux = min(n_aux, len(self.cutout_paths))
+        aux_idx = self._order[:n_aux]
+        self._aux = _LazyImageList([self.cutout_paths[i] for i in aux_idx])
 
     def __len__(self) -> int:
         return self.n
@@ -139,21 +169,15 @@ class SyntheticVal(Dataset):
         idx = int(self._order[i % len(self._order)])
         with Image.open(self.cutout_paths[idx]) as im:
             cutout = im.convert("RGBA")
-        bg = sample_background(rng, self.canvas, self.bg_pool, None)
-        sample = compose(rng, cutout, bg, canvas=self.canvas, out=self.out)
+        aux = self._aux if len(self._aux) else None
+        bg = sample_background(rng, self.canvas, self.bg_pool, aux)
+        distractors = []
+        if aux is not None:
+            k = int(rng.integers(1, 3))  # 1 or 2 distractor cutouts, same draw shape as training
+            distractors = [aux[int(rng.integers(0, len(aux)))] for _ in range(k)]
+        sample = compose(rng, cutout, bg, distractor_cutouts=distractors, canvas=self.canvas,
+                         out=self.out, force_in_frame=True)
         return _to_tensors(sample)
-
-
-def _outer_ring_mean(img: np.ndarray) -> tuple[int, int, int]:
-    h, w = img.shape[:2]
-    r = min(OUTER_RING_PX, h, w)
-    mask = np.zeros((h, w), dtype=bool)
-    mask[:r, :] = True
-    mask[h - r:, :] = True
-    mask[:, :r] = True
-    mask[:, w - r:] = True
-    mean = img[mask].reshape(-1, img.shape[2]).mean(axis=0)
-    return tuple(int(round(v)) for v in mean)
 
 
 class RealCardVal(Dataset):
@@ -197,7 +221,7 @@ class RealCardVal(Dataset):
             [c["bl"]["x"] * w, c["bl"]["y"] * h],
         ], dtype=np.float64)
 
-        letterboxed, tf = letterbox(img, self.out, pad_colour=_outer_ring_mean(img))
+        letterboxed, tf = letterbox(img, self.out, pad_colour=outer_ring_mean(img))
         quad_out = apply_letterbox_points(quad_src, tf).astype(np.float32)
         # The app's tl/tr/br/bl labels are whatever the user's corner-picking UI assigned, not
         # necessarily the card's true visual top-left/etc for a rotated scan -- canonicalize by

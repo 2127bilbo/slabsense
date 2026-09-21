@@ -29,7 +29,7 @@ import onnxruntime as ort
 import torch
 from torch.utils.data import DataLoader
 
-from trainlib.card_backgrounds import RealPool
+from trainlib.card_backgrounds import RealPool, report_data_path
 from trainlib.card_data import SyntheticVal, collate_cards, list_cutouts
 from trainlib.card_model import CardSegNet
 from trainlib.config import load_config
@@ -37,6 +37,11 @@ from trainlib.data import MEAN, STD
 
 FP16_BLOCK_DEFAULT = "LayerNormalization,GlobalAveragePool,Gemm,Div,Erf,Flatten,Concat,Resize,Sigmoid"
 FP16_DISAGREEMENT_MAX = 0.005
+
+# Package-root-relative, not cwd-relative (final review 2026-09-21, finding 2). This file lives at
+# training/export_card_model.py, one level shallower than trainlib/*.py, so it's `.parent`, not
+# `.parents[1]` -- see trainlib.train_card.DEFAULT_BACKGROUNDS.
+DEFAULT_BACKGROUNDS = Path(__file__).resolve().parent / "data" / "backgrounds"
 
 
 def sha256(path: Path) -> str:
@@ -160,7 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--parity-rows", type=int, default=200, help="SyntheticVal (val-split) samples for torch-vs-ONNX checks")
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--seed", type=int, default=12345)
-    ap.add_argument("--backgrounds", default="training/data/backgrounds")
+    ap.add_argument("--backgrounds", default=str(DEFAULT_BACKGROUNDS))
     ap.add_argument("--input-size", type=int, default=None, help="defaults to the checkpoint's own input_size")
     ap.add_argument("--fp16-block", default=FP16_BLOCK_DEFAULT,
                     help="comma-separated op types kept in fp32 in the fp16 export ('' for none)")
@@ -192,7 +197,9 @@ def main(argv=None) -> int:
 
     # -- parity on SyntheticVal (val-split cutouts) --------------------------------------------
     val_paths = list_cutouts(cfg.cache_dir, cfg.splits_path, "val")
-    bg_pool = RealPool(args.backgrounds)
+    bg_dir = Path(args.backgrounds)
+    bg_pool = RealPool(bg_dir)
+    report_data_path("backgrounds", bg_dir, len(bg_pool), "files")
     canvas = 2 * input_size
     val_ds = SyntheticVal(val_paths, bg_pool, n=args.parity_rows, seed=args.seed, canvas=canvas, out=input_size)
     loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=0, collate_fn=collate_cards)
@@ -241,9 +248,17 @@ def main(argv=None) -> int:
                 "shape": ["N", 3, input_size, input_size], "layout": "NCHW",
                 "normalise": "x/255 then (x-mean)/std",
                 "mean": MEAN.flatten().tolist(), "std": STD.flatten().tolist(),
-                "letterbox": "pad the short side to square with the mean colour of the photo's "
-                             "outer 8-px ring, then resize to S; keep scale/pad_x/pad_y to map "
-                             "the mask back",
+                # Exact rule, in the order the code applies it (final review 2026-09-21, finding
+                # 10: the old wording said "pad then resize", but it's resize-then-pad):
+                # scale = S / max(w, h); new_w, new_h = round(w*scale), round(h*scale) (INTER_AREA
+                # if scale < 1 else INTER_LINEAR); pad_x, pad_y = (S-new_w)/2, (S-new_h)/2, the
+                # image placed at (round(pad_x), round(pad_y)); pad colour = mean of the source
+                # photo's own outer 8-px ring (not a fixed colour); a source point p maps to
+                # p*scale + (pad_x, pad_y) (fractional pad_x/pad_y, not the rounded placement --
+                # see card_compose.apply_letterbox_points/unletterbox_points).
+                "letterbox": "resize (long side to S, scale = S/max(w,h)) THEN pad the short side "
+                             "to S with the source photo's own outer-8px-ring mean colour "
+                             "(pad_x, pad_y = (S-new_w)/2, (S-new_h)/2); p_out = p*scale + pad",
             },
         },
         "outputs": {
@@ -254,6 +269,11 @@ def main(argv=None) -> int:
         },
         "files": files,
         "fp16_block": block,
+        "notes": {
+            "int8": "for the record only, not gated -- the smoke run's int8 parity (mask "
+                    "disagreement ~20%, IoU vs torch ~0.35) is unusable; only fp16 is gated, by "
+                    "FP16_DISAGREEMENT_MAX (final review 2026-09-21, finding 11).",
+        },
         "exported_at": datetime.now(timezone.utc).isoformat(),
     }
     (out_dir / f"{stem}.json").write_text(json.dumps(contract, indent=2))

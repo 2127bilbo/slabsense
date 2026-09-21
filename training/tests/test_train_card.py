@@ -110,3 +110,25 @@ def test_train_card_one_epoch_cpu_writes_artifacts(tmp_path):
     ckpt = torch.load(run_dir / "best.pt", map_location="cpu", weights_only=False)
     assert {"model", "encoder", "epoch", "iou", "input_size"}.issubset(ckpt.keys())
     assert ckpt["input_size"] == 64
+
+
+def test_train_card_with_no_backgrounds_flag_prints_resolved_default_path(tmp_path, capsys):
+    """final-review.md finding 2: `--backgrounds` must default to a package-root-relative path
+    (found regardless of cwd), and the resolved path must always be printed -- a silently-missing
+    folder used to make every background draw fall back to procedural without saying so."""
+    _write_splits(tmp_path)
+    cache_dir = tmp_path / "cache"
+    for cert in ("A1", "B2", "C3"):
+        _write_cutout(cache_dir / "cutouts" / f"{cert}_F.png")
+    cfg = _write_config(tmp_path)
+
+    train_card.main([
+        "--config", str(cfg), "--run-name", "t2", "--epochs", "1",
+        "--samples-per-epoch", "8", "--batch-size", "2", "--workers", "0",
+        "--val-n", "4", "--no-pretrained", "--device", "cpu",
+        "--input-size", "64", "--warmup-iters", "1",
+    ])
+
+    out = capsys.readouterr().out
+    assert "backgrounds:" in out
+    assert str(train_card.DEFAULT_BACKGROUNDS) in out

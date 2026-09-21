@@ -66,23 +66,29 @@ def test_evaluate_card_main_writes_csvs_and_verdict(tmp_path):
     assert real_csv.exists()
 
     synth_df = pd.read_csv(synth_csv)
-    assert list(synth_df.columns) == ["index", "iou", "corner_err_pct", "failure", "reason"]
+    assert list(synth_df.columns) == ["index", "iou", "corner_err_pct", "failure", "reason", "gated"]
     assert len(synth_df) == 4
 
     real_df = pd.read_csv(real_csv)
-    assert list(real_df.columns) == ["path", "iou", "corner_err_pct", "failure", "reason"]
+    assert list(real_df.columns) == ["path", "iou", "corner_err_pct", "failure", "reason", "gated"]
     assert len(real_df) == 3
 
     # Numeric-plausibility invariants that hold regardless of the (untrained, near-random) model's
-    # actual accuracy: `corner_err_pct` is NaN exactly for a failed row, and a real fitted value is
-    # always finite and non-negative -- a spurious inf/NaN or negative value here (e.g. the
-    # ordering-convention bug that let a wrong corner pairing through) is a plausibility bug, not
-    # just an accuracy one, and this doesn't depend on the checkpoint being any good.
+    # actual accuracy. Per the final review's fail-rule (c): `corner_err_pct` is computed for every
+    # row that has a *fitted* predicted quad -- NaN exactly when `reason == "no_card"` (no fit at
+    # all), not merely because the row is marked `failure` (a row can fail `is_failure`'s gate and
+    # still have a perfectly finite, non-negative corner error against the ground truth) -- and a
+    # fitted value is always finite and non-negative -- a spurious inf/NaN or negative value here
+    # (e.g. the ordering-convention bug that let a wrong corner pairing through) is a plausibility
+    # bug, not just an accuracy one, and this doesn't depend on the checkpoint being any good.
+    # `failure` can only be True where `gated` is True (fail-rule (c): a failure is only counted
+    # where the app's own gate would have accepted the ground-truth photo).
     for df in (synth_df, real_df):
-        assert (df["corner_err_pct"].isna() == df["failure"]).all(), df
-        finite = df.loc[~df["failure"], "corner_err_pct"]
+        assert (df["corner_err_pct"].isna() == (df["reason"] == "no_card")).all(), df
+        finite = df["corner_err_pct"].dropna()
         assert np.isfinite(finite).all(), finite
         assert (finite >= 0).all(), finite
+        assert (~df["failure"] | df["gated"]).all(), df
 
 
 def test_evaluate_card_main_prints_real_summary_and_provisional_verdict(tmp_path, capsys):

@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import pytest
 import torch
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from conftest import orange_card_png
 from trainlib import card_compose, card_cutouts as ccut, card_metrics
@@ -26,6 +26,27 @@ def _fill_quad(quad: np.ndarray, h: int, w: int) -> np.ndarray:
     mask = np.zeros((h, w), dtype=np.uint8)
     cv2.fillPoly(mask, [np.round(quad).astype(np.int32)], 255)
     return mask > 0
+
+
+def _rounded_rect_mask(frame: int, cx: float, cy: float, w: float, h: float, radius: float,
+                       angle_deg: float) -> np.ndarray:
+    """A `w x h` rectangle with all 4 corners rounded to `radius`, centred at `(cx, cy)` in a
+    `frame x frame` canvas, then rotated `angle_deg` about its own centre -- mirrors a real TAG
+    cutout's rounded-corner notch (final-review.md finding 1), unlike `_fill_quad`'s sharp
+    corners."""
+    img = Image.new("L", (frame, frame), 0)
+    draw = ImageDraw.Draw(img)
+    x0, y0 = cx - w / 2.0, cy - h / 2.0
+    x1, y1 = cx + w / 2.0, cy + h / 2.0
+    draw.rounded_rectangle([x0, y0, x1, y1], radius=radius, fill=255)
+    arr = np.asarray(img)
+    if angle_deg != 0.0:
+        # cv2.getRotationMatrix2D's positive-angle direction is opposite `_rect_quad`'s (which
+        # applies the textbook [[cos,-sin],[sin,cos]] matrix directly to y-down image coords) --
+        # negate so this mask's rotation matches the reference quad's.
+        M = cv2.getRotationMatrix2D((cx, cy), -angle_deg, 1.0)
+        arr = cv2.warpAffine(arr, M, (frame, frame), flags=cv2.INTER_LINEAR, borderValue=0)
+    return arr > 127
 
 
 @pytest.mark.parametrize("angle_deg", [0.0, 20.0, 89.0, 90.0, 91.0, 180.0, 270.0])
@@ -139,7 +160,36 @@ def test_mask_to_quad_bowed_mask_still_recovers_near_true_corners():
 
     assert quad_pred is not None
     err_pct = card_metrics.corner_error_pct(quad_pred, quad, long_side)
-    assert err_pct < 1.5, err_pct
+    # The edge-line fit (final-review fix 1) only trims the 8% of each edge nearest a corner --
+    # enough to drop a rounded-corner's curvature, but a 3% page-bow's sinusoidal displacement
+    # peaks at the edge's own MIDDLE and is still inside that middle 84%, so the least-squares fit
+    # is pulled toward the bow -- a real geometric difference from the (straight-edged) truth quad,
+    # not a fit bug (see final-review.md finding 1's own measured 0.65%/1.74% mean/p95 "including
+    # bows", vs. 0.25%/0.36% "unbowed"). 3.0% gives headroom over that p95 for this single, close-
+    # to-worst-case draw (3% amplitude is above the compositor's own 0.5-2.5% range).
+    assert err_pct < 3.0, err_pct
+
+
+@pytest.mark.parametrize("radius,angle_deg", [(10.0, 0.0), (14.0, 0.0), (10.0, 20.0), (14.0, 20.0)])
+def test_mask_to_quad_rounded_corner_fits_sharp_corner_under_half_percent(radius, angle_deg):
+    """final-review.md finding 1: a real TAG cutout's corner notch is ~10-14 px at this card size,
+    and the OLD `mask_to_quad` (approxPolyDP-4 shortcut, or a hull point sitting on the round arc)
+    put its fitted corner ~r(sqrt(2)-1) inside the true (virtual, sharp) corner the app's own
+    hand-placed outline is defined against -- a ~1.5-2.4% floor that made the acceptance bar
+    unreachable by any model. The edge-line fit must instead recover the sharp corner to < 0.5% of
+    the long side, matching the review's own measured floor (0.25% mean / 0.36% p95 unbowed)."""
+    frame = 512
+    card_w, card_h = 330.0, 231.0  # ~330-px card, aspect ~0.7 (2.5:3.5)
+    cx = cy = frame / 2.0
+    quad = _rect_quad(cx, cy, card_w, card_h, angle_deg)
+    mask = _rounded_rect_mask(frame, cx, cy, card_w, card_h, radius, angle_deg)
+
+    quad_pred, contour = card_metrics.mask_to_quad(mask)
+
+    assert quad_pred is not None
+    assert contour is not None
+    err_pct = card_metrics.corner_error_pct(quad_pred, quad, card_w)
+    assert err_pct < 0.5, (radius, angle_deg, err_pct)
 
 
 def test_is_failure_square_is_aspect_failure():
@@ -219,8 +269,12 @@ def test_evaluate_batch_perfect_prediction_including_discrete_rotation_samples()
     for seed in range(200):
         rng = np.random.default_rng(seed)
         bg = np.full((canvas, canvas, 3), 128, dtype=np.uint8)
+        # force_aspect=False: the random-aspect letterbox crop (final review 2026-09-21, finding
+        # 7) is orthogonal to what this test checks (rotation-label bookkeeping) and, at this
+        # toy resolution, its pad bands shrink the card's effective pixel footprint enough to
+        # push mask-edge quantization noise past this test's threshold on its own.
         sample = card_compose.compose(rng, cutout, bg, canvas=canvas, out=out, degrade=False,
-                                      force_bow=False, force_in_frame=True)
+                                      force_bow=False, force_in_frame=True, force_aspect=False)
         meta = sample["meta"]
         if not _looks_like_discrete_rotation(meta["quad"]):
             continue

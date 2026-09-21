@@ -984,7 +984,7 @@ upsample back to input size) — **3,119,089 params** (`trainlib.card_model.Card
 (`trainlib.card_model.bce_dice`).
 
 **Cutout cache.** `trainlib.card_cutouts` renders each TAG `rgb` scan down to
-a transparent-background PNG cutout at `<cache_dir>/cutouts/<cert>_<side>.png`
+a transparent-background cutout at `<cache_dir>/cutouts/<cert>_<side>.webp`
 (`<cache_dir>` from `config.toml`, `scripts/tag-dataset/data/cache/` by
 default): crop to the card's box (`derived/centering_boxes_rgb.parquet`),
 flood-fill TAG's orange trim *and* the small orange notches inside the box's
@@ -992,17 +992,30 @@ four rounded corners to transparent (seeded from each crop corner, tolerance
 60, largest accepted component ≤ 2% of the crop area so a genuinely uniform
 card corner is never eaten), feather the alpha 1–2 px, and resize so the long
 side is 1024 px. The mask therefore traces the card's real rounded corner,
-not the bounding box's square one. Measured locally: 991 cutouts (791 train +
-200 val, 500 certs, 9 of 1,000 possible files missing because their box is
-not `ok`) = **1.8 GB, ~1.84 MB/file average**. Extrapolated to the full
-~55,499-side corpus at that same per-file average: **~100 GB**, not the ~14 GB
-that had been assumed going into this task — flagged here since it changes
-the disk budget for Step 12 below. `card_cutouts`'s own `--splits` flag only
-takes comma-separated split *names* (`train,val,test`), each governed by one
-shared `--limit-cards`; there is no `name:count` syntax, so `--splits
-train:400,val:100` (as an earlier draft of this task's brief specified)
-silently matches no split and writes nothing (`written=0`, no error) — call
-it once per split with its own `--limit-cards` instead.
+not the bounding box's square one. `trainlib.card_data.list_cutouts` globs
+both `*.webp` and legacy `*.png` (a cache written before the format switch
+below still loads).
+
+**Storage format: WebP, not PNG** (final review 2026-09-21, finding 4).
+Measured locally: 991 cutouts (791 train + 200 val, 500 certs, 9 of 1,000
+possible files missing because their box is not `ok`) = 1.8 GB PNG,
+~1.84 MB/file average — extrapolated to the full ~55,499-side corpus, **~99
+GB**. Measured alternatives on 20 real cutouts: JPEG-90 RGB + PNG alpha
+(two files) ~362 KB/file (~20 GB); **WebP q90 with alpha, one file, ~260
+KB/file (~14 GB)** — alpha round-trips losslessly (`quality=90,
+lossless=False, exact=True` keeps alpha exact even though RGB is lossy; max
+abs alpha diff 0), RGB mean abs diff 3.4 (below the compositor's own
+photometric noise σ 1–6 and JPEG q55–90 degradations), decode 21 ms vs.
+PNG's 18 ms, encode 148 ms/file. `card_cutouts.make_cutout`'s own pixel
+output is unchanged; only the on-disk `save()` call and `cutout_path`'s
+extension changed. `card_cutouts`'s own `--splits` flag only takes
+comma-separated split *names* (`train,val`, optionally `train:400` to cap
+one split's card count — `test` is unused by any card-model code and should
+be skipped); there is no `name:count` syntax across multiple splits, so
+`--splits train:400,val:100` (as an earlier draft of this task's brief
+specified) silently matches no split and writes nothing (`written=0`, no
+error) — call it once per split (or comma-separate split *names* with a
+shared `--limit-cards`) instead.
 
 **Backgrounds.** `trainlib.card_backgrounds.sample_background` mixes three
 sources with equal (1/3) probability: **procedural** (six generators — flat,
@@ -1030,6 +1043,20 @@ jitter but the bow itself is a smooth curve inside it, per the plan). Every
 draw goes through one `numpy.random.Generator`, in a fixed order, so a given
 seed reproduces a sample bit-for-bit.
 
+**Random-aspect letterbox crop** (final review 2026-09-21, finding 7;
+accepted spec deviation). Training samples were, until this fix, always
+composed on a *square* canvas and letterboxed square-to-square — no padding
+band ever appeared, even though a real phone photo is 3:4/4:3/9:16 and
+*does* produce one. With probability 0.5 (the last draw in `compose`'s
+documented order, so it never shifts any earlier draw's rng state), the
+finished 1024 canvas is cropped to a random aspect in [3:4, 4:3] — one side
+pinned to the full canvas extent, the other shrunk, and (when the card is
+in-frame) positioned so the card's quad bounding box stays fully inside the
+crop — and *that* (now non-square) crop is letterboxed to 512 with the
+crop's own outer-8px-ring mean colour as the pad colour, exactly like
+`RealCardVal` already does for a real photo. The mask and `meta["quad"]` go
+through the identical crop + letterbox.
+
 **Real validation set.** `training/data/card-val/<scanId>/{front.jpg,
 back.jpg,labels.json}` (not in git) — the app's own hand-confirmed-corner
 scans, pulled by a script the app session owns (`HANDOFF-card-and-centering.md`
@@ -1038,14 +1065,26 @@ exist yet (the owner has not opted enough scans into "Keep Originals For
 Training" yet), so this smoke's evaluation is synthetic-only; the real
 acceptance test is still owed.
 
+**`SyntheticVal` is no longer the easy set** (final review 2026-09-21,
+finding 6). It used to compose with `force_in_frame` unset (so ~10% of
+samples compared a canvas-clipped fit against an unclipped label — a
+measurement artifact, not a real error, worth ~1.94% vs. 1.77% mean corner
+error on the affected samples) and no distractors/clutter at all — never
+exercising the exact confusable-second-card case training sees. It now
+composes every sample with `force_in_frame=True`, and draws its
+"under"/"edge" distractor and background "clutter" from a fixed,
+seed-ordered prefix of up to 50 val cutouts (wrapped in the same lazy,
+decode-on-first-use `_LazyImageList` training uses for clutter) — so the
+provisional bar (synthetic IoU >= 0.98) is now taken on a set that actually
+contains a second card some of the time, like training does.
+
 **Metrics and acceptance** (`trainlib.card_metrics`, thresholds hard-coded in
 `trainlib.evaluate_card`): **IoU** (pixel IoU of the thresholded mask against
 ground truth), **corner error %** (mean per-corner distance between the
-predicted quad — fit from the mask via `mask_to_quad`'s polygon-approx or
-convex-hull-line-fit path — and the true quad, divided by the card's long
-side, matched by geometry across all 4 cyclic shifts so a discrete rotation
-can't silently swap corners), and **failure rate** (`is_failure`: no quad at
-all — `no_card`; fitted area under 15% of the frame — `small`; or rectified
+predicted quad and the true quad, divided by the card's long side, matched
+by geometry across all 4 cyclic shifts so a discrete rotation can't silently
+swap corners), and **failure rate** (`is_failure`: no quad at all —
+`no_card`; fitted area under 15% of the frame — `small`; or rectified
 short/long ratio outside 0.66–0.78 — `aspect`). **Accept** when the real val
 set has ≥ 100 samples and, on it, IoU ≥ 0.97, mean corner error ≤ 0.8%,
 95th-percentile corner error ≤ 2.0%, and failure rate ≤ 2%. **Provisional**
@@ -1053,14 +1092,58 @@ set has ≥ 100 samples and, on it, IoU ≥ 0.97, mean corner error ≤ 0.8%,
 and the report must say the real test is still owed — exactly this smoke's
 situation.
 
+**Corner fit: edge-line fit, not a single hull/polygon point** (final
+review 2026-09-21, finding 1 — CRITICAL). `mask_to_quad` used to trust
+either `approxPolyDP`'s 4-point result directly, or (its fallback) the
+convex hull's single most-extreme point per corner, as *the* corner. A real
+TAG cutout's corner is rounded (~10-14 px notch at this card's on-canvas
+size), and both of those points land on the round arc, ~r(sqrt(2)-1) inside
+the true (virtual, sharp) corner the app's own hand-placed outline is
+defined against — a **corner-error floor of ~1.7-1.8% mean / ~2.25% p95**
+on a *perfect* mask (measured on 200 `SyntheticVal` samples), well above the
+0.8%/2.0% real-photo acceptance bar, making that bar unreachable by any
+model, real or synthetic. Fixed: `cv2.minAreaRect` gives a coarse,
+rotation-robust box; every dense (`CHAIN_APPROX_NONE`) contour point is
+assigned to whichever of that box's four edges it's nearest, each edge's
+points are trimmed 8% at each end (dropping the round corner's own
+curvature, and a small occlusion notch, out of the fit) before a
+least-squares `cv2.fitLine`, and the corners are the intersections of
+adjacent lines. Measured after the fix, 50 perfect-logit `SyntheticVal`
+samples (`force_bow=False, force_in_frame=True`, current compositor
+including distractors/clutter and the random-aspect crop above): **mean
+0.36% / p95 0.72%** (max 1.41%) — see
+`.superpowers/sdd/2026-09-21-card-model/final-fix-report.md` for the full
+before/after table, including an isolated rounded-rectangle test (10/14 px
+radius on a ~330 px card, 0°/20°) that fits the sharp corner to < 0.5% of
+the long side.
+
+**Fail rate is now "gated"** (final review 2026-09-21, finding 3).
+`evaluate_batch` used to count a failure whenever the *predicted* quad
+failed `is_failure`, over *every* sample — but a perfect-mask sweep found
+47.0% of `SyntheticVal` samples fail even with a perfect prediction, because
+41.5% of the *ground-truth* quads themselves fail the gate (the compositor's
+8%-per-corner homography jitter rectifies to an aspect as low as 0.575, and
+its scale draw can put the card under 15% of the frame) — so the old
+`fail_rate` mostly measured the synthetic distribution's own geometry, not
+the model, and `corner_err_pct` was NaN on every failed sample (so the
+reported corner error was the mean over the *easier* half only). Now:
+`evaluate_batch` also computes `gated` (whether the TRUE quad passes
+`is_failure`) and reports `corner_err_pct` for **every** sample with a
+fitted quad, failed or not; `failure` is `gated and pred_fails`, so
+`fail_rate` (`failures / n_gated`, both printed) reads as "the app would
+reject a photo the labeller/compositor accepted" — real-photo `fail_rate`
+is expected to be essentially unchanged by this (real ground truth almost
+always passes the gate).
+
 **Synthetic `fail_rate` caveat.** A high synthetic `fail_rate` does not by
 itself mean the model is bad: `is_failure`'s aspect gate is tripped by the
 compositor's own 8%-of-long-side homography jitter combined with a
 near-square rectified ratio at certain rotations, and the area gate is
 tripped by the compositor's 30%-of-canvas low end of the scale range — both
-are properties of the synthetic *distribution*, not of the model, which is
-why acceptance is defined on real photos (10.4) rather than on this number.
-Watch it move in the right direction (this smoke: 0.9950 → 0.4950 as IoU
+are properties of the synthetic *distribution*, not of the model (the gated
+fail rate above already excludes most of this), which is why acceptance is
+defined on real photos (10.4) rather than on this number. Watch it move in
+the right direction (this smoke: 0.9950 → 0.4950 as IoU
 rose 0.27 → 0.89 across 2 epochs) rather than reading it against a fixed bar.
 
 **Commands** (from `training/`, venv python; R2 keys via
@@ -1069,9 +1152,18 @@ rose 0.27 → 0.89 across 2 epochs) rather than reading it against a fixed bar.
 | Command | What it does |
 |---|---|
 | `python -m trainlib.card_cutouts --splits train --limit-cards 400 --workers 8` | cutouts for one split (see the `--splits` note above — one call per split) |
-| `python -m trainlib.train_card --run-name smoke --epochs 2 --samples-per-epoch 4000 --batch-size 8 --workers 6 --val-n 200 --backgrounds training/data/backgrounds` | train; writes `runs/card/<run>/{log.csv,best.pt,last.pt,args.json}` |
-| `python -m trainlib.evaluate_card --checkpoint runs/card/smoke/best.pt --real training/data/card-val --synthetic-n 2000 --batch-size 16 --workers 4 --backgrounds training/data/backgrounds` | synthetic (+ real, if the folder exists) eval → `eval_synth.csv` / `eval_real.csv` |
+| `python -m trainlib.train_card --run-name smoke --epochs 2 --samples-per-epoch 4000 --batch-size 8 --workers 6 --val-n 200` | train; writes `runs/card/<run>/{log.csv,best.pt,last.pt,args.json}` |
+| `python -m trainlib.evaluate_card --checkpoint runs/card/smoke/best.pt --synthetic-n 2000 --batch-size 16 --workers 4` | synthetic (+ real, if the folder exists) eval → `eval_synth.csv` / `eval_real.csv` |
 | `python export_card_model.py --checkpoint runs/card/smoke/best.pt --run-name smoke --parity-rows 200` | fp32/fp16/int8 ONNX + contract + parity sidecars in `weights/onnx/` |
+
+`--backgrounds`/`--real` are omitted above: all three commands now default
+them to `training/data/backgrounds`/`training/data/card-val`, resolved from
+the package root rather than the cwd (final review 2026-09-21, finding 2 —
+the old `training/data/...` defaults silently resolved to
+`training/training/data/...` when run, as documented, from `training/`, and
+were therefore never found). Each command prints the resolved absolute path
+and how many files/sides it found there at startup, or a loud `NOT FOUND`
+line — pass the flags explicitly only if the data lives somewhere else.
 
 ### Smoke (2026-09-21, RTX 4070 SUPER)
 
@@ -1108,6 +1200,21 @@ the compositor is the bottleneck, use 16" note, given this local evidence
 that even 6-of-20 cores under-fed a small model) and watch `nvidia-smi`
 during the first few minutes of the real run.
 
+**Loader cost, corrected** (final review 2026-09-21, finding 5): the
+271 ms/sample/worker figure above (~193 ms compositor + ~78 ms background)
+omitted `SyntheticCards`'s own main-cutout and (1-2 per sample) distractor
+PNG decodes. Measured directly on this PC: background 94 ms + compose
+187 ms + decodes (main 17 ms + 1-2 distractors ~26 ms) + tensor conversion ≈
+**320-350 ms/sample**, not 270. Server cores are typically slower than this
+desktop's, so at `--workers 32` expect ~75-90 samples/s (not the
+"~130-170" this document previously projected from a ×3 GPU-scaling
+argument that doesn't apply here — the GPU is never this model's
+bottleneck) → a 60,000-sample epoch in **~12-13 min**, **12 epochs in
+~2.5-3 h** at `--workers 32` (~1.5 h at `--workers 64`, if the box's "cores"
+are real and `/dev/shm`/RAM allow it). Full Step 12 budget (cutouts +
+train + eval/export): **~4.5-5 h** — see `HANDOFF-rented-gpu.md` Step 12.3/
+12.7 for the `/dev/shm`/RAM preconditions this assumes.
+
 Evaluation (synthetic only — `training/data/card-val/` does not exist yet):
 
 ```
@@ -1120,6 +1227,45 @@ acceptance requires synthetic IoU ≥ 0.98; this 2-epoch/4,000-sample-per-epoch
 smoke's 0.89 is nowhere near that bar and isn't meant to be — it confirms the
 eval script and metrics work end to end. Failure breakdown (`eval_synth.csv`,
 200 rows, 99 failures): 51 `small`, 48 `aspect`, 0 `no_card`.
+
+**Re-run after the 2026-09-21 final-review fixes** (same `smoke/best.pt`
+checkpoint, untouched -- unfixed corner fit/fail-rule/harder-`SyntheticVal`
+only, `--synthetic-n 200 --workers 4`, default seed 12345):
+
+```
+backgrounds: .../training/data/backgrounds NOT FOUND / empty -- no files, falling back to synthetic-only
+synthetic: n=200 iou=0.8794 corner_err_mean=5.1855 corner_err_p95=14.7168 fail_rate=0.1682 n_gated=107
+real-val: .../training/data/card-val NOT FOUND / empty -- no sides, falling back to synthetic-only
+verdict: reject
+```
+
+IoU is essentially unchanged (0.8926 -> 0.8794 -- the harder val set with
+distractors/clutter/aspect-crop and `force_in_frame=True` is genuinely
+harder for a 2-epoch checkpoint that never saw this exact val distribution
+during its own training).
+
+`corner_err_mean`/`p95` rose sharply (2.81%/3.71% -> 5.19%/14.72%), which is
+expected here, not a regression in the fit itself: `corner_err_pct` is now
+computed for **every** row with a fitted quad (`eval_synth.csv`'s `reason`
+column has 0 `no_card` rows out of 200, so all 200 fitted quads feed this
+mean/p95), where the old rule silently dropped a row (`corner_err_pct` NaN)
+whenever its *own prediction* failed `is_failure` -- hiding the harder half
+of the distribution from this statistic entirely -- on top of the val set
+itself now being harder.
+
+`fail_rate` is now gated, and reads as a different (more honest) quantity
+than before: of the 200 rows, `n_gated=107` have a ground-truth quad that
+itself passes `is_failure` (the other 93 rows' *ground truth* fails the
+gate -- the compositor's own aspect/scale jitter, same phenomenon as the
+final review's 41.5%-of-truths-fail measurement on a clean draw), and
+`failure` (`gated and pred_fails`) is `True` for 18 of those 107, giving
+`fail_rate = 18/107 = 0.1682`. Separately, the raw `reason` breakdown
+(whether the *prediction* itself fails `is_failure`, independent of
+`gated` -- these are two different 93s, not the same 93 rows: only 89 rows
+are in both) is 93 pass (empty `reason`), 56 `aspect`, 51 `small`, 0
+`no_card`. This is the expected shape of the change, not evidence the
+underlying corner-fit floor regressed -- see the isolated rounded-rectangle
+and 50-sample perfect-logit measurements above for that.
 
 Export (fp16 block list: `LayerNormalization,GlobalAveragePool,Gemm,Div,Erf,
 Flatten,Concat,Resize,Sigmoid`), 50 synthetic-val parity samples, CPU:

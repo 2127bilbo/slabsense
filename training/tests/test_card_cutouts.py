@@ -39,7 +39,40 @@ def test_make_cutout_scales_to_long_side_and_keeps_alpha():
 
 
 def test_cutout_path_layout():
-    assert cc.cutout_path(Path("/cache"), "A1", "F") == Path("/cache/cutouts/A1_F.png")
+    assert cc.cutout_path(Path("/cache"), "A1", "F") == Path("/cache/cutouts/A1_F.webp")
+
+
+def test_cutout_written_as_webp_with_alpha_intact_at_notches(tmp_path):
+    """final-review.md finding 4: cutouts are stored as WebP (q90, lossless alpha), not PNG --
+    written through the same `Image.save` call `_cutout_one` uses, then reopened, so a
+    lossy-alpha or alpha-dropping save would be caught here."""
+    # card with rounded corners: orange trim margin 20 + orange quarter-circle notches of radius
+    # 30 at the box corners (mirrors test_rounded_alpha_removes_orange_corner_notches).
+    w, h, m, r = 300, 400, 20, 30
+    arr = np.zeros((h, w, 3), np.uint8); arr[...] = (247, 126, 44)
+    arr[m:h - m, m:w - m] = (200, 190, 60)
+    yy, xx = np.mgrid[0:h, 0:w]
+    for cy, cx in ((m, m), (m, w - 1 - m), (h - 1 - m, m), (h - 1 - m, w - 1 - m)):
+        cyy = cy + (r if cy == m else -r); cxx = cx + (r if cx == m else -r)
+        notch = ((xx - cxx) ** 2 + (yy - cyy) ** 2 > r * r) & (abs(xx - cx) < r) & (abs(yy - cy) < r) \
+            & (xx >= m) & (xx < w - m) & (yy >= m) & (yy < h - m)
+        arr[notch] = (247, 126, 44)
+    img = Image.fromarray(arr)
+    cutout = cc.make_cutout(img, (m, m, w - m, h - m), long_side=200)
+    assert cutout.getpixel((0, 0))[3] == 0  # notch is transparent before any save round-trip
+
+    out_path = tmp_path / "cutouts" / "A1_F.webp"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    cutout.save(out_path, format="WEBP", quality=90, lossless=False, exact=True)
+
+    with Image.open(out_path) as im:
+        assert im.format == "WEBP"
+        reopened = im.convert("RGBA")
+        rarr = np.asarray(reopened)
+    assert rarr.shape[2] == 4
+    assert rarr[0, 0, 3] == 0  # notch corner: still fully transparent
+    cx, cy = rarr.shape[1] // 2, rarr.shape[0] // 2
+    assert rarr[cy, cx, 3] == 255  # card interior: still fully opaque
 
 
 def _write_config(tmp_path, ds, sp):
@@ -82,9 +115,15 @@ def test_cli_writes_cutouts_and_skips_existing(surface_tables, tmp_path):
     assert counts["failed"] == 0 and counts["missing"] == 0
     for _, r in rgb_sides.iloc[1:].iterrows():
         out = cc.cutout_path(cache_dir, r.cert, r.side)
+        assert out.suffix == ".webp"
         assert out.exists()
         with Image.open(out) as im:
-            assert im.mode == "RGBA"
+            assert im.format == "WEBP"
+            # this fixture's crop has no corner notch (fully opaque alpha), and Pillow's WebP
+            # writer drops an all-255 alpha channel on save (mode comes back "RGB") -- `.convert
+            # ("RGBA")` is what every real consumer (card_data.py) does, and always recovers a
+            # (uniformly opaque) alpha channel regardless.
+            assert im.convert("RGBA").mode == "RGBA"
     # skipped output was left untouched
     assert existing.read_bytes() == b"stub"
 

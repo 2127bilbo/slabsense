@@ -75,7 +75,10 @@ def make_cutout(full_img: Image.Image, box: tuple[int, int, int, int], long_side
 
 
 def cutout_path(cache_dir: Path, cert: str, side: str) -> Path:
-    return Path(cache_dir) / "cutouts" / f"{cert}_{side}.png"
+    """`.webp` (final review 2026-09-21, finding 4): measured on 991 local cutouts, WebP q90 with
+    (lossless) alpha is ~14 GB at the box's full 55k-side scale vs. PNG's ~99 GB, with RGB error
+    (mean abs diff 3.4) below the compositor's own noise/JPEG degradations and alpha exact."""
+    return Path(cache_dir) / "cutouts" / f"{cert}_{side}.webp"
 
 
 # --- CLI: fetch each ok box's rgb image (local cache or R2) and write its cutout. ---
@@ -107,7 +110,7 @@ def _cutout_one(args) -> str:
             out = make_cutout(im, box, long_side)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         tmp = out_path.with_suffix(out_path.suffix + ".part")
-        out.save(tmp, format="PNG")
+        out.save(tmp, format="WEBP", quality=90, lossless=False, exact=True)
         os.replace(tmp, out_path)
         return "written"
     except Exception as e:
