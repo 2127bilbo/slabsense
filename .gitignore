@@ -67,3 +67,6 @@ training/trainlib.egg-info/
 training/weights/**/*.pt
 training/weights/**/*.joblib
 training/weights/**/*.onnx
+
+# training inputs supplied by the owner (backgrounds, real-val photos)
+training/data/
