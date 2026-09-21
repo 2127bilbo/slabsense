@@ -261,7 +261,7 @@ to a per-key R2 download for any original that is not already local
 use), so on a fresh box it simply downloads each missing rgb original as it
 resizes it and writes only the 48 GB of 896×1248 cropped card images to
 disk — never the full set of originals. Rgb-only is ~55k files, about
-**220 GB through the network, ≈ $9, ≈ 1 h at ~50 files/s**. This fallback
+**220 GB through the network, ≈ $9, ≈ 20–40 min (55k keys at 25–50 files/s)**. This fallback
 still needs `source /workspace/env.sh` (the `B2_KEY_ID`/`B2_APP_KEY` env
 file from Step 7.1) so the lazily-built R2 client can authenticate.
 
@@ -451,7 +451,7 @@ Run the `test`-split eval separately, by hand, only after reading the val
 numbers and deciding to accept v2 — never inside this unattended chain, so
 the frozen test split is never read automatically.
 
-Budget: no bulk pull needed (11.0b); cache ~30 min if not already warm;
+Budget: no bulk pull needed (11.0b); cache ≈ 20–40 min on a fresh box;
 train 10 epochs at ~16.5 min/epoch (the v1 rate) ≈ 2.8 h; evals (four val
 passes plus, if accepted, one test pass) ~20 min; **≈ $4 of GPU time + the
 ~$9 of R2 bandwidth from 11.0b if the cache is not already warm**.
@@ -462,6 +462,11 @@ passes plus, if accepted, one test pass) ~20 min; **≈ $4 of GPU time + the
 runs/centering_rgb/v2/best.pt --run-name v2 --parity-rows 200 --batch-size
 4` (the `export` extra is needed: `uv pip install --python .venv/bin/python
 -e ".[dev,export]"`). Test the fp16 on WebGPU as above. Bring home the run
+folder AND the box-computed v1 baseline evals — they land under
+`runs/centering_rgb/v1/eval_val*.csv` / `.log` (gitignored on the box) and are
+lost with the instance otherwise; copy them into
+`training/weights/centering_rgb/v1/` as `eval_val_box.csv`, `eval_val_box_buckets.csv`,
+`eval_val_phonesim_box.csv`, `eval_val_phonesim_box_buckets.csv`. Bring home the run
 folder into `training/weights/centering_rgb/v2/` and the ONNX files plus
 sidecars into `training/weights/onnx/`.
 
