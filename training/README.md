@@ -966,3 +966,180 @@ backdrop augmentation as Step 9).
 The next two pieces of training work — the card model that finds the card in
 any photo (new) and centering v2 (fixing the shrink toward 50/50) — are
 specified in `training/HANDOFF-card-and-centering.md`.
+
+## Card model
+
+A binary segmentation model that finds the card in any photo: input a photo
+letterboxed to 512×512, output a one-channel card mask at 512×512 (logits).
+Everything geometric — corners, a bowed edge, the rectifying warp, the tight
+crop and the graded-image crop — is derived from the mask by the app, not by
+the model (`HANDOFF-card-and-centering.md` Step 10.6). Segmentation, not
+four-corner regression, because a bowed old card's outline is four gentle
+curves, not four straight lines meeting at points; a mask represents that
+naturally. Backbone `mobilenetv3_large_100` (timm, pretrained) with an
+FPN-lite decoder (four 1×1 lateral convs to 64 channels at strides 4/8/16/32,
+summed top-down, two 3×3 conv-BN-ReLU refine blocks, a 1×1 head, bilinear
+upsample back to input size) — **3,119,089 params** (`trainlib.card_model.CardSegNet`,
+`count_params`). Loss: BCE-with-logits + Dice, equal weight
+(`trainlib.card_model.bce_dice`).
+
+**Cutout cache.** `trainlib.card_cutouts` renders each TAG `rgb` scan down to
+a transparent-background PNG cutout at `<cache_dir>/cutouts/<cert>_<side>.png`
+(`<cache_dir>` from `config.toml`, `scripts/tag-dataset/data/cache/` by
+default): crop to the card's box (`derived/centering_boxes_rgb.parquet`),
+flood-fill TAG's orange trim *and* the small orange notches inside the box's
+four rounded corners to transparent (seeded from each crop corner, tolerance
+60, largest accepted component ≤ 2% of the crop area so a genuinely uniform
+card corner is never eaten), feather the alpha 1–2 px, and resize so the long
+side is 1024 px. The mask therefore traces the card's real rounded corner,
+not the bounding box's square one. Measured locally: 991 cutouts (791 train +
+200 val, 500 certs, 9 of 1,000 possible files missing because their box is
+not `ok`) = **1.8 GB, ~1.84 MB/file average**. Extrapolated to the full
+~55,499-side corpus at that same per-file average: **~100 GB**, not the ~14 GB
+that had been assumed going into this task — flagged here since it changes
+the disk budget for Step 12 below. `card_cutouts`'s own `--splits` flag only
+takes comma-separated split *names* (`train,val,test`), each governed by one
+shared `--limit-cards`; there is no `name:count` syntax, so `--splits
+train:400,val:100` (as an earlier draft of this task's brief specified)
+silently matches no split and writes nothing (`written=0`, no error) — call
+it once per split with its own `--limit-cards` instead.
+
+**Backgrounds.** `trainlib.card_backgrounds.sample_background` mixes three
+sources with equal (1/3) probability: **procedural** (six generators — flat,
+gradient, wood-grain, weave, speckle, creased paper — picked uniformly, pure
+functions of a seed, endless and free); **real**, a `RealPool` over
+`training/data/backgrounds/` (owner-supplied photos of desks/tables/mats/
+floors under their actual scanning light, not committed) that falls back to
+procedural whenever the folder is empty or missing (`len(pool) == 0`) — the
+smoke run below used an empty folder, so every "real" draw was procedural;
+and **clutter**, a procedural background with 1–3 other card cutouts pasted
+down at random scale/rotation/position, doubling as the compositor's
+distractor-card supply.
+
+**Compositor.** `trainlib.card_compose.compose` — full parameter list,
+exact probabilities, and draw order are in `HANDOFF-card-and-centering.md`
+Step 10.1 and the `card_compose` module docstring; both match exactly
+(verified against the source while writing this section). Two facts worth
+calling out on their own: the **in-frame rule** — 90% of samples keep the
+whole (rotated, homography-jittered) card inside the canvas, shrinking the
+scale draw as needed so an 8%-of-long-side homography margin still fits,
+rather than letting the crop clip a card edge — and the **bow amplitude**,
+0.5–2.5% of the card's long side, applied as a half-sine displacement along
+one axis before the homography (so the label quad reflects the homography
+jitter but the bow itself is a smooth curve inside it, per the plan). Every
+draw goes through one `numpy.random.Generator`, in a fixed order, so a given
+seed reproduces a sample bit-for-bit.
+
+**Real validation set.** `training/data/card-val/<scanId>/{front.jpg,
+back.jpg,labels.json}` (not in git) — the app's own hand-confirmed-corner
+scans, pulled by a script the app session owns (`HANDOFF-card-and-centering.md`
+Step 10.3). Read by `trainlib.card_data.RealCardVal`. This folder does not
+exist yet (the owner has not opted enough scans into "Keep Originals For
+Training" yet), so this smoke's evaluation is synthetic-only; the real
+acceptance test is still owed.
+
+**Metrics and acceptance** (`trainlib.card_metrics`, thresholds hard-coded in
+`trainlib.evaluate_card`): **IoU** (pixel IoU of the thresholded mask against
+ground truth), **corner error %** (mean per-corner distance between the
+predicted quad — fit from the mask via `mask_to_quad`'s polygon-approx or
+convex-hull-line-fit path — and the true quad, divided by the card's long
+side, matched by geometry across all 4 cyclic shifts so a discrete rotation
+can't silently swap corners), and **failure rate** (`is_failure`: no quad at
+all — `no_card`; fitted area under 15% of the frame — `small`; or rectified
+short/long ratio outside 0.66–0.78 — `aspect`). **Accept** when the real val
+set has ≥ 100 samples and, on it, IoU ≥ 0.97, mean corner error ≤ 0.8%,
+95th-percentile corner error ≤ 2.0%, and failure rate ≤ 2%. **Provisional**
+(real set missing or under 100 samples) requires synthetic-val IoU ≥ 0.98,
+and the report must say the real test is still owed — exactly this smoke's
+situation.
+
+**Synthetic `fail_rate` caveat.** A high synthetic `fail_rate` does not by
+itself mean the model is bad: `is_failure`'s aspect gate is tripped by the
+compositor's own 8%-of-long-side homography jitter combined with a
+near-square rectified ratio at certain rotations, and the area gate is
+tripped by the compositor's 30%-of-canvas low end of the scale range — both
+are properties of the synthetic *distribution*, not of the model, which is
+why acceptance is defined on real photos (10.4) rather than on this number.
+Watch it move in the right direction (this smoke: 0.9950 → 0.4950 as IoU
+rose 0.27 → 0.89 across 2 epochs) rather than reading it against a fixed bar.
+
+**Commands** (from `training/`, venv python; R2 keys via
+`scripts/tag-dataset/data/env.ps1`, dot-sourced in the same shell call):
+
+| Command | What it does |
+|---|---|
+| `python -m trainlib.card_cutouts --splits train --limit-cards 400 --workers 8` | cutouts for one split (see the `--splits` note above — one call per split) |
+| `python -m trainlib.train_card --run-name smoke --epochs 2 --samples-per-epoch 4000 --batch-size 8 --workers 6 --val-n 200 --backgrounds training/data/backgrounds` | train; writes `runs/card/<run>/{log.csv,best.pt,last.pt,args.json}` |
+| `python -m trainlib.evaluate_card --checkpoint runs/card/smoke/best.pt --real training/data/card-val --synthetic-n 2000 --batch-size 16 --workers 4 --backgrounds training/data/backgrounds` | synthetic (+ real, if the folder exists) eval → `eval_synth.csv` / `eval_real.csv` |
+| `python export_card_model.py --checkpoint runs/card/smoke/best.pt --run-name smoke --parity-rows 200` | fp32/fp16/int8 ONNX + contract + parity sidecars in `weights/onnx/` |
+
+### Smoke (2026-09-21, RTX 4070 SUPER)
+
+791/200 train/val cutouts loaded, 2 epochs, 4,000 samples/epoch, batch 8, 6
+workers, empty (procedural-only) backgrounds folder:
+
+| epoch | train_loss | val_loss | seconds | iou | corner_err_pct | fail_rate |
+|---|---|---|---|---|---|---|
+| 1 | 0.3952 | 1.0792 | 376.4 | 0.2658 | 2.92 | 0.9950 |
+| 2 | 0.0705 | 0.6200 | 349.9 | 0.8926 | 2.81 | 0.4950 |
+
+Peak GPU memory 1.14 GiB (`torch.cuda.max_memory_allocated`; `nvidia-smi`'s
+process view read 2.3–2.4 GiB, including CUDA context overhead). Samples/s
+(4000 / epoch seconds, which includes that epoch's 200-sample validation
+compose+forward pass): **10.6 (epoch 1, includes a one-time pretrained-weight
+download) / 11.4 (epoch 2, steady state)**. `nvidia-smi
+--query-gpu=utilization.gpu --format=csv,noheader` sampled every ~15 s across
+both epochs (44 samples): **34 of 44 (77%) read 0%**, only 2 hit 100%, mean
+9.7% — **the loader did not keep the GPU busy at `--workers 6`**. The
+compositor's own measured cost (~193 ms/sample + ~78 ms for a background ≈
+271 ms/sample/worker) caps 6 workers at roughly 22 samples/s in principle,
+and even that was not enough — the model is fast and small (1.14 GiB peak,
+3.12M params) relative to the compositor, so the GPU spends most of an epoch
+idle, then bursts to 87–100% when a backlog of composed batches lands at
+once. `train_card.py` also rebuilds (and Windows-`spawn`-respawns) the train
+loader's 6 workers every epoch (`persistent_workers=False`), which is most
+of epoch 1's ~4-minute near-continuous 0% (worker/import cold start plus the
+one-time HF weights fetch) and a shorter ~1-minute cold start in epoch 2.
+**Implied `--workers`**: on this 20-core PC, 12–16 would materially help
+(still likely loader-bound for a model this small/fast, but closer); on the
+rented 128-core box, the compositor is pure CPU/NumPy/OpenCV work with no
+shared state across samples, so start at **32** (double the plan's own "if
+the compositor is the bottleneck, use 16" note, given this local evidence
+that even 6-of-20 cores under-fed a small model) and watch `nvidia-smi`
+during the first few minutes of the real run.
+
+Evaluation (synthetic only — `training/data/card-val/` does not exist yet):
+
+```
+synthetic: n=200 iou=0.8926 corner_err_mean=2.8122 corner_err_p95=3.7138 fail_rate=0.4950
+verdict: reject
+```
+
+`reject` is expected and correct: with no real folder, provisional
+acceptance requires synthetic IoU ≥ 0.98; this 2-epoch/4,000-sample-per-epoch
+smoke's 0.89 is nowhere near that bar and isn't meant to be — it confirms the
+eval script and metrics work end to end. Failure breakdown (`eval_synth.csv`,
+200 rows, 99 failures): 51 `small`, 48 `aspect`, 0 `no_card`.
+
+Export (fp16 block list: `LayerNormalization,GlobalAveragePool,Gemm,Div,Erf,
+Flatten,Concat,Resize,Sigmoid`), 50 synthetic-val parity samples, CPU:
+
+| variant | size | mean\|diff\| | mask_disagree | iou_vs_torch | ms/img (CPU) |
+|---|---|---|---|---|---|
+| fp32 | 11.89 MB | 0.0000003 | 0.0000002 | 0.999999 | 9.13 |
+| **fp16** | **5.98 MB** | 0.00076 | 0.000186 | 0.9994 | 44.90 |
+| int8 | 3.19 MB | 0.352 | 0.204 | 0.352 | 227.69 |
+
+fp16 is **5.98 MB, under the 10 MB target**, with no `PARITY FAIL` (threshold
+0.005 mask disagreement, measured 0.000186). int8 is exported for the record
+only (poor parity, as expected without calibration data) and is not a
+shipping candidate. Visual check: 12 composed training samples + 12
+`SyntheticVal` samples (image + 40%-red mask overlay + green quad), viewed
+directly — the quad traced every card's real corners including rotated/
+bowed/perspective-jittered ones, the mask filled exactly the quad interior
+with no bleed onto background or distractor cards/sleeves, and all three
+background sources and the documented degradations (blur, shadow, glare,
+clutter) were visible. No disagreement found.
+
+The full run on the rented box (12 epochs, the complete cutout cache) is
+Step 12 of `training/HANDOFF-rented-gpu.md`.
