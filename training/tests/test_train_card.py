@@ -88,7 +88,7 @@ def test_train_card_one_epoch_cpu_writes_artifacts(tmp_path):
         "--config", str(cfg), "--run-name", "t", "--epochs", "1",
         "--samples-per-epoch", "8", "--batch-size", "2", "--workers", "0",
         "--val-n", "4", "--no-pretrained", "--device", "cpu",
-        "--input-size", "64", "--canvas", "128", "--warmup-iters", "1",
+        "--input-size", "64", "--warmup-iters", "1",
     ])
 
     assert (run_dir / "best.pt").exists()
@@ -104,6 +104,8 @@ def test_train_card_one_epoch_cpu_writes_artifacts(tmp_path):
 
     args = json.loads((run_dir / "args.json").read_text())
     assert args["epochs"] == 1
+    # --canvas omitted -> resolves to 2x --input-size, recorded in args.json
+    assert args["canvas"] == 128
 
     ckpt = torch.load(run_dir / "best.pt", map_location="cpu", weights_only=False)
     assert {"model", "encoder", "epoch", "iou", "input_size"}.issubset(ckpt.keys())

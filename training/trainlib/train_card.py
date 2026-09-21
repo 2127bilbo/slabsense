@@ -38,7 +38,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-pretrained", action="store_true")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--val-n", type=int, default=2000)
-    p.add_argument("--canvas", type=int, default=1024, help="compositor canvas size (tests only override this)")
+    p.add_argument("--canvas", type=int, default=None,
+                  help="compositor canvas size; defaults to 2x --input-size (tests only need to override "
+                       "--input-size, which scales canvas/out proportionally)")
     p.add_argument("--input-size", type=int, default=512, help="model input / compositor output size")
     return p
 
@@ -60,12 +62,10 @@ def _iou_batch(logits: torch.Tensor, masks: torch.Tensor, threshold: float = 0.5
     return torch.where(union > 0, inter / union, torch.ones_like(union))
 
 
-def _fmt(v) -> str:
-    return str(v) if isinstance(v, int) else f"{v:.4f}"
-
-
 def main(argv=None) -> Path:
     args = build_parser().parse_args(argv)
+    if args.canvas is None:
+        args.canvas = 2 * args.input_size  # keeps the production 1024:512 = 2:1 canvas:out ratio
     cfg = load_config(args.config)
     torch.manual_seed(args.seed)
     device = torch.device(args.device)

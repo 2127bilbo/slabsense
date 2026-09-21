@@ -68,7 +68,8 @@ class _LazyImageList:
 
     def __getitem__(self, i: int) -> Image.Image:
         if i not in self._cache:
-            self._cache[i] = Image.open(self.paths[i]).convert("RGBA")
+            with Image.open(self.paths[i]) as im:
+                self._cache[i] = im.convert("RGBA")
         return self._cache[i]
 
 
@@ -104,11 +105,14 @@ class SyntheticCards(IterableDataset):
         count = self.samples_per_epoch // nw
         for _ in range(count):
             path = self.cutout_paths[int(rng.integers(0, n))]
-            cutout = Image.open(path).convert("RGBA")
+            with Image.open(path) as im:
+                cutout = im.convert("RGBA")
             bg = sample_background(rng, self.canvas, self.bg_pool, clutter if len(clutter) else None)
             k = int(rng.integers(1, 3))  # 1 or 2 distractor cutouts
-            distractors = [Image.open(self.cutout_paths[int(rng.integers(0, n))]).convert("RGBA")
-                          for _ in range(k)]
+            distractors = []
+            for _ in range(k):
+                with Image.open(self.cutout_paths[int(rng.integers(0, n))]) as im:
+                    distractors.append(im.convert("RGBA"))
             sample = compose(rng, cutout, bg, distractor_cutouts=distractors, canvas=self.canvas, out=self.out)
             yield _to_tensors(sample)
 
@@ -132,7 +136,8 @@ class SyntheticVal(Dataset):
     def __getitem__(self, i: int):
         rng = np.random.default_rng(self.seed + i)
         idx = int(self._order[i % len(self._order)])
-        cutout = Image.open(self.cutout_paths[idx]).convert("RGBA")
+        with Image.open(self.cutout_paths[idx]) as im:
+            cutout = im.convert("RGBA")
         bg = sample_background(rng, self.canvas, self.bg_pool, None)
         sample = compose(rng, cutout, bg, canvas=self.canvas, out=self.out)
         return _to_tensors(sample)
