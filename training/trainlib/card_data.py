@@ -19,6 +19,7 @@ from torch.utils.data import Dataset, IterableDataset, get_worker_info
 
 from .card_backgrounds import RealPool, sample_background
 from .card_compose import apply_letterbox_points, compose, letterbox
+from .card_metrics import canonical_quad
 from .data import MEAN, STD
 
 OUTER_RING_PX = 8
@@ -198,6 +199,10 @@ class RealCardVal(Dataset):
 
         letterboxed, tf = letterbox(img, self.out, pad_colour=_outer_ring_mean(img))
         quad_out = apply_letterbox_points(quad_src, tf).astype(np.float32)
+        # The app's tl/tr/br/bl labels are whatever the user's corner-picking UI assigned, not
+        # necessarily the card's true visual top-left/etc for a rotated scan -- canonicalize by
+        # geometry so this ground truth uses the same convention `card_metrics` matches against.
+        quad_out = canonical_quad(quad_out).astype(np.float32)
 
         mask = np.zeros((self.out, self.out), dtype=np.uint8)
         cv2.fillPoly(mask, [np.round(quad_out).astype(np.int32)], 255)

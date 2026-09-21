@@ -73,6 +73,17 @@ def test_evaluate_card_main_writes_csvs_and_verdict(tmp_path):
     assert list(real_df.columns) == ["path", "iou", "corner_err_pct", "failure", "reason"]
     assert len(real_df) == 3
 
+    # Numeric-plausibility invariants that hold regardless of the (untrained, near-random) model's
+    # actual accuracy: `corner_err_pct` is NaN exactly for a failed row, and a real fitted value is
+    # always finite and non-negative -- a spurious inf/NaN or negative value here (e.g. the
+    # ordering-convention bug that let a wrong corner pairing through) is a plausibility bug, not
+    # just an accuracy one, and this doesn't depend on the checkpoint being any good.
+    for df in (synth_df, real_df):
+        assert (df["corner_err_pct"].isna() == df["failure"]).all(), df
+        finite = df.loc[~df["failure"], "corner_err_pct"]
+        assert np.isfinite(finite).all(), finite
+        assert (finite >= 0).all(), finite
+
 
 def test_evaluate_card_main_prints_real_summary_and_provisional_verdict(tmp_path, capsys):
     _write_splits(tmp_path)

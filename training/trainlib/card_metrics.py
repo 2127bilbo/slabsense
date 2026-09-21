@@ -35,10 +35,20 @@ def largest_component(mask_bool: np.ndarray) -> np.ndarray:
     return labels == best_label
 
 
-def _order_quad(quad: np.ndarray) -> np.ndarray:
-    """Order 4 unordered corner points as TL, TR, BR, BL: sort by angle around the centroid (this
-    walks the points around the polygon in a consistent direction), then rotate the result so the
-    point with the smallest `x + y` (image coords, y down => the top-left-most point) comes first."""
+def canonical_quad(quad: np.ndarray) -> np.ndarray:
+    """Order 4 corner points as TL, TR, BR, BL *by geometry*, regardless of whatever labels/order
+    they arrived in: sort by angle around the centroid (this walks the points around the polygon
+    in a consistent direction), then rotate the result so the point with the smallest `x + y`
+    (image coords, y down => the top-left-most point) comes first.
+
+    This is the metric's own labelling convention. It is deliberately independent of any upstream
+    convention (e.g. `card_compose._place_card` keeps the cutout's original TL/TR/BR/BL *index*
+    through its discrete 90/180/270 degree rotation branch, rather than re-labelling by resulting
+    visual position -- so its "TL" can land anywhere after such a rotation). Callers that need to
+    compare two quads positionally (`corner_error_pct`) must canonicalize both through this
+    function first rather than trust that they already share a convention.
+    """
+    quad = np.asarray(quad, dtype=np.float64)
     centroid = quad.mean(axis=0)
     angles = np.arctan2(quad[:, 1] - centroid[1], quad[:, 0] - centroid[0])
     ordered = quad[np.argsort(angles)]
@@ -83,7 +93,7 @@ def mask_to_quad(mask_bool: np.ndarray) -> tuple[np.ndarray | None, np.ndarray |
 
     if len(approx) == 4:
         quad = approx.reshape(4, 2).astype(np.float64)
-        return _order_quad(quad).astype(np.float32), contour
+        return canonical_quad(quad).astype(np.float32), contour
 
     hull = cv2.convexHull(contour)
     hull_pts = hull.reshape(-1, 2).astype(np.float64)
@@ -112,7 +122,7 @@ def mask_to_quad(mask_bool: np.ndarray) -> tuple[np.ndarray | None, np.ndarray |
             return None, contour
         corners.append(point)
     quad = np.array(corners, dtype=np.float64)
-    return _order_quad(quad).astype(np.float32), contour
+    return canonical_quad(quad).astype(np.float32), contour
 
 
 def iou(mask_a_bool: np.ndarray, mask_b_bool: np.ndarray) -> float:
@@ -133,11 +143,21 @@ def quad_mask(quad: np.ndarray, h: int, w: int) -> np.ndarray:
 
 
 def corner_error_pct(quad_pred: np.ndarray, quad_true: np.ndarray, long_side: float) -> float:
-    """Mean Euclidean corner distance (matched by order: both TL, TR, BR, BL) / `long_side` x 100."""
+    """Mean Euclidean corner distance (matched by geometric order: both canonicalized to TL, TR,
+    BR, BL via `canonical_quad`) / `long_side` x 100.
+
+    Both quads are canonicalized here rather than trusted to already share a convention: a caller
+    may hand in a ground-truth quad whose TL/TR/BR/BL *labels* were carried through a discrete
+    90/180/270 degree rotation without being re-derived from the rotated point's actual position
+    (`card_compose._place_card` does exactly this), which would otherwise silently pair the wrong
+    corners. `canonical_quad` is idempotent, so this is a no-op for a quad that is already ordered
+    this way (e.g. `mask_to_quad`'s output).
+    """
     if long_side <= 0:
         return float("nan")
-    diffs = np.asarray(quad_pred, dtype=np.float64) - np.asarray(quad_true, dtype=np.float64)
-    dists = np.linalg.norm(diffs, axis=1)
+    quad_pred = canonical_quad(quad_pred)
+    quad_true = canonical_quad(quad_true)
+    dists = np.linalg.norm(quad_pred - quad_true, axis=1)
     return float(dists.mean() / long_side * 100.0)
 
 
