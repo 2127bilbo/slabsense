@@ -133,3 +133,11 @@ def phone_sim(img: Image.Image, stem: str, input_size) -> Image.Image:
     img, _ = recolour_backdrop(img, seeds_for(stem, W, H), None, colour=(0, 0, 0))
     img = img.filter(ImageFilter.GaussianBlur(1.0 * (img.width / input_size[0])))
     return resolution_loss(img, None, scale=0.5)
+
+
+def phone_sim_soft(img: Image.Image, input_size) -> Image.Image:
+    """Deterministic phone-photo softness with no backdrop recolour (there is no crop stem to
+    seed a flood fill from for the centering task's whole-card image). Used for eval only
+    (Task 3 wires it in); `phone_sim` above is the corner/edge equivalent."""
+    img = img.filter(ImageFilter.GaussianBlur(1.0 * (img.width / input_size[0])))
+    return resolution_loss(img, None, scale=0.5)

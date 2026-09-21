@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+import torch
 
 from conftest import make_cache, make_boxes_table
 from trainlib import tables
@@ -176,3 +177,54 @@ def test_centering_rows_per_mille_of_card_dims(surface_tables, tmp_path, monkeyp
     assert len(df) == 3 and tables.target_names("centering_rgb") == ["dte_l", "dte_r", "dte_t", "dte_b"]
     spec = tables.TASKS["centering_rgb"]
     assert spec["cache_variant"] == "card" and spec["edge_jitter"] == 0.03 and spec["crop_boxes"] == "derived/centering_boxes_rgb.parquet"
+
+
+def _dev_row(l, r, t=500.0, b=500.0):
+    return {"dte_l": float(l), "dte_r": float(r), "dte_t": float(t), "dte_b": float(b)}
+
+
+def test_centering_deviation_bucket_boundaries():
+    # rows crafted so l/(l+r) deviation lands just inside each bucket, clear of float rounding
+    # at the exact integer boundaries: [0,2)->0, [2,5)->1, [5,10)->2, [10,20)->3, [20,inf)->4
+    df = pd.DataFrame([
+        _dev_row(519.0, 481.0),   # dev ~1.9 -> 0
+        _dev_row(520.0, 480.0),   # dev ~2.0 -> 1
+        _dev_row(599.9, 400.1),   # dev ~9.99 -> 2
+        _dev_row(601.0, 399.0),   # dev ~10.1 -> 3
+        _dev_row(701.0, 299.0),   # dev ~20.1 -> 4
+    ])
+    buckets = tables.centering_deviation_bucket(df)
+    assert isinstance(buckets, pd.Series)
+    assert buckets.tolist() == [0, 1, 2, 3, 4]
+
+
+def test_centering_deviation_bucket_uses_the_larger_of_lr_and_tb():
+    # lr side is centered (dev 0) but tb side deviates by ~15 -> bucket 3 via the max()
+    df = pd.DataFrame([_dev_row(500.0, 500.0, t=650.0, b=350.0)])
+    assert tables.centering_deviation_bucket(df).tolist() == [3]
+
+
+def test_deviation_weights_property_sums_to_n0_per_upper_bucket():
+    rows = [_dev_row(500, 500)] * 8            # bucket 0, n0=8
+    rows += [_dev_row(530, 470)] * 4           # bucket 1, dev ~3
+    rows += [_dev_row(570, 430)] * 2           # bucket 2, dev ~7
+    rows += [_dev_row(650, 350)] * 1           # bucket 3, dev ~15
+    rows += [_dev_row(800, 200)] * 1           # bucket 4, dev ~30
+    df = pd.DataFrame(rows)
+    buckets = tables.centering_deviation_bucket(df)
+    weights = tables.deviation_weights(df)
+    assert isinstance(weights, torch.Tensor) and weights.dtype == torch.float64
+    assert len(weights) == len(df)
+    assert (weights[buckets == 0] == 1.0).all()
+    n0 = 8
+    for k in range(1, 5):
+        in_bucket = weights[torch.from_numpy((buckets == k).to_numpy().copy())]
+        assert abs(in_bucket.sum().item() - n0 / 4) < 1e-9
+    upper_sum = weights[torch.from_numpy((buckets >= 1).to_numpy().copy())].sum().item()
+    assert abs(upper_sum - n0) < 1e-9
+
+
+def test_deviation_weights_all_ones_when_no_bucket_zero_rows():
+    df = pd.DataFrame([_dev_row(650, 350)] * 3)   # all bucket 3, n0 == 0
+    weights = tables.deviation_weights(df)
+    assert weights.tolist() == [1.0, 1.0, 1.0]

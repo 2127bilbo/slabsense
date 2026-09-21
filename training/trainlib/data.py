@@ -10,7 +10,7 @@ from PIL import Image, ImageEnhance
 from torch.utils.data import Dataset, get_worker_info
 
 from .cache import resized_path
-from .phone_aug import apply_phone, phone_sim as phone_sim_fn
+from .phone_aug import apply_phone, phone_sim as phone_sim_fn, resolution_loss as phone_resolution_loss, soften as phone_soften
 from .tables import TASKS
 
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
@@ -164,6 +164,11 @@ class CropDataset(Dataset):
             img = img.resize((w, h), Image.Resampling.BILINEAR)
             targets_pm = [float(row[column]) for _name, _kind, column in self.targets]
             img, targets_pm = jitter_edges(img, targets_pm, rng, spec["edge_jitter"])
+            if self.aug == "phone":
+                if rng.random() < 0.5:
+                    img = phone_soften(img, rng, (w, h))
+                if rng.random() < 0.3:
+                    img = phone_resolution_loss(img, rng)
             img = ImageEnhance.Brightness(img).enhance(float(rng.uniform(0.9, 1.1)))
             img = ImageEnhance.Contrast(img).enhance(float(rng.uniform(0.9, 1.1)))
             t = torch.from_numpy(np.asarray(img, dtype=np.float32) / 255.0).permute(2, 0, 1)

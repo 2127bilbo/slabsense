@@ -5,7 +5,9 @@ import os
 from collections import namedtuple
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+import torch
 
 from .cache import resized_path
 
@@ -149,6 +151,40 @@ TASKS = {
         "ratio_pairs": [("dte_l", "dte_r"), ("dte_t", "dte_b")],
     },
 }
+
+
+def centering_deviation_bucket(df: pd.DataFrame) -> pd.Series:
+    """Bucket each row of a `centering_rgb` table by how off-center its worst axis is.
+
+    `dev = max(|l/(l+r) - 0.5|, |t/(t+b) - 0.5|) * 100` from the per-mille `dte_l/r/t/b`
+    columns (the ratio is scale-free, so per-mille or raw pixels give the same result).
+    Buckets: `[0,2)->0, [2,5)->1, [5,10)->2, [10,20)->3, [20,inf)->4`.
+    """
+    l, r, t, b = (df[c].astype("float64") for c in ("dte_l", "dte_r", "dte_t", "dte_b"))
+    dev_lr = (l / (l + r) - 0.5).abs()
+    dev_tb = (t / (t + b) - 0.5).abs()
+    dev = pd.concat([dev_lr, dev_tb], axis=1).max(axis=1) * 100
+    return pd.Series(np.digitize(dev.to_numpy(), [2, 5, 10, 20]), index=df.index)
+
+
+def deviation_weights(df: pd.DataFrame) -> torch.Tensor:
+    """Per-row sample weight so a `WeightedRandomSampler` draws roughly as many centered
+    (bucket 0) rows as the sum of the four off-center buckets: bucket 0 rows get weight 1.0,
+    and rows in bucket k>=1 get `n0 / (4 * n_k)` (n0 = count of bucket-0 rows, n_k = count of
+    bucket-k rows). A bucket with no rows contributes nothing. If there are no bucket-0 rows,
+    every row gets weight 1.0 (nothing to balance against)."""
+    buckets = centering_deviation_bucket(df)
+    counts = buckets.value_counts()
+    n0 = int(counts.get(0, 0))
+    weights = np.ones(len(df), dtype="float64")
+    if n0 > 0:
+        bucket_arr = buckets.to_numpy()
+        for k in range(1, 5):
+            n_k = int(counts.get(k, 0))
+            if n_k == 0:
+                continue
+            weights[bucket_arr == k] = n0 / (4 * n_k)
+    return torch.tensor(weights, dtype=torch.float64)
 
 
 def target_names(task: str) -> list[str]:

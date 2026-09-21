@@ -351,3 +351,25 @@ def test_phone_sim_is_passed_through_the_dataset(tables, tmp_path):
     plain = data.CropDataset(df, "edges", cache, train=False)[0][0]
     sim = data.CropDataset(df, "edges", cache, train=False, phone_sim=True)[0][0]
     assert sim.shape == plain.shape
+
+
+def test_centering_dataset_phone_aug_softens_and_differs_from_light(surface_tables, tmp_path, monkeypatch):
+    ds, sp = surface_tables
+    sides, _ = st.load_surface_split(ds, sp, "train")
+    boxes_path = make_boxes_table(tmp_path, sides[sides.view == "rgb"])
+    monkeypatch.setenv("TRAINLIB_BOXES", str(boxes_path))
+    df = tables_mod.load_task_table("centering_rgb", ds, sp, "train")
+    cache = tmp_path / "cache"
+    for p in df.crop_path:
+        dest = cache_mod.resized_path(cache, p, (896, 1248), "card"); dest.parent.mkdir(parents=True, exist_ok=True)
+        _border_image(896, 1248, 40, 60, 50, 70).save(dest, format="JPEG", quality=95)
+
+    light = data.CropDataset(df, "centering_rgb", cache, train=True, aug="light")
+    light.rng = np.random.default_rng(11)
+    phone = data.CropDataset(df, "centering_rgb", cache, train=True, aug="phone")
+    phone.rng = np.random.default_rng(11)
+
+    img_light, _, _, _ = light[0]
+    img_phone, _, _, _ = phone[0]
+    assert img_phone.shape == img_light.shape == (3, 1248, 896)
+    assert not torch.equal(img_phone, img_light)

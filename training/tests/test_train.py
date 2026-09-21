@@ -2,6 +2,7 @@ import json
 import math
 
 import pandas as pd
+import pytest
 from PIL import Image
 
 from conftest import make_boxes_table, make_cache
@@ -113,3 +114,48 @@ def test_train_centering_rgb_logs_ratio_loss_columns(surface_tables, tmp_path, m
     assert list(log.columns) == expected_cols
     assert train.log_columns("centering_rgb") == expected_cols
     assert len(log) == 1
+
+
+def test_train_centering_rgb_balance_deviation_prints_buckets_and_writes_artifacts(surface_tables, tmp_path, monkeypatch,
+                                                                                   capsys):
+    ds, sp = surface_tables
+    train_sides, _ = st.load_surface_split(ds, sp, "train")
+    val_sides, _ = st.load_surface_split(ds, sp, "val")
+    sides = pd.concat([train_sides, val_sides])
+    boxes_path = make_boxes_table(tmp_path, sides[sides.view == "rgb"])
+    monkeypatch.setenv("TRAINLIB_BOXES", str(boxes_path))
+
+    df = tables.load_task_table("centering_rgb", ds, sp, "train")
+    val_df = tables.load_task_table("centering_rgb", ds, sp, "val")
+    cache = tmp_path / "cache"
+    for p in pd.concat([df.crop_path, val_df.crop_path]):
+        dest = cache_mod.resized_path(cache, p, (896, 1248), "card")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (64, 64), (128, 128, 128)).save(dest, format="JPEG", quality=95)
+
+    cfg = tmp_path / "config.toml"
+    (tmp_path / "ds.toml").write_text('[bucket]\nendpoint="e"\nregion="auto"\nname="b"\nprefix="p"\n', encoding="utf-8")
+    cfg.write_text('[paths]\ndataset_dir = "dataset"\nsplits_path = "splits.parquet"\ncache_dir = "cache"\nruns_dir = "runs"\n'
+                   '[r2]\nconfig_toml = "ds.toml"\n', encoding="utf-8")
+    run_dir = train.main(["--config", str(cfg), "--task", "centering_rgb", "--run-name", "cbd", "--epochs", "1",
+                          "--batch-size", "2", "--backbone", "resnet18", "--no-pretrained", "--device", "cpu",
+                          "--workers", "0", "--input-size", "64", "--balance-deviation"])
+    out = capsys.readouterr().out
+    assert "balance-deviation buckets (first epoch draws): {0:" in out
+    assert (run_dir / "best.pt").exists() and (run_dir / "last.pt").exists()
+    args = json.loads((run_dir / "args.json").read_text())
+    assert args["balance_deviation"] is True
+
+
+def test_train_corners_balance_deviation_is_rejected(tables, tmp_path):
+    ds, sp = tables
+    df = pd.read_parquet(ds / "corners.parquet")
+    cache = make_cache(tmp_path, df, 96, 96)
+    cfg = tmp_path / "config.toml"
+    (tmp_path / "ds.toml").write_text('[bucket]\nendpoint="e"\nregion="auto"\nname="b"\nprefix="p"\n', encoding="utf-8")
+    cfg.write_text('[paths]\ndataset_dir = "dataset"\nsplits_path = "splits.parquet"\ncache_dir = "cache"\nruns_dir = "runs"\n'
+                   '[r2]\nconfig_toml = "ds.toml"\n', encoding="utf-8")
+    with pytest.raises(SystemExit):
+        train.main(["--config", str(cfg), "--task", "corners", "--run-name", "cbd", "--epochs", "1",
+                   "--batch-size", "4", "--backbone", "resnet18", "--no-pretrained", "--device", "cpu",
+                   "--workers", "0", "--input-size", "64", "--balance-deviation"])

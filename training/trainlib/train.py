@@ -9,13 +9,14 @@ from pathlib import Path
 
 import torch
 from torch.optim.swa_utils import AveragedModel, get_ema_multi_avg_fn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from . import metrics
 from .config import load_config
 from .data import AUG_MODES, SCALE, CropDataset, collate
 from .models import ScoreRegressor, count_params, masked_loss, to_scores
-from .tables import TASKS, filter_cached, load_task_table, target_index, target_kinds, target_names
+from .tables import (TASKS, centering_deviation_bucket, deviation_weights, filter_cached, load_task_table,
+                     target_index, target_kinds, target_names)
 
 BASE_LOG_COLUMNS = ["epoch", "train_loss", "val_loss", "lr", "seconds"]
 
@@ -77,14 +78,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--aug", choices=list(AUG_MODES), default="light", help="training augmentation mode (v2: strong)")
     p.add_argument("--ratio-weight", type=float, default=2.0,
                    help="weight on the centering l/r, t/b ratio loss term; only used for tasks with ratio_pairs")
+    p.add_argument("--balance-deviation", action="store_true",
+                   help="oversample off-center rows via a WeightedRandomSampler; only for tasks with ratio_pairs")
     return p
 
 
-def make_loader(df, task, cache_dir, train, batch_size, workers, input_size=None, aug="light", phone_sim=False):
+def make_loader(df, task, cache_dir, train, batch_size, workers, input_size=None, aug="light", phone_sim=False,
+                sampler=None):
     ds = CropDataset(df, task, cache_dir, train=train, input_size=(input_size, input_size) if input_size else None,
                      aug=aug, phone_sim=phone_sim)
-    return DataLoader(ds, batch_size=batch_size, shuffle=train, num_workers=workers, collate_fn=collate,
-                      pin_memory=(workers > 0), drop_last=False, persistent_workers=(workers > 0))
+    shuffle = train and sampler is None
+    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, sampler=sampler, num_workers=workers,
+                      collate_fn=collate, pin_memory=(workers > 0), drop_last=False,
+                      persistent_workers=(workers > 0))
 
 
 @torch.no_grad()
@@ -160,7 +166,10 @@ def _fmt(v) -> str:
 
 
 def main(argv=None) -> Path:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.balance_deviation and not TASKS[args.task].get("ratio_pairs"):
+        parser.error("--balance-deviation requires a task with ratio_pairs (e.g. centering_rgb)")
     cfg = load_config(args.config)
     torch.manual_seed(args.seed)
     device = torch.device(args.device)
@@ -178,8 +187,23 @@ def main(argv=None) -> Path:
     val_df, val_dropped = filter_cached(val_df, cfg.cache_dir, args.task)
     print(f"train: dropped {train_dropped} rows with no cached crop")
     print(f"val: dropped {val_dropped} rows with no cached crop")
+
+    sampler = None
+    if args.balance_deviation:
+        weights = deviation_weights(train_df)
+        buckets = centering_deviation_bucket(train_df)
+        gen = torch.Generator().manual_seed(args.seed)
+        sampler = WeightedRandomSampler(weights, num_samples=len(train_df), replacement=True, generator=gen)
+        draws = list(sampler)
+        bucket_arr = buckets.to_numpy()
+        realised = {k: int((bucket_arr[draws] == k).sum()) for k in range(5)}
+        print(f"balance-deviation buckets (first epoch draws): {realised}")
+        # rebuild with the same seed so the loader's first epoch draws these same indices
+        gen = torch.Generator().manual_seed(args.seed)
+        sampler = WeightedRandomSampler(weights, num_samples=len(train_df), replacement=True, generator=gen)
+
     train_loader = make_loader(train_df, args.task, cfg.cache_dir, True, args.batch_size, args.workers, args.input_size,
-                               aug=args.aug)
+                               aug=args.aug, sampler=sampler)
     val_loader = make_loader(val_df, args.task, cfg.cache_dir, False, args.batch_size, args.workers, args.input_size)
 
     model = ScoreRegressor(len(spec["targets"]), args.backbone, pretrained=not args.no_pretrained,

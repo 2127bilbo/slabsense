@@ -76,3 +76,14 @@ def test_apply_phone_is_reproducible_and_phone_sim_is_deterministic():
     s1 = pa.phone_sim(img, "corner_FTL", (100, 100)); s2 = pa.phone_sim(img, "corner_FTL", (100, 100))
     assert np.array_equal(np.asarray(s1), np.asarray(s2)) and s1.size == img.size
     assert tuple(np.asarray(s1)[0, 0]) == (0, 0, 0)               # backdrop painted black
+
+
+def test_phone_sim_soft_is_deterministic_same_size_and_changes_pixels():
+    img = _corner()
+    a = np.asarray(img).astype(int)
+    s1 = pa.phone_sim_soft(img, (100, 100))
+    s2 = pa.phone_sim_soft(img, (100, 100))
+    assert s1.size == img.size
+    assert np.array_equal(np.asarray(s1), np.asarray(s2))
+    # no jpeg pass (unlike `soften`), so most of the change is at the card/backdrop boundary
+    assert np.abs(np.asarray(s1).astype(int) - a).mean() > 0.05
