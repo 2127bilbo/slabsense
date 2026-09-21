@@ -135,9 +135,13 @@ def main(argv=None) -> dict:
     box_by_key = {(r.cert, r.side, r.image_key): (r.x0, r.y0, r.x1, r.y1) for r in boxes.itertuples()}
 
     parts = []
-    for split in args.splits.split(","):
-        split = split.strip()
-        s, _ = load_surface_split(cfg.dataset_dir, cfg.splits_path, split, args.limit_cards, args.seed,
+    for part in args.splits.split(","):
+        # accept cache_cli's "split:N" form too, so the smoke recipes read the same everywhere
+        split, _, limit = part.strip().partition(":")
+        if split not in ("train", "val", "test"):
+            p.error(f"unknown split {split!r} in --splits (use train, val, test, optionally split:N)")
+        n = int(limit) if limit else args.limit_cards
+        s, _ = load_surface_split(cfg.dataset_dir, cfg.splits_path, split, n, args.seed,
                                   allow_test=(split == "test"))
         parts.append(s[s.view == "rgb"])
     sides = pd.concat(parts).drop_duplicates(["cert", "side", "image_key"]).reset_index(drop=True)

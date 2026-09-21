@@ -134,3 +134,18 @@ def test_cli_skips_sides_whose_box_is_not_ok(surface_tables, tmp_path):
     counts = cc.main(["--config", str(cfg), "--splits", "train", "--workers", "1", "--from-cache"])
     assert counts["written"] == len(rgb_sides) - 1
     assert not cc.cutout_path(cache_dir, first.cert, first.side).exists()
+
+
+def test_cli_rejects_unknown_split_and_accepts_split_limit(surface_tables, tmp_path):
+    import pytest
+    from trainlib import card_cutouts as cc2
+    ds, sp = surface_tables
+    sides, _ = st.load_surface_split(ds, sp, "train")
+    make_boxes_table(tmp_path, sides[sides.view == "rgb"], box=(50, 50, 350, 550), W=400, H=600)
+    cfg = tmp_path / "config.toml"
+    (tmp_path / "ds.toml").write_text("[bucket]\nendpoint='e'\nregion='auto'\nname='b'\nprefix='p'\n", encoding="utf-8")
+    cfg.write_text("[paths]\ndataset_dir = 'dataset'\nsplits_path = 'splits.parquet'\ncache_dir = 'cache'\n[r2]\nconfig_toml = 'ds.toml'\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        cc2.main(["--config", str(cfg), "--splits", "trian", "--workers", "1", "--from-cache"])
+    # split:N is accepted (limit 1 card -> at most 2 sides); nothing is cached locally so everything is missing
+    cc2.main(["--config", str(cfg), "--splits", "train:1", "--workers", "1", "--from-cache"])
