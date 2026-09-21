@@ -76,8 +76,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ema-decay", type=float, default=0.0,
                    help="keep an exponential moving average of the weights and evaluate/save it (v2: 0.999); 0 = off")
     p.add_argument("--aug", choices=list(AUG_MODES), default="light", help="training augmentation mode (v2: strong)")
-    p.add_argument("--ratio-weight", type=float, default=2.0,
-                   help="weight on the centering l/r, t/b ratio loss term; only used for tasks with ratio_pairs")
+    p.add_argument("--ratio-weight", type=float, default=0.0,
+                   help="weight on the centering l/r, t/b ratio loss term; only used for tasks with ratio_pairs "
+                        "(off by default so omitting the flag never trains on ratios alone; v2: 0.02)")
     p.add_argument("--balance-deviation", action="store_true",
                    help="oversample off-center rows via a WeightedRandomSampler; only for tasks with ratio_pairs")
     return p

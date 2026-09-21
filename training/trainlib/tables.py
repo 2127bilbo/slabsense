@@ -168,22 +168,28 @@ def centering_deviation_bucket(df: pd.DataFrame) -> pd.Series:
 
 
 def deviation_weights(df: pd.DataFrame) -> torch.Tensor:
-    """Per-row sample weight so a `WeightedRandomSampler` draws roughly as many centered
-    (bucket 0) rows as the sum of the four off-center buckets: bucket 0 rows get weight 1.0,
-    and rows in bucket k>=1 get `n0 / (4 * n_k)` (n0 = count of bucket-0 rows, n_k = count of
-    bucket-k rows). A bucket with no rows contributes nothing. If there are no bucket-0 rows,
-    every row gets weight 1.0 (nothing to balance against)."""
+    """Per-row sample weight for a `WeightedRandomSampler`, capped-uniform over the five
+    deviation buckets: every row in bucket k gets `w_k = min((N / 5) / n_k, 3.0)` (N = len(df),
+    n_k = count of bucket-k rows). An uncapped uniform target (`w_k = (N/5)/n_k`) would give each
+    bucket the same total draw weight; on the real train split bucket 0 (0-2 pts) is only about
+    15% of rows (buckets are far from equal - 15/51/29/4/0.3%), so an *equal-total-weight* rule
+    like "bucket 0 == sum of the other four" instead assigns bucket 0 a 50% draw share, tripling
+    how often centered cards are seen and starving the 2-5 and 5-10 buckets where the app-side
+    grade actually moves. The cap (3.0) additionally stops the smallest bucket (20+ pts, ~0.3% of
+    rows) from being drawn tens of times per row per epoch, which would overfit those rows (they
+    are also the likeliest to carry bad boxes). A bucket with no rows contributes nothing."""
     buckets = centering_deviation_bucket(df)
     counts = buckets.value_counts()
-    n0 = int(counts.get(0, 0))
-    weights = np.ones(len(df), dtype="float64")
-    if n0 > 0:
+    n = len(df)
+    weights = np.zeros(n, dtype="float64")
+    if n > 0:
         bucket_arr = buckets.to_numpy()
-        for k in range(1, 5):
+        target = n / 5
+        for k in range(5):
             n_k = int(counts.get(k, 0))
             if n_k == 0:
                 continue
-            weights[bucket_arr == k] = n0 / (4 * n_k)
+            weights[bucket_arr == k] = min(target / n_k, 3.0)
     return torch.tensor(weights, dtype=torch.float64)
 
 

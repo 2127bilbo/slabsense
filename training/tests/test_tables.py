@@ -204,27 +204,33 @@ def test_centering_deviation_bucket_uses_the_larger_of_lr_and_tb():
     assert tables.centering_deviation_bucket(df).tolist() == [3]
 
 
-def test_deviation_weights_property_sums_to_n0_per_upper_bucket():
-    rows = [_dev_row(500, 500)] * 8            # bucket 0, n0=8
-    rows += [_dev_row(530, 470)] * 4           # bucket 1, dev ~3
-    rows += [_dev_row(570, 430)] * 2           # bucket 2, dev ~7
-    rows += [_dev_row(650, 350)] * 1           # bucket 3, dev ~15
-    rows += [_dev_row(800, 200)] * 1           # bucket 4, dev ~30
+def test_deviation_weights_capped_uniform_property_with_unequal_buckets():
+    # Unequal bucket sizes modeled on the real train split's shape (bucket 0 a minority, not a
+    # majority): n0=30, n1=30, n2=30, n3=8, n4=2, N=100. Every bucket's *total* draw weight is
+    # min(N/5, 3*n_k): the three larger buckets are uncapped (n_k >= N/15), bucket 3 is uncapped
+    # (3*8=24 > 20), and the tiny bucket 4 is capped (3*2=6 < 20).
+    rows = [_dev_row(500, 500)] * 30            # bucket 0, dev ~0
+    rows += [_dev_row(530, 470)] * 30           # bucket 1, dev ~3
+    rows += [_dev_row(570, 430)] * 30           # bucket 2, dev ~7
+    rows += [_dev_row(650, 350)] * 8            # bucket 3, dev ~15
+    rows += [_dev_row(800, 200)] * 2            # bucket 4, dev ~30
     df = pd.DataFrame(rows)
     buckets = tables.centering_deviation_bucket(df)
     weights = tables.deviation_weights(df)
     assert isinstance(weights, torch.Tensor) and weights.dtype == torch.float64
     assert len(weights) == len(df)
-    assert (weights[buckets == 0] == 1.0).all()
-    n0 = 8
-    for k in range(1, 5):
+    n = len(df)
+    counts = {0: 30, 1: 30, 2: 30, 3: 8, 4: 2}
+    for k, n_k in counts.items():
         in_bucket = weights[torch.from_numpy((buckets == k).to_numpy().copy())]
-        assert abs(in_bucket.sum().item() - n0 / 4) < 1e-9
-    upper_sum = weights[torch.from_numpy((buckets >= 1).to_numpy().copy())].sum().item()
-    assert abs(upper_sum - n0) < 1e-9
+        assert abs(in_bucket.sum().item() - min(n / 5, 3 * n_k)) < 1e-9
+    # the tiny bucket (4) is the one where the cap actually binds
+    per_row = weights[torch.from_numpy((buckets == 4).to_numpy().copy())]
+    assert (per_row == 3.0).all()
 
 
-def test_deviation_weights_all_ones_when_no_bucket_zero_rows():
+def test_deviation_weights_single_bucket_all_rows_weight_n_over_5n():
     df = pd.DataFrame([_dev_row(650, 350)] * 3)   # all bucket 3, n0 == 0
     weights = tables.deviation_weights(df)
-    assert weights.tolist() == [1.0, 1.0, 1.0]
+    # w_k = min((N/5)/n_k, 3.0); with a single bucket n_k == N, so w = min(1/5, 3.0) = 0.2
+    assert weights.tolist() == pytest.approx([0.2, 0.2, 0.2])

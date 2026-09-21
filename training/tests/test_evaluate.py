@@ -95,8 +95,9 @@ def test_ratio_metrics_hand_computed():
     # row-max(delta_lr, delta_tb): 0, 2, 4, 5, 6, 3 -> only row 0 is <= 1, rows 0 and 1 are <= 2
     assert result["within1"] == pytest.approx(1 / 6, abs=1e-6)
     assert result["within2"] == pytest.approx(2 / 6, abs=1e-6)
-    # pooled (pred_dev, target_dev) points, OLS slope (numpy.polyfit degree 1) of target on pred
-    assert result["slope"] == pytest.approx(0.99086, abs=2e-3)
+    # pooled (pred_dev, tag_dev) points, OLS slope (numpy.polyfit degree 1) of PREDICTED
+    # deviation on TAG's (the compression test; see ratio_metrics docstring)
+    assert result["slope"] == pytest.approx(0.85908, abs=2e-3)
 
 
 def test_ratio_metrics_excludes_rows_with_any_missing_mask():

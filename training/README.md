@@ -342,19 +342,24 @@ all gated on the task having a `ratio_pairs` spec (today only
 
 | Flag | What it does |
 |---|---|
-| `--ratio-weight 2.0` (new default, was 0.0/off) | adds an L1 term on the predicted vs. target `l/(l+r)` and `t/(t+b)` ratios to `models.masked_loss`, on top of the existing per-side Huber distance term — `total = dist + ratio_weight * ratio` |
-| `--balance-deviation` | a `WeightedRandomSampler` over training sides, bucketed by TAG's larger-axis deviation (0–2, 2–5, 5–10, 10–20, 20+ ratio points), weighted so the four upper buckets together draw as often as the first |
+| `--ratio-weight 0.02` (code default: 0.0/off) | adds an L1 term on the predicted vs. target `l/(l+r)` and `t/(t+b)` ratios to `models.masked_loss`, on top of the existing per-side Huber distance term — `total = dist + ratio_weight * ratio`. Ruling (measured on the v1 checkpoint at real val batches, gradient share not loss-value ratio): the Huber distance term is quadratic near its minimum, so its gradient shrinks with the error, while the L1 ratio term's sign gradient does not — at v1-level distance error (~2 pm) the distance term keeps ≈ 9% of the gradient at `--ratio-weight 0.02` but only ≈ 2% at `0.1`. `0.02` is therefore the primary weight; `0.1` (`v2b`) is a fallback tried only if `0.02`'s ratio metrics do not move while its distances hold. Kept as L1, not Huber: Huber with the same beta (5 ratio points) would be an L2 loss for the ~1.5-point errors nearly every card has — the same mean-seeking behavior blamed for v1's compression, on the quantity the engine consumes. |
+| `--balance-deviation` | a `WeightedRandomSampler` over training sides, bucketed by TAG's larger-axis deviation (0–2, 2–5, 5–10, 10–20, 20+ ratio points), with a capped-uniform per-bucket weight `w_k = min((N/5) / n_k, 3.0)` (N = row count, n_k = bucket k's row count). On the real train split the buckets are far from equal (≈15/51/29/4/0.3% of rows), so an *equal-total-weight* target ("bucket 0 == the other four combined") would give bucket 0 a 50% draw share — tripling how often centered cards are seen and starving the 2–5 and 5–10 buckets where the app-side grade actually moves. The capped-uniform rule instead gives per-epoch draw shares of about **27/27/27/17/1%**, and the 3.0 cap stops the smallest bucket (20+ points, ~0.3% of rows — also the likeliest to carry bad boxes) from being drawn tens of times per row per epoch. |
 | `--aug phone` | adds `phone_aug.soften` (0.5–1.5 px blur + JPEG re-encode) and `resolution_loss` (downscale 0.35–0.6x and back) at train time, on top of edge jitter; **no** backdrop recolour or loose-crop padding, because the crop edge is authoritative for this task and edge jitter already covers small crop error |
 
 `trainlib.evaluate` adds, for any task with `ratio_pairs`: **`mae_ratio_lr` /
 `mae_ratio_tb`** (mean absolute ratio error, in ratio points on a 0–100
 scale), **`within1` / `within2`** (fraction of rows where *both* axes are
 within 1 / 2 ratio points), and, on the `ALL` row only, **`slope`**: the
-ordinary-least-squares slope of TAG's deviation `|target_ratio*100 − 50|` on
-the predicted deviation `|pred_ratio*100 − 50|`, pooled over both axes.
-`slope = 1` means no compression (predicted deviation tracks TAG's 1:1);
-`slope < 1` means the model under-predicts deviation as TAG's grows — the
-signature of shrinking toward 50/50. `evaluate` also writes
+ordinary-least-squares slope of the PREDICTED deviation `|pred_ratio*100 −
+50|` regressed on TAG's deviation `|target_ratio*100 − 50|`, pooled over
+both axes (`np.polyfit(tag_dev, pred_dev, 1)[0]`). `slope = 1` means no
+compression (predicted deviation tracks TAG's 1:1); `slope < 1` means the
+model under-predicts deviation as TAG's grows — the signature of shrinking
+toward 50/50. This is the pred-on-TAG regression direction, not the reverse
+(TAG-on-pred): the reverse direction is pulled back toward 1 by the
+prediction noise and can pass a "≥ 1" bar even while the model compresses
+hard (measured app-side on 1,011 harness sides: v1 is 1.03 TAG-on-pred but
+0.555 pred-on-TAG). `evaluate` also writes
 `eval_<split>[_phonesim]_buckets.csv`: `n`, `tag_mean_dev`, `pred_mean_dev`
 per deviation bucket (buckets 0–4, matching the flag above; bucket 4 is 20+
 points and is empty in the 60-card local sample below).
@@ -364,8 +369,14 @@ dropped for either run):
 
 | | mae_dte_l | mae_dte_r | mae_dte_t | mae_dte_b | mae_ratio_lr | mae_ratio_tb | within1 | within2 | slope |
 |---|---|---|---|---|---|---|---|---|---|
-| clean | 1.86 | 1.81 | 1.02 | 1.17 | 1.44 | 1.15 | 0.29 | 0.69 | 0.94 |
-| phone-sim | 1.89 | 1.86 | 1.21 | 1.16 | 1.49 | 1.35 | 0.26 | 0.63 | 0.93 |
+| clean | 1.86 | 1.81 | 1.02 | 1.17 | 1.45 | 1.15 | 0.31 | 0.69 | 0.699 |
+| phone-sim | 1.90 | 1.86 | 1.21 | 1.16 | 1.48 | 1.35 | 0.27 | 0.63 | 0.662 |
+
+(`slope` re-measured 2026-09-21 after the pred-on-TAG fix; the other columns
+are unchanged from the original run, which used the old regression direction
+for `slope` only. Both values confirm v1 compresses on this local sample too
+— consistent in direction with the app-side 0.555, though the local sample
+reads less compressed.)
 
 Bucket table (deviation in ratio points; `n`/`tag_mean_dev` are the same for
 both rows, only `pred_mean_dev` differs):
@@ -392,9 +403,13 @@ train --task centering_rgb --run-name v2smoke --epochs 2 --limit-cards 300 --val
 
 599 train / 120 val rows (0 dropped, both splits). `--balance-deviation`'s
 realised draws for the epoch (of 599): bucket 0 (0–2): 282, bucket 1 (2–5):
-79, bucket 2 (5–10): 59, bucket 3 (10–20): 91, bucket 4 (20+): 88 — the four
-upper buckets (317) outnumber bucket 0 (282), as intended. 90.6 s then 70.8 s
-per epoch; peak GPU memory 3.16 GiB.
+79, bucket 2 (5–10): 59, bucket 3 (10–20): 91, bucket 4 (20+): 88. This ran
+with the original (equal-total-weight) sampler formula, since superseded —
+bucket 0 draws (282, 47%) far exceed its ~15% share of rows, which is the
+oversampling problem the review caught, not the intended behavior; the
+capped-uniform formula now in `deviation_weights` targets ≈27/27/27/17/1%
+shares instead (see the flag table above). 90.6 s then 70.8 s per epoch;
+peak GPU memory 3.16 GiB.
 
 | epoch | train_loss | val_loss | lr | loss_dist | loss_ratio | seconds | mae_dte_l | mae_dte_r | mae_dte_t | mae_dte_b |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -402,15 +417,18 @@ per epoch; peak GPU memory 3.16 GiB.
 | 2 | 0.62413 | 0.20266 | 2.49e-09 | 0.00758 | 0.30827 | 70.8 | 86.45 | 93.13 | 83.91 | 90.89 |
 
 Every new column populates end to end, but at this scale `loss_ratio`
-(0.308 at epoch 2) is about 40x `loss_dist` (0.0076), not the same order the
-Step 11.1 plan expects at convergence: `loss_dist` is a Huber term on
-per-mille distances normalized to 0–1 (numerically tiny at that scale),
-while `loss_ratio` is a plain L1 term directly on 0–1 ratios (inherently
-larger), so the two raw numbers are not directly comparable the way
-`--ratio-weight 2.0` might suggest (the box run uses 0.1 for that reason;
-see the ruling in `HANDOFF-card-and-centering.md` Step 11.1). Whether the *gradient* contribution is
-balanced is a separate question from the printed magnitudes, and is worth
-watching on the full run rather than assumed from this smoke.
+(0.308 at epoch 2) is about 40x `loss_dist` (0.0076) — a *loss-value* ratio
+at the smoke's ~25 pm distance error, not a gradient share and not the same
+order the original Step 11.1 draft expected at convergence: `loss_dist` is a
+Huber term on per-mille distances normalized to 0–1 (numerically tiny at
+that scale and shrinking quadratically as the error drops), while
+`loss_ratio` is a plain L1 term directly on 0–1 ratios (inherently larger,
+with a constant sign gradient that does not shrink with the error). Measured
+directly on the v1 checkpoint at real val batches, the *gradient* share kept
+by the distance term at v1-level error (~2 pm) is ≈9% at `--ratio-weight
+0.02` and only ≈2% at `0.1` — the reverse of what the loss-value ratio here
+would suggest, and why the ruling (see `HANDOFF-card-and-centering.md` Step
+11.1) is `0.02` as primary, not `0.1`.
 
 `evaluate --checkpoint runs/centering_rgb/v2smoke/best.pt --limit-cards 60`,
 same format as the v1 baseline above:

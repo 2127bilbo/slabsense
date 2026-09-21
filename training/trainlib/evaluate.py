@@ -53,10 +53,16 @@ def ratio_metrics(scores: torch.Tensor, targets: torch.Tensor, masks: torch.Tens
       NaN if no row qualifies.
     - `within1` / `within2`: fraction of qualifying rows where, for EVERY axis, that row's delta
       is `<= 1` / `<= 2` ratio points; NaN if no row qualifies.
-    - `slope`: ordinary least-squares slope (`numpy.polyfit` degree 1, intercept free) of the TAG
-      deviation `|target_ratio*100 - 50|` on the predicted deviation `|pred_ratio*100 - 50|`,
-      pooled over every axis and qualifying row. NaN with fewer than 2 pooled points or when the
-      predicted deviation has zero spread (an undefined/degenerate fit).
+    - `slope`: ordinary least-squares slope (`numpy.polyfit` degree 1, free intercept) of the
+      PREDICTED deviation `|pred_ratio*100 - 50|` regressed on the TAG deviation
+      `|target_ratio*100 - 50|`, pooled over every axis and qualifying row. This is the
+      compression test: under `pred ~= c * tag + noise` this slope estimates `c` directly, so a
+      model that compresses toward the center (predicts less deviation than TAG as TAG's
+      deviation grows) reads below 1. The other regression direction (TAG on predicted) is the
+      wrong test here - for a noisy compressing model it is pulled back toward 1 by the
+      predicted deviation's own noise (attenuation bias / regression dilution) and can pass a
+      ">= 1" style bar even when the model is compressing hard. NaN with fewer than 2 pooled
+      points or when the TAG deviation has zero spread (an undefined/degenerate fit).
     """
     keep = _rows_with_every_pair_column_present(masks, pairs)
     result: dict[str, float] = {}
@@ -81,9 +87,12 @@ def ratio_metrics(scores: torch.Tensor, targets: torch.Tensor, masks: torch.Tens
         result["within2"] = float("nan")
 
     if pred_devs and pred_devs[0].numel():
-        x = torch.cat(pred_devs).numpy()
-        y = torch.cat(target_devs).numpy()
-        result["slope"] = float(np.polyfit(x, y, 1)[0]) if len(x) >= 2 and np.ptp(x) > 0 else float("nan")
+        pred = torch.cat(pred_devs).numpy()
+        tag = torch.cat(target_devs).numpy()
+        # predicted deviation regressed on TAG's: slope < 1 means the model compresses (under-
+        # predicts deviation as TAG's grows). See the docstring for why this direction, not the
+        # reverse regression, is the compression test.
+        result["slope"] = float(np.polyfit(tag, pred, 1)[0]) if len(tag) >= 2 and np.ptp(tag) > 0 else float("nan")
     else:
         result["slope"] = float("nan")
     return result
@@ -172,7 +181,9 @@ def main(argv=None) -> Path:
     p.add_argument("--workers", type=int, default=6); p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--limit-cards", type=int); p.add_argument("--input-size", type=int)
     p.add_argument("--phone-sim", action="store_true",
-                   help="deterministic phone-photo simulation (black backdrop, 1 px blur, 0.5x resolution) on the eval crops")
+                   help="deterministic phone-photo simulation on the eval crops "
+                        "(corners/edges: black backdrop + 1 px blur + 0.5x resolution; "
+                        "centering: 1 px blur + 0.5x resolution only, no backdrop change)")
     args = p.parse_args(argv)
     if args.phone_sim:
         print("phone-sim: ON")

@@ -254,32 +254,46 @@ are mostly near their mean learns to hedge toward the mean.
 
 `trainlib.cache_cli --task centering_rgb --splits train,val,test --from-cache
 --workers 32` (the same command used for `surface_sfx`/`surface_rgb`, Step 8)
-resizes the 896×1248 card crop from the already-downloaded **rgb** original —
-it needs the full-resolution rgb whole-card images under
-`/workspace/cache/tag-dataset/` (the `cache.cache_path` layout shared with
-corners/surface, i.e. `cache_dir/tag-dataset/<cert>/front.jpg` /
-`back.jpg`) already on disk. **On a fresh box those are not there yet**, so
-they must be pulled first.
-
-The only puller for whole-card originals is `trainlib.surface_cache_cli
-pull`, which has no `--views` flag — `surface_tables.load_surface_split`
-always fetches both views (`sfx` **and** `rgb`, front + back) for every side
-in the requested splits, with no way to restrict it to `rgb` only. So:
-**pull both views, ~435 GB, ~$17, ~40 min** (`surface_cache_cli pull
---splits train,val,test --workers 32`; this box already needed the `sfx`
-half for the surface-score models, so if that pull already ran the `rgb`
-half comes down in the same pass — check `df -h /workspace` and the pull
-log before re-running). Then:
+resizes the 896×1248 card crop from the **rgb** whole-card original. It does
+not require a separate bulk pull first: `cache_cli --from-cache` falls back
+to a per-key R2 download for any original that is not already local
+(`trainlib/cache.py`'s `_LazyReader` builds the R2 client lazily on first
+use), so on a fresh box it simply downloads each missing rgb original as it
+resizes it and writes only the 48 GB of 896×1248 cropped card images to
+disk — never the full set of originals. Rgb-only is ~55k files, about
+**220 GB through the network, ≈ $9, ≈ 1 h at ~50 files/s**. This fallback
+still needs `source /workspace/env.sh` (the `B2_KEY_ID`/`B2_APP_KEY` env
+file from Step 7.1) so the lazily-built R2 client can authenticate.
 
 ```bash
 cd /workspace/SlabSense/training && source /workspace/env.sh
-.venv/bin/python -m trainlib.surface_cache_cli pull --splits train,val,test --workers 32   # only if not already cached
 .venv/bin/python -m trainlib.cache_cli --task centering_rgb --splits train,val,test --from-cache --workers 32
 ```
 
-`source /workspace/env.sh` (the `B2_KEY_ID`/`B2_APP_KEY` env file from Step
-7.1) is needed before the `pull` step; `cache_cli --from-cache` only resizes
-already-local files and needs no R2 credentials.
+Disk: 100 GB free is enough (48 GB of crops plus headroom); no separate
+`surface_cache_cli pull` step is needed for this task.
+
+### 11.0c Pre-step: copy the v1 checkpoint to the box
+
+`weights/centering_rgb/v1/best.pt` is gitignored (`.gitignore:67`) and is
+**not** present on a fresh box — nothing scp's it up as part of the earlier
+steps. The chain below reads it (baseline evals) before it trains v2, so
+without this step the chain dies partway through, after the cache step has
+already spent time and money. From the local machine, before starting the
+box:
+
+```bash
+ssh -p <port> root@<host> mkdir -p /workspace/SlabSense/training/runs/centering_rgb/v1
+scp -P <port> "G:/Grading App/SlabSense/training/weights/centering_rgb/v1/best.pt" \
+  root@<host>:/workspace/SlabSense/training/runs/centering_rgb/v1/best.pt
+```
+
+The chain's first line is a guard that fails fast (before the cache step
+spends money) if this copy was skipped:
+
+```bash
+test -f runs/centering_rgb/v1/best.pt || { echo "missing v1"; exit 1; }
+```
 
 ### 11.1 Changes
 
@@ -288,19 +302,29 @@ branch (verified 2026-09-21: local smoke on the 4070, see
 `training/README.md` "Centering v2"), each gated on the task having a
 `ratio_pairs` spec so corners/edges are untouched:
 
-- **Ratio weight ruling (2026-09-21, from the local smoke):** the ratio term
-  is ~40× the distance term at the same error level (a ratio error is
-  inherently ~12× more sensitive than the distance error behind it: Δratio ≈
-  Δl/(l+r) with l+r ≈ 0.08 of the card), so at 2.0 the model would train on
-  ratios alone and the absolute distances could drift. The box run uses
-  **`--ratio-weight 0.1`**, which puts the two terms within an order of
-  magnitude; the acceptance rule (distance MAEs not worse than v1) guards the
-  rest. If v2 misses on distances but improves ratios, one follow-up `v2b`
-  with `--ratio-weight 0.02` is allowed; nothing else.
-- `--ratio-weight` (default 2.0 in the code; use 0.1 here) — one-line: adds an L1 term on the
+- **Ratio weight ruling (2026-09-21, re-measured on the v1 checkpoint at
+  real val batches, gradient share not loss-value ratio):** at the smoke's
+  ~25 pm distance error the ratio term's loss *value* is ~40× the distance
+  term's, but that ratio only shrinks the closer training gets to
+  convergence — the Huber distance term is quadratic near its minimum so its
+  gradient shrinks with the error, while the L1 ratio term's sign gradient
+  does not. At v1-level distance error (~2 pm) the **gradient** share kept
+  by the distance term is ≈ 9 % at `--ratio-weight 0.02` and only ≈ 2 % at
+  `0.1`. So **`0.02` is the primary weight** (the box run uses
+  `--ratio-weight 0.02`), not `0.1`: at `0.1` the distance term is expected
+  to be drowned out and the distance MAEs to plateau above v1. Keep the
+  ratio term as L1 (not Huber) — Huber with the same beta (0.05 = 5 ratio
+  points) would be an L2 loss for the ~1.5-point errors nearly every card
+  has, which is exactly the mean-seeking behaviour blamed for v1's
+  compression, and it should not be reintroduced on the quantity the engine
+  consumes. If v2 hits the distance MAEs but the ratio metrics do not move
+  at `0.02`, one follow-up `v2b` with `--ratio-weight 0.1` is allowed;
+  nothing else.
+- `--ratio-weight` (default 0.0/off in the code; use 0.02 here) — one-line: adds an L1 term on the
   predicted vs. target `l/(l+r)`/`t/(t+b)` ratios to the training loss.
 - `--balance-deviation` — one-line: oversamples off-centre training sides via
-  a `WeightedRandomSampler` bucketed on TAG's larger-axis deviation.
+  a `WeightedRandomSampler`, capped-uniform per bucket on TAG's larger-axis
+  deviation (see the README's "Centering v2" sampler note for the shares).
 - `--aug phone` — one-line: adds blur/JPEG/downscale-upscale softness at
   train time, without the backdrop recolour or loose-crop padding that
   `phone` mode uses for corners/edges (the crop edge is authoritative here).
@@ -309,6 +333,13 @@ Exact train command for the real run:
 
 ```bash
 .venv/bin/python -m trainlib.train --task centering_rgb --run-name v2 --epochs 10 --batch-size 8 \
+  --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 0.02 --balance-deviation
+```
+
+Fallback, only if v2's distance MAEs pass but its ratio metrics do not move:
+
+```bash
+.venv/bin/python -m trainlib.train --task centering_rgb --run-name v2b --epochs 10 --batch-size 8 \
   --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 0.1 --balance-deviation
 ```
 
@@ -319,12 +350,16 @@ three things:
 1. **Ratio term in the loss.** In `trainlib/models.masked_loss`, for the
    `centering_rgb` task only, add an L1 term on the two ratios computed from
    the predicted distances, `l/(l+r)` and `t/(t+b)`, against the same ratios
-   from the targets, weighted so it is about equal to the distance term at
-   convergence (start at 2.0 and check the two terms in the log). The ratio
-   is what the engine consumes; the loss should say so.
+   from the targets, weighted by `--ratio-weight` (ruled value: 0.02 — see
+   "Ratio weight ruling" above; check the two terms in the log, the ratio
+   term will still dominate the *loss value* at 0.02, that is expected). The
+   ratio is what the engine consumes; the loss should say so.
 2. **Deviation-balanced sampling.** Bucket training sides by TAG's larger
-   axis deviation (0–2, 2–5, 5–10, 10–20, 20+) and sample with weights that
-   make the four upper buckets together as frequent as the first. Report the
+   axis deviation (0–2, 2–5, 5–10, 10–20, 20+) and sample with capped
+   per-bucket weights `min((N/5)/n_k, 3.0)` so the five buckets draw roughly
+   evenly (bucket 0 is only ~15 % of rows on the real train split, so an
+   equal-total-weight rule against it would instead triple how often it is
+   drawn — see the README's "Centering v2" sampler note). Report the
    realised per-epoch bucket counts in the log.
 3. **Phone softness.** Apply `phone_aug.soften` and `resolution_loss` (blur,
    JPEG, downscale-upscale) at the probabilities used in Step 9, but **not**
@@ -344,9 +379,18 @@ Evaluate on val and, once, on test, both clean and phone-sim. In addition
 to the four MAEs, add to `trainlib/evaluate.py` for this task:
 
 - the two ratio MAEs (L/R and T/B, in ratio points),
-- **compression slope**: regress TAG's deviation on the predicted deviation
-  (both as |ratio − 50|, pooled over both axes) — report the slope and the
-  per-bucket means as in the table above,
+- **compression slope**: regress the PREDICTED deviation on TAG's deviation
+  (both as |ratio − 50|, pooled over both axes; `np.polyfit(tag_dev,
+  pred_dev, 1)[0]`) — a compressing model reads below 1. This is the
+  pred-on-TAG direction, not the reverse (TAG-on-pred): the reverse
+  direction is pulled back toward 1 by the prediction noise and can pass a
+  "≥ 1" bar even while compressing hard (measured app-side: v1 is 1.03
+  TAG-on-pred but 0.555 pred-on-TAG on the same 1,011 sides). v1 on the
+  local 60-card val sample after this fix is 0.699 clean / 0.662 phone-sim
+  (measured in this repo; see the README "Centering v2" baseline table) —
+  the 0.95 acceptance bar below is a real bar against that, not the pre-fix
+  ~0.94-reads-as-passing number.
+  Report the slope and the per-bucket means as in the table above,
 - percentage of sides with both ratios within 1 and within 2 points.
 
 Accept v2 when, on val (clean): mean distance MAE not worse than v1 (l 1.75,
@@ -357,12 +401,13 @@ clean. If v2 misses, report and leave v1; do not tune on the numbers.
 
 Eval commands, in order (v1's box-baseline pair first, since the local
 4070's v1 numbers in the README were only a 60-card sample — the rented
-box's full 2,790-card val split is the real baseline to compare v2 against):
+box's full 2,790-card val split is the real baseline to compare v2 against;
+`runs/centering_rgb/v1/best.pt` is where 11.0c copied the v1 checkpoint):
 
 ```bash
-.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint weights/centering_rgb/v1/best.pt \
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v1/best.pt \
   --split val --workers 8 --batch-size 16
-.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint weights/centering_rgb/v1/best.pt \
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v1/best.pt \
   --split val --workers 8 --batch-size 16 --phone-sim
 .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2/best.pt \
   --split val --workers 8 --batch-size 16
@@ -379,28 +424,37 @@ training, and v2 evals:
 ```bash
 cd /workspace/SlabSense/training
 nohup bash -c '
+  test -f runs/centering_rgb/v1/best.pt || { echo "missing v1"; exit 1; }
   source /workspace/env.sh
   set -e
-  .venv/bin/python -m trainlib.surface_cache_cli pull --splits train,val,test --workers 32
   .venv/bin/python -m trainlib.cache_cli --task centering_rgb --splits train,val,test --from-cache --workers 32
-  .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint weights/centering_rgb/v1/best.pt --split val --workers 8 --batch-size 16
-  .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint weights/centering_rgb/v1/best.pt --split val --workers 8 --batch-size 16 --phone-sim
-  .venv/bin/python -m trainlib.train --task centering_rgb --run-name v2 --epochs 10 --batch-size 8 --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 0.1 --balance-deviation
+  .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v1/best.pt --split val --workers 8 --batch-size 16
+  .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v1/best.pt --split val --workers 8 --batch-size 16 --phone-sim
+  .venv/bin/python -m trainlib.train --task centering_rgb --run-name v2 --epochs 10 --batch-size 8 --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 0.02 --balance-deviation
   .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2/best.pt --split val --workers 8 --batch-size 16
   .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2/best.pt --split val --workers 8 --batch-size 16 --phone-sim
 ' > /workspace/centering_v2_chain.log 2>&1 &
 ```
 
-Skip the `pull`/`cache_cli` lines if 11.0b's cache already exists on the box
-(check `df -h /workspace` and for `weights/centering_rgb` crops under the
-cache dir first). Run the `test` eval separately, by hand, only after
-reading the val numbers and deciding to accept v2 — never inside this
-unattended chain, so the frozen test split is never read automatically.
+The `test -f` guard runs before `set -e` so it always fires (11.0c's scp
+must have already happened; the chain deliberately dies here rather than
+after the paid cache step if it was skipped). If v2's distance MAEs pass
+but its ratio metrics do not move, run the `v2b` train command from
+"Ratio weight ruling" above by hand, followed by its own pair of val evals
+(`--checkpoint runs/centering_rgb/v2b/best.pt`) — do not fold `v2b` into
+this unattended chain, since whether to run it is a judgment call on v2's
+numbers.
 
-Budget: cache ~40 min (11.0b, if needed); train 10 epochs at ~16.5 min/epoch
-(the v1 rate) ≈ 2.8 h; evals (four val passes plus, if accepted, one test
-pass) ~20 min; **≈ $4 of GPU time + the ~$17 of R2 bandwidth from 11.0b if
-the cache pull is needed**.
+Skip the `cache_cli` line if 11.0b's cache already exists on the box (check
+`df -h /workspace` and for `centering_rgb` crops under the cache dir first).
+Run the `test`-split eval separately, by hand, only after reading the val
+numbers and deciding to accept v2 — never inside this unattended chain, so
+the frozen test split is never read automatically.
+
+Budget: no bulk pull needed (11.0b); cache ~30 min if not already warm;
+train 10 epochs at ~16.5 min/epoch (the v1 rate) ≈ 2.8 h; evals (four val
+passes plus, if accepted, one test pass) ~20 min; **≈ $4 of GPU time + the
+~$9 of R2 bandwidth from 11.0b if the cache is not already warm**.
 
 ### 11.3 Export and what to bring home
 
