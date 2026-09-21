@@ -14,7 +14,7 @@ or in the verbatim company standards next to it. Nothing else in the repo may de
 - Rule: **no grading number without a citation.** Every per-company rule in the engine cites a `sources/*` file.
   Values marked *internal* below are SlabSense choices (calibrated against DIG reports), not company rules.
 
-Last updated 2026-09-20 (engine 1.1; phone-augmented corner/edge models on every path).
+Last updated 2026-09-21 (engine 1.1; phone-augmented corner/edge models on every path; TAG-calibrated surface severity on the paid paths).
 
 ---
 
@@ -145,6 +145,41 @@ models had scored as clean)*.
    NaN for one real tile on WebGPU (never on WASM, which upcasts) with no stored activation outside fp16
    range. The export now keeps the norm, pool, head, GELU and division ops in fp32 (`-safe`), and the runner
    reruns any batch with a non-finite output on WASM. A NaN would otherwise read as "clean".
+
+### Surface severity from the deduction model (paid paths) *(added 2026-09-21)*
+
+On the AI and Deep AI paths Claude finds and classifies surface defects and draws a box for each. Its
+severity guess is now replaced by **TAG's own statistics** for a defect of that class, size and place:
+`api/_lib/surfaceDeduction.js` runs the gradient-boosted regressor trained on 20,757 TAG surface markers
+(`training/trainlib/deduction_model.py`, val error 66 points against 112 for the class median; dumped to
+JSON trees in `api/_lib/models/`, exact parity with sklearn) and maps the predicted TAG points to the
+engine's severity bands with per-type cut lines. `PLAY_WEAR`, corners and edges are untouched; a `TEAR` is
+always extreme (every TAG tear in the dataset cost 900 points). Each re-scored defect keeps `aiSeverity`
+and carries `deduction` (TAG points); `meta.surfaceSeveritySource` is `model`, or `ai` when
+`SURFACE_DEDUCTION_MODEL=0` turns it off.
+
+| type | moderate at | severe at | extreme at |
+|---|---|---|---|
+| CREASE | 300 | 550 | 800 |
+| DENT | 125 | 225 | 350 |
+| PIT, SCRATCH | 105 | 210 | 350 |
+| PRINT_DEFECT | 75 | 150 | 250 |
+| STAIN | 175 | 350 | 560 |
+
+Calibrated on the DIG harness with TAG's own markers standing in for Claude's boxes, i.e. perfect
+detection, so it measures the severity mapping alone (`scripts/harness/surface-sweep.mjs`; 203 cards with
+436 markers, corner/edge dings from the shipped models, TAG's centering):
+
+| surface severity from | cards with markers, mean error | signed | all cards | held out |
+|---|---|---|---|---|
+| nothing (the free path today) | 2.23 | +2.01 | 1.47 | 1.24 |
+| every defect "moderate" | 1.45 | +0.96 | 1.16 | 0.94 |
+| TAG's actual points (ceiling) | 1.02 | +0.05 | 0.98 | 0.77 |
+| **the model's points (shipped)** | **1.03** | **+0.02** | **0.99** | **0.78** |
+
+Clean cards are unaffected (9–10 bucket 0.19 either way). What this does not measure: Claude's boxes are
+estimates, and Claude misses and invents defects; the first real paid grades after this change are the
+check on that.
 
 **Limits to know.**
 

@@ -21,6 +21,7 @@
 
 import { gradeCard, ENGINE_VERSION } from '../../src/lib/gradingEngine.js';
 import { cornerEdgeContextBlock, applyCornerEdge } from './cornerEdgeInput.js';
+import { applySurfaceDeduction } from './surfaceDeduction.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENUMS (must match the output schema in docs/GRADING_SYSTEM.md exactly — API contract)
@@ -476,7 +477,14 @@ export function confidenceFromImageQuality(iq, { referencesUsed = 0 } = {}) {
 export function assembleUnifiedOutput({ detection, centering, gradePath, frontOnly = false, meta = {}, cornerEdge = null }) {
   // With a model table present, Claude's CORNER/EDGE findings are replaced by the
   // model's so every path agrees on corners and edges (cornerEdgeInput.js).
-  const { defects, source: cornerEdgeSource } = applyCornerEdge(sanitizeDefects(detection?.defects), cornerEdge);
+  const merged = applyCornerEdge(sanitizeDefects(detection?.defects), cornerEdge);
+  // Surface severity from TAG's statistics for a defect of that class, size and place
+  // (surfaceDeduction.js) instead of the AI's guess. SURFACE_DEDUCTION_MODEL=0 turns it off.
+  const useSurfaceModel = process.env.SURFACE_DEDUCTION_MODEL !== '0';
+  const surfaced = useSurfaceModel ? applySurfaceDeduction(merged.defects) : { defects: merged.defects, changed: 0 };
+  const defects = surfaced.defects;
+  const cornerEdgeSource = merged.source;
+  const surfaceSeveritySource = useSurfaceModel ? 'model' : 'ai';
   const engine = gradeCard({ defects, centering, frontOnly });
 
   const iq = detection?.imageQuality || {};
@@ -518,6 +526,6 @@ export function assembleUnifiedOutput({ detection, centering, gradePath, frontOn
       recommendation: summary.recommendation || 'See defect report for details.',
     },
     confidence,
-    meta: { ...meta, gradePath, engineVersion: ENGINE_VERSION, cornerEdgeSource },
+    meta: { ...meta, gradePath, engineVersion: ENGINE_VERSION, cornerEdgeSource, surfaceSeveritySource, surfaceSeveritiesChanged: surfaced.changed },
   };
 }
