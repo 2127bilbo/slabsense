@@ -1,6 +1,6 @@
 # SlabSense grading models: what is done, where it lives, what remains
 
-Snapshot 2026-09-18 (evening). Branch `tag-dataset` (not merged to main; it also carries
+Snapshot 2026-09-21 (evening). Box destroyed 2026-09-19; next rental: centering v2 (Step 11) then card model v1 (Step 12), ~9 h, 4090-class with 32+ cores, 150 GB disk. Branch `tag-dataset` (not merged to main; it also carries
 unrelated work, so merging is your call). Box: vast.ai RTX 5880 Ada 48 GB,
 `ssh -p 22684 root@185.17.198.195`, repo at `/workspace/SlabSense`, caches
 under `/workspace/cache`, run artifacts under
@@ -52,22 +52,23 @@ under `/workspace/cache`, run artifacts under
 | Surface detectors v1/v2/v3 | rejected (crease AP 0.47 but 6 false boxes per card side) | | box `runs/surface/`; v3 checkpoint local |
 | Surface score regressors (per-side, front+rollup) | rejected: per-side back score does not follow the back image; front-only ties the grade-median baseline (173 vs 170) | | box `runs/surface_sfx/`, `runs/surface_front_sfx/` |
 | Rollup (subscores -> total/grade) | not started (minutes, CPU) | | |
-| Card-crop corner model | not started; see `todo/centering-and-crop-models.md`; user shooting photos | | |
+| Centering v2 (ratio loss 0.02, capped deviation sampling, phone softness) | **code ready**, handoff Step 11 in `training/HANDOFF-card-and-centering.md` | v1 baseline on 60 local cards: ratio MAE 1.44/1.15, within2 0.69, slope 0.70 (pred-on-TAG) | trains on the next rental |
+| Card model v1 (segmentation, synthetic composition) | **code ready**, handoff Step 12 in `training/HANDOFF-rented-gpu.md`; needs `training/data/backgrounds/` and `training/data/card-val/` from the user (provisional without them) | 4070 smoke: fp16 5.98 MB; corner-fit floor 0.38% | trains on the next rental |
 | Edges HR (2048x384, phone aug) | optional next run (handoff Step 9.4), ~8 h box | | |
 
 Test-split reads spent: corners v1, v2, v3-phone; edges v1, v3... (v2-phone); centering v1. Never for any surface checkpoint.
 
 ## Remaining, in order
 
-1. [ ] App session: harness re-run on the new ONNX (`verify-crops`, `model-predict`, `model-sweep`, `model-domain`), recalibrate thresholds, `models:upload`, swap bucket entries (handoff Step 9.7 follow-up).
-2. [ ] Centering v1 -> ONNX export (`export_onnx.py --task centering_rgb`), app wiring: crop to the card, predict four distances, classical snap, ratios.
-3. [ ] Optional: edges HR at 2048x384 with phone aug (handoff Step 9.4; needs the `edges_hr` task entry, ~130 GB cache, fits in 218 GB free).
-4. [ ] Rollup model (LightGBM/HistGB on corner/edge/centering subscores -> score_total, grade). CPU, minutes.
-5. [ ] Company offsets TAG -> PSA/BGS/CGC/SGC from `docs/grading-research/sources/`.
-6. [ ] Card-crop corner model: synthetic bootstrap + the user's photo set (`todo/centering-and-crop-models.md`).
-7. [ ] Surface: revisit with a relabeling pass on phone photos (dents, scratches); the deduction regressor ships as-is.
+1. [ ] User: surface photos into `training/data/backgrounds/`; scans through the app with "Keep Originals For Training" on, then `npm run models:export-card-val` → `training/data/card-val/` (target 150+ photos; < 100 = provisional card model).
+2. [ ] Rent (4090-class, 32+ cores, 150 GB, CUDA ≥ 12.8): Step 11 centering v2 (~3–4 h) then Step 12 card model (~5 h); pull artifacts home; ONNX for both.
+3. [ ] App session: harness the new centering ONNX (`scripts/harness/centering-model.mjs`), wire the card model into the crop step (handoff 10.6), make the aspect gate perspective-tolerant, recalibrate nothing until both are measured.
+4. [ ] Rollup model (subscores → total/grade). CPU, minutes.
+5. [ ] Company offsets TAG → PSA/BGS/CGC/SGC from `docs/grading-research/sources/`.
+6. [ ] Optional edges HR (handoff Step 9.4) if edge recall still limits the grade.
+7. [ ] Surface: revisit with a relabeling pass on phone photos; the deduction regressor ships as-is.
 8. [ ] Phone-photo fine-tune pass (all models) once testers deliver images.
-9. [ ] Destroy the vast.ai box only after every artifact is pulled home (all accepted models are already home + in R2); merge `tag-dataset` to main (your call).
+9. [ ] Merge `tag-dataset` to main (your call).
 
 ## Handy commands
 
