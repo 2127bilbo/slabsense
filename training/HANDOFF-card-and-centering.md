@@ -288,7 +288,16 @@ branch (verified 2026-09-21: local smoke on the 4070, see
 `training/README.md` "Centering v2"), each gated on the task having a
 `ratio_pairs` spec so corners/edges are untouched:
 
-- `--ratio-weight 2.0` (new default) — one-line: adds an L1 term on the
+- **Ratio weight ruling (2026-09-21, from the local smoke):** the ratio term
+  is ~40× the distance term at the same error level (a ratio error is
+  inherently ~12× more sensitive than the distance error behind it: Δratio ≈
+  Δl/(l+r) with l+r ≈ 0.08 of the card), so at 2.0 the model would train on
+  ratios alone and the absolute distances could drift. The box run uses
+  **`--ratio-weight 0.1`**, which puts the two terms within an order of
+  magnitude; the acceptance rule (distance MAEs not worse than v1) guards the
+  rest. If v2 misses on distances but improves ratios, one follow-up `v2b`
+  with `--ratio-weight 0.02` is allowed; nothing else.
+- `--ratio-weight` (default 2.0 in the code; use 0.1 here) — one-line: adds an L1 term on the
   predicted vs. target `l/(l+r)`/`t/(t+b)` ratios to the training loss.
 - `--balance-deviation` — one-line: oversamples off-centre training sides via
   a `WeightedRandomSampler` bucketed on TAG's larger-axis deviation.
@@ -300,7 +309,7 @@ Exact train command for the real run:
 
 ```bash
 .venv/bin/python -m trainlib.train --task centering_rgb --run-name v2 --epochs 10 --batch-size 8 \
-  --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 2.0 --balance-deviation
+  --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 0.1 --balance-deviation
 ```
 
 Keep the v1 recipe (`convnext_tiny`, 896×1248 card crop, EMA 0.999,
@@ -376,7 +385,7 @@ nohup bash -c '
   .venv/bin/python -m trainlib.cache_cli --task centering_rgb --splits train,val,test --from-cache --workers 32
   .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint weights/centering_rgb/v1/best.pt --split val --workers 8 --batch-size 16
   .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint weights/centering_rgb/v1/best.pt --split val --workers 8 --batch-size 16 --phone-sim
-  .venv/bin/python -m trainlib.train --task centering_rgb --run-name v2 --epochs 10 --batch-size 8 --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 2.0 --balance-deviation
+  .venv/bin/python -m trainlib.train --task centering_rgb --run-name v2 --epochs 10 --batch-size 8 --workers 8 --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 0.1 --balance-deviation
   .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2/best.pt --split val --workers 8 --batch-size 16
   .venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2/best.pt --split val --workers 8 --batch-size 16 --phone-sim
 ' > /workspace/centering_v2_chain.log 2>&1 &

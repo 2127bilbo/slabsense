@@ -407,7 +407,8 @@ Step 11.1 plan expects at convergence: `loss_dist` is a Huber term on
 per-mille distances normalized to 0–1 (numerically tiny at that scale),
 while `loss_ratio` is a plain L1 term directly on 0–1 ratios (inherently
 larger), so the two raw numbers are not directly comparable the way
-`--ratio-weight 2.0` might suggest. Whether the *gradient* contribution is
+`--ratio-weight 2.0` might suggest (the box run uses 0.1 for that reason;
+see the ruling in `HANDOFF-card-and-centering.md` Step 11.1). Whether the *gradient* contribution is
 balanced is a separate question from the printed magnitudes, and is worth
 watching on the full run rather than assumed from this smoke.
 
