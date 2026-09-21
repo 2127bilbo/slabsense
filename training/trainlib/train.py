@@ -15,7 +15,7 @@ from . import metrics
 from .config import load_config
 from .data import AUG_MODES, SCALE, CropDataset, collate
 from .models import ScoreRegressor, count_params, masked_loss, to_scores
-from .tables import TASKS, filter_cached, load_task_table, target_kinds, target_names
+from .tables import TASKS, filter_cached, load_task_table, target_index, target_kinds, target_names
 
 BASE_LOG_COLUMNS = ["epoch", "train_loss", "val_loss", "lr", "seconds"]
 
@@ -32,8 +32,26 @@ def metric_keys(targets) -> list[str]:
     return keys
 
 
+def base_log_columns(task: str) -> list[str]:
+    """`BASE_LOG_COLUMNS`, with `loss_dist,loss_ratio` inserted right after `lr` for tasks
+    that carry a `ratio_pairs` spec (currently `centering_rgb` only)."""
+    cols = list(BASE_LOG_COLUMNS)
+    if TASKS[task].get("ratio_pairs"):
+        i = cols.index("lr") + 1
+        cols[i:i] = ["loss_dist", "loss_ratio"]
+    return cols
+
+
 def log_columns(task: str) -> list[str]:
-    return BASE_LOG_COLUMNS + metric_keys(TASKS[task]["targets"])
+    return base_log_columns(task) + metric_keys(TASKS[task]["targets"])
+
+
+def task_ratio_pairs(task: str) -> list[tuple[int, int]] | None:
+    """The task's `ratio_pairs` spec (name pairs) converted to channel-index pairs, or None."""
+    pairs = TASKS[task].get("ratio_pairs")
+    if not pairs:
+        return None
+    return [(target_index(task, a), target_index(task, b)) for a, b in pairs]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -57,6 +75,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ema-decay", type=float, default=0.0,
                    help="keep an exponential moving average of the weights and evaluate/save it (v2: 0.999); 0 = off")
     p.add_argument("--aug", choices=list(AUG_MODES), default="light", help="training augmentation mode (v2: strong)")
+    p.add_argument("--ratio-weight", type=float, default=2.0,
+                   help="weight on the centering l/r, t/b ratio loss term; only used for tasks with ratio_pairs")
     return p
 
 
@@ -68,8 +88,9 @@ def make_loader(df, task, cache_dir, train, batch_size, workers, input_size=None
 
 
 @torch.no_grad()
-def evaluate_loader(model, loader, device, kinds, names) -> dict:
-    """`loss` plus, per target (in order): `mae_<name>` for regression, or
+def evaluate_loader(model, loader, device, kinds, names, ratio_pairs=None, ratio_weight=0.0) -> dict:
+    """`loss` (the same weighted total `run_epoch` optimizes, including the ratio term when
+    `ratio_pairs` is given) plus, per target (in order): `mae_<name>` for regression, or
     `auroc_<name>`/`precision_<name>`/`recall_<name>`/`npos_<name>` for binary."""
     model.eval()
     n_targets = len(kinds)
@@ -84,7 +105,7 @@ def evaluate_loader(model, loader, device, kinds, names) -> dict:
         with torch.autocast(device_type=device.type, enabled=(device.type == "cuda")):
             pred = model(imgs, sides)
         pred = pred.float()
-        loss_sum += masked_loss(pred, targets, masks, kinds).item()
+        loss_sum += masked_loss(pred, targets, masks, kinds, ratio_pairs=ratio_pairs, ratio_weight=ratio_weight).item()
         batches += 1
         scores = to_scores(pred, kinds)
         for j in range(n_targets):
@@ -112,22 +133,26 @@ def evaluate_loader(model, loader, device, kinds, names) -> dict:
     return result
 
 
-def run_epoch(model, loader, optimizer, scaler, scheduler, device, kinds, ema=None) -> float:
-    model.train(); total = 0.0; batches = 0
+def run_epoch(model, loader, optimizer, scaler, scheduler, device, kinds, ema=None,
+             ratio_pairs=None, ratio_weight=0.0) -> tuple[float, float, float]:
+    """Returns (mean total loss, mean dist term, mean ratio term) over the epoch's batches."""
+    model.train(); total = 0.0; dist_total = 0.0; ratio_total = 0.0; batches = 0
     for imgs, sides, targets, masks in loader:
         imgs, sides, targets, masks = imgs.to(device), sides.to(device), targets.to(device), masks.to(device)
         optimizer.zero_grad(set_to_none=True)
         with torch.autocast(device_type=device.type, enabled=(device.type == "cuda")):
             pred = model(imgs, sides)
-        loss = masked_loss(pred.float(), targets, masks, kinds)
+        loss, terms = masked_loss(pred.float(), targets, masks, kinds, ratio_pairs=ratio_pairs,
+                                  ratio_weight=ratio_weight, return_terms=True)
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         scaler.step(optimizer); scaler.update(); scheduler.step()
         if ema is not None:
             ema.update_parameters(model)
-        total += loss.item(); batches += 1
-    return total / max(batches, 1)
+        total += loss.item(); dist_total += terms.dist.item(); ratio_total += terms.ratio.item(); batches += 1
+    n = max(batches, 1)
+    return total / n, dist_total / n, ratio_total / n
 
 
 def _fmt(v) -> str:
@@ -142,8 +167,10 @@ def main(argv=None) -> Path:
     spec = TASKS[args.task]
     kinds = target_kinds(args.task)
     names = target_names(args.task)
+    ratio_pairs = task_ratio_pairs(args.task)
+    base_cols = base_log_columns(args.task)
     cols = log_columns(args.task)
-    metric_cols = cols[len(BASE_LOG_COLUMNS):]
+    metric_cols = cols[len(base_cols):]
 
     train_df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, "train", args.limit_cards, args.seed)
     val_df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, "val", args.val_limit_cards, args.seed)
@@ -176,10 +203,16 @@ def main(argv=None) -> Path:
         w = csv.writer(f); w.writerow(cols)
         for epoch in range(1, args.epochs + 1):
             t0 = time.time()
-            train_loss = run_epoch(model, train_loader, optimizer, scaler, scheduler, device, kinds, ema)
-            val = evaluate_loader(eval_model, val_loader, device, kinds, names)
+            train_loss, loss_dist, loss_ratio = run_epoch(model, train_loader, optimizer, scaler, scheduler, device,
+                                                           kinds, ema, ratio_pairs=ratio_pairs,
+                                                           ratio_weight=args.ratio_weight)
+            val = evaluate_loader(eval_model, val_loader, device, kinds, names, ratio_pairs=ratio_pairs,
+                                  ratio_weight=args.ratio_weight)
             secs = time.time() - t0
-            row = [epoch, f"{train_loss:.5f}", f"{val['loss']:.5f}", f"{scheduler.get_last_lr()[0]:.2e}", f"{secs:.1f}"]
+            row = [epoch, f"{train_loss:.5f}", f"{val['loss']:.5f}", f"{scheduler.get_last_lr()[0]:.2e}"]
+            if ratio_pairs:
+                row += [f"{loss_dist:.5f}", f"{loss_ratio:.5f}"]
+            row += [f"{secs:.1f}"]
             row += [_fmt(val[k]) for k in metric_cols]
             w.writerow(row); f.flush()
             metrics_str = " ".join(f"{k}={_fmt(val[k])}" for k in metric_cols)

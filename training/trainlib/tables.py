@@ -146,6 +146,7 @@ TASKS = {
         "cache_variant": "card",
         "crop_boxes": "derived/centering_boxes_rgb.parquet",
         "edge_jitter": 0.03,
+        "ratio_pairs": [("dte_l", "dte_r"), ("dte_t", "dte_b")],
     },
 }
 
@@ -156,6 +157,10 @@ def target_names(task: str) -> list[str]:
 
 def target_kinds(task: str) -> list[str]:
     return [t.kind for t in TASKS[task]["targets"]]
+
+
+def target_index(task: str, name: str) -> int:
+    return target_names(task).index(name)
 
 
 def load_task_table(task: str, dataset_dir: Path, splits_path: Path, split: str,

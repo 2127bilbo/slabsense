@@ -2,8 +2,11 @@ import json
 import math
 
 import pandas as pd
+from PIL import Image
 
-from conftest import make_cache
+from conftest import make_boxes_table, make_cache
+from trainlib import cache as cache_mod
+from trainlib import surface_tables as st
 from trainlib import tables, train
 
 
@@ -25,6 +28,7 @@ def test_train_two_epochs_cpu_writes_artifacts(tables, tmp_path):
                      "mae_deduction", "mae_angle"]
     assert list(log.columns) == expected_cols
     assert train.log_columns("corners") == expected_cols
+    assert "loss_dist" not in log.columns and "loss_ratio" not in log.columns
     assert len(log) == 2
     # val split ("C3") has ding_count values 0, 1, 2 -> both classes present -> finite AUROC
     assert log.auroc_wear.notna().all()
@@ -78,3 +82,34 @@ def test_train_v2_flags_ema_drop_path_strong_aug(tables, tmp_path):
     assert not any(k.startswith("module.") for k in ckpt["model"])
     m = models.ScoreRegressor(ckpt["n_out"], ckpt["backbone"], pretrained=False)
     m.load_state_dict(ckpt["model"])
+
+
+def test_train_centering_rgb_logs_ratio_loss_columns(surface_tables, tmp_path, monkeypatch):
+    ds, sp = surface_tables
+    train_sides, _ = st.load_surface_split(ds, sp, "train")
+    val_sides, _ = st.load_surface_split(ds, sp, "val")
+    sides = pd.concat([train_sides, val_sides])
+    boxes_path = make_boxes_table(tmp_path, sides[sides.view == "rgb"])
+    monkeypatch.setenv("TRAINLIB_BOXES", str(boxes_path))
+
+    df = tables.load_task_table("centering_rgb", ds, sp, "train")
+    val_df = tables.load_task_table("centering_rgb", ds, sp, "val")
+    cache = tmp_path / "cache"
+    for p in pd.concat([df.crop_path, val_df.crop_path]):
+        dest = cache_mod.resized_path(cache, p, (896, 1248), "card")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (64, 64), (128, 128, 128)).save(dest, format="JPEG", quality=95)
+
+    cfg = tmp_path / "config.toml"
+    (tmp_path / "ds.toml").write_text('[bucket]\nendpoint="e"\nregion="auto"\nname="b"\nprefix="p"\n', encoding="utf-8")
+    cfg.write_text('[paths]\ndataset_dir = "dataset"\nsplits_path = "splits.parquet"\ncache_dir = "cache"\nruns_dir = "runs"\n'
+                   '[r2]\nconfig_toml = "ds.toml"\n', encoding="utf-8")
+    run_dir = train.main(["--config", str(cfg), "--task", "centering_rgb", "--run-name", "c", "--epochs", "1",
+                          "--batch-size", "2", "--backbone", "resnet18", "--no-pretrained", "--device", "cpu",
+                          "--workers", "0", "--input-size", "64"])
+    log = pd.read_csv(run_dir / "log.csv")
+    expected_cols = ["epoch", "train_loss", "val_loss", "lr", "loss_dist", "loss_ratio", "seconds",
+                     "mae_dte_l", "mae_dte_r", "mae_dte_t", "mae_dte_b"]
+    assert list(log.columns) == expected_cols
+    assert train.log_columns("centering_rgb") == expected_cols
+    assert len(log) == 1

@@ -68,6 +68,49 @@ def test_convnext_tiny_param_count():
     assert 27_000_000 < n < 30_000_000
 
 
+def test_masked_loss_ratio_term_is_zero_when_pred_matches_target():
+    kinds = ["regress"] * 4
+    target = torch.tensor([[0.2, 0.3, 0.4, 0.1], [0.5, 0.5, 0.2, 0.2]])
+    pred = torch.logit(target)
+    mask = torch.ones(2, 4)
+    total, terms = models.masked_loss(pred, target, mask, kinds, ratio_pairs=[(0, 1), (2, 3)],
+                                      ratio_weight=2.0, return_terms=True)
+    assert torch.allclose(terms.ratio, torch.tensor(0.0), atol=1e-5)
+    assert torch.allclose(total, terms.dist)
+
+
+def test_masked_loss_ratio_term_positive_when_lr_swapped():
+    kinds = ["regress"] * 4
+    target = torch.tensor([[0.2, 0.8, 0.5, 0.5]])
+    swapped = target.clone()
+    swapped[:, [0, 1]] = swapped[:, [1, 0]]
+    pred = torch.logit(swapped)
+    mask = torch.ones(1, 4)
+    total, terms = models.masked_loss(pred, target, mask, kinds, ratio_pairs=[(0, 1)],
+                                      ratio_weight=2.0, return_terms=True)
+    assert terms.ratio.item() > 0.0
+    dist_only = models.masked_loss(pred, target, mask, kinds)
+    assert torch.allclose(dist_only, terms.dist)
+    assert torch.allclose(total, dist_only + 2.0 * terms.ratio)
+
+
+def test_masked_loss_ratio_excludes_rows_with_a_masked_pair_channel():
+    kinds = ["regress"] * 4
+    target = torch.tensor([[0.2, 0.8, 0.4, 0.6], [0.3, 0.7, 0.5, 0.5]])
+    pred_vals = torch.full((2, 4), 0.5)
+    pred = torch.logit(pred_vals)
+    # row 1 is missing the second channel of the (0, 1) pair, so the WHOLE row is excluded
+    # from the ratio mean, even though its (2, 3) pair is fully unmasked.
+    mask = torch.tensor([[1.0, 1.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]])
+    total, terms = models.masked_loss(pred, target, mask, kinds, ratio_pairs=[(0, 1), (2, 3)],
+                                      ratio_weight=1.0, return_terms=True)
+    # manual: only row 0 counts; sum |r(pred)-r(target)| over both pairs for that row
+    r_pred_01 = 0.5 / (0.5 + 0.5 + 1e-6); r_targ_01 = 0.2 / (0.2 + 0.8 + 1e-6)
+    r_pred_23 = 0.5 / (0.5 + 0.5 + 1e-6); r_targ_23 = 0.4 / (0.4 + 0.6 + 1e-6)
+    expected = abs(r_pred_01 - r_targ_01) + abs(r_pred_23 - r_targ_23)
+    assert torch.allclose(terms.ratio, torch.tensor(expected), atol=1e-4)
+
+
 def test_drop_path_rate_reaches_backbone_and_keeps_state_dict_keys():
     plain = models.ScoreRegressor(n_out=3, backbone="convnext_tiny", pretrained=False)
     reg = models.ScoreRegressor(n_out=3, backbone="convnext_tiny", pretrained=False, drop_path_rate=0.2)
