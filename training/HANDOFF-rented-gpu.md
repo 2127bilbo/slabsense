@@ -109,11 +109,11 @@ name = "slabsense-tag-dataset"
 prefix = "tag-dataset"
 ```
 
-Copy the dataset tables from the local PC (about 11 MB total). First
+Copy the dataset tables from the local PC (about 23 MB total; `surface.parquet` is needed by `card_cutouts` too, not only by the surface steps). First
 `mkdir -p /workspace/SlabSense/scripts/tag-dataset/data/dataset` on the box, then:
 
 ```
-scp -P <port> "G:/Grading App/SlabSense/scripts/tag-dataset/data/dataset/manifest.parquet" "G:/Grading App/SlabSense/scripts/tag-dataset/data/dataset/corners.parquet" "G:/Grading App/SlabSense/scripts/tag-dataset/data/dataset/edges.parquet" root@<host>:/workspace/SlabSense/scripts/tag-dataset/data/dataset/
+scp -P <port> "G:/Grading App/SlabSense/scripts/tag-dataset/data/dataset/manifest.parquet" "G:/Grading App/SlabSense/scripts/tag-dataset/data/dataset/corners.parquet" "G:/Grading App/SlabSense/scripts/tag-dataset/data/dataset/edges.parquet" "G:/Grading App/SlabSense/scripts/tag-dataset/data/dataset/surface.parquet" root@<host>:/workspace/SlabSense/scripts/tag-dataset/data/dataset/
 ```
 
 The splits file is tracked in git and already on the box.
