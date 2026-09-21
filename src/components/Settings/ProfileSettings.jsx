@@ -7,12 +7,14 @@ import { useState, useEffect } from 'react';
 import { updateProfile, deleteAccount } from '../../services/auth.js';
 import { getCompanyOptions } from '../../utils/gradingScales.js';
 import { modelGradingEnabled, setModelGrading } from '../../services/cornerEdgeModels.js';
+import { trainingCaptureEnabled, setTrainingCapture } from '../../services/trainingCapture.js';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
 
 export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSignOut }) {
   const [modelGrading, setModelGradingState] = useState(modelGradingEnabled());
+  const [keepOriginals, setKeepOriginalsState] = useState(trainingCaptureEnabled());
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [preferredCompany, setPreferredCompany] = useState(profile?.preferred_company || 'tag');
   const [saving, setSaving] = useState(false);
@@ -288,6 +290,61 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
               Finds corner and edge wear with the TAG-trained models instead of the pixel
               detectors. Downloads about 110 MB the first time, then works offline. Slower on
               phones without WebGPU.
+            </div>
+          </div>
+
+          {/* Keep originals for training */}
+          <div>
+            <label style={{
+              display: 'block',
+              fontFamily: mono,
+              fontSize: 10,
+              color: '#555',
+              marginBottom: 6,
+              textTransform: 'uppercase',
+            }}>
+              Keep Originals For Training
+            </label>
+            <button
+              type="button"
+              onClick={() => { const next = !keepOriginals; setTrainingCapture(next); setKeepOriginalsState(next); }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                padding: '10px 12px',
+                background: '#1a1c22',
+                border: `1px solid ${keepOriginals ? '#3a7d44' : '#2a2d35'}`,
+                borderRadius: 6,
+                color: '#fff',
+                fontFamily: sans,
+                fontSize: 14,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <span>Save the full photos and the card outline with each card</span>
+              <span style={{
+                fontFamily: mono,
+                fontSize: 11,
+                color: keepOriginals ? '#6ede82' : '#666',
+                border: `1px solid ${keepOriginals ? '#3a7d44' : '#2a2d35'}`,
+                borderRadius: 4,
+                padding: '2px 8px',
+              }}>
+                {keepOriginals ? 'ON' : 'OFF'}
+              </span>
+            </button>
+            <div style={{
+              fontFamily: mono,
+              fontSize: 10,
+              color: '#444',
+              marginTop: 6,
+            }}>
+              Builds the real-photo test set for the card-detection model. Stores the original
+              front and back photos next to the saved card, about 1 MB per card.
             </div>
           </div>
         </div>

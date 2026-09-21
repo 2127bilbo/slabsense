@@ -878,3 +878,11 @@ ONNX (the black-backdrop row should now keep most of the 64 corner dings
 without the app's repaint), recalibrate the thresholds on the harness,
 publish with new filenames via `npm run models:upload`, and point
 `DEFAULT_MODEL_FILES` in `src/lib/corner-edge-runner.js` at them.
+
+## Steps 10 and 11: card model and centering v2
+
+In their own document: `training/HANDOFF-card-and-centering.md`. Step 10 is a
+new segmentation model that finds the card in any photo (synthetic training
+data from the TAG scans, real-photo acceptance set collected by the app);
+Step 11 retrains `centering_rgb` so it stops shrinking off-centre cards toward
+50/50. Read that document from the top; it is self-contained.

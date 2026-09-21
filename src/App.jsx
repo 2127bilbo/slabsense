@@ -28,6 +28,7 @@ import { getGrade, computeGrade } from "./lib/softwareGrade.js";
 import { analyzePixels, findBounds, PX } from "./lib/detectors.js";
 import { modelGradingEnabled, modelSlotsForSide, cornerEdgeRequest } from "./services/cornerEdgeModels.js";
 import { mergeModelDings } from "./lib/corner-edge-model.js";
+import { trainingCaptureEnabled, captureForTraining } from "./services/trainingCapture.js";
 import holoConfig from "../config/holo-config.json";
 
 /* ═══════════════════════════════════════════
@@ -1986,6 +1987,15 @@ export default function SlabSense(){
       savedScanIdRef.current = scan.id; setSavedScanId(scan.id);
       savedImagesRef.current = imagesKey;
       rememberSavedScan(cardKeyRef.current, scan.id);
+      // Opt-in: keep the original photos + the confirmed card outline as a labelled sample
+      // for the card model's real-photo validation set (Settings > Keep originals for training).
+      if (trainingCaptureEnabled() && !skipImages) {
+        captureForTraining({
+          userId: auth.user.id, scanId: scan.id,
+          front: { dataUrl: fI, centeringData: frontCenteringData },
+          back: { dataUrl: bI, centeringData: backCenteringData },
+        }).catch(() => {});
+      }
       if (refreshCollectionStats) refreshCollectionStats();
       return scan;
     };

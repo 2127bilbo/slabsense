@@ -838,3 +838,7 @@ tool after the user's outer crop, user-adjustable; the card edge stays with
 the user (or a future card-edge detector — `derived/centering_boxes_rgb.parquet`
 is a label source for one, on orange trim only, so it would need the same
 backdrop augmentation as Step 9).
+
+The next two pieces of training work — the card model that finds the card in
+any photo (new) and centering v2 (fixing the shrink toward 50/50) — are
+specified in `training/HANDOFF-card-and-centering.md`.
