@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 
 from .card_backgrounds import RealPool
 from .card_data import SyntheticCards, SyntheticVal, collate_cards, list_cutouts
+from .card_metrics import evaluate_batch
 from .card_model import CardSegNet, bce_dice, count_params
 from .config import load_config
 
@@ -50,16 +51,6 @@ def _lr_at(step: int, total: int, warmup: int, base: float) -> float:
         return base * (step + 1) / warmup
     t = (step - warmup) / max(1, total - warmup)
     return base * 0.5 * (1.0 + math.cos(math.pi * min(1.0, t)))
-
-
-def _iou_batch(logits: torch.Tensor, masks: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
-    """Plain per-sample pixel IoU on the raw predicted mask (not the fitted quad).
-    TODO(Task 5): replace with `card_metrics.iou` on `mask_to_quad`-fitted masks once
-    `card_metrics.py` exists; this is only a placeholder for the `iou` log column until then."""
-    pred = (torch.sigmoid(logits) > threshold).float()
-    inter = (pred * masks).sum(dim=(1, 2, 3))
-    union = ((pred + masks) > 0).float().sum(dim=(1, 2, 3))
-    return torch.where(union > 0, inter / union, torch.ones_like(union))
 
 
 def main(argv=None) -> Path:
@@ -147,22 +138,36 @@ def main(argv=None) -> Path:
             val_n = 0
             iou_total = 0.0
             iou_n = 0
+            corner_err_total = 0.0
+            corner_err_n = 0
+            fail_n = 0
+            sample_n = 0
             with torch.no_grad():
-                for imgs, masks, _metas in val_loader:
+                for imgs, masks, metas in val_loader:
                     imgs, masks = imgs.to(device), masks.to(device)
                     with torch.autocast(device_type=device.type, enabled=(device.type == "cuda")):
                         logits = eval_model(imgs)
                     logits = logits.float()
                     val_total += bce_dice(logits, masks).item()
                     val_n += 1
-                    iou_total += _iou_batch(logits, masks).sum().item()
-                    iou_n += imgs.shape[0]
+                    for r in evaluate_batch(logits, masks, metas):
+                        sample_n += 1
+                        if not math.isnan(r["iou"]):
+                            iou_total += r["iou"]
+                            iou_n += 1
+                        if r["failure"]:
+                            fail_n += 1
+                        else:
+                            corner_err_total += r["corner_err_pct"]
+                            corner_err_n += 1
             val_loss = val_total / max(val_n, 1)
             iou = iou_total / max(iou_n, 1)
+            corner_err_pct = corner_err_total / corner_err_n if corner_err_n else float("nan")
+            fail_rate = fail_n / max(sample_n, 1)
             secs = time.time() - t0
 
             row = [epoch, f"{train_loss:.5f}", f"{val_loss:.5f}", f"{last_lr:.2e}", f"{secs:.1f}",
-                  f"{iou:.4f}", "nan", "nan"]
+                  f"{iou:.4f}", f"{corner_err_pct:.4f}", f"{fail_rate:.4f}"]
             w.writerow(row)
             f.flush()
             print(f"epoch {epoch}/{args.epochs} train {train_loss:.4f} val {val_loss:.4f} "
