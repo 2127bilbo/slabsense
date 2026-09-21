@@ -141,7 +141,7 @@ def report_data_path(label: str, path: Path, count: int, unit: str) -> None:
     if count > 0:
         print(f"{label}: {resolved} ({count} {unit})")
     else:
-        print(f"{label}: {resolved} NOT FOUND / empty -- no {unit}, falling back to synthetic-only")
+        print(f"{label}: {resolved} NOT FOUND / empty -- no {unit}, this source is skipped (procedural backgrounds only; real-photo validation is unaffected)")
 
 
 class RealPool:
