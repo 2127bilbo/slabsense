@@ -17,7 +17,8 @@
     "storage:cleanup": "node scripts/storage/cleanup-grade-uploads.mjs",
     "harness:identify": "node --expose-gc scripts/harness/identify.mjs",
     "models:upload": "node scripts/models/upload.mjs",
-    "models:export-card-val": "node scripts/models/export-card-val.mjs"
+    "models:export-card-val": "node scripts/models/export-card-val.mjs",
+    "models:label-card-val": "node scripts/models/label-card-val.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",

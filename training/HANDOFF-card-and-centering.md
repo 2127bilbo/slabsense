@@ -145,9 +145,16 @@ photos and the four confirmed corners with every saved card
 (`<user>/<scan>/training/{front.jpg,back.jpg,labels.json}` in the
 `card-images` bucket; corners as 0–1 fractions of the photo, see
 `src/lib/training-labels.js`). Every card the owner scans with it on is a
-labelled real sample. `npm run models:export-card-val` pulls them all into
-`training/data/card-val/<scanId>/` (not in git); run it on the PC before
-copying the folder to the box.
+labelled real sample. The faster route, and the one the owner uses: shoot
+cards with the phone's own camera and label on the PC with
+`npm run models:label-card-val -- --photos <folder>` (the app's bounds
+detector suggests the outline; Enter accepts, drag a corner to fix; B/V/X
+tag bowed / sleeved / deliberately bad). Both sources write the same
+`training/data/card-val/<name>/{front.jpg,labels.json}` layout (photo long
+side capped at 2000 px like an app upload; corners as 0–1 fractions;
+`tags` present on tool-labelled samples). `npm run models:export-card-val`
+pulls the in-app captures into the same folder. Not in git; copy the folder
+to the box.
 
 Target: at least 150 real photos (front and back count separately), covering
 the owner's usual surfaces, some crooked, some rotated 90°, a few bowed
