@@ -5,14 +5,17 @@
  *
  * Shoot cards with the phone's own camera (front, back, whatever, any surface,
  * some crooked, some rotated, some bowed, some in sleeves), copy the photos to
- * a folder on the PC, then:
+ * a folder on the PC (iPhone HEIC is fine: it is converted once into
+ * <photos>/_converted/), then:
  *
  *   node scripts/models/label-card-val.mjs --photos "C:/path/to/photos" [--out training/data/card-val] [--port 5210]
  *
- * A page opens with each photo and the card outline already suggested by the
- * app's own bounds detector. Drag a corner if it is off. Keys:
- *   Enter  accept and next        R  reset to the suggestion     S  skip
- *   B / V / X  toggle a tag: bowed / sleeved / deliberately bad photo
+ * A page opens with each photo. If the app's bounds detector finds something
+ * card-shaped it is drawn as the suggestion; otherwise (textured tables fool
+ * it) the outline is empty and you click the four corners in any order — the
+ * clicks are sorted into TL/TR/BR/BL. Drag a corner to adjust. Keys:
+ *   Enter  accept and next        C  clear (click again)     R  suggestion
+ *   S  skip     B / V / X  toggle a tag: bowed / sleeved / deliberately bad
  *   Backspace  previous photo
  * Each accepted photo is written as <out>/<name>/front.jpg (long side capped
  * at 2000 px, the app's upload size) + labels.json in the same shape the app's
@@ -24,6 +27,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { createCanvas, Image } from 'canvas';
+import heicConvert from 'heic-convert';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..', '..');
@@ -36,14 +40,35 @@ const MAX_PX = 2000;
 if (!PHOTOS || !fs.existsSync(PHOTOS)) { console.error('pass --photos <folder of jpg/png/heic-converted photos>'); process.exit(1); }
 
 const stem = (f) => path.basename(f).replace(/\.[^.]+$/, '').replace(/[^A-Za-z0-9_-]+/g, '_');
-const isPhoto = (f) => /\.(jpe?g|png|webp)$/i.test(f);
+const isPhoto = (f) => /\.(jpe?g|png|webp|heic|heif)$/i.test(f);
+const isHeic = (f) => /\.(heic|heif)$/i.test(f);
+const CONVERTED = path.join(PHOTOS, '_converted');
 const listPhotos = () => fs.readdirSync(PHOTOS).filter(isPhoto).sort().map((f) => ({ file: f, name: stem(f), done: fs.existsSync(path.join(OUT, stem(f), 'labels.json')) }));
+
+/** Path of a photo the browser and node-canvas can read; HEIC is converted once and cached. */
+const converting = new Map();
+async function readablePath(file) {
+  const src = path.join(PHOTOS, path.basename(file));
+  if (!isHeic(file)) return src;
+  const dst = path.join(CONVERTED, stem(file) + '.jpg');
+  if (fs.existsSync(dst)) return dst;
+  if (!converting.has(dst)) {
+    converting.set(dst, (async () => {
+      fs.mkdirSync(CONVERTED, { recursive: true });
+      const jpg = await heicConvert({ buffer: fs.readFileSync(src), format: 'JPEG', quality: 0.92 });
+      fs.writeFileSync(dst, Buffer.from(jpg));
+      console.log(`converted ${path.basename(file)} -> _converted/${path.basename(dst)}`);
+      return dst;
+    })().finally(() => converting.delete(dst)));
+  }
+  return converting.get(dst);
+}
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.json': 'application/json' };
 
-function saveLabel(body) {
+async function saveLabel(body) {
   const { file, corners, imageWidth, imageHeight, tags } = body;
-  const src = path.join(PHOTOS, path.basename(file));
+  const src = await readablePath(file);
   const img = new Image(); img.src = fs.readFileSync(src);
   const s = Math.min(1, MAX_PX / Math.max(img.width, img.height));
   const w = Math.round(img.width * s), h = Math.round(img.height * s);
@@ -68,12 +93,27 @@ canvas{position:absolute;left:0;top:0}
 kbd{background:#333;padding:1px 5px;border-radius:3px}
 </style></head><body>
 <div id="bar"><span id="count"></span><span id="name"></span><span class="tag" id="tag-bowed">B bowed</span><span class="tag" id="tag-sleeve">V sleeved</span><span class="tag" id="tag-bad">X bad photo</span>
-<span style="margin-left:auto;color:#777"><kbd>Enter</kbd> accept · <kbd>R</kbd> reset · <kbd>S</kbd> skip · <kbd>Backspace</kbd> back · drag corners</span></div>
+<span id="hint" style="color:#e0a040"></span><span style="margin-left:auto;color:#777"><kbd>Enter</kbd> accept · click 4 corners · <kbd>C</kbd> clear · <kbd>R</kbd> suggestion · <kbd>S</kbd> skip · <kbd>Backspace</kbd> back</span></div>
 <div id="stage"><canvas id="c"></canvas></div>
 <script type="module">
 import { findBounds } from '/src/lib/detectors.js';
 const stage = document.getElementById('stage'), cv = document.getElementById('c'), ctx = cv.getContext('2d');
-let photos = [], idx = 0, img = null, quad = null, sugg = null, tags = new Set(), scale = 1, drag = null;
+let photos = [], idx = 0, img = null, quad = null, sugg = null, tags = new Set(), scale = 1, drag = null, clicks = [];
+const CARD_ASPECT = 2.5 / 3.5;
+function plausible(q) {
+  if (!q) return false;
+  const w = q.tr.x - q.tl.x, h = q.bl.y - q.tl.y, W = img.naturalWidth, H = img.naturalHeight;
+  const fill = (w * h) / (W * H), asp = w / h;
+  return fill > 0.08 && fill < 0.85 && (Math.abs(asp - CARD_ASPECT) < 0.15 || Math.abs(asp - 1 / CARD_ASPECT) < 0.3);
+}
+function quadFromClicks(pts) {
+  // sort four points into TL, TR, BR, BL by angle around their centre
+  const cx = pts.reduce((s, p) => s + p.x, 0) / 4, cy = pts.reduce((s, p) => s + p.y, 0) / 4;
+  const sorted = [...pts].sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+  const i0 = sorted.findIndex((p) => p.x < cx && p.y < cy); // start at the top-left-most
+  const r = i0 >= 0 ? [...sorted.slice(i0), ...sorted.slice(0, i0)] : sorted;
+  return { tl: r[0], tr: r[1], br: r[2], bl: r[3] };
+}
 async function load() { photos = await (await fetch('/api/photos')).json(); idx = photos.findIndex((p) => !p.done); if (idx < 0) idx = 0; show(); }
 function fit() { const W = stage.clientWidth, H = stage.clientHeight; scale = Math.min(W / img.naturalWidth, H / img.naturalHeight); cv.width = Math.round(img.naturalWidth * scale); cv.height = Math.round(img.naturalHeight * scale); cv.style.left = Math.round((W - cv.width) / 2) + 'px'; }
 function suggest() {
@@ -88,19 +128,32 @@ async function show() {
   document.getElementById('count').textContent = (idx + 1) + ' / ' + photos.length + '  (' + photos.filter((x) => x.done).length + ' done)';
   document.getElementById('name').textContent = p.file + (p.done ? '  ✓ labelled' : '');
   img = new Image(); await new Promise((r) => { img.onload = r; img.src = '/photo/' + encodeURIComponent(p.file); });
-  fit(); sugg = suggest(); quad = JSON.parse(JSON.stringify(sugg)); tags = new Set(); draw();
+  fit(); sugg = suggest(); clicks = []; tags = new Set();
+  quad = plausible(sugg) ? JSON.parse(JSON.stringify(sugg)) : null;
+  draw();
 }
 function draw() {
   ctx.drawImage(img, 0, 0, cv.width, cv.height);
-  const pts = ['tl', 'tr', 'br', 'bl'].map((k) => [quad[k].x * scale, quad[k].y * scale]);
-  ctx.lineWidth = 2; ctx.strokeStyle = '#6ede82'; ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.stroke();
-  for (const [x, y] of pts) { ctx.fillStyle = '#6ede82'; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); }
+  if (quad) {
+    const pts = ['tl', 'tr', 'br', 'bl'].map((k) => [quad[k].x * scale, quad[k].y * scale]);
+    ctx.lineWidth = 2; ctx.strokeStyle = '#6ede82'; ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.stroke();
+    for (const [x, y] of pts) { ctx.fillStyle = '#6ede82'; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); }
+  } else {
+    for (const p of clicks) { ctx.fillStyle = '#ffcc00'; ctx.beginPath(); ctx.arc(p.x * scale, p.y * scale, 7, 0, 7); ctx.fill(); }
+  }
+  document.getElementById('hint').textContent = quad ? '' : 'click the card corners (' + clicks.length + '/4)';
   for (const t of ['bowed', 'sleeve', 'bad']) document.getElementById('tag-' + t).classList.toggle('on', tags.has(t));
 }
-cv.addEventListener('pointerdown', (e) => { const r = cv.getBoundingClientRect(); const x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale; let best = null, bd = 1e9; for (const k of ['tl', 'tr', 'br', 'bl']) { const d = Math.hypot(quad[k].x - x, quad[k].y - y); if (d < bd) { bd = d; best = k; } } if (bd * scale < 40) { drag = best; cv.setPointerCapture(e.pointerId); } });
+cv.addEventListener('pointerdown', (e) => {
+  const r = cv.getBoundingClientRect(); const x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
+  if (!quad) { clicks.push({ x, y }); if (clicks.length === 4) quad = quadFromClicks(clicks); draw(); return; }
+  let best = null, bd = 1e9; for (const k of ['tl', 'tr', 'br', 'bl']) { const d = Math.hypot(quad[k].x - x, quad[k].y - y); if (d < bd) { bd = d; best = k; } }
+  if (bd * scale < 40) { drag = best; cv.setPointerCapture(e.pointerId); }
+});
 cv.addEventListener('pointermove', (e) => { if (!drag) return; const r = cv.getBoundingClientRect(); quad[drag] = { x: Math.max(0, Math.min(img.naturalWidth, (e.clientX - r.left) / scale)), y: Math.max(0, Math.min(img.naturalHeight, (e.clientY - r.top) / scale)) }; draw(); });
 cv.addEventListener('pointerup', () => { drag = null; });
 async function accept() {
+  if (!quad) { document.getElementById('hint').textContent = 'click all four corners first'; return; }
   const p = photos[idx]; const W = img.naturalWidth, H = img.naturalHeight;
   const corners = Object.fromEntries(Object.entries(quad).map(([k, v]) => [k, { x: v.x / W, y: v.y / H }]));
   const res = await fetch('/api/label', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ file: p.file, corners, imageWidth: W, imageHeight: H, tags: [...tags] }) });
@@ -109,7 +162,8 @@ async function accept() {
 }
 function next() { if (idx < photos.length - 1) { idx++; show(); } else { document.getElementById('name').textContent = 'all photos labelled'; } }
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') accept(); else if (e.key === 'r' || e.key === 'R') { quad = JSON.parse(JSON.stringify(sugg)); draw(); }
+  if (e.key === 'Enter') accept(); else if (e.key === 'r' || e.key === 'R') { quad = JSON.parse(JSON.stringify(sugg)); clicks = []; draw(); }
+  else if (e.key === 'c' || e.key === 'C') { quad = null; clicks = []; draw(); }
   else if (e.key === 's' || e.key === 'S') next(); else if (e.key === 'Backspace') { if (idx > 0) { idx--; show(); } }
   else if (e.key === 'b' || e.key === 'B') { tags.has('bowed') ? tags.delete('bowed') : tags.add('bowed'); draw(); }
   else if (e.key === 'v' || e.key === 'V') { tags.has('sleeve') ? tags.delete('sleeve') : tags.add('sleeve'); draw(); }
@@ -126,11 +180,11 @@ const server = http.createServer(async (req, res) => {
     if (url === '/api/photos') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(listPhotos())); }
     if (url === '/api/label' && req.method === 'POST') {
       let body = ''; for await (const chunk of req) body += chunk;
-      const out = saveLabel(JSON.parse(body));
+      const out = await saveLabel(JSON.parse(body));
       console.log(`labelled ${out.dir} (${out.width}x${out.height})`);
       res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(out));
     }
-    if (url.startsWith('/photo/')) { const f = path.join(PHOTOS, path.basename(url.slice(7))); if (!fs.existsSync(f)) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'Content-Type': MIME[path.extname(f).toLowerCase()] || 'application/octet-stream' }); return fs.createReadStream(f).pipe(res); }
+    if (url.startsWith('/photo/')) { const name = path.basename(url.slice(7)); if (!fs.existsSync(path.join(PHOTOS, name))) { res.writeHead(404); return res.end(); } const f = await readablePath(name); res.writeHead(200, { 'Content-Type': MIME[path.extname(f).toLowerCase()] || 'application/octet-stream' }); return fs.createReadStream(f).pipe(res); }
     if (url.startsWith('/src/')) { const f = path.join(ROOT, url); if (!fs.existsSync(f)) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'Content-Type': 'text/javascript' }); return fs.createReadStream(f).pipe(res); }
     res.writeHead(404); res.end();
   } catch (e) { res.writeHead(500); res.end(String(e?.message || e)); }
