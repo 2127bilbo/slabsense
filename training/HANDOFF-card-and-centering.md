@@ -180,8 +180,17 @@ Report, on the real val set:
   not card-shaped (aspect ratio outside 0.66–0.78 after rectification, or
   area under 15 % of the frame).
 
-Accept when, on the real val set: IoU ≥ 0.97, mean corner error ≤ 0.8 % of
-the long side, 95th percentile ≤ 2 %, failure rate ≤ 2 %. If the real set
+The labels are the four corner tips, placed by hand with zoom; the sides
+are straight lines between them. On a photo tagged `bowed` the card's real
+outline bulges or dips relative to those lines, so IoU against the polygon
+is meaningless there: compute IoU on photos **without** the `bowed` tag,
+and judge bowed photos on corner error only (report their IoU
+separately, for information). Corner error is the primary number on every
+photo.
+
+Accept when, on the real val set: IoU ≥ 0.97 on non-bowed photos, mean
+corner error ≤ 0.8 % of the long side over all photos, 95th percentile
+≤ 2 %, failure rate ≤ 2 %. If the real set
 is missing, provisional acceptance is IoU ≥ 0.98 on synthetic val, and the
 report must say the real test is still owed.
 
