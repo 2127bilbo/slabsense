@@ -16,7 +16,8 @@
  * clicks are sorted into TL/TR/BR/BL. Drag a corner to adjust. Keys:
  *   Enter  accept and next        C  clear (click again)     R  suggestion
  *   S  skip     B / V / X  toggle a tag: bowed / sleeved / deliberately bad
- *   Backspace  previous photo
+ *   Backspace  previous photo     scroll wheel  zoom at the cursor     0  reset zoom
+ *   drag on empty space  pan when zoomed
  * Each accepted photo is written as <out>/<name>/front.jpg (long side capped
  * at 2000 px, the app's upload size) + labels.json in the same shape the app's
  * "Keep Originals For Training" toggle produces, so the two sources merge.
@@ -93,12 +94,16 @@ canvas{position:absolute;left:0;top:0}
 kbd{background:#333;padding:1px 5px;border-radius:3px}
 </style></head><body>
 <div id="bar"><span id="count"></span><span id="name"></span><span class="tag" id="tag-bowed">B bowed</span><span class="tag" id="tag-sleeve">V sleeved</span><span class="tag" id="tag-bad">X bad photo</span>
-<span id="hint" style="color:#e0a040"></span><span style="margin-left:auto;color:#777"><kbd>Enter</kbd> accept · click 4 corners · <kbd>C</kbd> clear · <kbd>R</kbd> suggestion · <kbd>S</kbd> skip · <kbd>Backspace</kbd> back</span></div>
+<span id="hint" style="color:#e0a040"></span><span style="margin-left:auto;color:#777"><kbd>Enter</kbd> accept · click 4 corners · <kbd>C</kbd> clear · <kbd>R</kbd> suggestion · <kbd>S</kbd> skip · <kbd>Backspace</kbd> back · wheel zoom · <kbd>0</kbd> reset</span></div>
 <div id="stage"><canvas id="c"></canvas></div>
 <script type="module">
 import { findBounds } from '/src/lib/detectors.js';
 const stage = document.getElementById('stage'), cv = document.getElementById('c'), ctx = cv.getContext('2d');
-let photos = [], idx = 0, img = null, quad = null, sugg = null, tags = new Set(), scale = 1, drag = null, clicks = [];
+let photos = [], idx = 0, img = null, quad = null, sugg = null, tags = new Set(), scale = 1, drag = null, clicks = [], pan = null;
+let view = { zoom: 1, x: 0, y: 0 };            // screen = image * scale * zoom + (x, y)
+const toImage = (sx, sy) => ({ x: (sx - view.x) / (scale * view.zoom), y: (sy - view.y) / (scale * view.zoom) });
+const toScreen = (p) => ({ x: p.x * scale * view.zoom + view.x, y: p.y * scale * view.zoom + view.y });
+window.__view = () => ({ ...view, scale });
 const CARD_ASPECT = 2.5 / 3.5;
 function plausible(q) {
   if (!q) return false;
@@ -115,7 +120,7 @@ function quadFromClicks(pts) {
   return { tl: r[0], tr: r[1], br: r[2], bl: r[3] };
 }
 async function load() { photos = await (await fetch('/api/photos')).json(); idx = photos.findIndex((p) => !p.done); if (idx < 0) idx = 0; show(); }
-function fit() { const W = stage.clientWidth, H = stage.clientHeight; scale = Math.min(W / img.naturalWidth, H / img.naturalHeight); cv.width = Math.round(img.naturalWidth * scale); cv.height = Math.round(img.naturalHeight * scale); cv.style.left = Math.round((W - cv.width) / 2) + 'px'; }
+function fit() { const W = stage.clientWidth, H = stage.clientHeight; scale = Math.min(W / img.naturalWidth, H / img.naturalHeight); cv.width = W; cv.height = H; cv.style.left = '0px'; view = { zoom: 1, x: Math.round((W - img.naturalWidth * scale) / 2), y: Math.round((H - img.naturalHeight * scale) / 2) }; }
 function suggest() {
   const w = 700, h = Math.round(img.naturalHeight * 700 / img.naturalWidth);
   const t = document.createElement('canvas'); t.width = w; t.height = h; const tc = t.getContext('2d'); tc.drawImage(img, 0, 0, w, h);
@@ -133,25 +138,50 @@ async function show() {
   draw();
 }
 function draw() {
-  ctx.drawImage(img, 0, 0, cv.width, cv.height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#111'; ctx.fillRect(0, 0, cv.width, cv.height);
+  const k = scale * view.zoom;
+  ctx.setTransform(k, 0, 0, k, view.x, view.y); ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const dot = (p, colour) => { const s = toScreen(p); ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, 7); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s.x - 12, s.y); ctx.lineTo(s.x + 12, s.y); ctx.moveTo(s.x, s.y - 12); ctx.lineTo(s.x, s.y + 12); ctx.stroke(); };
   if (quad) {
-    const pts = ['tl', 'tr', 'br', 'bl'].map((k) => [quad[k].x * scale, quad[k].y * scale]);
-    ctx.lineWidth = 2; ctx.strokeStyle = '#6ede82'; ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.stroke();
-    for (const [x, y] of pts) { ctx.fillStyle = '#6ede82'; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); }
+    const pts = ['tl', 'tr', 'br', 'bl'].map((kk) => toScreen(quad[kk]));
+    ctx.lineWidth = 2; ctx.strokeStyle = '#6ede82'; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath(); ctx.stroke();
+    for (const kk of ['tl', 'tr', 'br', 'bl']) dot(quad[kk], '#6ede82');
   } else {
-    for (const p of clicks) { ctx.fillStyle = '#ffcc00'; ctx.beginPath(); ctx.arc(p.x * scale, p.y * scale, 7, 0, 7); ctx.fill(); }
+    for (const p of clicks) dot(p, '#ffcc00');
   }
+  if (view.zoom > 1.01) { ctx.fillStyle = '#aaa'; ctx.font = '12px system-ui'; ctx.fillText(view.zoom.toFixed(1) + 'x', 10, cv.height - 10); }
   document.getElementById('hint').textContent = quad ? '' : 'click the card corners (' + clicks.length + '/4)';
   for (const t of ['bowed', 'sleeve', 'bad']) document.getElementById('tag-' + t).classList.toggle('on', tags.has(t));
 }
 cv.addEventListener('pointerdown', (e) => {
-  const r = cv.getBoundingClientRect(); const x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
-  if (!quad) { clicks.push({ x, y }); if (clicks.length === 4) quad = quadFromClicks(clicks); draw(); return; }
-  let best = null, bd = 1e9; for (const k of ['tl', 'tr', 'br', 'bl']) { const d = Math.hypot(quad[k].x - x, quad[k].y - y); if (d < bd) { bd = d; best = k; } }
-  if (bd * scale < 40) { drag = best; cv.setPointerCapture(e.pointerId); }
+  const r = cv.getBoundingClientRect(); const sx = e.clientX - r.left, sy = e.clientY - r.top; const p = toImage(sx, sy);
+  if (quad) {
+    let best = null, bd = 1e9; for (const k of ['tl', 'tr', 'br', 'bl']) { const s = toScreen(quad[k]); const d = Math.hypot(s.x - sx, s.y - sy); if (d < bd) { bd = d; best = k; } }
+    if (bd < 20) { drag = best; cv.setPointerCapture(e.pointerId); return; }
+  }
+  if (view.zoom > 1.01) { pan = { sx, sy, x: view.x, y: view.y, moved: false }; cv.setPointerCapture(e.pointerId); return; }
+  if (!quad) { clicks.push(p); if (clicks.length === 4) quad = quadFromClicks(clicks); draw(); }
 });
-cv.addEventListener('pointermove', (e) => { if (!drag) return; const r = cv.getBoundingClientRect(); quad[drag] = { x: Math.max(0, Math.min(img.naturalWidth, (e.clientX - r.left) / scale)), y: Math.max(0, Math.min(img.naturalHeight, (e.clientY - r.top) / scale)) }; draw(); });
-cv.addEventListener('pointerup', () => { drag = null; });
+cv.addEventListener('pointermove', (e) => {
+  const r = cv.getBoundingClientRect(); const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  if (drag) { const p = toImage(sx, sy); quad[drag] = { x: Math.max(0, Math.min(img.naturalWidth, p.x)), y: Math.max(0, Math.min(img.naturalHeight, p.y)) }; draw(); return; }
+  if (pan) { if (Math.hypot(sx - pan.sx, sy - pan.sy) > 3) pan.moved = true; view.x = pan.x + (sx - pan.sx); view.y = pan.y + (sy - pan.sy); draw(); }
+});
+cv.addEventListener('pointerup', (e) => {
+  if (pan && !pan.moved && !quad) { const r = cv.getBoundingClientRect(); clicks.push(toImage(e.clientX - r.left, e.clientY - r.top)); if (clicks.length === 4) quad = quadFromClicks(clicks); draw(); }
+  drag = null; pan = null;
+});
+cv.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect(); const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  const before = toImage(sx, sy);
+  view.zoom = Math.max(1, Math.min(10, view.zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
+  // keep the image point under the cursor fixed
+  view.x = sx - before.x * scale * view.zoom; view.y = sy - before.y * scale * view.zoom;
+  if (view.zoom <= 1.01) fit();
+  draw();
+}, { passive: false });
 async function accept() {
   if (!quad) { document.getElementById('hint').textContent = 'click all four corners first'; return; }
   const p = photos[idx]; const W = img.naturalWidth, H = img.naturalHeight;
@@ -164,6 +194,7 @@ function next() { if (idx < photos.length - 1) { idx++; show(); } else { documen
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') accept(); else if (e.key === 'r' || e.key === 'R') { quad = JSON.parse(JSON.stringify(sugg)); clicks = []; draw(); }
   else if (e.key === 'c' || e.key === 'C') { quad = null; clicks = []; draw(); }
+  else if (e.key === '0') { fit(); draw(); }
   else if (e.key === 's' || e.key === 'S') next(); else if (e.key === 'Backspace') { if (idx > 0) { idx--; show(); } }
   else if (e.key === 'b' || e.key === 'B') { tags.has('bowed') ? tags.delete('bowed') : tags.add('bowed'); draw(); }
   else if (e.key === 'v' || e.key === 'V') { tags.has('sleeve') ? tags.delete('sleeve') : tags.add('sleeve'); draw(); }
