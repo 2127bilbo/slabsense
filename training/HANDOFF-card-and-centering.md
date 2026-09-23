@@ -225,6 +225,14 @@ and the graded image (a 3 % margin of the real background around the card).
 The centering tool opens with the outer line already placed; the owner
 confirms or nudges. The centering model then places the inner line.
 
+The same model also replaces the live viewfinder's card box and the
+post-capture "issues detected" check, which today use a texture-variance
+detector that grabs patterned tables and cannot see rotation (owner,
+2026-09-22: the box jumps on hand jitter and flags good photos). At ~30 ms a
+frame on WebGPU it can run live; the classical detector stays as the
+fallback for phones without WebGPU. Speed target in 10.0 is set with this
+in mind.
+
 ---
 
 ## Step 11: centering v2 — stop shrinking toward 50/50
