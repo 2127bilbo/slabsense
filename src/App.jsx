@@ -26,7 +26,7 @@ import { loadImg, genMaps, LUM, loadImageElement } from "./lib/image-utils.js";
 import { cropToOuterBounds, getBoundsFromCorners } from "./lib/centering-utils.js";
 import { getGrade, computeGrade } from "./lib/softwareGrade.js";
 import { analyzePixels, findBounds, PX } from "./lib/detectors.js";
-import { modelGradingEnabled, modelSlotsForSide, cornerEdgeRequest } from "./services/cornerEdgeModels.js";
+import { modelGradingEnabled, modelSlotsForSide, cornerEdgeRequest, markModelPass, modelPassCrashed } from "./services/cornerEdgeModels.js";
 import { mergeModelDings } from "./lib/corner-edge-model.js";
 import { trainingCaptureEnabled, captureForTraining } from "./services/trainingCapture.js";
 import holoConfig from "../config/holo-config.json";
@@ -191,7 +191,14 @@ async function withModelDings(src, side, result, onProgress = null) {
     const scale = img.naturalWidth / (result.imgW || img.naturalWidth);
     const b = result.bounds;
     const rect = b ? { x: b.left * scale, y: b.top * scale, w: b.cardW * scale, h: b.cardH * scale } : null;
-    const { slots, dings } = await modelSlotsForSide(img, rect, side);
+    markModelPass(true);
+    let slots, dings;
+    try {
+      ({ slots, dings } = await modelSlotsForSide(img, rect, side));
+    } finally {
+      markModelPass(false);
+      img.src = ''; // release the decoded full-resolution bitmap now, not whenever GC gets to it
+    }
     // `modelSlots` (every slot, clean or not) rides along to the paid grades so Claude
     // judges corners and edges from the same numbers; see api/_lib/cornerEdgeInput.js.
     return { ...result, allDings: mergeModelDings(result.allDings, dings), modelDings: dings, modelSlots: slots, modelUsed: true };

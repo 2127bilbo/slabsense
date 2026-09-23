@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { updateProfile, deleteAccount } from '../../services/auth.js';
 import { getCompanyOptions } from '../../utils/gradingScales.js';
-import { modelGradingEnabled, setModelGrading } from '../../services/cornerEdgeModels.js';
+import { modelGradingEnabled, setModelGrading, modelPassCrashed, clearModelPassCrash } from '../../services/cornerEdgeModels.js';
 import { trainingCaptureEnabled, setTrainingCapture } from '../../services/trainingCapture.js';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
@@ -14,6 +14,7 @@ const sans = "'Inter',-apple-system,sans-serif";
 
 export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSignOut }) {
   const [modelGrading, setModelGradingState] = useState(modelGradingEnabled());
+  const [modelCrash, setModelCrash] = useState(modelPassCrashed());
   const [keepOriginals, setKeepOriginalsState] = useState(trainingCaptureEnabled());
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [preferredCompany, setPreferredCompany] = useState(profile?.preferred_company || 'tag');
@@ -251,7 +252,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
             </label>
             <button
               type="button"
-              onClick={() => { const next = !modelGrading; setModelGrading(next); setModelGradingState(next); }}
+              onClick={() => { const next = !modelGrading; setModelGrading(next); setModelGradingState(next); if (next) { clearModelPassCrash(); setModelCrash(null); } }}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -291,6 +292,13 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
               detectors. Downloads about 110 MB the first time, then works offline. Slower on
               phones without WebGPU.
             </div>
+            {modelCrash && (
+              <div style={{ fontFamily: mono, fontSize: 10, color: '#e0a040', marginTop: 6 }}>
+                Turned off automatically: the app restarted during a model pass on this device
+                ({new Date(modelCrash).toLocaleString()}), which usually means it ran out of memory.
+                Turn it back on to try again.
+              </div>
+            )}
           </div>
 
           {/* Keep originals for training */}

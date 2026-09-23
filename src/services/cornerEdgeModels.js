@@ -59,6 +59,38 @@ export function setModelGrading(on) {
   try { localStorage.setItem(FLAG_KEY, on ? '1' : '0'); } catch { /* private mode */ }
 }
 
+/**
+ * Crash-loop guard. A phone that runs out of memory during the model pass reloads the
+ * page with no error, and the next scan would do the same. The pass is bracketed with a
+ * timestamp in localStorage; if the app starts and finds a recent one still there, the
+ * last page died mid-pass, so the models are switched off on this device and the reason
+ * is kept for the UI (Settings shows it; turning the toggle back on clears it).
+ */
+const PASS_KEY = 'slabsense_modelPassActive';
+const CRASH_KEY = 'slabsense_modelPassCrashed';
+export function markModelPass(active) {
+  try { if (active) localStorage.setItem(PASS_KEY, String(Date.now())); else localStorage.removeItem(PASS_KEY); } catch { /* private mode */ }
+}
+/** Call once at startup. Returns true when the previous page died during a model pass. */
+export function detectModelPassCrash() {
+  try {
+    const t = Number(localStorage.getItem(PASS_KEY) || 0);
+    localStorage.removeItem(PASS_KEY);
+    if (t && Date.now() - t < 10 * 60 * 1000) {
+      localStorage.setItem(CRASH_KEY, new Date(t).toISOString());
+      localStorage.setItem(FLAG_KEY, '0');
+      return true;
+    }
+  } catch { /* private mode */ }
+  return false;
+}
+export function modelPassCrashed() {
+  try { return localStorage.getItem(CRASH_KEY); } catch { return null; }
+}
+export function clearModelPassCrash() {
+  try { localStorage.removeItem(CRASH_KEY); } catch { /* private mode */ }
+}
+
 /** 'webgpu' when the device has it, otherwise 'wasm'. Used for the "this will be slow" hint. */
 export function preferredBackend() {
   try { return navigator.gpu ? 'webgpu' : 'wasm'; } catch { return 'wasm'; }

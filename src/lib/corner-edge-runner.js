@@ -52,10 +52,12 @@ export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, exec
     return canvases[task];
   }
 
-  const modelBytes = {};
+  // Model bytes are fetched, handed to the runtime, and dropped: the runtime keeps its own
+  // copy, and holding a second 54 MB copy per model in JavaScript is what pushed phones over
+  // their memory budget (the page silently reloads). The WASM fallback re-loads from
+  // `loadModel`, which the browser serves from its cache.
   async function bytesFor(task) {
-    if (!modelBytes[task]) modelBytes[task] = loadModel ? loadModel(task, modelFiles[task]) : Promise.resolve(base + modelFiles[task]);
-    return modelBytes[task];
+    return loadModel ? loadModel(task, modelFiles[task]) : base + modelFiles[task];
   }
 
   async function sessionFor(task) {
@@ -86,21 +88,38 @@ export function createCornerEdgeRunner({ ort, createCanvas, baseUrl, files, exec
     return fallbacks[task];
   }
 
+  async function runBatch(session, images, sides, n, h, w) {
+    return (await session.run({
+      images: new ort.Tensor('float32', images, [n, 3, h, w]),
+      sides: new ort.Tensor('float32', sides, [n, 1]),
+    })).logits.data;
+  }
+
   /** Run one task over one side. Returns the decoded slots. */
   async function runTask(task, source, rect, side) {
     const { images, boxes, w, h } = cropBatch(ctxFor(task), source, task, rect, undefined, { backdrop });
     const n = boxes.length;
     const session = await sessionFor(task);
-    const feeds = () => ({
-      images: new ort.Tensor('float32', images, [n, 3, h, w]),
-      sides: new ort.Tensor('float32', new Float32Array(n).fill(side === 'back' || side === 'BACK' ? 1 : 0), [n, 1]),
-    });
-    let logits = (await session.run(feeds())).logits.data;
-    if (!Array.from(logits).every(Number.isFinite) && session.__ep !== 'wasm') {
-      console.warn(`corner-edge-runner: non-finite ${task} output on ${session.__ep}, rerunning on wasm`);
-      logits = (await (await fallbackFor(task)).run(feeds())).logits.data;
+    const sideVal = side === 'back' || side === 'BACK' ? 1 : 0;
+    const nOut = OUTPUT_CHANNELS[task].length;
+    let logits;
+    if (session.__ep === 'wasm') {
+      // One crop at a time on WASM: the working memory of a convnext pass scales with the
+      // batch, and a batch of four is what phones without WebGPU could not afford.
+      logits = new Float32Array(n * nOut);
+      const per = 3 * h * w;
+      for (let i = 0; i < n; i++) {
+        const out = await runBatch(session, images.subarray(i * per, (i + 1) * per), new Float32Array([sideVal]), 1, h, w);
+        logits.set(out, i * nOut);
+      }
+    } else {
+      logits = await runBatch(session, images, new Float32Array(n).fill(sideVal), n, h, w);
+      if (!Array.from(logits).every(Number.isFinite)) {
+        console.warn(`corner-edge-runner: non-finite ${task} output on ${session.__ep}, rerunning on wasm`);
+        logits = await runBatch(await fallbackFor(task), images, new Float32Array(n).fill(sideVal), n, h, w);
+      }
     }
-    return decodeSide(task, logits, boxes, OUTPUT_CHANNELS[task].length);
+    return decodeSide(task, logits, boxes, nOut);
   }
 
   return {
