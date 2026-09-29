@@ -156,18 +156,17 @@ async function cachedModelBytes(task, onProgress) {
   return bytes;
 }
 
-let runner = null;
-let runnerPromise = null;
-
-/** Build (once) the runner bound to this browser's canvas and ONNX runtime. */
-export async function getRunner({ onProgress = null } = {}) {
-  if (runner) return runner;
-  if (!runnerPromise) {
-    runnerPromise = (async () => {
-      if (!modelsAvailable()) throw new Error('corner/edge models are not hosted for this build');
-      // The runtime is imported from the bucket at runtime, never bundled: letting Vite bundle
-      // onnxruntime-web also emits its 27 MB .wasm into the deploy. Everything heavy lives in
-      // the bucket and is cached by the browser after the first grade.
+let ortPromise = null;
+/**
+ * The ONNX runtime, imported from the bucket at runtime, never bundled: letting Vite
+ * bundle onnxruntime-web also emits its 27 MB .wasm into the deploy. Everything heavy
+ * lives in the bucket and is cached by the browser after the first use. Shared by every
+ * model service (corner/edge, card, centering).
+ */
+export async function getOrt() {
+  if (!ortPromise) {
+    ortPromise = (async () => {
+      if (!modelsAvailable()) throw new Error('models are not hosted for this build');
       const ort = await import(/* @vite-ignore */ `${MODELS_BASE}/ort/ort.min.mjs`);
       ort.env.wasm.wasmPaths = `${MODELS_BASE}/ort/`;
       // Multiple wasm threads need cross-origin isolation (COOP/COEP), which this app does not
@@ -176,11 +175,31 @@ export async function getRunner({ onProgress = null } = {}) {
         const isolated = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
         ort.env.wasm.numThreads = isolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
       } catch { /* default */ }
+      return ort;
+    })().catch((e) => { ortPromise = null; throw e; });
+  }
+  return ortPromise;
+}
+
+/** A canvas for model preprocessing, offscreen where the browser has it. */
+export function makeCanvas(w, h) {
+  return typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
+}
+
+export { cachedModelBytes };
+
+let runner = null;
+let runnerPromise = null;
+
+/** Build (once) the runner bound to this browser's canvas and ONNX runtime. */
+export async function getRunner({ onProgress = null } = {}) {
+  if (runner) return runner;
+  if (!runnerPromise) {
+    runnerPromise = (async () => {
+      const ort = await getOrt();
       const created = createCornerEdgeRunner({
         ort,
-        createCanvas: (w, h) => (typeof OffscreenCanvas !== 'undefined'
-          ? new OffscreenCanvas(w, h)
-          : Object.assign(document.createElement('canvas'), { width: w, height: h })),
+        createCanvas: makeCanvas,
         baseUrl: MODELS_BASE,
         executionProviders: [preferredBackend(), 'wasm'],
         loadModel: (task) => cachedModelBytes(task, onProgress),

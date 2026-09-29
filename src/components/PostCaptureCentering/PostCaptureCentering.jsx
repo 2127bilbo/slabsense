@@ -37,6 +37,8 @@ export function PostCaptureCentering({
   initialCroppedImage = null, // the crop that went with `initial` (reopens straight at step 2)
   initialMaps = null,         // genMaps() result for initialCroppedImage, so the vision views need no rebuild
   onCancel = null,            // when given, a Cancel button closes the tool without changes
+  suggestOuter = null,        // async (photoDataUrl) => { corners } | null — card model pre-places the card edge
+  suggestInner = null,        // async (cropDataUrl, side) => { corners } | null — centering model pre-places the artwork frame
 }) {
   // ═══════════════════════════════════════════
   // STEP STATE
@@ -47,6 +49,10 @@ export function PostCaptureCentering({
 
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [suggestion, setSuggestion] = useState(null); // status line for the model suggestions
+  const touchedRef = useRef(false);       // the user moved a handle since the current suggestion started
+  const suggestTokenRef = useRef(0);      // a stale suggestion (user already moved on) must not land
+  const stepRef = useRef(1);
 
   // Measurement mode toggle - corner mode is default (handles tilted cards better)
   const [measureMode, setMeasureMode] = useState(() => {
@@ -109,6 +115,7 @@ export function PostCaptureCentering({
   // Art points from the last visit to step 2, so Back → Next keeps them (scaled to the new crop)
   const prevInnerRef = useRef(null);
 
+  useEffect(() => { stepRef.current = step; }, [step]);
   useEffect(() => { outerRef.current = outer; }, [outer]);
   useEffect(() => { innerRef.current = inner; }, [inner]);
 
@@ -162,6 +169,23 @@ export function PostCaptureCentering({
           bl: { x: initOuter.left, y: initOuter.bottom },
           br: { x: initOuter.right, y: initOuter.bottom },
         });
+        // Card model: pre-place the card edge. Applied only if the user has not touched a
+        // handle meanwhile; the user can still drag every corner afterwards.
+        if (suggestOuter) {
+          const token = ++suggestTokenRef.current;
+          touchedRef.current = false;
+          setSuggestion('finding the card…');
+          suggestOuter(image).then((res) => {
+            if (token !== suggestTokenRef.current || stepRef.current !== 1) return;
+            if (!res || touchedRef.current) { setSuggestion(null); return; }
+            const c = res.corners;
+            const q = { tl: { x: c.tl.x * w, y: c.tl.y * h }, tr: { x: c.tr.x * w, y: c.tr.y * h }, bl: { x: c.bl.x * w, y: c.bl.y * h }, br: { x: c.br.x * w, y: c.br.y * h } };
+            const b = getBoundsFromCorners(q);
+            setOuterCorners(q);
+            setOuter({ left: b.x, top: b.y, right: b.x + b.width, bottom: b.y + b.height });
+            setSuggestion('card edge placed by the model — check the corners');
+          }).catch(() => setSuggestion(null));
+        }
       }
 
       // Inner will be initialized in Step 2 after crop
@@ -458,6 +482,23 @@ export function PostCaptureCentering({
       }
       setInner(initInner);
       setInnerCorners(initInnerCorners);
+      if (!seed && suggestInner) {
+        const token = ++suggestTokenRef.current;
+        touchedRef.current = false;
+        setSuggestion('measuring the artwork frame…');
+        suggestInner(cropped, side).then((res) => {
+          if (token !== suggestTokenRef.current || stepRef.current !== 2) return;
+          if (!res || touchedRef.current) { setSuggestion(null); return; }
+          const c = res.corners;
+          const q = { tl: { x: c.tl.x * w, y: c.tl.y * h }, tr: { x: c.tr.x * w, y: c.tr.y * h }, bl: { x: c.bl.x * w, y: c.bl.y * h }, br: { x: c.br.x * w, y: c.br.y * h } };
+          const b = getBoundsFromCorners(q);
+          setInnerCorners(q);
+          setInner({ left: b.x, top: b.y, right: b.x + b.width, bottom: b.y + b.height });
+          setSuggestion('artwork frame placed by the model — check the lines');
+        }).catch(() => setSuggestion(null));
+      } else {
+        setSuggestion(null);
+      }
 
       // Outer corners now represent the full cropped image bounds
       setOuterCorners({ tl: { x: 0, y: 0 }, tr: { x: w, y: 0 }, bl: { x: 0, y: h }, br: { x: w, y: h } });
@@ -741,6 +782,9 @@ export function PostCaptureCentering({
           <span style={{ fontFamily: mono, fontSize: 11, color: '#ff9944', textTransform: 'uppercase', letterSpacing: '.06em' }}>
             {side} — {step === 1 ? 'Align Card Edges' : 'Align Artwork Borders'}
           </span>
+          {suggestion && (
+            <span style={{ marginLeft: 10, fontFamily: mono, fontSize: 10, color: '#6ede82' }}>{suggestion}</span>
+          )}
         </div>
 
         {/* Measurement Mode Toggle (both steps) */}
@@ -1077,7 +1121,7 @@ export function PostCaptureCentering({
                       key={which}
                       data-handle={which}
                       style={{ cursor: isHoriz ? 'ns-resize' : 'ew-resize', touchAction: 'none' }}
-                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; const c = getCoords(e); const hp = edgeHandlePoint(which) || c; dragOffsetRef.current = { x: hp.x - c.x, y: hp.y - c.y }; onHandleDrag(hp, e); }}
+                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; touchedRef.current = true; setSuggestion(null); const c = getCoords(e); const hp = edgeHandlePoint(which) || c; dragOffsetRef.current = { x: hp.x - c.x, y: hp.y - c.y }; onHandleDrag(hp, e); }}
                       onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const c = getCoords(e); const x = c.x + dragOffsetRef.current.x, y = c.y + dragOffsetRef.current.y; moveOuterHandle(which, x, y); const o = outerRef.current; onHandleDrag(isHoriz ? { x: (o.left + o.right) / 2, y } : { x, y: (o.top + o.bottom) / 2 }, e); } }}
                       onPointerUp={e => { dragging.current = null; onHandleDrag(null, e); }}
                       onPointerCancel={e => { dragging.current = null; onHandleDrag(null, e); }}
@@ -1162,7 +1206,7 @@ export function PostCaptureCentering({
                       key={which}
                       data-handle={which}
                       style={{ cursor: isHoriz ? 'ns-resize' : 'ew-resize', touchAction: 'none' }}
-                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; const c = getCoords(e); const hp = edgeHandlePoint(which) || c; dragOffsetRef.current = { x: hp.x - c.x, y: hp.y - c.y }; onHandleDrag(hp, e); }}
+                      onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = which; touchedRef.current = true; setSuggestion(null); const c = getCoords(e); const hp = edgeHandlePoint(which) || c; dragOffsetRef.current = { x: hp.x - c.x, y: hp.y - c.y }; onHandleDrag(hp, e); }}
                       onPointerMove={e => { if (dragging.current === which) { e.preventDefault(); const c = getCoords(e); const x = c.x + dragOffsetRef.current.x, y = c.y + dragOffsetRef.current.y; moveInnerHandle(which, x, y); const i = innerRef.current; onHandleDrag(isHoriz ? { x: (i.left + i.right) / 2, y } : { x, y: (i.top + i.bottom) / 2 }, e); } }}
                       onPointerUp={e => { dragging.current = null; onHandleDrag(null, e); }}
                       onPointerCancel={e => { dragging.current = null; onHandleDrag(null, e); }}

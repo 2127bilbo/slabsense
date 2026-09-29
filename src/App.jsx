@@ -29,6 +29,7 @@ import { analyzePixels, findBounds, PX } from "./lib/detectors.js";
 import { modelGradingEnabled, modelSlotsForSide, cornerEdgeRequest, markModelPass, modelPassCrashed } from "./services/cornerEdgeModels.js";
 import { mergeModelDings } from "./lib/corner-edge-model.js";
 import { trainingCaptureEnabled, captureForTraining } from "./services/trainingCapture.js";
+import { suggestOuterCorners, suggestInnerCorners, preloadCardModel } from "./services/cardModels.js";
 import holoConfig from "../config/holo-config.json";
 
 /* ═══════════════════════════════════════════
@@ -887,6 +888,9 @@ function detectCardLive(video, scanW=320) {
 
 function CameraViewfinder({ side, onCapture, onClose }) {
   const videoRef = useRef(null);
+  // Warm the card model (6 MB) while the user frames the shot, so the centering tool
+  // can pre-place the card edge the moment the photo is taken.
+  useEffect(() => { preloadCardModel(); }, []);
   const streamRef = useRef(null);
   const [active, setActive] = useState(false);
   const [tilt, setTilt] = useState({ beta:0, gamma:0 });
@@ -2427,6 +2431,8 @@ export default function SlabSense(){
         side={showPostCaptureCentering}
         onConfirm={(result) => handleCenteringConfirm(showPostCaptureCentering, result)}
         onSkip={() => handleCenteringSkip(showPostCaptureCentering)}
+        suggestOuter={suggestOuterCorners}
+        suggestInner={suggestInnerCorners}
       />
     )}
     {/* Card Identifier Modal (OCR + TCGDex) */}
