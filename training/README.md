@@ -1289,3 +1289,25 @@ clutter) were visible. No disagreement found.
 
 The full run on the rented box (12 epochs, the complete cutout cache) is
 Step 12 of `training/HANDOFF-rented-gpu.md`.
+### Real-photo evaluation, 2026-09-28 (147 labelled sides, PC 4070)
+
+`evaluate_card --checkpoint weights/card/v1/best.pt --real data/card-val` on the owner's 147
+labelled phone photos (`eval_logs/card-v1-real-val-2026-09-28.csv`). Headline: **reject**
+(IoU 0.9475, corner err mean 2.19% / p95 13.46%, gated fail 2.38%) - but the failures are one
+population, not a general miss. Split by the labeller's tags:
+
+| subset | n | IoU | corner err mean | p95 | verdict vs the 10.4 bars |
+|---|---|---|---|---|---|
+| untagged (raw card on a surface) | 87 | 0.9868 | 0.44% | 0.83% | passes all |
+| bowed | 20 | 0.9841 | 0.51% | 0.97% | passes all |
+| **sleeve** (penny sleeve, one-touch, graded slab) | 37 | 0.8324 | 7.35% | 20.0% | fails |
+
+Drawing prediction vs label on the twelve worst sides shows the same thing every time: the model
+traces the **holder** (CGC slab outline, magnetic one-touch, sleeve edge) instead of the card
+inside it - the card is found, the object boundary is wrong. The compositor never generates a
+holder, so the model learned "the rectangle on the background is the card". On the 107 raw/bowed
+sides (>= 100, so a real verdict) v1 clears every bar with room; it is **accepted for raw cards
+and not for cards in holders**. Next: v2 compositor adds synthetic holders (sleeve/toploader/
+one-touch/slab: a translucent or acrylic rectangle 2-6 mm larger than the card, specular glare,
+slab label block) with the card quad as the label; the 37 real holder sides become the test.
+
