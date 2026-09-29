@@ -27,6 +27,7 @@ const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] :
 const LIMIT = Number(opt('--limit', 0)) || 0;
 const FILE = opt('--file', 'centering_rgb-v1.fp16.onnx');
 const JITTER = args.includes('--jitter');
+const JITTER_PCT = Number(opt('--jitter-pct', 0.03)); // crop-edge error, fraction of the card size
 const W = 896, H = 1248;
 
 const gt = JSON.parse(fs.readFileSync(path.join(here, 'ground-truth.json'), 'utf8'));
@@ -76,7 +77,7 @@ skip ${cert} ${side}: image did not decode`); continue; }
     const row = { cert, side, held: splits[cert] !== 'train', tag: g.centering[side], model: m, detector: d };
     if (JITTER) {
       // crop error: each edge moved by an independent +-3% (positive = crop outside the card)
-      const j = () => (Math.random() * 2 - 1) * 0.03;
+      const j = () => (Math.random() * 2 - 1) * JITTER_PCT;
       const jl = j() * full.w, jr = j() * full.w, jt = j() * full.h, jb = j() * full.h;
       row.jittered = await predict(sharedImg, { x: -jl, y: -jt, w: full.w + jl + jr, h: full.h + jt + jb }, side);
     }
@@ -104,7 +105,7 @@ for (const [name, list, pick] of [
   ['model, all', rows, (r) => r.model],
   ['model, held out', rows.filter((r) => r.held), (r) => r.model],
   ['app detector, all', rows.filter(detOk), (r) => r.detector],
-  ...(JITTER ? [['model, crop edges jittered +-3%', rows, (r) => r.jittered]] : []),
+  ...(JITTER ? [[`model, crop edges jittered +-${(JITTER_PCT * 100).toFixed(2)}%`, rows, (r) => r.jittered]] : []),
 ]) {
   const e = errs(list, pick);
   console.log(`| ${name} | ${list.length} | ${e.lr} | ${e.tb} | ${e.within1} % | ${e.within2} % |`);
