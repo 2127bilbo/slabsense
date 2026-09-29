@@ -6,6 +6,8 @@ measurement. TAG's grade has four components per side — centering, corners, ed
 and the app has one model family per component plus two that serve them (card outline, rollup).
 "Perimeter" in the owner's list is the card outline; TAG has no separate perimeter score.
 
+The PC-hosted rig that runs these models under controlled capture is planned in `docs/RIG-PLAN.md`.
+
 ## The list
 
 | # | Model | In the app today | Status |
