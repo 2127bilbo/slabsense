@@ -44,6 +44,8 @@ card model can be tiny and fast; it sits in front of the others.
 
 ## Step 10: the card model
 
+> **Outcome (2026-09-28):** trained as `card/v1` on the 2026-09-22 rental; real-photo eval on 147 labelled sides: accepted for raw cards (107 raw/bowed sides: IoU 0.987, corner err 0.44%/p95 0.83%), fails on cards in sleeves/one-touches/slabs (traces the holder). Product decision: holders are out of scope - users take the card out. Ships for raw cards; see `README.md` "Card model".
+
 ### 10.0 What it is
 
 A binary segmentation model: input a photo letterboxed to 512×512, output a
@@ -245,6 +247,8 @@ in mind.
 ---
 
 ## Step 11: centering v2 — stop shrinking toward 50/50
+
+> **Outcome (2026-09-23):** trained as `centering_rgb/v2b` (`--ratio-weight 0.1`; v2 at 0.02 was lost with the first box). Passes every gate except slope (0.878 val / 0.825 test vs 0.95), which is a bucket-0 resolution floor shared by v1/v2/v2b and documented as an exception. Accepted and shipping; artifacts in `weights/centering_rgb/v2b/` and `weights/onnx/centering_rgb-v2b.*`.
 
 ### 11.0 What is wrong with v1
 

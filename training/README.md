@@ -1307,7 +1307,12 @@ traces the **holder** (CGC slab outline, magnetic one-touch, sleeve edge) instea
 inside it - the card is found, the object boundary is wrong. The compositor never generates a
 holder, so the model learned "the rectangle on the background is the card". On the 107 raw/bowed
 sides (>= 100, so a real verdict) v1 clears every bar with room; it is **accepted for raw cards
-and not for cards in holders**. Next: v2 compositor adds synthetic holders (sleeve/toploader/
-one-touch/slab: a translucent or acrylic rectangle 2-6 mm larger than the card, specular glare,
-slab label block) with the card quad as the label; the 37 real holder sides become the test.
+and not for cards in holders** - and that is the product decision (owner, 2026-09-28): the app's
+job is to pre-grade a raw card so the owner knows whether real grading is worth paying for, so
+already-slabbed cards are out of scope, and a card in a magnetic case or sleeve should be taken
+out before scanning (a scratched or glaring case would put false marks in the report anyway).
+v1 ships for raw cards. A v2 with synthetic holders in the compositor (translucent/acrylic
+rectangle 2-6 mm larger than the card, glare, slab label block; the 37 real holder sides as its
+test set) is an optional later upgrade - worth running only as filler on a GPU that is already
+rented and idle.
 
