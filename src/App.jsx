@@ -890,6 +890,9 @@ function detectCardLive(video, scanW=320) {
 const LIVE_INTERVAL_MS = { webgpu: 120, wasm: 300, grid: 350 }; // between frames, per backend — battery over frame rate
 const LIVE_LOCK_MOVE = 0.012;   // a corner moving less than this (fraction of the frame) between frames counts as steady
 const LIVE_LOCK_FRAMES = 3;     // steady frames before the box reads "locked"
+const AUTO_SNAP_MS = 2500;      // the box must stay locked this long before the photo takes itself
+const AUTO_SNAP_KEY = 'slabsense_autoSnap';
+const autoSnapEnabled = () => { try { return localStorage.getItem(AUTO_SNAP_KEY) !== '0'; } catch { return true; } };
 const CORNER_KEYS = ['tl', 'tr', 'br', 'bl'];
 const blendCorners = (prev, next, a) => Object.fromEntries(CORNER_KEYS.map(k => [k, { x: prev[k].x + (next[k].x - prev[k].x) * a, y: prev[k].y + (next[k].y - prev[k].y) * a }]));
 const maxCornerMove = (a, b) => Math.max(...CORNER_KEYS.map(k => Math.hypot(a[k].x - b[k].x, a[k].y - b[k].y)));
@@ -915,6 +918,9 @@ function CameraViewfinder({ side, onCapture, onClose }) {
   const [camError, setCamError] = useState(null);
   const [cardOutline, setCardOutline] = useState(null);
   const [cardStable, setCardStable] = useState(0); // frames card has been stable
+  const [autoSnap, setAutoSnap] = useState(autoSnapEnabled); // photo takes itself after a steady lock
+  const [autoProgress, setAutoProgress] = useState(0);         // 0..1 of AUTO_SNAP_MS while locked
+  const captureRef = useRef(null);                               // latest captureFrame, for the timer
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [hasCamera, setHasCamera] = useState(null); // null = checking, true/false = result
@@ -1028,6 +1034,21 @@ function CameraViewfinder({ side, onCapture, onClose }) {
   
   const cardLocked = cardOutline && cardStable >= LIVE_LOCK_FRAMES;
   const cardFound = Boolean(cardOutline);
+  // Pressing the shutter is what shakes the phone, so a lock that holds for AUTO_SNAP_MS takes the
+  // photo by itself. Only the model's lock counts (the grid box can lock on a patterned table), and
+  // any drop of the lock resets the countdown.
+  const autoArmed = autoSnap && cardLocked && !captured && cardOutline?.source !== 'grid';
+  useEffect(() => {
+    if (!autoArmed) { setAutoProgress(0); return; }
+    const t0 = performance.now();
+    let fired = false;
+    const id = setInterval(() => {
+      const p = Math.min(1, (performance.now() - t0) / AUTO_SNAP_MS);
+      setAutoProgress(p);
+      if (p >= 1 && !fired) { fired = true; clearInterval(id); captureRef.current?.(); }
+    }, 50);
+    return () => { clearInterval(id); setAutoProgress(0); };
+  }, [autoArmed]);
 
   const captureFrame = () => {
     if(!videoRef.current) return;
@@ -1039,6 +1060,7 @@ function CameraViewfinder({ side, onCapture, onClose }) {
     validateCap(dataUrl).then(r=>{setValidation(r);setValidating(false);});
   };
 
+  captureRef.current = captureFrame;
   const acceptCapture = () => { streamRef.current?.getTracks().forEach(t=>t.stop()); onCapture(captured); };
   const retake = () => {
     setCaptured(null);
@@ -1135,7 +1157,8 @@ function CameraViewfinder({ side, onCapture, onClose }) {
       <div style={{padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(0,0,0,.8)",zIndex:10}}>
         <button onClick={closeCam} style={{background:"transparent",border:"none",color:"#888",fontFamily:mono,fontSize:12,cursor:"pointer"}}>✕ Cancel</button>
         <div style={{fontFamily:mono,fontSize:12,color:"#fff",textTransform:"uppercase",letterSpacing:".1em"}}>Capture {side}</div>
-        <div style={{width:60}}/>
+        <button onClick={()=>{const next=!autoSnap;setAutoSnap(next);try{localStorage.setItem(AUTO_SNAP_KEY,next?'1':'0');}catch{/* private mode */}}} aria-label={`Auto snap ${autoSnap?'on':'off'}`}
+          style={{width:60,background:"transparent",border:`1px solid ${autoSnap?"#00ff8866":"#333"}`,borderRadius:6,padding:"4px 0",color:autoSnap?"#00ff88":"#666",fontFamily:mono,fontSize:9,letterSpacing:".08em",cursor:"pointer"}}>AUTO {autoSnap?"ON":"OFF"}</button>
       </div>
 
       <div style={{flex:1,position:"relative",overflow:"hidden"}}>
@@ -1246,7 +1269,7 @@ function CameraViewfinder({ side, onCapture, onClose }) {
               <line x1="50%" y1="49%" x2="50%" y2="51%" stroke="rgba(255,255,255,.2)" strokeWidth="1"/>
               {/* Status text */}
               <text x="50%" y="7%" textAnchor="middle" fill={cardLocked?"#00ff88":cardFound?"#ffcc00":"rgba(255,255,255,.4)"} fontSize="11" fontFamily={mono}>
-                {cardLocked?"✓ CARD LOCKED — READY TO SNAP":cardFound?"CARD DETECTED — HOLD STEADY":"ALIGN CARD WITHIN FRAME"}
+                {autoArmed?`✓ LOCKED — HOLD STILL, SNAPPING IN ${Math.max(1,Math.ceil((1-autoProgress)*AUTO_SNAP_MS/1000))}`:cardLocked?"✓ CARD LOCKED — READY TO SNAP":cardFound?"CARD DETECTED — HOLD STEADY":"ALIGN CARD WITHIN FRAME"}
               </text>
               {/* Fill percentage */}
               {cardFound&&<text x="50%" y="95%" textAnchor="middle" fill="#00ff8888" fontSize="10" fontFamily={mono}>
@@ -1306,8 +1329,12 @@ function CameraViewfinder({ side, onCapture, onClose }) {
               </button>
               <input ref={fileRef} type="file" accept="image/*,.heic,.heif" onChange={handleFile} style={{display:"none"}}/>
               {/* Shutter button - changes color when card locked */}
-              <button onClick={captureFrame} disabled={!active} style={{width:68,height:68,borderRadius:"50%",background:"transparent",border:`4px solid ${cardLocked?"#00ff88":active?"#fff":"#444"}`,cursor:active?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"border-color .3s"}}>
+              <button onClick={captureFrame} disabled={!active} style={{position:"relative",width:68,height:68,borderRadius:"50%",background:"transparent",border:`4px solid ${cardLocked?"#00ff88":active?"#fff":"#444"}`,cursor:active?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"border-color .3s"}}>
                 <div style={{width:56,height:56,borderRadius:"50%",background:cardLocked?"#00ff88":active?"#fff":"#333",transition:"all .3s"}}/>
+                {autoArmed&&<svg data-autosnap={autoProgress.toFixed(2)} style={{position:"absolute",inset:-8,width:76,height:76,transform:"rotate(-90deg)",pointerEvents:"none"}} viewBox="0 0 76 76">
+                  <circle cx="38" cy="38" r="35" fill="none" stroke="#000" strokeWidth="3"/>
+                  <circle cx="38" cy="38" r="35" fill="none" stroke="#fff" strokeWidth="3" strokeDasharray={`${2*Math.PI*35}`} strokeDashoffset={`${2*Math.PI*35*(1-autoProgress)}`} strokeLinecap="round"/>
+                </svg>}
               </button>
               <div style={{width:40}}/>
             </>

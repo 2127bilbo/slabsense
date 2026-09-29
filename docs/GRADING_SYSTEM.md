@@ -173,6 +173,11 @@ shutter uses the same model: a sleeve, one-touch or slab reads "card not found",
 differ by more than 8 % reads "may be tilted". Owner's call after a phone trial whether the battery cost is
 acceptable; the grid detector is kept as the fallback either way.
 
+**Auto snap** *(2026-09-29)*. Pressing the shutter is what shakes the phone, so when the model's outline has stayed
+locked for 2.5 s the photo takes itself, with a countdown in the status line and a ring filling around the shutter.
+Any drop of the lock resets it; the grid box never auto-snaps (it can lock on a patterned table). "AUTO ON/OFF" in
+the viewfinder header turns it off per device (`slabsense_autoSnap`); the shutter still works either way.
+
 ### Surface severity from the deduction model (paid paths) *(added 2026-09-21)*
 
 On the AI and Deep AI paths Claude finds and classifies surface defects and draws a box for each. Its
