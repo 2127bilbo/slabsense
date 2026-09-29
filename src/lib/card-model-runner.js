@@ -37,13 +37,14 @@ export function createCardRunner({ ort, createCanvas, baseUrl, files, executionP
   const providers = executionProviders || ['webgpu', 'wasm'];
   const base = baseUrl ? String(baseUrl).replace(/\/+$/, '') + '/' : '';
   const sessions = {};
+  const backends = {}; // execution provider each session ended up on, once created
 
   async function sessionFor(name) {
     if (!sessions[name]) {
       sessions[name] = (async () => {
         const src = loadModel ? await loadModel(name, modelFiles[name]) : base + modelFiles[name];
         for (const ep of providers) {
-          try { const s = await ort.InferenceSession.create(src, { executionProviders: [ep] }); s.__ep = ep; return s; } catch (e) { if (ep === providers[providers.length - 1]) throw e; }
+          try { const s = await ort.InferenceSession.create(src, { executionProviders: [ep] }); s.__ep = ep; backends[name] = ep; return s; } catch (e) { if (ep === providers[providers.length - 1]) throw e; }
         }
         throw new Error(`card-model-runner: no execution provider worked for ${name}`);
       })().catch((e) => { delete sessions[name]; throw e; });
@@ -78,7 +79,7 @@ export function createCardRunner({ ort, createCanvas, baseUrl, files, executionP
   function detectCard(source, opts = {}) { return serial(() => detectCardNow(source, opts)); }
   async function detectCardNow(source, { refine = 'logits', pixels = null } = {}) {
     const t0 = Date.now();
-    const W = source.naturalWidth || source.width, H = source.naturalHeight || source.height;
+    const W = source.videoWidth || source.naturalWidth || source.width, H = source.videoHeight || source.naturalHeight || source.height;
     const S = CARD_INPUT;
     const lb = letterbox(W, H, S);
     const canvas = canvasFor('card', S, S);
@@ -138,6 +139,8 @@ export function createCardRunner({ ort, createCanvas, baseUrl, files, executionP
     detectCard,
     measureCentering,
     async preload(names = ['card', 'centering']) { await Promise.all(names.map(sessionFor)); },
+    /** 'webgpu' | 'wasm' once the session exists, else null. */
+    backend(name) { return backends[name] || null; },
     get sessions() { return sessions; },
   };
 }

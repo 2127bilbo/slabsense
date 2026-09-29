@@ -29,7 +29,7 @@ import { analyzePixels, findBounds, PX } from "./lib/detectors.js";
 import { modelGradingEnabled, modelSlotsForSide, cornerEdgeRequest, markModelPass, modelPassCrashed } from "./services/cornerEdgeModels.js";
 import { mergeModelDings } from "./lib/corner-edge-model.js";
 import { trainingCaptureEnabled, captureForTraining } from "./services/trainingCapture.js";
-import { suggestOuterCorners, suggestInnerCorners, preloadCardModel } from "./services/cardModels.js";
+import { suggestOuterCorners, suggestInnerCorners, preloadCardModel, liveCardQuad, detectCardInSource } from "./services/cardModels.js";
 import holoConfig from "../config/holo-config.json";
 
 /* ═══════════════════════════════════════════
@@ -886,6 +886,20 @@ function detectCardLive(video, scanW=320) {
   };
 }
 
+/* Live outline helpers (viewfinder). Corners are fractions of the video frame. */
+const LIVE_INTERVAL_MS = { webgpu: 120, wasm: 300, grid: 350 }; // between frames, per backend — battery over frame rate
+const LIVE_LOCK_MOVE = 0.012;   // a corner moving less than this (fraction of the frame) between frames counts as steady
+const LIVE_LOCK_FRAMES = 3;     // steady frames before the box reads "locked"
+const CORNER_KEYS = ['tl', 'tr', 'br', 'bl'];
+const blendCorners = (prev, next, a) => Object.fromEntries(CORNER_KEYS.map(k => [k, { x: prev[k].x + (next[k].x - prev[k].x) * a, y: prev[k].y + (next[k].y - prev[k].y) * a }]));
+const maxCornerMove = (a, b) => Math.max(...CORNER_KEYS.map(k => Math.hypot(a[k].x - b[k].x, a[k].y - b[k].y)));
+/** Frame fractions -> percent of the element the video is drawn in (object-fit: cover). */
+function coverToScreen(corners, video) {
+  const vw = video.videoWidth || 1, vh = video.videoHeight || 1, cw = video.clientWidth || vw, ch = video.clientHeight || vh;
+  const sc = Math.max(cw / vw, ch / vh), ox = (cw - vw * sc) / 2, oy = (ch - vh * sc) / 2;
+  return CORNER_KEYS.map(k => [((corners[k].x * vw * sc + ox) / cw) * 100, ((corners[k].y * vh * sc + oy) / ch) * 100]);
+}
+
 function CameraViewfinder({ side, onCapture, onClose }) {
   const videoRef = useRef(null);
   // Warm the card model (6 MB) while the user frames the shot, so the centering tool
@@ -944,39 +958,50 @@ function CameraViewfinder({ side, onCapture, onClose }) {
     return () => { cancelled=true; streamRef.current?.getTracks().forEach(t=>t.stop()); };
   }, []);
 
-  // Live card detection loop
+  // Live card detection loop. The card model draws the true outline (it follows a tilted or
+  // rotated card) once it has loaded; until then, or with the models off, the texture-grid
+  // detector draws its upright box as before. Frames are paced per backend, skipped while the
+  // tab is hidden, and the corners are smoothed so hand jitter does not reset the lock.
   useEffect(() => {
     if (!active || captured) return;
     let running = true;
     let stableCount = 0;
-    let lastOutline = null;
-    
-    const detect = () => {
+    let smooth = null;
+    markModelPass(true);
+
+    const detect = async () => {
       if (!running || !videoRef.current) return;
+      const t0 = performance.now();
+      let interval = LIVE_INTERVAL_MS.grid;
       try {
-        const result = detectCardLive(videoRef.current);
-        if (result && result.fill > 15 && result.fill < 92) {
-          // Check stability - is outline similar to last frame?
-          if (lastOutline && Math.abs(result.left-lastOutline.left)<3 && Math.abs(result.top-lastOutline.top)<3 && Math.abs(result.width-lastOutline.width)<3) {
-            stableCount = Math.min(stableCount + 1, 15);
-          } else {
-            stableCount = 1;
+        const v = videoRef.current;
+        let corners = null, fill = 0, source = 'grid', ms = 0;
+        if (document.visibilityState !== 'hidden') {
+          const live = await liveCardQuad(v);
+          if (live.ok) { corners = live.corners; fill = live.fill; source = live.backend || 'model'; ms = live.ms; interval = LIVE_INTERVAL_MS[live.backend] || LIVE_INTERVAL_MS.wasm; }
+          else if (live.reason === 'no-card') { source = 'model'; interval = LIVE_INTERVAL_MS.wasm; }
+          else {
+            const r = detectCardLive(v);
+            if (r) { corners = { tl: { x: r.left / 100, y: r.top / 100 }, tr: { x: (r.left + r.width) / 100, y: r.top / 100 }, br: { x: (r.left + r.width) / 100, y: (r.top + r.height) / 100 }, bl: { x: r.left / 100, y: (r.top + r.height) / 100 } }; fill = r.fill; }
           }
-          lastOutline = result;
-          setCardOutline(result);
+        }
+        if (!running) return;
+        if (corners && fill > 15 && fill < 92) {
+          const moved = smooth ? maxCornerMove(smooth, corners) : 1;
+          smooth = smooth ? blendCorners(smooth, corners, 0.5) : corners;
+          stableCount = moved < LIVE_LOCK_MOVE ? Math.min(stableCount + 1, 15) : 1;
+          setCardOutline({ pts: coverToScreen(smooth, v), fill, source, ms });
           setCardStable(stableCount);
         } else {
-          stableCount = 0;
-          lastOutline = null;
-          setCardOutline(null);
-          setCardStable(0);
+          stableCount = 0; smooth = null;
+          setCardOutline(null); setCardStable(0);
         }
       } catch(e) { /* ignore detection errors on live frames */ }
-      if (running) detectRef.current = setTimeout(detect, 350);
+      if (running) detectRef.current = setTimeout(detect, Math.max(0, interval - (performance.now() - t0)));
     };
-    
+
     detectRef.current = setTimeout(detect, 500);
-    return () => { running=false; clearTimeout(detectRef.current); };
+    return () => { running=false; clearTimeout(detectRef.current); markModelPass(false); };
   }, [active, captured]);
 
   useEffect(() => {
@@ -1001,8 +1026,8 @@ function CameraViewfinder({ side, onCapture, onClose }) {
   const lvlColor=isLevel?"#00ff88":isClose?"#ffcc00":"#ff4444";
   const bx=Math.max(-20,Math.min(20,tilt.gamma*2)), by=Math.max(-20,Math.min(20,tilt.beta*2));
   
-  const cardLocked = cardOutline && cardStable >= 4;
-  const cardFound = cardOutline && cardStable >= 2;
+  const cardLocked = cardOutline && cardStable >= LIVE_LOCK_FRAMES;
+  const cardFound = Boolean(cardOutline);
 
   const captureFrame = () => {
     if(!videoRef.current) return;
@@ -1193,21 +1218,23 @@ function CameraViewfinder({ side, onCapture, onClose }) {
             <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}}>
               {/* Dim overlay with cutout - use detected card or static guide */}
               {cardFound ? (<>
-                {/* Live detected card outline */}
-                <defs><mask id="cm"><rect width="100%" height="100%" fill="white"/><rect x={`${cardOutline.left}%`} y={`${cardOutline.top}%`} width={`${cardOutline.width}%`} height={`${cardOutline.height}%`} rx="6" fill="black"/></mask></defs>
-                <rect width="100%" height="100%" fill="rgba(0,0,0,.5)" mask="url(#cm)"/>
-                <rect x={`${cardOutline.left}%`} y={`${cardOutline.top}%`} width={`${cardOutline.width}%`} height={`${cardOutline.height}%`} rx="6"
-                  fill="none" stroke={cardLocked?"#00ff88":"#ffcc00"} strokeWidth={cardLocked?"2.5":"1.5"}
-                  style={{transition:"all .2s ease"}} />
-                {/* Corner brackets on detected card */}
-                {[[0,0,1,0,0,1],[1,0,-1,0,0,1],[0,1,1,0,0,-1],[1,1,-1,0,0,-1]].map(([cx,cy,dx,_,__,dy],i)=>{
-                  const px=cardOutline.left+cx*cardOutline.width;
-                  const py=cardOutline.top+cy*cardOutline.height;
-                  return(<g key={i}>
-                    <line x1={`${px}%`} y1={`${py}%`} x2={`${px+dx*3}%`} y2={`${py}%`} stroke={cardLocked?"#00ff88":"#ffcc00"} strokeWidth="3"/>
-                    <line x1={`${px}%`} y1={`${py}%`} x2={`${px}%`} y2={`${py+dy*3}%`} stroke={cardLocked?"#00ff88":"#ffcc00"} strokeWidth="3"/>
-                  </g>);
-                })}
+                {/* Live detected card outline: a true quadrilateral in percent of the view, drawn in a
+                    0-100 space stretched over the frame; strokes stay constant width. */}
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" data-live={`${cardOutline.source} ${Math.round(cardOutline.ms)}ms`}>
+                  <defs><mask id="cm"><rect width="100" height="100" fill="white"/><polygon points={cardOutline.pts.map(p=>p.join(',')).join(' ')} fill="black"/></mask></defs>
+                  <rect width="100" height="100" fill="rgba(0,0,0,.5)" mask="url(#cm)"/>
+                  <polygon points={cardOutline.pts.map(p=>p.join(',')).join(' ')} fill="none" stroke={cardLocked?"#00ff88":"#ffcc00"} strokeWidth={cardLocked?"2.5":"1.5"} vectorEffect="non-scaling-stroke" style={{transition:"stroke .2s ease"}}/>
+                  {/* Corner brackets along the card's own edges */}
+                  {cardOutline.pts.map((p,i)=>{
+                    const n=cardOutline.pts[(i+1)%4], m=cardOutline.pts[(i+3)%4];
+                    const seg=(q)=>[p[0]+(q[0]-p[0])*0.12,p[1]+(q[1]-p[1])*0.12];
+                    const a=seg(n), b=seg(m);
+                    return(<g key={i} stroke={cardLocked?"#00ff88":"#ffcc00"} strokeWidth="3">
+                      <line x1={p[0]} y1={p[1]} x2={a[0]} y2={a[1]} vectorEffect="non-scaling-stroke"/>
+                      <line x1={p[0]} y1={p[1]} x2={b[0]} y2={b[1]} vectorEffect="non-scaling-stroke"/>
+                    </g>);
+                  })}
+                </svg>
               </>):(<>
                 {/* Static guide when no card detected */}
                 <defs><mask id="cm"><rect width="100%" height="100%" fill="white"/><rect x="15%" y="12%" width="70%" height="76%" rx="8" fill="black"/></mask></defs>
@@ -1298,7 +1325,26 @@ function CameraViewfinder({ side, onCapture, onClose }) {
 }
 
 /* Post-capture validation */
-async function validateCap(src){const{w,h,data}=await loadImg(src,600);const bn=findBounds(data.data,w,h);const fill=bn.cardW*bn.cardH/(w*h),asp=bn.cardH>0?bn.cardW/bn.cardH:0,aDiff=Math.abs(asp-2.5/3.5);const ok=bn.cardW>50&&bn.cardH>50&&fill>.2&&fill<.95&&aDiff<.15;const issues=[];if(bn.cardW<=50)issues.push("Card not detected — use contrasting background");if(fill<.2&&bn.cardW>50)issues.push("Card too small — move closer");if(fill>=.95)issues.push("Too close — back up slightly");if(aDiff>=.15&&bn.cardW>50)issues.push("Card may be tilted");return{valid:ok,fillRatio:~~(fill*100),issues};}
+async function validateCap(src){
+  // The card model when it runs (a sleeve or slab reads as "not found"); the texture-grid
+  // detector when the models are off or fail to load.
+  const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('load'));i.src=src;});
+  const m=await detectCardInSource(img);
+  if(m.ok||m.reason==='no-card'){
+    const issues=[];
+    if(!m.ok)issues.push("Card not found — use a plain, contrasting background and take the card out of any sleeve or case");
+    const fill=m.ok?m.fill:0;
+    if(m.ok&&fill<20)issues.push("Card too small — move closer");
+    if(m.ok&&fill>=95)issues.push("Too close — back up slightly");
+    if(m.ok){
+      const q=m.quad, len=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+      const tb=len(q.tl,q.tr)/len(q.bl,q.br), lr=len(q.tl,q.bl)/len(q.tr,q.br);
+      if(Math.max(tb,1/tb)>1.08||Math.max(lr,1/lr)>1.08)issues.push("Card may be tilted — hold the phone flat over it");
+    }
+    return{valid:issues.length===0,fillRatio:~~fill,issues,source:'model',corners:m.ok?m.corners:null};
+  }
+  const{w,h,data}=await loadImg(src,600);const bn=findBounds(data.data,w,h);const fill=bn.cardW*bn.cardH/(w*h),asp=bn.cardH>0?bn.cardW/bn.cardH:0,aDiff=Math.abs(asp-2.5/3.5);const ok=bn.cardW>50&&bn.cardH>50&&fill>.2&&fill<.95&&aDiff<.15;const issues=[];if(bn.cardW<=50)issues.push("Card not detected — use contrasting background");if(fill<.2&&bn.cardW>50)issues.push("Card too small — move closer");if(fill>=.95)issues.push("Too close — back up slightly");if(aDiff>=.15&&bn.cardW>50)issues.push("Card may be tilted");return{valid:ok,fillRatio:~~(fill*100),issues,source:'grid'};
+}
 
 /* Image Capture (opens viewfinder or fallback) - Original horizontal layout */
 function CaptureCard({label,side,image,onImage,onOpenCamera}){

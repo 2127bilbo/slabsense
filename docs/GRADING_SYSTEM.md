@@ -164,6 +164,15 @@ agrees with the one measured from a hand-placed card line within 2 points on 43 
 73 %. The card line therefore still needs a look at the corners before Next; the pre-placement saves the
 drag, not the check.
 
+**Viewfinder** *(2026-09-29)*. The same card model draws the live outline while the user frames the shot, once it
+has loaded (about two seconds after the camera opens; until then, and with the models off, the old texture-grid
+box is drawn). The outline is the card's real quadrilateral, so it follows a rotated or tilted card, corners are
+smoothed between frames and the box reads "locked" after three steady frames. Frames are paced at ~120 ms on
+WebGPU (each takes ~25 ms) and ~300 ms on WASM, and nothing runs while the tab is hidden. The check after the
+shutter uses the same model: a sleeve, one-touch or slab reads "card not found", and a quad whose opposite sides
+differ by more than 8 % reads "may be tilted". Owner's call after a phone trial whether the battery cost is
+acceptable; the grid detector is kept as the fallback either way.
+
 ### Surface severity from the deduction model (paid paths) *(added 2026-09-21)*
 
 On the AI and Deep AI paths Claude finds and classifies surface defects and draws a box for each. Its
