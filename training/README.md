@@ -2,6 +2,8 @@
 
 Corner and edge score models trained on the TAG dataset (spec §7). Reads the tables built by `scripts/tag-dataset`; never modifies them.
 
+**Roadmap.** `training/MODEL-ROADMAP.md` (2026-09-29) lists every model the app needs, where each stands, and what it takes to finish it, in the order to do it.
+
 ## Setup (once)
 ```powershell
 cd training
