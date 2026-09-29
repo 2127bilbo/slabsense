@@ -1316,3 +1316,55 @@ rectangle 2-6 mm larger than the card, glare, slab label block; the 37 real hold
 test set) is an optional later upgrade - worth running only as filler on a GPU that is already
 rented and idle.
 
+
+### Card model + centering v2b in the app, and the chain measured (2026-09-29)
+
+Both models are live on `main` (`src/lib/card-mask.js`, `src/lib/card-model-runner.js`,
+`src/services/cardModels.js`, `PostCaptureCentering` props `suggestOuter` / `suggestInner`),
+hosted in the `models` bucket (`card-v1.fp16.onnx` 6 MB; `centering_rgb-v2b` in two parts) under
+the same "Corner & Edge Models" switch. In the centering tool the card model places the card line
+on step 1 and v2b places the artwork line on step 2; both are suggestions the user still adjusts,
+and either failing leaves the tool exactly as it was. Mask -> corners: largest 4-connected
+component, boundary points assigned to four sides by an extreme-point quad, total-least-squares
+line per side with two outlier-trim rounds, corners = line intersections, then a refinement that
+moves each side to the logit zero crossing at 40 samples (`refine: 'logits'`, default). A
+full-resolution gradient-step refinement is in the library but off: on real photos shadows and
+holo edges pull it off the card (worse than the raw mask).
+
+`scripts/harness/card-chain.mjs` runs the whole chain on the 147 labelled card-val photos and
+writes `scripts/harness/results/2026-09-29-card-chain.json`. Corner error against the hand
+labels, % of the card long side, mean of the 4 corners per photo:
+
+| subset | photos | raw mean | raw p95 | refined mean | refined p95 | refinement helped |
+|---|---|---|---|---|---|---|
+| raw cards (no holder) | 110 | 0.37 | 1.05 | 0.40 | 0.89 | 44 |
+| of which bowed | 20 | 0.50 | 1.54 | 0.50 | 1.78 | 12 |
+| of which flat | 90 | 0.34 | 0.86 | 0.38 | 0.84 | 32 |
+| in a sleeve / one-touch / slab | 34 (+3 rejected as not card-shaped) | 6.69 | 18.13 | 6.91 | 18.33 | 5 |
+
+Refinement is a wash on the mean and a small gain at the tail; kept because the tail is what
+the user has to fix by hand. Holders fail as in the evaluation above (the three rejects are two
+CGC slabs and a magnetic case; the mask traced the holder).
+
+Centering v2b on the automatic crop vs. on the hand-labelled crop (there is no TAG truth for
+these photos, so agreement with the hand crop is the measure; ratio points, the 110 raw cards):
+
+| crop | mean L/R diff | mean T/B diff | median L/R | median T/B | both within 1 | within 2 | within 3 | within 5 |
+|---|---|---|---|---|---|---|---|---|
+| raw mask | 3.45 | 2.56 | 2.12 | 1.07 | 19 % | 43 % | 57 % | 73 % |
+| refined | 3.18 | 2.68 | 1.92 | 1.12 | 19 % | 37 % | 55 % | 75 % |
+
+That is worse than the ±0.44 % jitter test on TAG scans predicted (1.97 / 2.34) and the reason
+is arithmetic, not the models: a card border is ~3 % of the card's width, so a crop line 0.4 %
+of the long side off (5 px at 1248) is ~13 % of the border on that side, and v2b measures from
+the crop edge, so the ratio moves several points. Getting within 1 point needs the outer line
+within ~1 px, which the user gets at 750 % corner zoom and the card model does not. Consequence
+for the app: the pre-placed card line saves the drag but the user still checks the corners, and
+the artwork line is only as good as the card line it was measured from. A model that sees the
+card edge itself (a loose crop with margin, distances from the real edge) would remove this
+sensitivity; it is the natural centering v3 and is noted, not started.
+
+Timing in Node (WASM, 4 threads): card model 76 ms per photo including refinement; centering
+4.7 s per crop. In the browser on WebGPU the centering run is ~50 ms; a WASM-only phone waits
+seconds for the artwork suggestion, which the tool tolerates (the user can drag before it
+lands, and a touched line is never overwritten).

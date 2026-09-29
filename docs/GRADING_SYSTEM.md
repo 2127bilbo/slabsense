@@ -146,6 +146,24 @@ models had scored as clean)*.
    range. The export now keeps the norm, pool, head, GELU and division ops in fp32 (`-safe`), and the runner
    reruns any batch with a non-finite output on WASM. A NaN would otherwise read as "clean".
 
+### Card and centering models pre-place the centering lines *(added 2026-09-29)*
+
+Two more trained models sit in the centering tool, under the same "Corner & Edge Models" switch, and neither
+changes a measurement on its own: the **card model** (`card-v1`, mask of the card in the photo) places the
+card line on step 1, and the **centering model** (`centering_rgb-v2b`, card-edge-to-frame distances from a
+tight crop) places the artwork line on step 2. The user adjusts either as before, a touched line is never
+overwritten, and a model that fails or finds nothing card-shaped leaves the tool as it was. The centering
+number the engine uses is still computed from the lines the user confirms, so §2.2 is unchanged.
+
+Limits, measured on the owner's 147 labelled phone photos (`scripts/harness/card-chain.mjs`, details in
+`training/README.md`): the card model's corners are within 0.4 % of the card's long side on raw cards
+(p95 0.9 %) but it traces the holder on sleeved, one-touch and slabbed cards, which are out of scope — take the
+card out before scanning. Because the centering model measures from the crop edge and a card border is only
+~3 % of the card, that 0.4 % of crop error moves the ratio by several points: the automatic artwork line
+agrees with the one measured from a hand-placed card line within 2 points on 43 % of cards and within 5 on
+73 %. The card line therefore still needs a look at the corners before Next; the pre-placement saves the
+drag, not the check.
+
 ### Surface severity from the deduction model (paid paths) *(added 2026-09-21)*
 
 On the AI and Deep AI paths Claude finds and classifies surface defects and draws a box for each. Its
