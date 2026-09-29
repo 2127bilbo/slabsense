@@ -122,11 +122,26 @@ in that frame. The rig must reach at least that sampling with the card *and* a m
 Field of view needed: the card (63.5 × 88.9 mm) plus ≥ 5 mm of backdrop each side ≈ 75 × 100 mm.
 At 14.5 µm/px that is 5,170 × 6,900 px ≈ **36 MP minimum**; more gives room to crop and deskew.
 
-| Tier | Camera | Lens | Notes |
+**Path chosen (owner, 2026-09-29): machine vision, entry tier first, upgrade later.** A flatbed
+scanner was considered for a quick start and rejected: putting cards on scanner glass risks
+damage. Both tiers below connect by USB3 straight to the PC, stream frames into memory through
+the vendor SDK (Python bindings), and take a hardware trigger from the light controller so lights
+and exposure are synchronised. No Pi or microcontroller is involved in imaging.
+
+Why the entry tier is enough for today's models: the models discard most of TAG's resolution
+(corner tiles 384 px from 550 px crops, edge strips 1024 × 192 from ~3300 × 550, whole card
+896 × 1248, card model 512). A 20–25 MP camera at ~1,400 px/in keeps every one of those inputs
+above its native size. The full resolution is needed when Edges HR and the surface model arrive.
+
+| Tier | Camera (sensor) | Lens | What it gives |
 |---|---|---|---|
-| **Recommended** | 61 MP full-frame mirrorless (Sony A7R V, 9504 × 6336) or 45 MP (Canon EOS R5 II, 8192 × 5464) | 90–105 mm flat-field macro (Sony FE 90 mm f/2.8 Macro G, Canon RF 100 mm f/2.8 L Macro) at ~1:3, f/8 | 61 MP at 100 mm FOV long side ≈ 95 px/mm ≈ 2,400 px/in, above TAG. Tethered over USB with the maker's SDK (Sony Camera Remote SDK, Canon EDSDK) or digiCamControl on Windows. Electronic shutter, fixed manual exposure, RAW + JPEG. |
-| Metrology option | Industrial camera, 45–61 MP (Sony IMX455/IMX492 class from Basler, FLIR/Teledyne, IDS) | **Telecentric lens** for a 100 mm FOV (0.1–0.15× magnification, e.g. Edmund/Opto Engineering) | Telecentric = no perspective, constant magnification across the field: centering and size in real millimetres, which TAG reports (DTE in 0.01 mm, `cardWidthInches`). Costlier (lens $2–4k) but the right tool if the size score and sub-point centering matter. Global-shutter, hardware trigger to the lights. |
-| **Phase 0 (start now)** | Flatbed scanner (Epson Perfection V600 / V850) at 2,400 dpi | — | Produces a flat, evenly lit, high-resolution RGB image very close to what our models were trained on, for under $1k and with no rig build. It cannot do raking light (no relief image) and puts glass on the card. Use it to test every current model on real cards this week and as the RGB fallback while the camera rig is built. |
+| **Entry (start here)** | 20 MP Sony IMX183 (5472 × 3648, 1", rolling shutter, colour, USB3): Hikrobot MV-CE200-10UC or Daheng MER2-2000-19U3C ($300–500); Basler ace acA5472-17uc, IDS U3-3800, FLIR Blackfly S BFS-U3-200S6 ($800–1,200, better SDKs; Basler pypylon is the smoothest in Python). Alternative: 24.5 MP Pregius IMX530/531, global shutter. | C-mount 35–50 mm machine-vision lens rated for 2.4 µm pixels (Kowa, Computar, Edmund), $300–600, f/5.6–8 | Card long axis across 5472 px with a 97 mm field: ~56 px/mm ≈ 1,430 px/in (80 % of TAG). Corner crops ~450 px, edge strips ~2,500 × 450, pits ~9 px. Rolling shutter is fine: static card, constant light. |
+| **Upgrade (with Edges HR / surface)** | 47 MP Sony IMX492 (8192 × 5460, 4/3") from Basler, FLIR, IDS ($1,500–2,500); or 61 MP Sony IMX455 full frame ($5,000–8,000) for years of headroom | Keep the macro-class lens, or move to a **telecentric** for a 100 mm field (0.1–0.15×, Opto Engineering / Edmund, $1,500–3,000) for millimetre-accurate centering and size like TAG's DTE | IMX492: ~82 px/mm ≈ 2,080 px/in, above TAG. Telecentric: no perspective, constant magnification; its front element is wider than the card, so leave room on the column from day one. |
+
+Design for the swap: adjustable camera height, a swappable camera plate (C-mount today, larger
+mounts later), and a capture service written against the frame, not the camera, so the upgrade
+is a driver change. Verify exact model numbers and prices at purchase time; the figures above are
+approximate.
 
 Do not use a phone or a compact camera for the rig: rolling shutter, lens distortion and
 auto-everything defeat repeatability.
@@ -145,7 +160,7 @@ The rig therefore captures **two kinds of light**:
 
 | Item | Spec | Why |
 |---|---|---|
-| Diffuse light | Ring or dome of high-CRI (≥ 95) 5000 K LEDs behind opal acrylic diffuser; or four LED panels at 45° through diffusers | Flat, shadowless colour; matches a scanner look |
+| Diffuse light | Ring or dome of high-CRI (≥ 95) 5000 K LEDs behind opal acrylic diffuser; or four LED panels at 45° through diffusers | Flat, shadowless colour, like TAG's colour image |
 | Cross-polarisation | Linear polariser film on every diffuse light, analyser filter on the lens rotated 90° | Removes glare from holo and gloss so the models see print, not reflection |
 | Raking lights | 4 LED bars (N, E, S, W) at 10–20° elevation, ~150 mm from the card, unpolarised, individually switchable | Photometric stereo input; long shadows reveal dents, creases, scratches |
 | Driver | Constant-current, flicker-free, no PWM dimming (or PWM ≥ 20 kHz); each channel switchable from the PC (USB relay board or an Arduino/ESP32 over serial) | Repeatable exposures; the capture service sequences lights and shutter |
@@ -185,9 +200,8 @@ Print tolerances: design the pocket 0.2 mm oversize and test-fit; PETG shrinks ~
 
 | Group | Recommended | Approx. cost |
 |---|---|---|
-| Camera + macro lens | Sony A7R V + 90 mm macro (or Canon R5 II + RF 100 mm) | $4,000–5,000 |
-| Telecentric option | Industrial 61 MP camera + 100 mm-FOV telecentric | $6,000–10,000 |
-| Phase 0 scanner | Epson V850 | $900 |
+| Entry camera + lens | 20 MP IMX183 machine-vision camera + 2.4 µm-class C-mount lens | $700–1,800 |
+| Upgrade camera | 47 MP IMX492 (or 61 MP IMX455) + optional telecentric | $1,500–11,000 |
 | Lights, drivers, polariser film, analyser filter | | $400–800 |
 | Light controller (USB relay / ESP32) | | $30–60 |
 | Enclosure, copy stand, extrusion | | $300–600 |
@@ -216,10 +230,10 @@ physical build.
 - **0.3** Parity check: run the harness cards (`scripts/harness/card-splits.json`) through the
   Python service and through the existing JS runner; every slot within 0.01 wear and the same
   threshold decisions (the JS harness already does this against TAG's own crops with 0 flips).
-- **0.4** Scanner trial (if the Phase 0 scanner is bought): scan 20 raw cards at 2,400 dpi, run
-  the chain, compare corner/edge dings and centering with the owner's eye and, for any card
-  that has a DIG report, with TAG.
-- **Check**: parity 0 flips; the service grades a 2,400 dpi scan in under 5 s on the 4070 SUPER.
+- **0.4** Entry-camera trial as soon as the camera arrives, before the jig exists: card on a
+  TAG-orange sheet under two diffused LED panels, 20 raw cards, run the chain, compare corner/edge
+  dings and centering with the owner's eye and, for any card with a DIG report, with TAG.
+- **Check**: parity 0 flips; the service grades a full-resolution frame in under 5 s on the 4070 SUPER.
 
 ### Phase 1 — the application shell
 
@@ -504,7 +518,7 @@ On the phone, surface was never going to be a small on-device model: hairline de
 
 | Order | Track | Weeks (rough) | Depends on |
 |---|---|---|---|
-| 1 | Phase 0: Python inference service + parity; scanner trial | 1–2 | nothing |
+| 1 | Phase 0: Python inference service + parity; entry-camera trial | 1–2 | camera |
 | 2 | Phase 1: Electron shell, local API, SQLite | 2–3 | Phase 0 |
 | 3 | Phase 2: jig, enclosure, lights (parts on order from day 1) | 2–4 | parts |
 | 4 | Phase 3: capture service + processing + relief | 2–3 | Phase 2 |
@@ -513,15 +527,16 @@ On the phone, surface was never going to be a small on-device model: hairline de
 | 7 | Phase 6: Edges HR → Centering v3 → Surface → Rollup | 6–12 | GPU, Phase 5 pairs for gates |
 | 8 | Phase 7: hardening, operations | ongoing | |
 
-Parts with lead time to order first: camera and lens, telecentric if chosen, LED bars and
-polariser film, GPU and RAM, NVMe drives, UPS.
+Parts with lead time to order first: entry camera and lens, LED bars and polariser film, GPU and
+RAM, NVMe drives, UPS. The upgrade camera and telecentric wait for Edges HR / surface.
 
 ---
 
 ## 11. Open decisions for the owner
 
-1. Camera path: mirrorless + macro (recommended, faster to build) or industrial + telecentric
-   (best measurement accuracy, more cost and integration).
+1. Camera: decided — machine vision, entry tier (20 MP IMX183 class) now, 47–61 MP and a
+   telecentric with Edges HR / surface. Remaining choice is vendor (Hikrobot/Daheng price vs
+   Basler/FLIR/IDS support).
 2. GPU: RTX 5090 now, or keep renting for the largest runs (about $50 per full corner/edge run so
    far) and buy later.
 3. Whether the rig syncs any grades to the public app (affects the Supabase user model).
