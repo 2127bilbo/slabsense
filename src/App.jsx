@@ -2431,8 +2431,8 @@ export default function SlabSense(){
         side={showPostCaptureCentering}
         onConfirm={(result) => handleCenteringConfirm(showPostCaptureCentering, result)}
         onSkip={() => handleCenteringSkip(showPostCaptureCentering)}
-        suggestOuter={suggestOuterCorners}
-        suggestInner={suggestInnerCorners}
+        suggestOuter={modelGradingEnabled() ? suggestOuterCorners : null}
+        suggestInner={modelGradingEnabled() ? suggestInnerCorners : null}
       />
     )}
     {/* Card Identifier Modal (OCR + TCGDex) */}

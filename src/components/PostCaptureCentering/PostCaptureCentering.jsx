@@ -177,14 +177,15 @@ export function PostCaptureCentering({
           setSuggestion('finding the card…');
           suggestOuter(image).then((res) => {
             if (token !== suggestTokenRef.current || stepRef.current !== 1) return;
-            if (!res || touchedRef.current) { setSuggestion(null); return; }
+            if (touchedRef.current) { setSuggestion(null); return; }
+            if (!res) { setSuggestion('model did not find the card — place the corners by hand'); return; }
             const c = res.corners;
             const q = { tl: { x: c.tl.x * w, y: c.tl.y * h }, tr: { x: c.tr.x * w, y: c.tr.y * h }, bl: { x: c.bl.x * w, y: c.bl.y * h }, br: { x: c.br.x * w, y: c.br.y * h } };
             const b = getBoundsFromCorners(q);
             setOuterCorners(q);
             setOuter({ left: b.x, top: b.y, right: b.x + b.width, bottom: b.y + b.height });
             setSuggestion('card edge placed by the model — check the corners');
-          }).catch(() => setSuggestion(null));
+          }).catch(() => setSuggestion('model did not find the card — place the corners by hand'));
         }
       }
 
@@ -488,14 +489,15 @@ export function PostCaptureCentering({
         setSuggestion('measuring the artwork frame…');
         suggestInner(cropped, side).then((res) => {
           if (token !== suggestTokenRef.current || stepRef.current !== 2) return;
-          if (!res || touchedRef.current) { setSuggestion(null); return; }
+          if (touchedRef.current) { setSuggestion(null); return; }
+          if (!res) { setSuggestion('model could not place the frame — adjust by hand'); return; }
           const c = res.corners;
           const q = { tl: { x: c.tl.x * w, y: c.tl.y * h }, tr: { x: c.tr.x * w, y: c.tr.y * h }, bl: { x: c.bl.x * w, y: c.bl.y * h }, br: { x: c.br.x * w, y: c.br.y * h } };
           const b = getBoundsFromCorners(q);
           setInnerCorners(q);
           setInner({ left: b.x, top: b.y, right: b.x + b.width, bottom: b.y + b.height });
           setSuggestion('artwork frame placed by the model — check the lines');
-        }).catch(() => setSuggestion(null));
+        }).catch(() => setSuggestion('model could not place the frame — adjust by hand'));
       } else {
         setSuggestion(null);
       }
