@@ -111,12 +111,29 @@ async function cachedFetch(url) {
 }
 
 let manifestPromise = null;
-/** models.json lists each model's parts; see scripts/models/upload.mjs. */
+/**
+ * models.json lists each model's parts; see scripts/models/upload.mjs. Network first,
+ * always: the manifest is what changes when a model is added or replaced, and a phone that
+ * served it from the Cache API kept a copy from before the card and centering models
+ * existed (2026-09-29). The cached copy is only a fallback for offline use.
+ */
 async function getManifest() {
   if (!manifestPromise) {
-    manifestPromise = cachedFetch(`${MODELS_BASE}/models.json`)
-      .then((r) => r.json())
-      .catch((e) => { manifestPromise = null; throw e; });
+    manifestPromise = (async () => {
+      const url = `${MODELS_BASE}/models.json`;
+      let cache = null;
+      try { cache = typeof caches !== 'undefined' ? await caches.open(CACHE_NAME) : null; } catch { /* no Cache API */ }
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`models.json: HTTP ${res.status}`);
+        if (cache) { try { await cache.put(url, res.clone()); } catch { /* quota */ } }
+        return await res.json();
+      } catch (e) {
+        const hit = cache ? await cache.match(url) : null;
+        if (!hit) throw e;
+        return hit.json();
+      }
+    })().catch((e) => { manifestPromise = null; throw e; });
   }
   return manifestPromise;
 }
@@ -132,13 +149,14 @@ async function sha256Hex(bytes) {
  * The bytes of one model. Supabase caps an object at 50 MB and the models are
  * 53.6 MB, so they are stored in parts and joined here.
  */
-async function cachedModelBytes(task, onProgress) {
+async function cachedModelBytes(task, onProgress, retry = true) {
   const manifest = await getManifest();
   const entry = manifest?.models?.[task];
   if (!entry) throw new Error(`models.json has no entry for ${task}`);
+  const urls = entry.parts.map((part) => `${MODELS_BASE}/${part.path}`);
   const chunks = [];
-  for (const part of entry.parts) {
-    const res = await cachedFetch(`${MODELS_BASE}/${part.path}`);
+  for (const [i, part] of entry.parts.entries()) {
+    const res = await cachedFetch(urls[i]);
     chunks.push(new Uint8Array(await res.arrayBuffer()));
     if (onProgress) onProgress({ task, part: part.path, loaded: chunks.reduce((s, c) => s + c.length, 0), total: entry.bytes });
   }
@@ -148,10 +166,15 @@ async function cachedModelBytes(task, onProgress) {
     for (const c of chunks) { out.set(c, off); off += c.length; }
     return out;
   })();
-  if (bytes.length !== entry.bytes) throw new Error(`${entry.file}: expected ${entry.bytes} bytes, got ${bytes.length}`);
-  if (entry.sha256) {
-    const sha = await sha256Hex(bytes);
-    if (sha !== null && sha !== entry.sha256) throw new Error(`${entry.file}: checksum mismatch`);
+  const sha = entry.sha256 ? await sha256Hex(bytes) : null;
+  const stale = bytes.length !== entry.bytes || (entry.sha256 && sha !== null && sha !== entry.sha256);
+  if (stale) {
+    // A part cached before the model was re-uploaded under the same name: evict and refetch once.
+    if (retry) {
+      try { const cache = await caches.open(CACHE_NAME); await Promise.all(urls.map((u) => cache.delete(u))); } catch { /* no Cache API */ }
+      return cachedModelBytes(task, onProgress, false);
+    }
+    throw new Error(bytes.length !== entry.bytes ? `${entry.file}: expected ${entry.bytes} bytes, got ${bytes.length}` : `${entry.file}: checksum mismatch`);
   }
   return bytes;
 }
