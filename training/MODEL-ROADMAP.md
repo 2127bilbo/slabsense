@@ -82,7 +82,10 @@ for one, and a border is only ~3 % of the card. The slope means a 60/40 card rea
   (`scripts/harness/lugia-30th.mjs`, certs in `scripts/harness/lugia-30th-certs.json`). Add those certs
   (DTEs + deskewed images, pulled with the tag-dataset fetcher) to the centering training set and to
   the card model's cutouts (the mask misplaced a corner on the foil edge), and add a foil-border group
-  to the eval buckets. See docs/grading-research/e-reader-centering.md §3.
+  to the eval buckets. See docs/grading-research/e-reader-centering.md §3. **Sample ready:**
+  `scripts/tag-dataset/samples/2026-foil-border/certs.parquet` — 3,833 certs (every 2026 30th-set and
+  rare-variation cert at grade ≤ 9 plus 2 × 10 and 1 × 10P per card), with the full pop-report
+  enumerations beside it; pull with the dataset fetcher, keep in its own split.
 - Acceptance: on phone photos through the full chain, ≥ 85 % within 2 points of the hand-placed
   measurement; on TAG scans, slope ≥ 0.95.
 
