@@ -1,0 +1,1085 @@
+{
+ "rows": [
+  {
+   "cert": "C2022763",
+   "grade": "10 PRISTINE",
+   "scoreTotal": 992,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      166,
+      169,
+      181,
+      176
+     ],
+     "tagLR": 49.6,
+     "tagTB": 50.7,
+     "modelLR": 39.7,
+     "modelTB": 43.4,
+     "dLR": -9.9,
+     "dTB": -7.3,
+     "modelMM": {
+      "l": 2.7,
+      "r": 4.1,
+      "t": 2.4,
+      "b": 3.1
+     }
+    },
+    "back": {
+     "tagDTE": [
+      212,
+      219,
+      245,
+      239
+     ],
+     "tagLR": 49.2,
+     "tagTB": 50.6,
+     "modelLR": 49.4,
+     "modelTB": 49.8,
+     "dLR": 0.3,
+     "dTB": -0.8,
+     "modelMM": {
+      "l": 3.1,
+      "r": 3.1,
+      "t": 3.5,
+      "b": 3.5
+     }
+    }
+   }
+  },
+  {
+   "cert": "W8946713",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 987,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      167,
+      164,
+      154,
+      161
+     ],
+     "tagLR": 50.5,
+     "tagTB": 48.9,
+     "modelLR": 35.7,
+     "modelTB": 62.6,
+     "dLR": -14.8,
+     "dTB": 13.7,
+     "modelMM": {
+      "l": 2.1,
+      "r": 3.7,
+      "t": 4.2,
+      "b": 2.5
+     }
+    },
+    "back": {
+     "tagDTE": [
+      232,
+      208,
+      245,
+      242
+     ],
+     "tagLR": 52.7,
+     "tagTB": 50.3,
+     "modelLR": 52.3,
+     "modelTB": 53.5,
+     "dLR": -0.5,
+     "dTB": 3.2,
+     "modelMM": {
+      "l": 3.3,
+      "r": 3,
+      "t": 4,
+      "b": 3.5
+     }
+    }
+   }
+  },
+  {
+   "cert": "D2888870",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 986,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      215,
+      227,
+      223,
+      219
+     ],
+     "tagLR": 48.6,
+     "tagTB": 50.5,
+     "modelLR": 49.4,
+     "modelTB": 54.4,
+     "dLR": 0.8,
+     "dTB": 3.9,
+     "modelMM": {
+      "l": 4,
+      "r": 4.1,
+      "t": 3.6,
+      "b": 3
+     }
+    },
+    "back": {
+     "tagDTE": [
+      231,
+      211,
+      251,
+      241
+     ],
+     "tagLR": 52.3,
+     "tagTB": 51,
+     "modelLR": 53.1,
+     "modelTB": 52.1,
+     "dLR": 0.8,
+     "dTB": 1,
+     "modelMM": {
+      "l": 3.3,
+      "r": 3,
+      "t": 3.6,
+      "b": 3.3
+     }
+    }
+   }
+  },
+  {
+   "cert": "Z5880998",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 985,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      170,
+      170,
+      168,
+      178
+     ],
+     "tagLR": 50,
+     "tagTB": 48.6,
+     "modelLR": 46.5,
+     "modelTB": 56.6,
+     "dLR": -3.5,
+     "dTB": 8.1,
+     "modelMM": {
+      "l": 3.5,
+      "r": 4.1,
+      "t": 4,
+      "b": 3.1
+     }
+    },
+    "back": {
+     "tagDTE": [
+      220,
+      216,
+      245,
+      241
+     ],
+     "tagLR": 50.5,
+     "tagTB": 50.4,
+     "modelLR": 50.5,
+     "modelTB": 54.7,
+     "dLR": 0.1,
+     "dTB": 4.2,
+     "modelMM": {
+      "l": 3.2,
+      "r": 3.1,
+      "t": 4.1,
+      "b": 3.4
+     }
+    }
+   }
+  },
+  {
+   "cert": "Z7961311",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 983,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      169,
+      168,
+      186,
+      174
+     ],
+     "tagLR": 50.1,
+     "tagTB": 51.7,
+     "modelLR": 49.7,
+     "modelTB": 56.5,
+     "dLR": -0.5,
+     "dTB": 4.8,
+     "modelMM": {
+      "l": 4,
+      "r": 4,
+      "t": 3.7,
+      "b": 2.8
+     }
+    },
+    "back": {
+     "tagDTE": [
+      223,
+      205,
+      249,
+      235
+     ],
+     "tagLR": 52.1,
+     "tagTB": 51.4,
+     "modelLR": 56.2,
+     "modelTB": 52.6,
+     "dLR": 4.1,
+     "dTB": 1.2,
+     "modelMM": {
+      "l": 3.8,
+      "r": 3,
+      "t": 3.6,
+      "b": 3.3
+     }
+    }
+   }
+  },
+  {
+   "cert": "U4766444",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 983,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      160,
+      171,
+      181,
+      171
+     ],
+     "tagLR": 48.3,
+     "tagTB": 51.4,
+     "modelLR": 43,
+     "modelTB": 59.6,
+     "dLR": -5.4,
+     "dTB": 8.1,
+     "modelMM": {
+      "l": 2.6,
+      "r": 3.4,
+      "t": 4,
+      "b": 2.7
+     }
+    },
+    "back": {
+     "tagDTE": [
+      224,
+      205,
+      245,
+      244
+     ],
+     "tagLR": 52.2,
+     "tagTB": 50.1,
+     "modelLR": 51.7,
+     "modelTB": 54.1,
+     "dLR": -0.5,
+     "dTB": 4,
+     "modelMM": {
+      "l": 3.3,
+      "r": 3,
+      "t": 4.1,
+      "b": 3.5
+     }
+    }
+   }
+  },
+  {
+   "cert": "M8522255",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 982,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      172,
+      165,
+      153,
+      164
+     ],
+     "tagLR": 51,
+     "tagTB": 48.3,
+     "modelLR": 43.7,
+     "modelTB": 58.3,
+     "dLR": -7.3,
+     "dTB": 10,
+     "modelMM": {
+      "l": 2.5,
+      "r": 3.2,
+      "t": 3.5,
+      "b": 2.5
+     }
+    },
+    "back": {
+     "tagDTE": [
+      205,
+      224,
+      258,
+      230
+     ],
+     "tagLR": 47.8,
+     "tagTB": 52.9,
+     "modelLR": 46.8,
+     "modelTB": 53.4,
+     "dLR": -1,
+     "dTB": 0.6,
+     "modelMM": {
+      "l": 2.8,
+      "r": 3.2,
+      "t": 3.6,
+      "b": 3.1
+     }
+    }
+   }
+  },
+  {
+   "cert": "V7499461",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 980,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      171,
+      171,
+      179,
+      182
+     ],
+     "tagLR": 50,
+     "tagTB": 49.6,
+     "modelLR": 47.1,
+     "modelTB": 54,
+     "dLR": -2.9,
+     "dTB": 4.4,
+     "modelMM": {
+      "l": 3.8,
+      "r": 4.3,
+      "t": 3.7,
+      "b": 3.2
+     }
+    },
+    "back": {
+     "tagDTE": [
+      195,
+      239,
+      239,
+      248
+     ],
+     "tagLR": 44.9,
+     "tagTB": 49.1,
+     "modelLR": 44.8,
+     "modelTB": 50.2,
+     "dLR": -0.2,
+     "dTB": 1.2,
+     "modelMM": {
+      "l": 2.8,
+      "r": 3.5,
+      "t": 3.5,
+      "b": 3.4
+     }
+    }
+   }
+  },
+  {
+   "cert": "Q4629704",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 978,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      172,
+      158,
+      173,
+      167
+     ],
+     "tagLR": 52.1,
+     "tagTB": 50.9,
+     "modelLR": 33.6,
+     "modelTB": 61.1,
+     "dLR": -18.5,
+     "dTB": 10.2,
+     "modelMM": {
+      "l": 1.7,
+      "r": 3.4,
+      "t": 3.9,
+      "b": 2.5
+     }
+    },
+    "back": {
+     "tagDTE": [
+      207,
+      225,
+      243,
+      236
+     ],
+     "tagLR": 47.9,
+     "tagTB": 50.7,
+     "modelLR": 48.1,
+     "modelTB": 54.6,
+     "dLR": 0.2,
+     "dTB": 3.9,
+     "modelMM": {
+      "l": 3,
+      "r": 3.3,
+      "t": 4.1,
+      "b": 3.4
+     }
+    }
+   }
+  },
+  {
+   "cert": "P3463492",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 975,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      165,
+      168,
+      167,
+      184
+     ],
+     "tagLR": 49.5,
+     "tagTB": 47.6,
+     "modelLR": 39.5,
+     "modelTB": 60,
+     "dLR": -10.1,
+     "dTB": 12.4,
+     "modelMM": {
+      "l": 2.6,
+      "r": 4,
+      "t": 4.2,
+      "b": 2.8
+     }
+    },
+    "back": {
+     "tagDTE": [
+      220,
+      217,
+      244,
+      245
+     ],
+     "tagLR": 50.3,
+     "tagTB": 49.9,
+     "modelLR": 50.3,
+     "modelTB": 53.9,
+     "dLR": -0.1,
+     "dTB": 4,
+     "modelMM": {
+      "l": 3.2,
+      "r": 3.2,
+      "t": 4.1,
+      "b": 3.5
+     }
+    }
+   }
+  },
+  {
+   "cert": "N6504812",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 973,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      168,
+      161,
+      179,
+      161
+     ],
+     "tagLR": 51.1,
+     "tagTB": 52.6,
+     "modelLR": 44.5,
+     "modelTB": 61.3,
+     "dLR": -6.5,
+     "dTB": 8.6,
+     "modelMM": {
+      "l": 3.2,
+      "r": 3.9,
+      "t": 4.3,
+      "b": 2.7
+     }
+    },
+    "back": {
+     "tagDTE": [
+      200,
+      233,
+      243,
+      242
+     ],
+     "tagLR": 46.2,
+     "tagTB": 50.1,
+     "modelLR": 46.9,
+     "modelTB": 53.5,
+     "dLR": 0.8,
+     "dTB": 3.4,
+     "modelMM": {
+      "l": 3,
+      "r": 3.4,
+      "t": 4.1,
+      "b": 3.6
+     }
+    }
+   }
+  },
+  {
+   "cert": "D9312935",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 972,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      174,
+      156,
+      163,
+      182
+     ],
+     "tagLR": 52.7,
+     "tagTB": 47.2,
+     "modelLR": 46.1,
+     "modelTB": 62.9,
+     "dLR": -6.6,
+     "dTB": 15.6,
+     "modelMM": {
+      "l": 2.8,
+      "r": 3.3,
+      "t": 3.8,
+      "b": 2.3
+     }
+    },
+    "back": {
+     "tagDTE": [
+      201,
+      222,
+      238,
+      241
+     ],
+     "tagLR": 47.5,
+     "tagTB": 49.7,
+     "modelLR": 48.7,
+     "modelTB": 53.6,
+     "dLR": 1.2,
+     "dTB": 3.9,
+     "modelMM": {
+      "l": 3.1,
+      "r": 3.2,
+      "t": 4.1,
+      "b": 3.5
+     }
+    }
+   }
+  },
+  {
+   "cert": "U3609015",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 971,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      214,
+      236,
+      238,
+      212
+     ],
+     "tagLR": 47.6,
+     "tagTB": 52.9,
+     "modelLR": 43,
+     "modelTB": 58.3,
+     "dLR": -4.6,
+     "dTB": 5.4,
+     "modelMM": {
+      "l": 3.2,
+      "r": 4.3,
+      "t": 4,
+      "b": 2.9
+     }
+    },
+    "back": {
+     "tagDTE": [
+      220,
+      222,
+      277,
+      215
+     ],
+     "tagLR": 49.8,
+     "tagTB": 56.3,
+     "modelLR": 50.6,
+     "modelTB": 58.3,
+     "dLR": 0.8,
+     "dTB": 2,
+     "modelMM": {
+      "l": 3.2,
+      "r": 3.1,
+      "t": 3.9,
+      "b": 2.8
+     }
+    }
+   }
+  },
+  {
+   "cert": "J3681120",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 971,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      155,
+      174,
+      168,
+      180
+     ],
+     "tagLR": 47.1,
+     "tagTB": 48.3,
+     "modelLR": 34.5,
+     "modelTB": 61.7,
+     "dLR": -12.6,
+     "dTB": 13.5,
+     "modelMM": {
+      "l": 2.2,
+      "r": 4.2,
+      "t": 3.9,
+      "b": 2.4
+     }
+    },
+    "back": {
+     "tagDTE": [
+      224,
+      215,
+      232,
+      250
+     ],
+     "tagLR": 51,
+     "tagTB": 48.1,
+     "modelLR": 51.3,
+     "modelTB": 52.3,
+     "dLR": 0.3,
+     "dTB": 4.2,
+     "modelMM": {
+      "l": 3.3,
+      "r": 3.1,
+      "t": 3.9,
+      "b": 3.6
+     }
+    }
+   }
+  },
+  {
+   "cert": "Y1038863",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 970,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      154,
+      174,
+      178,
+      165
+     ],
+     "tagLR": 47,
+     "tagTB": 51.9,
+     "modelLR": 37.6,
+     "modelTB": 59.2,
+     "dLR": -9.3,
+     "dTB": 7.3,
+     "modelMM": {
+      "l": 2.2,
+      "r": 3.6,
+      "t": 3.9,
+      "b": 2.7
+     }
+    },
+    "back": {
+     "tagDTE": [
+      226,
+      206,
+      243,
+      240
+     ],
+     "tagLR": 52.3,
+     "tagTB": 50.3,
+     "modelLR": 53.4,
+     "modelTB": 53.9,
+     "dLR": 1.1,
+     "dTB": 3.6,
+     "modelMM": {
+      "l": 3.4,
+      "r": 3,
+      "t": 4.1,
+      "b": 3.5
+     }
+    }
+   }
+  },
+  {
+   "cert": "M3780034",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 966,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      157,
+      174,
+      161,
+      185
+     ],
+     "tagLR": 47.4,
+     "tagTB": 46.5,
+     "modelLR": 41.8,
+     "modelTB": 55.3,
+     "dLR": -5.6,
+     "dTB": 8.8,
+     "modelMM": {
+      "l": 2.5,
+      "r": 3.4,
+      "t": 3.7,
+      "b": 3
+     }
+    },
+    "back": {
+     "tagDTE": [
+      218,
+      212,
+      218,
+      264
+     ],
+     "tagLR": 50.7,
+     "tagTB": 45.2,
+     "modelLR": 50.4,
+     "modelTB": 49.3,
+     "dLR": -0.3,
+     "dTB": 4.1,
+     "modelMM": {
+      "l": 3.2,
+      "r": 3.1,
+      "t": 3.8,
+      "b": 3.9
+     }
+    }
+   }
+  },
+  {
+   "cert": "C8954260",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 966,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      179,
+      156,
+      181,
+      163
+     ],
+     "tagLR": 53.4,
+     "tagTB": 52.6,
+     "modelLR": 41.1,
+     "modelTB": 52.5,
+     "dLR": -12.3,
+     "dTB": -0.1,
+     "modelMM": {
+      "l": 2.6,
+      "r": 3.8,
+      "t": 3.3,
+      "b": 3
+     }
+    },
+    "back": {
+     "tagDTE": [
+      199,
+      236,
+      246,
+      242
+     ],
+     "tagLR": 45.7,
+     "tagTB": 50.4,
+     "modelLR": 44.6,
+     "modelTB": 49.9,
+     "dLR": -1.1,
+     "dTB": -0.6,
+     "modelMM": {
+      "l": 2.7,
+      "r": 3.4,
+      "t": 3.5,
+      "b": 3.5
+     }
+    }
+   }
+  },
+  {
+   "cert": "H4840647",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 963,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      166,
+      169,
+      156,
+      181
+     ],
+     "tagLR": 49.6,
+     "tagTB": 46.3,
+     "modelLR": 38.9,
+     "modelTB": 57.2,
+     "dLR": -10.7,
+     "dTB": 10.9,
+     "modelMM": {
+      "l": 2.4,
+      "r": 3.7,
+      "t": 3.9,
+      "b": 2.9
+     }
+    },
+    "back": {
+     "tagDTE": [
+      211,
+      227,
+      222,
+      260
+     ],
+     "tagLR": 48.2,
+     "tagTB": 46.1,
+     "modelLR": 48.5,
+     "modelTB": 50.4,
+     "dLR": 0.3,
+     "dTB": 4.3,
+     "modelMM": {
+      "l": 3.1,
+      "r": 3.2,
+      "t": 3.8,
+      "b": 3.8
+     }
+    }
+   }
+  },
+  {
+   "cert": "N5942543",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 961,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      184,
+      157,
+      166,
+      197
+     ],
+     "tagLR": 54,
+     "tagTB": 45.7,
+     "modelLR": 40.4,
+     "modelTB": 52.3,
+     "dLR": -13.6,
+     "dTB": 6.5,
+     "modelMM": {
+      "l": 2.5,
+      "r": 3.7,
+      "t": 3.4,
+      "b": 3.1
+     }
+    },
+    "back": {
+     "tagDTE": [
+      192,
+      243,
+      223,
+      265
+     ],
+     "tagLR": 44.1,
+     "tagTB": 45.7,
+     "modelLR": 42.9,
+     "modelTB": 46.1,
+     "dLR": -1.2,
+     "dTB": 0.4,
+     "modelMM": {
+      "l": 2.6,
+      "r": 3.5,
+      "t": 3.1,
+      "b": 3.6
+     }
+    }
+   }
+  },
+  {
+   "cert": "E6308178",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 951,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      199,
+      243,
+      235,
+      207
+     ],
+     "tagLR": 45,
+     "tagTB": 53.2,
+     "modelLR": 38.5,
+     "modelTB": 64.3,
+     "dLR": -6.5,
+     "dTB": 11.1,
+     "modelMM": {
+      "l": 2.4,
+      "r": 3.8,
+      "t": 4.4,
+      "b": 2.4
+     }
+    },
+    "back": {
+     "tagDTE": [
+      234,
+      200,
+      261,
+      222
+     ],
+     "tagLR": 53.9,
+     "tagTB": 54,
+     "modelLR": 53.8,
+     "modelTB": 57,
+     "dLR": -0.1,
+     "dTB": 3,
+     "modelMM": {
+      "l": 3.4,
+      "r": 3,
+      "t": 4.3,
+      "b": 3.3
+     }
+    }
+   }
+  },
+  {
+   "cert": "H7159573",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 950,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      220,
+      220,
+      198,
+      243
+     ],
+     "tagLR": 50,
+     "tagTB": 44.9,
+     "modelLR": 50.5,
+     "modelTB": 48.4,
+     "dLR": 0.5,
+     "dTB": 3.6,
+     "modelMM": {
+      "l": 3.8,
+      "r": 3.7,
+      "t": 3.2,
+      "b": 3.4
+     }
+    },
+    "back": {
+     "tagDTE": [
+      204,
+      232,
+      206,
+      281
+     ],
+     "tagLR": 46.8,
+     "tagTB": 42.3,
+     "modelLR": 46.1,
+     "modelTB": 42.7,
+     "dLR": -0.7,
+     "dTB": 0.4,
+     "modelMM": {
+      "l": 2.9,
+      "r": 3.4,
+      "t": 3,
+      "b": 4
+     }
+    }
+   }
+  },
+  {
+   "cert": "K8394680",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 950,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      192,
+      236,
+      231,
+      198
+     ],
+     "tagLR": 44.9,
+     "tagTB": 53.8,
+     "modelLR": 41.2,
+     "modelTB": 60.6,
+     "dLR": -3.7,
+     "dTB": 6.8,
+     "modelMM": {
+      "l": 2.7,
+      "r": 3.8,
+      "t": 4,
+      "b": 2.6
+     }
+    },
+    "back": {
+     "tagDTE": [
+      233,
+      200,
+      253,
+      229
+     ],
+     "tagLR": 53.8,
+     "tagTB": 52.5,
+     "modelLR": 53.3,
+     "modelTB": 56.6,
+     "dLR": -0.5,
+     "dTB": 4.1,
+     "modelMM": {
+      "l": 3.4,
+      "r": 3,
+      "t": 4.3,
+      "b": 3.3
+     }
+    }
+   }
+  },
+  {
+   "cert": "W4104676",
+   "grade": "10 GEM MINT",
+   "scoreTotal": 950,
+   "sides": {
+    "front": {
+     "tagDTE": [
+      198,
+      243,
+      227,
+      213
+     ],
+     "tagLR": 44.9,
+     "tagTB": 51.6,
+     "modelLR": 47.9,
+     "modelTB": 51.8,
+     "dLR": 3,
+     "dTB": 0.2,
+     "modelMM": {
+      "l": 3.9,
+      "r": 4.3,
+      "t": 3.5,
+      "b": 3.3
+     }
+    },
+    "back": {
+     "tagDTE": [
+      224,
+      201,
+      233,
+      250
+     ],
+     "tagLR": 52.7,
+     "tagTB": 48.2,
+     "modelLR": 57,
+     "modelTB": 50,
+     "dLR": 4.3,
+     "dTB": 1.8,
+     "modelMM": {
+      "l": 3.9,
+      "r": 2.9,
+      "t": 3.4,
+      "b": 3.4
+     }
+    }
+   }
+  }
+ ]
+}

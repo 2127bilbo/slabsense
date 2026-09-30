@@ -77,6 +77,12 @@ for one, and a border is only ~3 % of the card. The slope means a 60/40 card rea
 - Direct-ratio head or L1-on-ratio to finish the slope work (v2b's ratio-weight 0.1 got 0.70 →
   0.88; the 0.95 gate is still open).
 - e-Reader / dot-code cards already measured TAG's way; keep that rule in the label builder.
+- **Foil-border designs (2026-09-30):** on the 30th Celebration Crystal Lugia Secret Rare (gold foil to the
+  edge) v2b is biased ~7 points against TAG on the front on every one of 23 graded copies
+  (`scripts/harness/lugia-30th.mjs`, certs in `scripts/harness/lugia-30th-certs.json`). Add those certs
+  (DTEs + deskewed images, pulled with the tag-dataset fetcher) to the centering training set and to
+  the card model's cutouts (the mask misplaced a corner on the foil edge), and add a foil-border group
+  to the eval buckets. See docs/grading-research/e-reader-centering.md §3.
 - Acceptance: on phone photos through the full chain, ≥ 85 % within 2 points of the hand-placed
   measurement; on TAG scans, slope ≥ 0.95.
 
