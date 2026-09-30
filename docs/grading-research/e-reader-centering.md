@@ -76,10 +76,41 @@ reproduced as **printed gold dash strips in the same positions** on the left and
 measures edge-to-frame will call the left and bottom borders very thick; a tool that measures
 edge-to-print (TAG's behaviour on the originals) lands on the dash strip and reads close to 50/50.
 
-TAG-graded examples are **not yet in our data** (latest `date_graded` 2026-06-08; the set released
-2026-09-16), so how TAG's vision treats the gold dashes is *inferred from the originals, not
-observed*. Verify as soon as TAG certs exist for this card: pull their DIG reports (the fetcher takes
-a certs file) and check whether L/R/T/B match the originals' pattern.
+**Verified on a real cert, 2026-09-30** — TAG C2022763, Lugia 149/147, "30th Celebration Classic
+Collection - Aquapolis", variation **Secret Rare** (the gold-foil-border version, not the plain
+yellow-border print), graded 10 PRISTINE (992 centering, corners/edges/surface 1000; size score
+952, card 2.48645 × 3.46321 in), pulled through `tagdataset.tagapi` on 2026-09-30:
+
+| side | TAG DTE mm (l, r, t, b) | TAG ratios | centering v2b on TAG's deskewed image (trimmed crop) | v2b mm (l, r, t, b) |
+|---|---|---|---|---|
+| front | 1.66, 1.69, 1.81, 1.76 | 49.6/50.4 L/R, 50.7/49.3 T/B | **39.7/60.3 L/R, 43.4/56.6 T/B** | 2.69, 4.10, 2.41, 3.14 |
+| back | 2.12, 2.19, 2.45, 2.39 | 49.2/50.8, 50.6/49.4 | 49.4/50.6, 49.8/50.2 | 3.06, 3.13, 3.49, 3.52 |
+
+What TAG did: all four front distances are ~1.7 mm and nearly equal, so TAG's boundary on this
+card is a near-symmetric line ~1.7 mm inside the edge on every side — inside the gold foil border,
+not at the blue art frame (which sits ~4 mm in on the right) and not at the gold dash strip
+(~2.8 mm on the left). On the Secret Rare the whole border is a foil pattern to the edge, and TAG
+treats the pattern's boundary as the print edge, so the card reads ~50/50 and grades Pristine.
+
+What our model did: the back is within 0.8 pt of TAG (ordinary back design). The front is 10 to
+13 points off: v2b measured the left to ~2.7 mm (near the dash strip, as on the originals) and the
+right to 4.1 mm (the art frame), i.e. it applied the e-Reader convention it learned from the
+originals to a border it has never seen. On the engine that is a centering subgrade around 8.5–9
+against TAG's 10 Pristine. **This is a model gap specific to the Secret Rare foil border, not an
+e-Reader rule question.** The plain-border 30th Lugia is still unverified (no cert seen yet).
+
+Also seen: the card model's mask misplaced the top-left corner of this gold-foil card on TAG's
+orange trim by ~80 px (holo foil against orange gives a weak edge), which on its own turned the
+chained reading into 30/70; the numbers above use a backdrop-trim crop instead. Foil-to-the-edge
+cards need to be in the card model's synthetic set too.
+
+Fix path: collect the TAG certs of this variation (the pop report lists them:
+`my.taggrading.com/pop-report/Pokemon/2026/Pokémon Mega Evolution/Lugia/149/147?setName=30th
+Celebration Classic Collection - Aquapolis&variation=Secret Rare`), pull their DIG reports and
+images with the fetcher, add them to the centering training set (and the foil-border cards to the
+card model's cutouts), and re-check with the harness. Until then, on this card the manual tool is
+the right reading: place the inner line ~1.7 mm in on all sides, at the boundary of the foil
+border pattern, which is where TAG measures.
 
 ## 4. Our centering model (v2b) on these cards
 
@@ -106,5 +137,6 @@ learned from the left-strip layout, not symmetric.
   data shows none, so a corrected reading would disagree with the TAG grade.
 - The manual tool's readout is whatever the user draws; the guidance above is what needs surfacing
   for these cards. The model already follows the convention.
-- Open item: confirm on real TAG DIG reports of the 30th Crystal Lugia once they exist, and on a
-  real phone photo of one through the model (the render is not evidence of photo behaviour).
+- Open item (updated 2026-09-30): the Secret Rare foil-border 30th Lugia is now confirmed against
+  TAG (section 3) and the model is 10+ points off on it — a training-data gap. Still open: the
+  plain-border 30th Lugia on a real TAG cert, and a real phone photo of either through the model.
