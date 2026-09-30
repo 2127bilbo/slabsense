@@ -78,7 +78,7 @@ for one, and a border is only ~3 % of the card. The slope means a 60/40 card rea
   0.88; the 0.95 gate is still open).
 - e-Reader / dot-code cards already measured TAG's way; keep that rule in the label builder.
 - **Foil-border designs (2026-09-30):** on the 30th Celebration Crystal Lugia Secret Rare (gold foil to the
-  edge) v2b is biased ~7 points against TAG on the front on every one of 23 graded copies
+  edge) v2b is biased ~8 points against TAG on the front on every one of the 28 graded copies
   (`scripts/harness/lugia-30th.mjs`, certs in `scripts/harness/lugia-30th-certs.json`). Add those certs
   (DTEs + deskewed images, pulled with the tag-dataset fetcher) to the centering training set and to
   the card model's cutouts (the mask misplaced a corner on the foil edge), and add a foil-border group

@@ -107,19 +107,20 @@ cards need to be in the card model's synthetic set too.
 **All graded copies, 2026-09-30.** TAG's pop report lists 28 graded 149/147 Secret Rare Lugia
 (1 × 10 PRISTINE, 23 × 10 GEM MINT, 3 × 9, 1 × 8.5 at the time of the pull); it is the only Lugia
 149/147 variation in that set, so the "plain-border 30th Lugia" of the earlier note does not
-exist as a separate TAG listing. 23 certs were pulled before TAG's rate limit hit (the rest are
-retried by the same script); `scripts/harness/lugia-30th.mjs` downloads their deskewed images and
+exist as a separate TAG listing. All 28 were pulled (TAG's rate limit needs ~25 s between
+calls); `scripts/harness/lugia-30th.mjs` downloads their deskewed images and
 runs centering v2b on a backdrop-trimmed crop (`scripts/harness/lugia-30th-certs.json`,
 `results/2026-09-30-lugia-30th.json`):
 
 | side | n | mean abs. L/R diff | mean abs. T/B diff | both within 2 pts | TAG mean L/R, T/B | model mean L/R, T/B |
 |---|---|---|---|---|---|---|
-| front | 23 | 7.4 | 7.9 | 0 / 23 | 49.3, 49.8 | 42.3, 57.1 |
-| back | 23 | 0.9 | 2.6 | 8 / 23 | 49.7, 49.8 | 50.0, 52.3 |
+| front | 28 | 7.8 | 7.8 | 0 / 28 | 49.4, 49.6 | 41.9, 56.4 |
+| back | 28 | 0.9 | 2.5 | 11 / 28 | 49.6, 49.6 | 49.8, 52.0 |
 
 The front error is a **systematic bias**, not noise: the model reads the left ~7 points low and the
 top ~7 points high on every copy, because it measures to different features than TAG does on this
-foil border. TAG's own front ratios vary from 44.9 to 54.0 L/R across the copies, so the design is
+foil border. TAG's own front ratios vary from 44.9 to 54.0 L/R and 40.7 to 55.9 T/B across the copies (the
+three 9s and the 8.5 are the off-centre ones), so the design is
 not "always 50/50" — TAG measures real off-centre copies as off-centre, and the model's bias sits
 on top of that. The back is an ordinary card back and agrees on L/R (0.9); its T/B runs ~2.5 high,
 a smaller bias worth watching on other 2026 backs.
