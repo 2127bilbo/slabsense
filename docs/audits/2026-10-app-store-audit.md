@@ -26,8 +26,8 @@ Phase 3 if cheap; **Note** = recorded.
 | J Performance and stability | 1 | 8 | 11 | 6 | `parts/J-performance-stability.md` |
 | K Content, claims, metadata | 3 | 9 | 10 | 5 | `parts/K-content-metadata.md` |
 | L Account lifecycle | 2 | 6 | 6 | 6 | `parts/L-account.md` |
-| M Housekeeping | — | — | — | — | `parts/M-housekeeping.md` (pending) |
-| **Total (A–L)** | **22** | **96** | **111** | **70** | |
+| M Housekeeping | 0 | 1 | 17 | 10 | `parts/M-housekeeping.md` |
+| **Total** | **22** | **97** | **128** | **80** | |
 
 The 22 Blockers are 7 distinct problems seen from several sections. Fixing the seven clears all 22.
 
@@ -87,6 +87,10 @@ reviewer's device. The guard only reacts after the first crash and also fires fa
 ## Majors, grouped by the fix group that owns them
 
 ### 3a Security and secrets (can start now)
+- M-01: `scripts/Tag scraper/` (12.5 GB, 4,633 TAG images, plus `tag_proxy.py` with the secrets) is
+  untracked and **not ignored**, and `.git/objects` already holds 4,719 unreachable blobs (12 GB) from
+  a past staging: the repo is one `git add .` from pushing TAG's images and a secrets file to the
+  public remote. Move the folder out, ignore the path, `git gc --prune=now`.
 - G-06, D-03, A-13-adjacent: TAG `SIGNING_SECRET` / `AES_KEY_STRING` in two tracked files
   (`tagdataset/tagapi.py:12-13`, `docs/superpowers/plans/2026-09-12-tag-dataset-acquisition.md:368-369`)
   and three untracked copies; **rotate** and move to env.
@@ -136,6 +140,10 @@ reviewer's device. The guard only reacts after the first crash and also fires fa
   Purchases, Usage Data; no tracking; no analytics SDK).
 
 ### 3d Code cleanup
+- M-04: `core.autocrlf=true` defeats the `.gitattributes`; `eol=lf`, `.editorconfig`, renormalize.
+  M-12/13/14: no `lint`/`test` script, no node pin, no CI. M-15: `.env.example` lists 2 of the 23 env
+  names the code reads. M-07/08/09: five stale June docs at the root cite files that no longer exist;
+  canonical set anchored on `README.md` → `docs/STATUS.md`.
 - D-01, E-02: `@xenova/transformers` (a devDependency) ships an 828 kB client chunk with a second,
   old onnxruntime and most of the `npm audit` findings; the CLIP matcher it serves pulls 88 MB from
   Hugging Face at runtime (J-04).
