@@ -1107,3 +1107,121 @@ new segmentation model that finds the card in any photo (synthetic training
 data from the TAG scans, real-photo acceptance set collected by the app);
 Step 11 retrains `centering_rgb` so it stops shrinking off-centre cards toward
 50/50. Read that document from the top; it is self-contained.
+
+## Step 13: centering v3 on the foil-border data, edges HR, card v1.1, rollup — one rental
+
+Written 2026-10-01 by the app session. Read `training/MODEL-ROADMAP.md` first (the per-model
+state and gates) and `docs/grading-research/e-reader-centering.md` §3 (the finding that drives
+this). Everything below assumes the box setup of Steps 7.0–7.1 (repo, venv, `/workspace/env.sh`
+with `B2_KEY_ID`/`B2_APP_KEY`), the same 48 GB-class card, 32+ cores, 300 GB disk.
+
+### 13.0 What changed in the dataset (already done, nothing to pull but the files)
+
+- `scripts/tag-dataset/splits/splits.parquet` now has two extra splits, **`foil2026-train`
+  (3,034 cards)** and **`foil2026-val` (759 cards)**, a seeded hash split of 3,793 new 2026
+  certs: every graded 30th Celebration card, and the Illustration / Special Illustration /
+  Hyper / Ultra / Secret / Special Art / Futuristic / RGB / Full Art variations of Ascended
+  Heroes, Perfect Order, Chaos Rising, Abyss Eye, Ninja Spinner and Nullifying Zero, selected
+  as every cert at grade 9 or below plus 2 x 10 GEM MINT and 1 x 10 PRISTINE per card (the
+  owner's rule; the README in `scripts/tag-dataset/samples/2026-foil-border/` has the full mix
+  and the pop-report enumerations). Images are in R2 under the usual `tag-dataset/{cert}/`
+  keys (85,561 files, verified 0 missing); tables rebuilt in `scripts/tag-dataset/data/dataset/`
+  (31,544 cards). `train`/`val`/`test` are untouched (22,202 / 2,790 / 2,759).
+- Why: centering v2b reads the gold-foil-border 30th Lugia about 8 points off TAG on all 28
+  graded copies (front L/R 41.9 vs TAG 49.4, T/B 56.4 vs 49.6, 0 of 28 within 2; backs fine),
+  because the dataset ended at graded date 2026-06-08 and had never seen a foil-to-the-edge
+  border. The card model also misplaced a corner ~80 px on that card against the orange trim.
+- The grade mix of the new splits is top-heavy (74 % are 9s). The 8.5-and-below rows carry
+  the deviation.
+
+### 13.1 Code changes before training (small; do them first, then `pytest -q`)
+
+1. `trainlib/train.py`: add `--train-splits` (default `train`) and `--val-splits` (default
+   `val`), comma lists; concatenate `load_task_table(...)` per split. Keep the test guard.
+2. `trainlib/evaluate.py`: let `--split` accept any split string present in `splits.parquet`
+   (keep `--final-eval` as the only way to read `test`).
+3. `trainlib/card_cutouts.py` and `trainlib/centering_prep.py`: accept the new split names
+   (both currently reject anything but train/val/test).
+4. `trainlib/tables.py`: add task `edges_hr` = `edges` with `input_size (2048, 384)` and
+   `cache_resize (2048, 384)` (Step 9.4). Export reads the size from the task spec, so
+   `export_onnx.py` needs no change.
+
+### 13.2 Centering v3
+
+Baseline first, then train with the foil data in, then compare on three splits.
+
+```bash
+cd /workspace/SlabSense/training && source /workspace/env.sh
+# crops for the new splits (lazy R2 download of just the ~7.6k new rgb originals, ~20 GB over the wire)
+.venv/bin/python -m trainlib.cache_cli --task centering_rgb --splits train,val,test,foil2026-train,foil2026-val --from-cache --workers 32
+# v2b baseline (checkpoint copied up as in 11.0c, to runs/centering_rgb/v2b/best.pt)
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2b/best.pt --split foil2026-val --workers 8 --batch-size 16
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v2b/best.pt --split val --workers 8 --batch-size 16
+# v3: the v2b recipe (ratio-weight 0.1 was the accepted one, README "Centering v2") plus the foil splits
+.venv/bin/python -m trainlib.train --task centering_rgb --run-name v3 --epochs 10 --batch-size 8 --workers 8 \
+  --drop-path 0.1 --ema-decay 0.999 --aug phone --ratio-weight 0.1 --balance-deviation \
+  --train-splits train,foil2026-train --val-splits val,foil2026-val
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v3/best.pt --split val --workers 8 --batch-size 16
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v3/best.pt --split val --workers 8 --batch-size 16 --phone-sim
+.venv/bin/python -m trainlib.evaluate --task centering_rgb --checkpoint runs/centering_rgb/v3/best.pt --split foil2026-val --workers 8 --batch-size 16
+```
+
+`--balance-deviation` already caps the near-centred bucket, which is what keeps the 9s from
+teaching "say 50/50". If the foil split's within-2 does not move while `val` holds, a second
+run `v3b` with the 9s thinned to ~600 in a copy of the splits file is the fallback; report
+both, do not tune on the numbers.
+
+**Accept v3 when:** on `val` (clean) nothing is worse than v2b by more than 0.1 ratio point
+(v2b: L/R 1.37, T/B 1.52, 65 % within 2); on `foil2026-val` mean absolute ratio error at most
+2.0 on both axes and at least 60 % within 2 (the v2b baseline on that split will be roughly
+7 to 8 points and near 0 %); slope on `val` not below v2b's 0.878 / 0.825. Then `--split test
+--final-eval` once.
+
+After export (`export_onnx.py --task centering_rgb --checkpoint runs/centering_rgb/v3/best.pt
+--run-name v3 --parity-rows 200 --batch-size 4`, fp16 **and the WebGPU NaN check**), the app
+session reruns `scripts/harness/lugia-30th.mjs` (28 Lugia certs vs TAG) and
+`scripts/harness/centering-model.mjs` before anything ships.
+
+### 13.3 Edges HR (Step 9.4, now not optional)
+
+```bash
+.venv/bin/python -m trainlib.cache_cli --task edges_hr --splits train,val,test --from-cache --workers 32   # ~130 GB cache; ~833 GB egress (about $33) if the full-res edge files are not on the box
+.venv/bin/python -m trainlib.train --task edges_hr --run-name v3-hr --epochs 12 --batch-size 8 --workers 8 --aug phone
+.venv/bin/python -m trainlib.evaluate --task edges_hr --checkpoint runs/edges_hr/v3-hr/best.pt --split val --workers 8 --batch-size 8
+.venv/bin/python -m trainlib.evaluate --task edges_hr --checkpoint runs/edges_hr/v3-hr/best.pt --split val --workers 8 --batch-size 8 --phone-sim
+```
+
+Targets stay `wear` (binary from `ding_count`) and `deduction`. **Accept when** val AUROC is
+at least 0.91 and recall at 0.5 at least 0.45 (v2-phone: 0.894 and 0.18 to 0.25), with
+phone-sim within 0.02 AUROC of clean. The app reads the input size from the contract sidecar,
+so a 2048 x 384 model drops straight in. If 12 epochs at this size do not fit the budget, 8 is
+acceptable for the decision.
+
+### 13.4 Card v1.1 (filler, about 3 h, run while edges HR caches)
+
+Foil-to-the-edge cards into the compositor: `card_cutouts --splits train,foil2026-train`
+(after 13.1 item 3), then the Step 12.3 train command with `--run-name v1.1`, then
+`evaluate_card --checkpoint runs/card/v1.1/best.pt --real data/card-val` (the owner's 147
+labelled photos, copied up as in 12.1) and on the 28 Lugia TAG scans the app session provides
+as a folder. Accept when the real-photo numbers are not worse than v1 (raw cards IoU 0.987,
+corner error 0.44 % / p95 0.83 %) and the foil Lugia corners are within 0.5 %.
+
+### 13.5 Rollup (CPU, any time, no cache)
+
+Fit gradient-boosted trees from `manifest.parquet` columns `rollup_centering`,
+`rollup_corners`, `rollup_edges`, `rollup_surface`, `score_size` to `grade_label` (ordinal;
+31,542 certs have all four rollups), train/val/test by the existing splits, monotone
+constraints on all five inputs. Report exact-grade accuracy and within-half-grade on val and
+test; dump the trees to JSON the way `deduction_model` does (`api/_lib/surfaceDeduction.js`
+walks that format) as `api/_lib/models/grade-rollup-v1.json` with test vectors. Accept at
+90 % exact on test or better. The app session wires it behind a flag.
+
+### 13.6 Order, budget, bring home
+
+Chain: 13.1, then 13.2 cache and baselines, 13.4 cutouts (CPU-heavy, overlaps), 13.2 train,
+13.3 cache (network-heavy, overlaps the 13.2 train), 13.4 train, 13.3 train, evals, exports.
+Roughly 10 to 14 GPU hours, about $60 to $80 including egress. Bring home per Steps 11.3 and
+12.6: run folders into `training/weights/{centering_rgb/v3, edges_hr/v3-hr, card/v1.1}`, ONNX
+and sidecars into `training/weights/onnx/`, the rollup JSON into `api/_lib/models/`, and the
+box-computed v2b baselines on `foil2026-val`. Report in the Step 11 format with one table per
+model and the `foil2026-val` column beside `val`.

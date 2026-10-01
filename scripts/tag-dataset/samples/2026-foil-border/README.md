@@ -27,8 +27,10 @@ too top-heavy; the ≤ 8.5 rows are the ones that carry the deviation.
 
 Pull: `python -m tagdataset fetch --certs samples/2026-foil-border/certs.parquet --proxies …` then
 `download` and `build` as in RUNBOOK.md. TAG's detail endpoint needs ~25 s between calls from
-one address (429 otherwise), so use the proxy list; ~7,700 calls. These certs must go into their
-own split (a foil-border eval bucket), never into the frozen TAG train/val/test.
+one address (429 otherwise), so use the proxy list; ~7,700 calls. These certs are pre-assigned in `splits/splits.parquet` as `foil2026-train` (3,034 cards) and
+`foil2026-val` (759 cards), a seeded hash split; never into the frozen TAG train/val/test. The
+pull was run 2026-09-30/10-01 (`run-pull.ps1`): 85,561 files in R2, 0 missing, tables rebuilt.
+Training instructions: `training/HANDOFF-rented-gpu.md` Step 13.
 
 Enumeration driver: session scratchpad `pw/popset.cjs` (Playwright over the pop-report pages:
 year → sets → card+variation pages → cert table with grade and score).
