@@ -168,16 +168,20 @@ The rig therefore captures **two kinds of light**:
 | Optional | UV-A bar (365 nm) | Detects restoration, glue, re-coloured spots; not used by current models |
 
 Bench check before committing to LEDs: photograph a known card under the diffuse pass and confirm
-the TAG-orange backdrop reads within ±10 of RGB (247, 126, 44) after white balance, and that a
-holo card shows no specular hotspots. The models learned that backdrop (a black table loses most
-corner dings without repaint), so hitting the colour in-camera is cheaper than fixing it later.
+the backdrop reads a stable colour after white balance and that a holo card shows no specular
+hotspots. **Backdrop colour (revised 2026-10-01): not orange.** The phone-augmented corner and
+edge models were trained with the TAG backdrop recoloured to black, white, grey, wood and random
+hues, so they do not need orange; centering and surface run on the tight card crop and never see
+it; the card model trains on real backgrounds. The one place the backdrop still matters is card
+edge detection, and gold foil on orange is a low-contrast edge (the 30th Lugia corner miss). Use
+a **matte mid-grey or dark blue** that contrasts with gold, holo and yellow borders.
 
 ### 2.4 Jig (3D printed) and platen
 
 | Part | Design |
 |---|---|
 | Base plate | Rigid plate (printed in PETG/ASA, or milled acrylic) bolted to the enclosure floor; the camera column bolts to the same plate so camera-to-card distance never changes |
-| Backdrop | Matte TAG-orange insert, replaceable, ≥ 15 mm larger than the card on every side; a matte white and a matte black insert for calibration frames |
+| Backdrop | Matte mid-grey or dark-blue insert (see 2.3: orange is not needed and hurts foil-edge detection), replaceable, ≥ 15 mm larger than the card on every side; a matte white and a matte black insert for calibration frames |
 | Card pocket | Recess 0.3 mm deep and 0.5 mm larger than a card, with three low locating pins (two on one long side, one on a short side) so a card seats in the same place every time; pins below the card's top surface so they never shadow an edge |
 | **Vacuum platen** | Perforated pocket floor connected to a small vacuum pump (aquarium-pump class) with a foot switch; pulls a bowed card flat without touching its face | 20 of the owner's 147 photos are bowed; a bowed card shifts the crop line and puts the corner tile off the corner |
 | Fiducials | Four printed crosshairs at known distances (calibrated with a certified ruler) outside the backdrop; used to compute mm per pixel per session and to check flatness/tilt | The engine can then report centering and size in real units like TAG |
