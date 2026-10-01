@@ -1136,6 +1136,8 @@ with `B2_KEY_ID`/`B2_APP_KEY`), the same 48 GB-class card, 32+ cores, 300 GB dis
 
 ### 13.1 Code changes before training (small; do them first, then `pytest -q`)
 
+> **Done on the PC 2026-10-01** (commit `1665b4a`, 246 tests pass): all four items below are on the branch. Also done on the PC, so the box skips them: the card boxes for `foil2026-train/-val` are measured and committed in `training/derived/centering_boxes_rgb.parquet` (7,561 ok sides; no `centering_prep` run needed), and 13.5 (rollup) is finished - see `README.md` "Grade rollup v1". `git pull` and `pytest -q` (expect **246 passed**), then start at 13.2.
+
 1. `trainlib/train.py`: add `--train-splits` (default `train`) and `--val-splits` (default
    `val`), comma lists; concatenate `load_task_table(...)` per split. Keep the test guard.
 2. `trainlib/evaluate.py`: let `--split` accept any split string present in `splits.parquet`
@@ -1206,7 +1208,9 @@ labelled photos, copied up as in 12.1) and on the 28 Lugia TAG scans the app ses
 as a folder. Accept when the real-photo numbers are not worse than v1 (raw cards IoU 0.987,
 corner error 0.44 % / p95 0.83 %) and the foil Lugia corners are within 0.5 %.
 
-### 13.5 Rollup (CPU, any time, no cache)
+### 13.5 Rollup (CPU, any time, no cache) - **done on the PC 2026-10-01, skip on the box**
+
+> Result: `api/_lib/models/grade-rollup-v1.json`; inputs are rollups + per-side surface scores + defect counts (rollups alone only reach 58 %); val 95.1 % exact / 99.6 % within half, test (once) 89.9 % / 99.0 %. Details in `README.md` "Grade rollup v1".
 
 Fit gradient-boosted trees from `manifest.parquet` columns `rollup_centering`,
 `rollup_corners`, `rollup_edges`, `rollup_surface`, `score_size` to `grade_label` (ordinal;
@@ -1218,8 +1222,9 @@ walks that format) as `api/_lib/models/grade-rollup-v1.json` with test vectors. 
 
 ### 13.6 Order, budget, bring home
 
-Chain: 13.1, then 13.2 cache and baselines, 13.4 cutouts (CPU-heavy, overlaps), 13.2 train,
-13.3 cache (network-heavy, overlaps the 13.2 train), 13.4 train, 13.3 train, evals, exports.
+Chain (13.1 and 13.5 are already done): 13.2 cache and baselines, 13.4 cutouts (CPU-heavy, overlaps), 13.2 train,
+13.3 cache (network-heavy, overlaps the 13.2 train), 13.4 train, 13.3 train, evals, exports. On a two-GPU box run
+13.2 train on GPU 0 and 13.3 on GPU 1 concurrently (as in the September rental), 13.4 after whichever finishes first.
 Roughly 10 to 14 GPU hours, about $60 to $80 including egress. Bring home per Steps 11.3 and
 12.6: run folders into `training/weights/{centering_rgb/v3, edges_hr/v3-hr, card/v1.1}`, ONNX
 and sidecars into `training/weights/onnx/`, the rollup JSON into `api/_lib/models/`, and the

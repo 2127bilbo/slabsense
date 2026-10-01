@@ -1370,3 +1370,35 @@ Timing in Node (WASM, 4 threads): card model 76 ms per photo including refinemen
 4.7 s per crop. In the browser on WebGPU the centering run is ~50 ms; a WASM-only phone waits
 seconds for the artwork suggestion, which the tool tolerates (the user can drag before it
 lands, and a touched line is never overwritten).
+
+## Grade rollup v1 (Step 13.5, 2026-10-01, CPU)
+
+`trainlib/rollup_model.py` learns TAG's rollup - subgrades to final grade - as boosted trees and
+exports them as the JSON tree format `api/_lib/surfaceDeduction.js` already walks
+(`api/_lib/models/grade-rollup-v1.json`, 335 trees, 20 test vectors; output is the ordinal grade
+index into `grades`, rounded).
+
+**What TAG's numbers showed before any fitting.** The grade is exactly the published scale applied
+to `scoreTotal` (99.99 % of the 6,803 certs that publish one). But `scoreTotal` is not a function
+of the four attribute rollups: certs with the same rollup quadruple (10-point bins) spread 1.25
+half-grades, and a boosted fit from the rollups alone reaches 33 % exact on `val`. Two things
+explain it: (1) the per-side surface scores and the defect counts carry what the rollups do not -
+rollups + `surface_front/back` + marker counts + `n_dings` reaches 91 % exact; (2) only the certs
+with a published total (orderType `st3`, plus every 2026 cert) have rollups that track the grade
+(rank correlation 0.985); for the 24,739 standard-tier certs it is 0.80, so they are excluded from
+training. `score_size` adds nothing and is dropped. One more quirk: TAG's published back-surface
+score is **not** monotone in the grade - constraining it costs 21 points of exact accuracy - so it
+is the one input left unconstrained; every other input keeps its monotone constraint (a better
+subgrade never lowers the grade, another defect never raises it).
+
+| split | n | exact | within half | min-rollup rule |
+|---|---|---|---|---|
+| val + foil2026-val | 1,049 | 0.951 | 0.996 | 0.846 |
+| val alone (older certs) | 290 | 0.890 | 0.986 | |
+| foil2026-val | 759 | 0.975 | 1.000 | |
+| **test** (read once) | 286 | **0.899** | 0.990 | 0.483 |
+
+Against the 13.5 gate (90 % exact on test) it lands 0.1 point short on the 286 older-era test
+certs and clears it on `val`; within-half is 99 %. Errors are almost all one half-grade. The app
+session wires it behind a flag and feeds it the app's own subgrades; the inputs it needs are the
+four attribute subgrades, the two per-side surface subgrades, and the three defect counts.

@@ -160,8 +160,11 @@ with typed markers (type, box, deduction, manual/automatic) at native resolution
 
 ## 6. Rollup
 
-**Today.** The engine compounds the eight subgrades with a fixed rule and caps, calibrated by hand
-against DIG reports. It reproduces TAG's grade well on the harness but every constant is a guess.
+**Today (updated 2026-10-01).** Learned: `grade-rollup-v1.json` (Step 13.5) - boosted trees from the four
+attribute rollups, the per-side surface scores and the defect counts, trained on the certs with a
+published total; val 95 % exact / 99.6 % within half, test 89.9 % / 99 %. The engine's fixed rule stays
+as the fallback until the app session wires the trees behind a flag. Finding: the rollups alone
+do not determine TAG's grade (58 % exact); the per-side surface scores and defect counts do.
 
 **To get it as good as it gets.**
 - Fit a small tabular model (gradient-boosted trees, monotone constraints) from TAG's own eight

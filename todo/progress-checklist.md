@@ -54,6 +54,7 @@ under `/workspace/cache`, run artifacts under
 | Rollup (subscores -> total/grade) | not started (minutes, CPU) | | |
 | Centering v2b (ratio loss 0.1, capped deviation sampling, phone softness) | **accepted, shipping** (slope gate 0.878 vs 0.95 documented as a structural floor) | val ratio MAE 1.18/0.85, within2 0.79, slope 0.88; test 1.19/0.86, 0.78, 0.83; phone-sim unchanged | `training/weights/centering_rgb/v2b/` + `weights/onnx/centering_rgb-v2b.*`; R2 |
 | Card model v1 (segmentation, synthetic composition) | **accepted for raw cards, shipping**; cards in sleeves/one-touches/slabs out of scope by product decision (take the card out) | real 107 raw/bowed sides: IoU 0.987, corner err 0.44% / p95 0.83%; holders (37): fails, traces the case | `training/weights/card/v1/` + `weights/onnx/card-v1.*` (fp16 5.98 MB); R2 |
+| Grade rollup v1 (subgrades + defect counts -> TAG grade, JSON trees) | **done 2026-10-01**, `api/_lib/models/grade-rollup-v1.json`; app wires it behind a flag | val 95.1% exact / 99.6% within half; test 89.9% / 99.0% | `training/eval_logs/rollup-v1-*.csv` |
 | Card model v2 (synthetic holders in the compositor) | optional later upgrade; run only as filler on an already-rented idle GPU | test set = the 37 real holder sides in `training/data/card-val/` (tag `sleeve`) | |
 | Edges HR (2048x384, phone aug) | optional next run (handoff Step 9.4), ~8 h box | | |
 
