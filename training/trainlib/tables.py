@@ -110,6 +110,18 @@ TASKS = {
         "long_side_horizontal": True,
         "cache_resize": (1024, 192),
     },
+    "edges_hr": {
+        # Step 13.3: the edges task at double resolution (handoff Step 9.4); same table and targets.
+        "table": "edges.parquet",
+        "targets": [
+            Target("wear", "binary", "ding_count"),
+            Target("deduction", "regress", "marker_deduction"),
+        ],
+        "key_cols": ["side", "edge"],
+        "input_size": (2048, 384),
+        "long_side_horizontal": True,
+        "cache_resize": (2048, 384),
+    },
     "surface_sfx": {
         "table": "manifest.parquet",
         "rows": lambda df: surface_side_rows(df, "sfx"),
@@ -214,6 +226,9 @@ def load_task_table(task: str, dataset_dir: Path, splits_path: Path, split: str,
     if spec.get("rows") is not None:
         df = spec["rows"](df)
     splits = pd.read_parquet(splits_path)[["cert", "split"]]
+    known = sorted(splits.split.unique())
+    if split not in known:
+        raise ValueError(f"unknown split {split!r}; splits file has {known}")
     grades = pd.read_parquet(Path(dataset_dir) / "manifest.parquet")[["cert", "grade_label"]]
     df = df.merge(splits, on="cert", how="inner").merge(grades, on="cert", how="left")
     df = df[df.split == split]
@@ -222,6 +237,15 @@ def load_task_table(task: str, dataset_dir: Path, splits_path: Path, split: str,
         keep = pd.Series(certs).sample(n=min(limit_cards, len(certs)), random_state=seed)
         df = df[df.cert.isin(set(keep))]
     return df.reset_index(drop=True)
+
+
+def load_task_tables(task: str, dataset_dir: Path, splits_path: Path, splits: list[str],
+                     limit_cards: int | None = None, seed: int = 42, allow_test: bool = False) -> pd.DataFrame:
+    """`load_task_table` over several split names (Step 13: `train,foil2026-train`), concatenated;
+    `limit_cards` applies per split."""
+    parts = [load_task_table(task, dataset_dir, splits_path, s.strip(), limit_cards, seed, allow_test)
+             for s in splits if s.strip()]
+    return pd.concat(parts).reset_index(drop=True)
 
 
 def filter_cached(df: pd.DataFrame, cache_dir: Path, task: str | None = None) -> tuple[pd.DataFrame, int]:

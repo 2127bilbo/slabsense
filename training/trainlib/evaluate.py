@@ -176,7 +176,7 @@ def per_grade_table(model, df: pd.DataFrame, task: str, cache_dir, device, kinds
 def main(argv=None) -> Path:
     p = argparse.ArgumentParser(prog="evaluate")
     p.add_argument("--config", default="config.toml"); p.add_argument("--task", choices=list(TASKS), required=True)
-    p.add_argument("--checkpoint", required=True); p.add_argument("--split", choices=["val", "test"], default="val")
+    p.add_argument("--checkpoint", required=True); p.add_argument("--split", default="val", help="any split name in splits.parquet; 'test' only with --final-eval")
     p.add_argument("--final-eval", action="store_true"); p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--workers", type=int, default=6); p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--limit-cards", type=int); p.add_argument("--input-size", type=int)

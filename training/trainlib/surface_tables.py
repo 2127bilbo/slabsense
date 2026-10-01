@@ -25,6 +25,9 @@ def boxes_for_view(boxes: pd.DataFrame, view: str) -> pd.DataFrame:
 
 def _split_certs(splits_path: Path, split: str, limit_cards: int | None, seed: int) -> list[str]:
     sp = pd.read_parquet(splits_path)[["cert", "split"]]
+    known = sorted(sp.split.unique())
+    if split not in known:
+        raise ValueError(f"unknown split {split!r}; splits file has {known}")
     certs = sorted(sp[sp.split == split].cert.tolist())
     if limit_cards is not None and limit_cards < len(certs):
         rng = np.random.default_rng(seed)

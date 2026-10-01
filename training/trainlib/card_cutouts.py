@@ -141,11 +141,12 @@ def main(argv=None) -> dict:
     for part in args.splits.split(","):
         # accept cache_cli's "split:N" form too, so the smoke recipes read the same everywhere
         split, _, limit = part.strip().partition(":")
-        if split not in ("train", "val", "test"):
-            p.error(f"unknown split {split!r} in --splits (use train, val, test, optionally split:N)")
         n = int(limit) if limit else args.limit_cards
-        s, _ = load_surface_split(cfg.dataset_dir, cfg.splits_path, split, n, args.seed,
-                                  allow_test=(split == "test"))
+        try:
+            s, _ = load_surface_split(cfg.dataset_dir, cfg.splits_path, split, n, args.seed,
+                                      allow_test=(split == "test"))
+        except ValueError as e:
+            p.error(f"--splits: {e}")
         parts.append(s[s.view == "rgb"])
     sides = pd.concat(parts).drop_duplicates(["cert", "side", "image_key"]).reset_index(drop=True)
 

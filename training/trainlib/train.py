@@ -15,7 +15,7 @@ from . import metrics
 from .config import load_config
 from .data import AUG_MODES, SCALE, CropDataset, collate
 from .models import ScoreRegressor, count_params, masked_loss, to_scores
-from .tables import (TASKS, centering_deviation_bucket, deviation_weights, filter_cached, load_task_table,
+from .tables import (TASKS, centering_deviation_bucket, deviation_weights, filter_cached, load_task_table, load_task_tables,
                      target_index, target_kinds, target_names)
 
 BASE_LOG_COLUMNS = ["epoch", "train_loss", "val_loss", "lr", "seconds"]
@@ -79,6 +79,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ratio-weight", type=float, default=0.0,
                    help="weight on the centering l/r, t/b ratio loss term; only used for tasks with ratio_pairs "
                         "(off by default so omitting the flag never trains on ratios alone; v2: 0.02)")
+    p.add_argument("--train-splits", default="train", help="comma list of split names to train on (Step 13: train,foil2026-train)")
+    p.add_argument("--val-splits", default="val", help="comma list of split names to validate on")
     p.add_argument("--balance-deviation", action="store_true",
                    help="oversample off-center rows via a WeightedRandomSampler; only for tasks with ratio_pairs")
     return p
@@ -182,8 +184,10 @@ def main(argv=None) -> Path:
     cols = log_columns(args.task)
     metric_cols = cols[len(base_cols):]
 
-    train_df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, "train", args.limit_cards, args.seed)
-    val_df = load_task_table(args.task, cfg.dataset_dir, cfg.splits_path, "val", args.val_limit_cards, args.seed)
+    train_df = load_task_tables(args.task, cfg.dataset_dir, cfg.splits_path, args.train_splits.split(","), args.limit_cards, args.seed)
+    val_df = load_task_tables(args.task, cfg.dataset_dir, cfg.splits_path, args.val_splits.split(","), args.val_limit_cards, args.seed)
+    print(f"train: {len(train_df)} rows from splits {args.train_splits}")
+    print(f"val: {len(val_df)} rows from splits {args.val_splits}")
     train_df, train_dropped = filter_cached(train_df, cfg.cache_dir, args.task)
     val_df, val_dropped = filter_cached(val_df, cfg.cache_dir, args.task)
     print(f"train: dropped {train_dropped} rows with no cached crop")
