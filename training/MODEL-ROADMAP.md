@@ -160,21 +160,25 @@ with typed markers (type, box, deduction, manual/automatic) at native resolution
 
 ## 6. Rollup
 
-**Today (updated 2026-10-01).** Learned: `grade-rollup-v1.json` (Step 13.5) - boosted trees from the four
-attribute rollups, the per-side surface scores and the defect counts, trained on the certs with a
-published total; val 95 % exact / 99.6 % within half, test 89.9 % / 99 %. The engine's fixed rule stays
-as the fallback until the app session wires the trees behind a flag. Finding: the rollups alone
-do not determine TAG's grade (58 % exact); the per-side surface scores and defect counts do.
+**Today (2026-10-01).** `grade-rollup-v1` (training session, Step 13.5): boosted trees from TAG's
+four attribute rollups, the two per-side surface scores and three defect counts to the grade;
+95.1 % exact on val + foil2026-val, 89.9 % on test (read once). Wired on the paid paths behind
+`GRADE_ROLLUP_MODEL` (default off, reported in `meta.gradeRollup`), module `src/lib/grade-rollup.js`.
+
+**Why it is off.** On the app's own inputs it is lenient by ~2.7 grades (harness held-out MAE
+2.76 vs the engine rule's 1.24): our surface subgrade and defect counts are not TAG's until a
+surface model exists, and those inputs carry most of the model's signal. Also, TAG's attribute
+rollups are not a simple function of its per-side scores (best fit 0.58 front + 0.41 back,
+MAE 51 points), so the engine→model feature mapping is itself an approximation.
 
 **To get it as good as it gets.**
-- Fit a small tabular model (gradient-boosted trees, monotone constraints) from TAG's own eight
-  per-side scores to TAG's final grade on all ~27,000 certs; that is the true rollup, with the
-  caps learned rather than assumed. Export as JSON trees like the deduction regressor and walk
-  them in `gradingEngine.js`.
-- Then feed it our predicted subgrades and measure the grade error end to end on the phone-paired
-  set; that number is the product's accuracy.
-- Acceptance: on TAG's own subgrades, grade exact on ≥ 90 % of held-out certs; end to end on
-  phone photos, within half a grade on ≥ 80 %.
+- Turn it on when the rig surface model supplies real per-side surface scores and marker
+  counts; re-run `scripts/harness/model-sweep.mjs` (it prints the rollup beside the rule) and
+  the paid-path harness before switching.
+- Train a second rollup on the app's own subgrade distribution once the rig-paired set exists
+  (inputs = what our models produce, target = TAG's grade), which removes the mapping question.
+- Acceptance unchanged: ≥ 90 % exact on TAG inputs, and on the app's inputs not worse than the
+  engine rule on the harness held-out set.
 
 ## 7. Company offsets
 

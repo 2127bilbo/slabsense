@@ -19,6 +19,8 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { analyzePixels } from '../../src/lib/detectors.js';
 import { computeGrade, mapDingType } from '../../src/lib/softwareGrade.js';
+import { rollupGrade } from '../../src/lib/grade-rollup.js';
+const ROLLUP_MODEL = JSON.parse(fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'api', '_lib', 'models', 'grade-rollup-v1.json'), 'utf8'));
 import { ENGINE_VERSION, mergeSubgrades } from '../../src/lib/gradingEngine.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -118,6 +120,8 @@ for (const cert of certs) {
     const br = analyzePixels(bp, 'back', null, backC);
     const grade = computeGrade(fr.allDings, br.allDings, frontC, backC, 'tag', null);
     const softDings = [...fr.allDings, ...br.allDings].filter((d) => d.type !== 'CENTERING');
+    // The learned rollup on the same subgrades and defects (grade-rollup.js), reported beside the engine's rule
+    const rollup = rollupGrade(grade.subgrades, softDings.map((d) => ({ side: d.side, type: mapDingType(d.type) })), ROLLUP_MODEL);
     const m = matchDings(softDings, g.dings);
     const boundsOk = (b, p) => b.cardW >= p.w * 0.85 && b.cardH >= p.h * 0.85;
     cards.push({
@@ -127,6 +131,7 @@ for (const cert of certs) {
       softGrade: grade.overall.grade,
       softScore: grade.rawScore,
       gradeError: r2(grade.overall.grade - g.grade),
+      rollupGrade: rollup.grade, rollupLabel: rollup.displayGrade, rollupError: r2(rollup.grade - g.grade),
       subgrades: grade.subgrades,
       tag: g.tag,
       capsApplied: grade.overall.capsApplied,
@@ -188,6 +193,7 @@ const cardsWithTruthDings = ok.filter((c) => c.truthDings.length).length;
 
 const summary = {
   cards: ok.length, errors: cards.length - ok.length,
+  rollup: (() => { const e = ok.filter((c) => c.rollupError != null).map((c) => c.rollupError); if (!e.length) return null; const pct = (f) => r2((100 * e.filter(f).length) / e.length); return { mae: r2(e.reduce((t, v) => t + Math.abs(v), 0) / e.length), signed: r2(e.reduce((t, v) => t + v, 0) / e.length), exact: pct((v) => v === 0), within05: pct((v) => Math.abs(v) <= 0.5), within10: pct((v) => Math.abs(v) <= 1.0) }; })(),
   grade: { mae: r2(mean(errs.map(Math.abs))), signed: r2(mean(errs)), exact: within(0), within05: within(0.5), within10: within(1.0) },
   byBucket: bucketSummary,
   confusion,
@@ -213,7 +219,9 @@ function renderMd(meta, s) {
   L.push(`commit ${meta.gitCommit} · engine ${meta.engineVersion} · ${s.cards} cards · ${s.errors} errors · ${s.seconds}s`, '');
   L.push(`Sign: ${meta.sign}`, '');
   L.push('## Grade', '', '| MAE | signed | exact % | ≤0.5 % | ≤1.0 % |', '|---|---|---|---|---|');
-  L.push(`| ${s.grade.mae} | ${s.grade.signed} | ${s.grade.exact} | ${s.grade.within05} | ${s.grade.within10} |`, '');
+  L.push(`| ${s.grade.mae} | ${s.grade.signed} | ${s.grade.exact} | ${s.grade.within05} | ${s.grade.within10} |`);
+  if (s.rollup) L.push(`| rollup model: ${s.rollup.mae} | ${s.rollup.signed} | ${s.rollup.exact} | ${s.rollup.within05} | ${s.rollup.within10} |`);
+  L.push('');
   L.push('| TAG bucket | cards | MAE | signed | ≤0.5 % |', '|---|---|---|---|---|');
   for (const b of ['9-10', '7-8.5', '5-6.5', '1-4.5']) { const v = s.byBucket[b]; if (v) L.push(`| ${b} | ${v.cards} | ${v.mae} | ${v.signed} | ${v.within05} |`); }
   L.push('', '## Confusion (rows TAG, cols software)', '', `| TAG \\ SW | ${GRADE_AXIS.join(' | ')} |`, `|---|${GRADE_AXIS.map(() => '---').join('|')}|`);

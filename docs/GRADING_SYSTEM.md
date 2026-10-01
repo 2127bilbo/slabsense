@@ -226,6 +226,25 @@ check on that.
 
 ---
 
+### Grade rollup model (wired, OFF) *(added 2026-10-01)*
+
+The training session fitted TAG's rollup — the final grade from the eight subgrades and the
+defect counts — as boosted trees (`api/_lib/models/grade-rollup-v1.json`, walked by
+`src/lib/grade-rollup.js`; 95.1 % exact on TAG's own val + foil2026-val inputs, 89.9 % on test).
+On the paid paths `api/_lib/gradeRollup.js` always reports the model's label in
+`meta.gradeRollup` and, only with `GRADE_ROLLUP_MODEL=1`, makes it `overall.grade/label`
+(score, subgrades and caps untouched, `meta.gradeRollupSource: 'model'`). The engine's
+compounding rule (§2.4) stays the grade everywhere.
+
+Why it is off: the model is right about TAG's inputs, and ours are not TAG's. Fed the app's
+own subgrades (0.6 front + 0.4 back per attribute, ×10) and defect counts on the 507 harness
+cards with the corner/edge models in place, it is lenient by 2.7 grades on average — held-out
+MAE 2.76 against the engine rule's 1.24, and 6.5 grades off on the 1–4.5 bucket — because our
+surface subgrade sits near 100 and our defect counts near zero until a surface model exists,
+and those two inputs carry most of the model's signal. With the legacy detectors it is 3.44
+against 3.08. Revisit when the rig's surface model feeds real per-side surface scores and
+counts; until then the model is a report-only comparison on paid grades.
+
 ## 2. TAG baseline (the engine's native scale)
 
 TAG is the baseline because the owner has real DIG reports to calibrate against, and TAG publishes the most

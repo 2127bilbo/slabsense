@@ -22,6 +22,7 @@
 import { gradeCard, ENGINE_VERSION } from '../../src/lib/gradingEngine.js';
 import { cornerEdgeContextBlock, applyCornerEdge } from './cornerEdgeInput.js';
 import { applySurfaceDeduction } from './surfaceDeduction.js';
+import { applyGradeRollup } from './gradeRollup.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENUMS (must match the output schema in docs/GRADING_SYSTEM.md exactly — API contract)
@@ -486,6 +487,8 @@ export function assembleUnifiedOutput({ detection, centering, gradePath, frontOn
   const cornerEdgeSource = merged.source;
   const surfaceSeveritySource = useSurfaceModel ? 'model' : 'ai';
   const engine = gradeCard({ defects, centering, frontOnly });
+  // The learned rollup (gradeRollup.js): reported in meta always, the grade label only with GRADE_ROLLUP_MODEL=1.
+  const rolled = applyGradeRollup(engine, engine.overall);
 
   const iq = detection?.imageQuality || {};
   const confidence = confidenceFromImageQuality(iq, { referencesUsed: meta.referencesUsed || 0 });
@@ -518,7 +521,7 @@ export function assembleUnifiedOutput({ detection, centering, gradePath, frontOn
     centering: engine.centering,
     defects: engine.defects,
     subgrades: engine.subgrades,
-    overall: engine.overall,
+    overall: rolled.overall,
     companyGrades: engine.companyGrades,
     summary: {
       positives: nonEmpty(summary.positives, 'Inspection completed'),
@@ -526,6 +529,6 @@ export function assembleUnifiedOutput({ detection, centering, gradePath, frontOn
       recommendation: summary.recommendation || 'See defect report for details.',
     },
     confidence,
-    meta: { ...meta, gradePath, engineVersion: ENGINE_VERSION, cornerEdgeSource, surfaceSeveritySource, surfaceSeveritiesChanged: surfaced.changed },
+    meta: { ...meta, gradePath, engineVersion: ENGINE_VERSION, cornerEdgeSource, surfaceSeveritySource, surfaceSeveritiesChanged: surfaced.changed, ...rolled.meta },
   };
 }

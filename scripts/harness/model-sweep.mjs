@@ -16,7 +16,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { computeGrade } from '../../src/lib/softwareGrade.js';
+import { computeGrade, mapDingType } from '../../src/lib/softwareGrade.js';
+import { rollupGrade } from '../../src/lib/grade-rollup.js';
 import { slotsToDings, mergeModelDings, MODEL_DEFAULTS } from '../../src/lib/corner-edge-model.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,7 @@ const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 const BASELINE = opt('--baseline', path.join(RESULTS, '2026-09-17-2026-09-17-baseline-engine11.json'));
 const PREDICTIONS = opt('--predictions', path.join(RESULTS, 'model-predictions-v3.json'));
+const ROLLUP_MODEL = JSON.parse(fs.readFileSync(path.join(here, '..', '..', 'api', '_lib', 'models', 'grade-rollup-v1.json'), 'utf8'));
 const GRID = args.includes('--grid');
 const LABEL = opt('--label', 'model');
 
@@ -78,7 +80,8 @@ function score(opts, keep = false) {
   const rows = [];
   for (const card of cards) {
     const { grade, dings } = gradeWith(card, opts);
-    rows.push({ cert: card.cert, tagGrade: card.tagGrade, softGrade: grade.overall.grade, err: grade.overall.grade - card.tagGrade, dings, held: heldOut(card.cert) });
+    const rollup = rollupGrade(grade.subgrades, dings.filter((d) => d.type !== 'CENTERING').map((d) => ({ side: d.side, type: mapDingType(d.type) })), ROLLUP_MODEL);
+    rows.push({ cert: card.cert, tagGrade: card.tagGrade, softGrade: grade.overall.grade, err: grade.overall.grade - card.tagGrade, rerr: rollup.grade - card.tagGrade, dings, held: heldOut(card.cert) });
   }
   const summarize = (list) => ({
     cards: list.length,
@@ -86,6 +89,7 @@ function score(opts, keep = false) {
     signed: r2(mean(list.map((r) => r.err))),
     exact: r2((100 * list.filter((r) => r.err === 0).length) / list.length),
     within05: r2((100 * list.filter((r) => Math.abs(r.err) <= 0.5).length) / list.length),
+    rollup: { mae: r2(mean(list.map((r) => Math.abs(r.rerr)))), signed: r2(mean(list.map((r) => r.rerr))), exact: r2((100 * list.filter((r) => r.rerr === 0).length) / list.length), within05: r2((100 * list.filter((r) => Math.abs(r.rerr) <= 0.5).length) / list.length) },
   });
   const out = { all: summarize(rows), held: summarize(rows.filter((r) => r.held)), train: summarize(rows.filter((r) => !r.held)) };
   out.byBucket = {};
@@ -159,8 +163,9 @@ const final = score(MODEL_DEFAULTS, true);
 console.log(`\ndefaults (corners wear ${MODEL_DEFAULTS.corners.wearThreshold}, edges wear ${MODEL_DEFAULTS.edges.wearThreshold}):`);
 console.log(`  all      MAE ${final.all.mae}  signed ${final.all.signed}  exact ${final.all.exact}%  within0.5 ${final.all.within05}%`);
 console.log(`  held out MAE ${final.held.mae}  signed ${final.held.signed}  exact ${final.held.exact}%  within0.5 ${final.held.within05}%`);
+console.log(`  rollup model (same subgrades + dings):  all MAE ${final.all.rollup.mae}  signed ${final.all.rollup.signed}  exact ${final.all.rollup.exact}%  within0.5 ${final.all.rollup.within05}%   | held out MAE ${final.held.rollup.mae}  signed ${final.held.rollup.signed}  exact ${final.held.rollup.exact}%  within0.5 ${final.held.rollup.within05}%`);
 console.log('  by TAG grade bucket:');
-for (const [b, s] of Object.entries(final.byBucket)) console.log(`    ${b.padEnd(7)} n=${String(s.cards).padStart(3)}  MAE ${s.mae}  signed ${s.signed}  within0.5 ${s.within05}%`);
+for (const [b, s] of Object.entries(final.byBucket)) console.log(`    ${b.padEnd(7)} n=${String(s.cards).padStart(3)}  MAE ${s.mae}  signed ${s.signed}  within0.5 ${s.within05}%   | rollup MAE ${s.rollup.mae}  signed ${s.rollup.signed}  within0.5 ${s.rollup.within05}%`);
 console.log('  detection vs TAG report:');
 for (const [t, s] of Object.entries(final.dingStats)) console.log(`    ${t.padEnd(7)} precision ${s.precision}  recall ${s.recall}  (tp ${s.tp} fp ${s.fp} fn ${s.fn})`);
 
