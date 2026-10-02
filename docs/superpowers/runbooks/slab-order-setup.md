@@ -57,3 +57,6 @@ The studio shares the app's sign-in (same domain): signing in or out of one sign
 
 ## Going live (after testing)
 Change together in Vercel, then redeploy: `STRIPE_SECRET_KEY` → live key; `STRIPE_PRICE_SLAB` → the live-mode price id; `STRIPE_WEBHOOK_SECRET` → the **live** endpoint's secret, and make sure that endpoint's URL is `https://www.slabsenseai.com/api/stripe/webhook` (the apex domain redirects and Stripe won't follow) and that it subscribes to `checkout.session.completed`. Then clean up test data: `delete from slabs where cert like 'SS26-%';` `alter sequence slab_cert_seq restart with 1;` and empty the `slab-images` and `slab-labels` buckets.
+
+## Security lockdown migration (2026-10-01)
+Apply `supabase/migrations/20261001_lockdown.sql` in the SQL editor (safe to re-run): it restricts signed-in users to updating their own `display_name`, `username` and `preferred_company`, and removes the open insert policy on `credit_transactions`. Nothing in the app changes for a normal user; it closes the self-granted-credits hole from the App Store audit (G-01, G-02).
