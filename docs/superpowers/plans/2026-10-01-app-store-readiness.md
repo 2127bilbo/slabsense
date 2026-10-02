@@ -207,7 +207,9 @@ guideline", and the repo facts in `docs/STATUS.md`.
   prod bundles drop console.log/info/debug (E-04); leak/stale-state fixes (E-15/16/17); manifest,
   viewport, theme-color (E-05/14/22); alt text, labels, aria-labels (E-13); scans import (E-07);
   vite 6.4.3 + audit fix: 12 → 5 advisories, all inside `@xenova/transformers` (E-03).
-  DEFERRED: `App.jsx` split by screen → with 3f when the capture screen is replaced (D-05, E-08);
+  `App.jsx` split slice 1 DONE 2026-10-02: analysis pipeline, grade insights, HomeTab, CameraViewfinder,
+  CaptureCardVertical moved to their own modules (3,039 → 2,049 lines); the main component's tabs and
+  modals follow with 3f when the capture screen is replaced (D-05, E-08);
   `@xenova/transformers` → `@huggingface/transformers` v4 (E-02, D-01): a node parity check could
   not run (v4's onnxruntime-node DirectML binding fails to load on the owner's PC; the web build
   cannot fetch models under node). Browser parity DONE 2026-10-02 (`scripts/harness/clip-parity/`):
