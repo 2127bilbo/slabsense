@@ -27,8 +27,9 @@ document that holds the detail; nothing here is the only copy of a fact.
   (heat, battery, 2.5 s). Knobs: `LIVE_INTERVAL_MS`, `AUTO_SNAP_MS` in `src/App.jsx`; revert 68547b2 if bad.
 - **Rig** (`docs/RIG-PLAN.md`): PC-hosted grading station; machine-vision camera, entry tier first;
   backdrop grey/blue not orange; Phase 0 (Python inference service + parity) not started.
-- **App Store readiness** (`docs/superpowers/plans/2026-10-01-app-store-readiness.md`): audit →
-  review → fix → re-audit → submit. Starts with the audit; no code changes before it.
+- **App Store readiness** (`docs/superpowers/plans/2026-10-01-app-store-readiness.md`): audit DONE
+  (`docs/audits/2026-10-app-store-audit.md`, 22 Blockers = 7 problems); fix group 3a security DONE
+  2026-10-02 (`plans/2026-10-01-3a-security.md`); next 3b payments / 3c account+privacy.
 - **Web app**: feature-frozen for accuracy work; bug fixes only. Accuracy moves to the rig and the
   native app.
 
@@ -41,8 +42,11 @@ document that holds the detail; nothing here is the only copy of a fact.
 
 ## Housekeeping owed
 
-- Rotate and move the two secrets committed in the tree: `scripts/Tag scraper/tag_proxy.py`
-  (signing secret, AES key) and `Slabsense Gemini API-.txt` at the repo root (`docs/RIG-PLAN.md` §6).
+- DONE 2026-10-02 (fix group 3a): TAG scraper folder and the key file moved to `../SlabSense-data/` and
+  ignored; TAG signing values now come from `scripts/tag-dataset/data/env.ps1`; git objects pruned
+  12 GB → 137 MB. STILL OWED by the owner: rotate the Google AI and OpenAI keys that were in the
+  root file; decide whether to rewrite history for the two TAG constants (public repo, force push);
+  apply `supabase/migrations/20261001_lockdown.sql` in the SQL editor.
 - 118 HEIC photos on the owner's desktop still unlabelled for card-val (`npm run models:label-card-val`).
 - Owner's uncommitted `scripts/tag-dataset/tagdataset/{cli,download}.py` proxy changes: they are
   what the foil pull ran on; commit them or they stay local forever.
