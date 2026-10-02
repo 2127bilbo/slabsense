@@ -1,0 +1,107 @@
+{
+ "cert": "C6660561",
+ "arm": "tiles",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 7,
+ "tagLabel": "7 NEAR MINT",
+ "tag": {
+  "centering": 982,
+  "corners": 987,
+  "edges": 999,
+  "surface": 752,
+  "surfaceFront": 1000,
+  "surfaceBack": 703
+ },
+ "estimateAfterPass1": 10,
+ "grade": 8.5,
+ "displayGrade": "8.5",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 90.69,
+  "frontEdges": 100,
+  "backEdges": 91.25,
+  "frontSurface": 97,
+  "backSurface": 97.9,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "LEFT EDGE"
+  },
+  {
+   "side": "FRONT",
+   "type": "PRINT_DEFECT",
+   "severity": "minor",
+   "location": "MIDDLE RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "PRINT_DEFECT",
+   "severity": "minor",
+   "location": "MIDDLE CENTER"
+  }
+ ],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10604,
+   "outputTokens": 830
+  },
+  "pass2": {
+   "inputTokens": 11413,
+   "outputTokens": 1052
+  },
+  "surface": {
+   "inputTokens": 23172,
+   "outputTokens": 872
+  }
+ },
+ "surfacePassDefects": [
+  {
+   "side": "FRONT",
+   "type": "PRINT_DEFECT",
+   "severity": "minor"
+  },
+  {
+   "side": "BACK",
+   "type": "PRINT_DEFECT",
+   "severity": "minor"
+  }
+ ],
+ "ms": {
+  "pass1": 41330,
+  "pass2": 21994
+ },
+ "raw": {
+  "pass1": "Looking at this Mysterious Fossil Trainer card from the Fossil set, I'll perform a complete defect inspection.\n\n**Card Identification:**\nThis is a Mysterious Fossil (62/62) from the Fossil set, 1999, non-holo Trainer card with 10 HP.\n\n**Overall Condition Assessment:**\nThe card appears to be in good condition overall. The front shows clean surfaces with the gold/yellow border intact. The back shows the standard Pokemon card design.\n\n**Catastrophic Scan (Both Sides):**\n- No creases visible - checking diagonals from each corner and horizontal mid-card lines on both sides\n- No tears or paper loss detected\n- No water damage or writing\n- The white swirls on the back are the standard design elements - they are soft-edged and curved, following the natural artwork pattern, not straight fractured lines\n\n**Front Surface Inspection:**\n- The gold border appears clean and consistent\n- The illustration window shows the fossil artwork clearly\n- The text box is legible with no print defects\n- No scratches penetrating the surface visible\n- No dents or indentations detected\n- The gray textured border around the illustration appears uniform\n\n**Back Surface Inspection:**\n- The Pokeball artwork is intact\n- The blue background shows no staining\n- Checking for any surface scratches or print lines - none detected\n- The white energy swirls are part of the design (soft-edged, curved)\n- No pits or dents visible in the surface\n\n**Crease Hunt (Dedicated):**\n- Front: Tracing diagonals from all four corners - no line discontinuities\n- Front: Horizontal mid-card check - clean\n- Back: Diagonal traces - no creases detected\n- Back: Full-width horizontal - no fractured lines crossing the Pokeball or borders\n\n**Image Quality Notes:**\n- Front images show slight warm lighting but no significant glare\n- Back images are well-lit with minor reflections on the Pokeball (this is glare on intact surface, not damage)\n\nThe corner and edge wear has already been measured by the automated system, showing minor wear on back corners and moderate wear on the left edge of the back.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mysterious Fossil\",\n    \"setName\": \"Fossil\",\n    \"cardNumber\": \"62/62\",\n    \"rarity\": \"Common\",\n    \"year\": \"1999\",\n    \"hp\": \"10\",\n    \"variant\": \"Normal\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"back\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"MIDDLE CENTER\"] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with no visible scratches or print defects\",\n      \"No creases or structural damage detected on either side\",\n      \"Gold border on front maintains consistent coloring\",\n      \"Illustration and text remain crisp and legible\"\n    ],\n    \"concerns\": [\n      \"Back corners show minor wear as detected by automated measurement\",\n      \"Left edge of back shows moderate wear per automated measurement\"\n    ],\n    \"recommendation\": \"Card is in solid condition with wear concentrated on the back corners and left edge; front surface presents well with no structural damage detected.\"\n  }\n}\n```",
+  "pass2": "Looking at this Mysterious Fossil Trainer card from the Fossil set, I'll perform a complete defect inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Mysterious Fossil Trainer card, #62/62 from the Fossil set (1999), 10 HP, non-holo common card.\n\n**CATASTROPHIC SCAN (both sides first):**\n- Front: No creases, tears, paper loss, or water damage visible. The surface appears intact.\n- Back: Examining carefully for creases - tracing diagonals from each corner and horizontal lines across the card. The white energy swirls are part of the design (soft-edged, curved). I see no straight fractured lines crossing the Pokeball or spanning the card width. No tears, paper loss, or water damage detected.\n\n**SURFACE INSPECTION:**\n\n*FRONT SURFACE:*\n- The gold border appears clean overall\n- Examining the reported print defect at x:93, y:75 - looking at the gold border area on the right side near the text box. I can see what appears to be a tiny dark speck/ink spot. This is a genuine minor print defect, not part of the design.\n- The artwork area (fossil imagery) appears clean\n- Text box is clear and legible\n- No scratches, dents, or play wear visible on the surface\n\n*BACK SURFACE:*\n- There is minor glare on the Pokeball (middle center) from lighting\n- Examining the reported print defect at x:68, y:37 on the red portion of the Pokeball - I can see a small dark spot that appears to be an ink inclusion/print defect\n- The blue background and energy swirls appear intact\n- No scratches penetrating the surface\n- No dents or indentations visible\n\n**CREASE HUNT (dedicated):**\n- Front: Traced diagonals from all corners, horizontal mid-card line - no line discontinuities found\n- Back: Same systematic check - the white swirls are design elements (soft, curved edges), no straight fractured lines detected\n\n**VERIFICATION OF PRIOR SCAN:**\nBoth print defects reported appear legitimate - they are small ink spots/specks that are part of the printing process, not design elements or glare artifacts.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mysterious Fossil\",\n    \"setName\": \"Fossil\",\n    \"cardNumber\": \"62/62\",\n    \"rarity\": \"Common\",\n    \"year\": \"1999\",\n    \"hp\": \"10\",\n    \"variant\": null,\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"back\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\"]\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"PRINT_DEFECT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE RIGHT\",\n      \"x\": 93,\n      \"y\": 75,\n      \"width\": 1,\n      \"height\": 1,\n      \"description\": \"Tiny dark ink spot visible on the gold border area near the right edge of the text box region.\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PRINT_DEFECT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 68,\n      \"y\": 37,\n      \"width\": 1,\n      \"height\": 1,\n      \"description\": \"Small dark ink inclusion visible on the red upper portion of the Pokeball.\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Card surfaces are clean with no scratches, dents, or creases\",\n      \"No structural damage detected on either side\",\n      \"Artwork and text remain crisp and well-defined\"\n    ],\n    \"concerns\": [\n      \"Two minor factory print defects (ink spots) present, one on each side\"\n    ],\n    \"recommendation\": \"Card is in excellent physical condition with only minor factory print inclusions; surfaces and structure are intact with no handling damage.\"\n  }\n}\n```"
+ }
+}

@@ -1,0 +1,53 @@
+{
+ "cert": "E3034011",
+ "arm": "tiles",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 6.5,
+ "tagLabel": "6.5 EX MT+",
+ "tag": {
+  "centering": 677,
+  "corners": 902,
+  "edges": 999,
+  "surface": 980,
+  "surfaceFront": 899,
+  "surfaceBack": 959
+ },
+ "estimateAfterPass1": 6.5,
+ "grade": 6.5,
+ "displayGrade": "6.5",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 67.5,
+  "backCentering": 97
+ },
+ "defects": [],
+ "referencesUsed": 7,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10564,
+   "outputTokens": 987
+  },
+  "pass2": {
+   "inputTokens": 11714,
+   "outputTokens": 1057
+  },
+  "surface": {
+   "inputTokens": 23172,
+   "outputTokens": 678
+  }
+ },
+ "surfacePassDefects": [],
+ "ms": {
+  "pass1": 42623,
+  "pass2": 22858
+ },
+ "raw": {
+  "pass1": "Looking at this Mew VMAX card from Fusion Strike, I'll perform a complete defect inspection.\n\n**Card Identification:**\nThis is a Mew VMAX TG30/TG30 from Fusion Strike (2022), a Trainer Gallery secret rare with gold/rainbow holofoil texture throughout the card face.\n\n**Overall Condition Assessment:**\nThe card appears to be in excellent condition. The holofoil texture is intact and displays the characteristic gold/rainbow shimmer pattern. The back shows the standard Pokemon design with clean printing.\n\n**Catastrophic Scan (Both Sides):**\n- FRONT: No creases, tears, paper loss, or water damage visible. The gold holofoil texture is uniform across the card face. No line discontinuities crossing the print.\n- BACK: No creases visible. Checking diagonals from each corner - no straight fractured lines crossing the Pokeball or through the design. The white energy swirls are soft-edged and curved (design elements, not damage). No paper loss or tears.\n\n**Surface Inspection - FRONT:**\nThe gold textured holofoil shows natural pattern variation which is part of the card design. Scanning systematically:\n- Top area (name/HP): Clean, no scratches cutting across the texture\n- Middle area (Mew artwork): Holofoil texture intact, no dents or indentations visible\n- Bottom area (attacks/text): Clean printing, no print defects\n- There's some light reflection/glare in the upper left and bottom areas, but this is camera flash on the reflective surface, not damage\n\n**Surface Inspection - BACK:**\n- Top half: Clean blue background with Pokemon logo, no scratches or wear\n- Center (Pokeball): Intact, no dents or surface damage\n- Bottom half: Clean, energy swirls are design elements\n- No print lines, stains, or surface defects detected\n\n**Crease Hunt (Mandatory):**\n- FRONT: Traced diagonals from all four corners, horizontal mid-card line - no creases found\n- BACK: Same diagonal and horizontal trace - no creases or wrinkles detected\n\n**Glare Assessment:**\n- Front has moderate glare from the highly reflective gold holofoil surface, particularly visible in upper left corner area and along bottom edge - this is normal flash reflection on intact foil\n- Back has minor glare on the Pokeball (soft-edged reflection)\n\n**Re-read against Detection Bias:**\n- No structural defects found (creases, tears, dents) - confirmed after thorough scan\n- Corner/edge inspection handled by measured data showing all clean\n- No surface defects requiring reporting\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mew VMAX\",\n    \"setName\": \"Fusion Strike\",\n    \"cardNumber\": \"TG30/TG30\",\n    \"rarity\": \"Trainer Gallery Secret Rare\",\n    \"year\": \"2022\",\n    \"hp\": \"310\",\n    \"variant\": \"Trainer Gallery Gold Holofoil\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"moderate\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP LEFT\", \"BOTTOM CENTER\", \"BOTTOM LEFT\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\"]\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"All corners appear sharp with no visible wear or exposed fibers\",\n      \"Holofoil surface texture is intact with no scratches cutting across the pattern\",\n      \"No creases, dents, or structural damage detected on either side\",\n      \"Card back is clean with no whitening or surface defects\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This card presents in excellent physical condition with no visible defects on either the front holofoil surface or the back.\"\n  }\n}\n```",
+  "pass2": "Looking at this Mew VMAX TG30/TG30 from Fusion Strike, I'll perform a systematic inspection.\n\n**Overall Condition Assessment:**\nThis is a gold/textured full-art VMAX card with heavy holofoil texture throughout. The card appears to be in excellent condition with clean surfaces on both sides.\n\n**Catastrophic Scan (Both Sides First):**\n- FRONT: No creases, tears, paper loss, or water damage visible. The textured gold holofoil pattern is intact throughout. No line discontinuities crossing the print.\n- BACK: No creases visible. Checking diagonals from each corner and horizontal mid-card - the white energy swirls are soft-edged and curved (design elements). No straight fractured lines crossing the Pokeball or borders. No paper loss or tears.\n\n**Corner-by-Corner Analysis (Skipping per instructions - measured by model):**\nThe corner wear model has already assessed all 8 corners as \"clean\" with wear scores of 0.00-0.03. I will not re-report these.\n\n**Edge-by-Edge Analysis (Skipping per instructions - measured by model):**\nAll 8 edges measured as \"clean\" with wear scores of 0.01-0.02. I will not re-report these.\n\n**Front Surface Inspection:**\n- TOP LEFT: Bright glare/reflection from flash - soft-edged, no broken surface texture\n- TOP CENTER: Clean, textured holofoil intact\n- TOP RIGHT: Clean, HP 310 and type symbols clear\n- MIDDLE: Mew artwork with gold textured holofoil - pattern is consistent, no scratches cutting across it\n- BOTTOM: Text areas clean, VMAX rule box intact\n- BOTTOM LEFT/CENTER: Some light reflection (glare) - soft edges, printed design visible through it\n\n**Back Surface Inspection:**\n- Pokeball artwork intact\n- Energy swirls are soft-edged design elements\n- MIDDLE CENTER: Slight glare on Pokeball (soft reflection, not damage)\n- No print lines, scratches, dents, or pits visible\n- Blue border consistent throughout\n\n**Crease Hunt Verification:**\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear\n- Back horizontal mid-card: Clear\n- No line discontinuities found\n\n**Fiber-vs-Glare Decision:**\nThe bright areas on the front (top left, bottom center, bottom left) are camera flash reflections - they have soft fuzzy edges and the printed design remains visible through them. These are NOT defects.\n\n**Re-read Against Detection Bias:**\n- Structural defects: None found after thorough inspection\n- Cosmetic defects: None with visible exposed paper fibers\n\nThe prior scan reported zero defects, and after my complete inspection, I confirm this finding.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mew VMAX\",\n    \"setName\": \"Fusion Strike\",\n    \"cardNumber\": \"TG30/TG30\",\n    \"rarity\": \"Trainer Gallery Secret Rare\",\n    \"year\": \"2022\",\n    \"hp\": \"310\",\n    \"variant\": \"Trainer Gallery Gold Textured\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"moderate\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP LEFT\", \"BOTTOM CENTER\", \"BOTTOM LEFT\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\"]\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"All corners appear sharp and clean with no visible whitening or fiber exposure\",\n      \"Edges are crisp with no chips, nicks, or whitening along any border\",\n      \"Gold textured holofoil surface is pristine with no scratches penetrating the pattern\",\n      \"Back surface is clean with no creases, dents, or print defects\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This card presents in excellent physical condition with clean corners, edges, and surfaces on both sides; the textured gold holofoil shows no wear or damage.\"\n  }\n}\n```"
+ }
+}

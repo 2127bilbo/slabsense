@@ -1,0 +1,66 @@
+{
+ "cert": "F1752666",
+ "arm": "tiles",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 6,
+ "tagLabel": "6 EX MT",
+ "tag": {
+  "centering": 962,
+  "corners": 1000,
+  "edges": 1000,
+  "surface": 657,
+  "surfaceFront": 1000,
+  "surfaceBack": 591
+ },
+ "estimateAfterPass1": 10,
+ "grade": 9,
+ "displayGrade": "9",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 94.77,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP RIGHT"
+  }
+ ],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10580,
+   "outputTokens": 868
+  },
+  "pass2": {
+   "inputTokens": 11167,
+   "outputTokens": 886
+  },
+  "surface": {
+   "inputTokens": 23172,
+   "outputTokens": 774
+  }
+ },
+ "surfacePassDefects": [],
+ "ms": {
+  "pass1": 42520,
+  "pass2": 18931
+ },
+ "raw": {
+  "pass1": "Looking at this Pikachu card from XY Flashfire, I'll perform a complete defect inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Pikachu 42/146 from XY Flashfire (2014), a common holo card with 60 HP.\n\n**CATASTROPHIC SCAN (both sides first):**\n- Front: No creases, tears, paper loss, or water damage visible. The holofoil pattern shows normal rainbow shimmer throughout the artwork area.\n- Back: Examining for creases - tracing diagonals from each corner and horizontal lines across the card. The white energy swirls are soft-edged and curved, following the natural design pattern. No straight fractured lines crossing the Pokeball or interrupting the artwork. No tears, paper loss, or water damage detected.\n\n**SURFACE INSPECTION:**\n\n*Front Surface:*\n- The holofoil area shows natural sparkle pattern - this is the card's intended texture, not scratches\n- The gold/yellow text areas and borders appear clean\n- No print lines, dents, or pits visible\n- The silver border frame is intact without scratches\n\n*Back Surface:*\n- The blue background and Pokeball artwork are clean\n- No scratches cutting across the surface\n- No dents or indentations visible\n- No stains or discoloration\n\n**CORNER/EDGE NOTES (for context only - not reporting as these are pre-measured):**\nThe pre-measured data indicates minor wear on back top-left and top-right corners. Looking at the images, I can see the back top corners show some slight softening, consistent with the measurements provided.\n\n**GLARE ASSESSMENT:**\n- Front: There's some light reflection on the holofoil area, particularly visible in the artwork window, but this is normal holofoil behavior and doesn't obscure inspection\n- Back: Clean lighting with no significant glare\n\n**CREASE HUNT VERIFICATION:**\n- Front: Traced diagonals from all four corners, horizontal mid-card line, and vertical center - no line discontinuities found\n- Back: Same systematic check - the white swirls are all soft-edged and curved, no angular or straight fractured lines present\n\n**FINAL ASSESSMENT:**\nThis card is in excellent condition. The front is essentially pristine with no surface defects. The back shows only the minor corner wear already captured by the measurement system. No structural damage, no surface defects requiring reporting.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Pikachu\",\n    \"setName\": \"XY Flashfire\",\n    \"cardNumber\": \"42/146\",\n    \"rarity\": \"Common\",\n    \"year\": \"2014\",\n    \"hp\": \"60\",\n    \"variant\": \"Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"MIDDLE CENTER\"] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\"Front surface is pristine with no scratches, dents, or print defects\", \"Holofoil pattern is intact and undamaged\", \"No creases or structural damage on either side\", \"Clean edges and sharp corners on front\"],\n    \"concerns\": [\"Minor wear detected on back top corners by measurement system\"],\n    \"recommendation\": \"Card is in excellent physical condition with a clean front surface and only minor corner wear on the back; suitable for high-grade consideration.\"\n  }\n}\n```",
+  "pass2": "Looking at this Pikachu card from XY Flashfire, I'll perform a systematic inspection.\n\n**OVERALL CONDITION ASSESSMENT:**\nThis is a gold-bordered holo Pikachu card that appears to be in excellent condition. The holofoil pattern shows typical sparkle effects throughout the artwork area.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n- Front: No creases, tears, paper loss, or water damage visible. The holofoil shows natural sparkle patterns but no structural damage lines crossing the artwork.\n- Back: Examining carefully for creases - tracing diagonals from each corner and horizontal lines across the card. The white energy swirls are soft-edged and curved, following the natural design. I see no straight fractured lines crossing the Pokeball or running through the artwork. No tears, paper loss, or water damage.\n\n**FRONT SURFACE INSPECTION:**\n- The gold border is intact throughout\n- Holofoil area shows natural rainbow shimmer and sparkle effects - this is the card's design, not damage\n- There's minor glare in the middle center area from photography lighting reflecting off the holofoil\n- No scratches cutting across the holo pattern\n- No print lines, dents, or pits visible\n- Text areas are clean and crisp\n\n**BACK SURFACE INSPECTION:**\n- The blue background and Pokeball artwork are intact\n- No scratches, dents, or surface damage visible\n- The white swirls are part of the design - soft-edged and curved\n- No stains or discoloration\n\n**CORNER/EDGE NOTE:**\nPer instructions, corners and edges have been pre-measured by the dedicated model. The back shows minor wear at top-left and top-right corners which will be handled by that system. I will not duplicate those findings.\n\n**CREASE HUNT VERIFICATION:**\n- Front: Traced diagonals from all four corners, horizontal mid-card line - no discontinuities found\n- Back: Same systematic check - no crease lines detected. The white swirls follow natural curves and don't show the fractured/crackled texture of a crease.\n\n**TYPE-SPECIFIC BIAS CHECK:**\n- Structural defects: None found after careful inspection\n- Cosmetic defects: The pre-measured corner wear on back is handled externally. No additional surface cosmetic defects to report.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Pikachu\",\n    \"setName\": \"XY Flashfire\",\n    \"cardNumber\": \"42/146\",\n    \"rarity\": \"Common\",\n    \"year\": \"2014\",\n    \"hp\": \"60\",\n    \"variant\": \"Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with intact holofoil pattern\",\n      \"Gold borders show no chips or wear\",\n      \"No creases or structural damage on either side\",\n      \"Back surface is clean with no scratches or stains\"\n    ],\n    \"concerns\": [\n      \"Minor corner wear detected on back top-left and top-right corners (handled by corner measurement system)\"\n    ],\n    \"recommendation\": \"Card is in excellent physical condition with clean surfaces and no structural damage; minor corner wear on back is the only notable issue.\"\n  }\n}\n```"
+ }
+}

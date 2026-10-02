@@ -274,6 +274,29 @@ tall and pits ~11 px; at 2,000 px they are a few pixels. Decisions: one paid tie
 without maps; surface accuracy comes from the rig's surface model, not from more Claude images.
 Results: `scripts/harness/results/deep-accuracy/{base,maps}/`.
 
+**Tiled surface pass (same day, 8 of the batch's surface-marked cards, arm `tiles`).** The owner asked
+why a human sees the dings Claude misses. At native resolution the scuffs and crease on the worst card
+are plain to the eye; at the 1,568 px Claude receives, a scuff is one pixel. Giving each side as six
+native-resolution tiles (2 × 3, each ≤ 1,568 px, ~2.5× the pixels per card millimetre) with a
+surface-only prompt, merged into pass 1 before the reference pass:
+
+| 8 mid-grade cards with TAG surface marks | production Deep | with tiled surface pass |
+|---|---|---|
+| grade error vs TAG | 1.75 (all lenient) | 1.19 |
+| TAG 4 with a creased, scuffed back | 8 | 5 (crease, pits, scratches, play wear found) |
+| TAG 5 with play wear | 6.5 | 5 |
+| TAG 7 with print defects | 8.5 | 8.5, print defects now called, surface still ~270 pts lenient |
+| other five (silvering, a dent, pits, print lines) | unchanged | unchanged, still not seen |
+| cost per card | $0.16 | $0.29–0.33 |
+
+Verdict: magnification is the lever, not more views of the same pixels. The tiled pass fixes the
+damaged-card misses, which are the lenient middle of the batch, and leaves the subtle marks TAG's
+scanner catches (edge silvering, small dents, faint print lines) untouched; those remain the rig
+surface model's job. It roughly doubles the provider cost of a grade and is still well inside the
+price. Production needs the client to send native-resolution tiles (the 2,000 px upload cannot be
+tiled usefully); see fix group 3b task 8b.
+
+
 ## 2. TAG baseline (the engine's native scale)
 
 TAG is the baseline because the owner has real DIG reports to calibrate against, and TAG publishes the most

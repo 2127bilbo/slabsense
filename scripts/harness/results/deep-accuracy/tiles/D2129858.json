@@ -1,0 +1,172 @@
+{
+ "cert": "D2129858",
+ "arm": "tiles",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 4,
+ "tagLabel": "4 VG EX",
+ "tag": {
+  "centering": 952,
+  "corners": 722,
+  "edges": 1000,
+  "surface": 338,
+  "surfaceFront": 805,
+  "surfaceBack": 232
+ },
+ "estimateAfterPass1": 4.5,
+ "grade": 5,
+ "displayGrade": "5",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 82.83,
+  "frontEdges": 100,
+  "backEdges": 88.21,
+  "frontSurface": 52.99,
+  "backSurface": 68.02,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "RIGHT EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "minor",
+   "location": "LEFT EDGE"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "extreme",
+   "location": "MIDDLE LEFT"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "extreme",
+   "location": "MIDDLE RIGHT"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "severe",
+   "location": "BOTTOM CENTER"
+  },
+  {
+   "side": "BACK",
+   "type": "CREASE",
+   "severity": "moderate",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "PIT",
+   "severity": "moderate",
+   "location": "MIDDLE LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "SCRATCH",
+   "severity": "moderate",
+   "location": "MIDDLE RIGHT"
+  }
+ ],
+ "referencesUsed": 7,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10612,
+   "outputTokens": 1040
+  },
+  "pass2": {
+   "inputTokens": 12709,
+   "outputTokens": 1652
+  },
+  "surface": {
+   "inputTokens": 23172,
+   "outputTokens": 1338
+  }
+ },
+ "surfacePassDefects": [
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "moderate"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "moderate"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "moderate"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "moderate"
+  },
+  {
+   "side": "BACK",
+   "type": "CREASE",
+   "severity": "severe"
+  },
+  {
+   "side": "BACK",
+   "type": "PIT",
+   "severity": "minor"
+  },
+  {
+   "side": "BACK",
+   "type": "SCRATCH",
+   "severity": "minor"
+  },
+  {
+   "side": "BACK",
+   "type": "PLAY_WEAR",
+   "severity": "moderate"
+  },
+  {
+   "side": "BACK",
+   "type": "SCRATCH",
+   "severity": "minor"
+  }
+ ],
+ "ms": {
+  "pass1": 48727,
+  "pass2": 31639
+ },
+ "raw": {
+  "pass1": "Looking at this Voltorb SH3 Shiny card from the Stormfront set, I'll perform a complete defect inspection.\n\n## Initial Assessment\nThis is a reverse holo/shiny Voltorb card with a gold holofoil border. The front appears to be in excellent condition with the characteristic rainbow holofoil pattern. The back shows visible wear, particularly at the corners and edges.\n\n## Catastrophic Scan (Both Sides First)\n**FRONT:** No creases, tears, paper loss, or water damage visible. The holofoil pattern shows natural rainbow shimmer - this is the card's design, not damage.\n\n**BACK:** I can see a distinct diagonal line running from approximately the upper left area (near the \"P\" in Pokemon) downward. Let me examine this carefully - it appears to be a crease/fold line that crosses through the blue background. The line has a fractured texture and runs at an angle, crossing through the printed design. This is NOT part of the energy swirl design (which is curved and soft-edged) - this is a straight/angular line with visible surface disruption.\n\n## Corner and Edge Analysis\nPer instructions, corners and edges are pre-measured - skipping detailed inspection of these as they're handled by the scoring engine.\n\n## Surface Inspection\n\n**FRONT Surface:**\n- Scanning the holofoil surface systematically\n- The rainbow shimmer across the gold border is natural holofoil texture\n- No scratches cutting across the pattern\n- No print lines, dents, or indentations visible\n- The artwork area (Voltorb image, text boxes) appears clean\n- No surface defects detected on front\n\n**BACK Surface:**\n- The diagonal line I identified in the catastrophic scan: Starting from upper left (near the \"o\" and \"k\" in Pokemon), running diagonally down toward the center-left area. This line crosses through the blue printed background, showing a lighter/fractured appearance where it disrupts the surface. This is a crease.\n- Examining for additional surface issues: Some general surface wear/haziness visible but no additional distinct scratches, dents, or print defects.\n\n## Crease Hunt Verification\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: CREASE FOUND - diagonal line from upper left running toward center\n- Back horizontal: No additional creases spanning full width\n\n## Final Assessment\nThe front is clean. The back has a visible crease and the pre-measured corner/edge wear. The crease is the primary structural concern.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Voltorb\",\n    \"setName\": \"Stormfront\",\n    \"cardNumber\": \"SH3\",\n    \"rarity\": \"Shiny Rare\",\n    \"year\": \"2008\",\n    \"hp\": \"60\",\n    \"variant\": \"Shiny\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"TOP LEFT\", \"BOTTOM RIGHT\"] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"BACK\",\n      \"type\": \"CREASE\",\n      \"severity\": \"moderate\",\n      \"location\": \"TOP LEFT\",\n      \"x\": 18,\n      \"y\": 12,\n      \"width\": 15,\n      \"height\": 20,\n      \"description\": \"Diagonal crease line running from upper left area near Pokemon logo downward, visible as a lighter fractured line crossing through the blue printed background\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with no scratches or surface defects\",\n      \"Holofoil pattern on front is intact and vibrant\",\n      \"No tears, paper loss, or water damage present\"\n    ],\n    \"concerns\": [\n      \"Diagonal crease visible on back near upper left area\",\n      \"Corner and edge wear present on back (per pre-measured data)\"\n    ],\n    \"recommendation\": \"Card shows a clean front but has structural damage on the back in the form of a crease, along with corner and edge wear that will significantly impact condition assessment\"\n  }\n}\n```",
+  "pass2": "## Reasoning and Inspection\n\n**Card Identification:**\nThis is a Voltorb LV.33 from the Stormfront set (SH3), a Secret Rare \"Shiny\" card from 2008. It's a reverse holo/shiny variant with the distinctive gold holofoil pattern.\n\n**Overall Condition Statement:**\nThis card shows significant wear. The back has a clear diagonal crease in the upper left area, and there's notable corner and edge wear throughout the back. The front holofoil shows surface scratching typical of played cards.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n\n**BACK - Crease Check:**\nThere is a definitive diagonal crease/fold line visible in the upper left quadrant of the back. It runs from approximately the left edge near the \"P\" in \"Pokémon\" diagonally downward. This shows clear paper stress with whitening along the fold line - this is NOT part of the energy swirl design. The swirls are curved and soft-edged; this is a straight angular line with fractured texture. This is a SEVERE crease.\n\n**FRONT - Crease Check:**\nChecking diagonals from each corner, horizontal mid-card, and heavy-wear zones. No creases detected on the front. The lines visible are part of the holofoil pattern and artwork.\n\n**Paper Loss/Tears:** None detected on either side.\n\n**FRONT SURFACE INSPECTION:**\n\nThe gold holofoil text area shows a network of fine surface scratches. These are real scratches - they appear as white hairline marks that cut ACROSS the holofoil pattern, not following it. They're visible in multiple directions across the attack text area and lower portion of the card.\n\n- Left side text area (around \"Fastball\" through \"Thundershock\"): Fine scratching visible\n- Right side text area: Similar fine scratching pattern\n- Lower holofoil area near weakness/resistance: Scratching continues\n\nThese are moderate severity - clearly visible at arm's length but not deep gouges.\n\n**BACK SURFACE INSPECTION:**\n\n- **Crease (confirmed):** Diagonal line upper left, running from left edge through the \"o\" area of \"Pokémon\" - shows whitening and paper stress. Severity: SEVERE\n- **Minor pit:** Small dark spot visible near the Pokeball area, left side\n- **Faint scratches:** Some light diagonal scratches visible in the blue background area\n\n**Corner/Edge Assessment (per pre-measured data - not my task to report, but for context):**\nThe back shows significant corner wear on all four corners (especially bottom right) and edge wear on left and right edges. This aligns with what I observe - whitening and wear visible at corners and edges of the back.\n\n---\n\n## Final JSON Output\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Voltorb\",\n    \"setName\": \"Stormfront\",\n    \"cardNumber\": \"SH3\",\n    \"rarity\": \"Secret Rare (Shiny)\",\n    \"year\": \"2008\",\n    \"hp\": \"60\",\n    \"variant\": \"Shiny\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP LEFT\", \"BOTTOM RIGHT\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"BACK\",\n      \"type\": \"CREASE\",\n      \"severity\": \"severe\",\n      \"location\": \"TOP LEFT\",\n      \"x\": 22,\n      \"y\": 15,\n      \"width\": 15,\n      \"height\": 10,\n      \"description\": \"Diagonal crease line running from left edge through upper left area, showing visible paper stress and whitening with exposed fibers along the fold line.\"\n    },\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE LEFT\",\n      \"x\": 25,\n      \"y\": 55,\n      \"width\": 35,\n      \"height\": 20,\n      \"description\": \"Network of fine surface scratches across the left portion of the holofoil text area, appearing as white hairline marks cutting across the gold pattern.\"\n    },\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE RIGHT\",\n      \"x\": 70,\n      \"y\": 55,\n      \"width\": 25,\n      \"height\": 20,\n      \"description\": \"Fine scratching pattern across the right side of the holofoil text area, visible as light marks against the gold background.\"\n    },\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"moderate\",\n      \"location\": \"BOTTOM CENTER\",\n      \"x\": 50,\n      \"y\": 85,\n      \"width\": 60,\n      \"height\": 12,\n      \"description\": \"Widespread fine surface scratches across the lower holofoil area including weakness/resistance section, running in multiple directions.\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PIT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE LEFT\",\n      \"x\": 23,\n      \"y\": 45,\n      \"width\": 2,\n      \"height\": 1,\n      \"description\": \"Small dark pit or surface imperfection visible in the light swirl area to the left of the Pokeball.\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE RIGHT\",\n      \"x\": 72,\n      \"y\": 38,\n      \"width\": 15,\n      \"height\": 4,\n      \"description\": \"Faint diagonal hairline scratch visible across the blue background area on the right side.\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Front artwork and illustration remain vibrant with good color saturation\",\n      \"No creases or structural damage on the front face\",\n      \"Card stock integrity maintained despite wear\"\n    ],\n    \"concerns\": [\n      \"Severe diagonal crease on back upper left with visible paper stress\",\n      \"Moderate surface scratching across front holofoil text areas\",\n      \"Notable corner and edge wear on back (measured separately)\"\n    ],\n    \"recommendation\": \"This card shows significant play wear including a severe crease on the back and widespread surface scratching on the front holofoil, indicating heavy use and handling.\"\n  }\n}\n```"
+ }
+}

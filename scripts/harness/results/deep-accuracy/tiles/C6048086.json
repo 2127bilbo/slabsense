@@ -1,0 +1,60 @@
+{
+ "cert": "C6048086",
+ "arm": "tiles",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 7,
+ "tagLabel": "7 NEAR MINT",
+ "tag": {
+  "centering": 903,
+  "corners": 1000,
+  "edges": 1000,
+  "surface": 745,
+  "surfaceFront": 1000,
+  "surfaceBack": 696
+ },
+ "estimateAfterPass1": 9,
+ "grade": 9,
+ "displayGrade": "9",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 91.25,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 92,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "LEFT EDGE"
+  }
+ ],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10572,
+   "outputTokens": 879
+  },
+  "pass2": {
+   "inputTokens": 11565,
+   "outputTokens": 980
+  },
+  "surface": {
+   "inputTokens": 23172,
+   "outputTokens": 788
+  }
+ },
+ "surfacePassDefects": [],
+ "ms": {
+  "pass1": 42157,
+  "pass2": 21877
+ },
+ "raw": {
+  "pass1": "Looking at this Pikachu ex card from the Scarlet & Violet era, I'll perform a systematic inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Pikachu ex (276/217) from the Scarlet & Violet: Obsidian Flames set - a Special Art Rare (SAR) full art card featuring Pikachu in a forest setting.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n- Front: No creases, tears, paper loss, or water damage visible. The artwork is intact with no line discontinuities crossing the print.\n- Back: Examining carefully for creases - checking diagonals from corners, horizontal mid-card lines. The white energy swirls are part of the design (soft-edged, curved). No straight fractured lines crossing the Pokeball or spanning the card width. No tears, paper loss, or structural damage detected.\n\n**SURFACE INSPECTION:**\n\n*Front Surface:*\n- The textured full-art surface shows the natural canvas-like texture of this card type\n- No scratches cutting across the artwork pattern\n- No dents, pits, or indentations visible\n- No print defects or ink issues\n- No stains or discoloration\n- The surface appears clean and intact\n\n*Back Surface:*\n- The blue Pokemon back appears clean overall\n- No scratches penetrating the surface\n- No dents or indentations\n- No print defects visible\n- No stains or paper loss\n- The surface is intact\n\n**GLARE ASSESSMENT:**\n- Front: Minor glare visible in the upper portion of the card (forest/light area of artwork) - this is reflection off the textured surface, not damage\n- Back: Very minimal glare, good image quality\n\n**CORNER/EDGE NOTE:**\nPer instructions, corners and edges have been measured by the dedicated model. The left edge on the back shows moderate wear (0.31 score) which will be handled by the scoring engine. I am not to report corner/edge defects.\n\n**CREASE HUNT VERIFICATION:**\n- Front: Traced diagonals from all four corners, checked horizontal mid-card - no line discontinuities found\n- Back: Same systematic check - the curved white swirls are design elements (soft-edged, following the spiral pattern around the Pokeball), no straight angular lines with crackled texture detected\n\n**FINAL ASSESSMENT:**\nThis card presents in excellent condition with clean surfaces on both sides. No structural damage detected.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Pikachu ex\",\n    \"setName\": \"Scarlet & Violet: Obsidian Flames\",\n    \"cardNumber\": \"276/217\",\n    \"rarity\": \"Special Art Rare\",\n    \"year\": 2023,\n    \"hp\": \"200\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"TOP CENTER\"] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\"Clean front surface with intact textured full-art finish\", \"No creases or structural damage on either side\", \"Back surface is clean with no scratches or wear marks\", \"Print quality is excellent with sharp details\"],\n    \"concerns\": [\"Left edge on back shows moderate wear per automated measurement\"],\n    \"recommendation\": \"Card presents in very good physical condition with clean surfaces and no structural damage; the noted left edge wear on the back is the primary condition factor.\"\n  }\n}\n```",
+  "pass2": "Looking at this Pikachu ex card from the Scarlet & Violet Astral Radiance set, I'll perform a systematic inspection.\n\n**Overall Condition Assessment:**\nThis is a modern full-art ex card that appears to be in excellent condition. The card has a textured surface typical of modern full-art cards.\n\n**Catastrophic Scan (Both Sides First):**\n- FRONT: No creases visible. Checking diagonals from each corner - no line discontinuities crossing the artwork. No horizontal mid-card lines. No tears, paper loss, water damage, or writing detected.\n- BACK: Examining the blue Pokemon back carefully. The white energy swirls are part of the design - they are soft-edged and curved. No straight fractured lines crossing the Pokeball or spanning the card width. No creases, tears, or structural damage visible.\n\n**Corner Inspection (Skipping per instructions - already measured as clean):**\nThe corner wear model has already assessed all 8 corners as clean with very low wear scores (0.00-0.03).\n\n**Edge Inspection (Skipping per instructions - already measured):**\nThe edge model detected moderate wear on the BACK LEFT EDGE (0.31 wear score). All other edges measured clean.\n\n**Front Surface Inspection:**\n- TOP CENTER: Minor glare from lighting visible on the silver border area - this is reflection, not damage\n- Examining Pikachu artwork area: The textured surface shows normal full-art texture pattern, no scratches cutting across the pattern\n- Text box area (Thunderbolt): Clean, no print defects\n- Bottom info bar: Clean printing, no issues\n- No dents, pits, stains, or print defects detected on front surface\n\n**Back Surface Inspection:**\n- Pokeball area: Clean, no scratches or indentations\n- Blue background: Examining for any surface marks - appears clean\n- Energy swirl patterns: These are design elements, not damage\n- No surface defects detected on back\n\n**Crease Hunt Verification:**\n- Front diagonals: TL to BR - clear; TR to BL - clear\n- Front horizontal mid-card: clear\n- Back diagonals: TL to BR - clear; TR to BL - clear  \n- Back horizontal mid-card: clear\n- No creases found on either side\n\n**Type-Specific Detection Bias Check:**\n- Structural defects: None found after thorough inspection\n- Cosmetic wear: The edge model already captured the left edge wear on back; I see no additional surface cosmetic issues\n\nThe prior scan reported no defects, and after my inspection, I agree - the surface is clean. The edge wear on the back left edge is already captured by the automated measurement system.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Pikachu ex\",\n    \"setName\": \"Scarlet & Violet Astral Radiance\",\n    \"cardNumber\": \"276/217\",\n    \"rarity\": \"Special Art Rare\",\n    \"year\": \"2023\",\n    \"hp\": \"200\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"All corners appear sharp with no visible fiber exposure\",\n      \"Front surface is clean with intact textured finish\",\n      \"No creases or structural damage on either side\",\n      \"Print quality is excellent with crisp text and vibrant colors\"\n    ],\n    \"concerns\": [\n      \"Back left edge shows moderate wear as detected by automated measurement\"\n    ],\n    \"recommendation\": \"Card is in excellent physical condition with clean surfaces and corners; the only notable issue is moderate wear along the back left edge which has been captured by automated edge analysis.\"\n  }\n}\n```"
+ }
+}

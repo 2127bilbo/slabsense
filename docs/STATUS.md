@@ -28,9 +28,10 @@ document that holds the detail; nothing here is the only copy of a fact.
 - **Rig** (`docs/RIG-PLAN.md`): PC-hosted grading station; machine-vision camera, entry tier first;
   backdrop grey/blue not orange; Phase 0 (Python inference service + parity) not started.
 - **App Store readiness** (`docs/superpowers/plans/2026-10-01-app-store-readiness.md`): audit DONE
-  (`docs/audits/2026-10-app-store-audit.md`, 22 Blockers = 7 problems); fix groups 3a security and 3c account+privacy DONE 2026-10-02; 3b payments core DONE
-  (catalogue, Apple ledger + route, purchases facade, native store; `plans/2026-10-02-3b-payments.md` tasks 8–12 open:
-  single-tier UI, Stripe web re-cut, accuracy run (needs ANTHROPIC_API_KEY in .env.local), App Store Connect, sandbox).
+  (`docs/audits/2026-10-app-store-audit.md`, 22 Blockers = 7 problems); fix groups 3a security and 3c account+privacy DONE 2026-10-02; 3b payments core DONE; one-button AI Grade LIVE
+  (Deep flow, 1 credit); accuracy measured (GRADING_SYSTEM "Paid path accuracy"): Deep 0.85 vs free 1.20, surface
+  recall near zero at 2,000 px, tiled native-res surface pass fixes the damaged-card misses at ~2× cost — owner go
+  pending for production (plan 3b task 8b). Open: Stripe web re-cut, App Store Connect (owner), sandbox after 3f.
 - **Web app**: feature-frozen for accuracy work; bug fixes only. Accuracy moves to the rig and the
   native app.
 

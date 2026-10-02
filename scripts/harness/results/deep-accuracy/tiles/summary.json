@@ -1,0 +1,64 @@
+{
+ "cards": 6,
+ "mae": 1.08,
+ "signed": 1.08,
+ "exact": 33.33,
+ "within05": 50,
+ "within10": 50,
+ "byBucket": {
+  "7-8.5": {
+   "n": 3,
+   "mae": 1.17,
+   "signed": 1.17
+  },
+  "5-6.5": {
+   "n": 3,
+   "mae": 1,
+   "signed": 1
+  }
+ },
+ "surface": {
+  "precision": 0.25,
+  "recall": 0.13,
+  "tp": 1,
+  "fp": 3,
+  "fn": 7,
+  "perType": {
+   "PRINT_DEFECT": {
+    "tp": 1,
+    "fp": 2,
+    "fn": 3
+   },
+   "SCRATCH": {
+    "tp": 0,
+    "fp": 1,
+    "fn": 0
+   },
+   "PLAY_WEAR": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2
+   },
+   "DENT": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 1
+   },
+   "PIT": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 1
+   }
+  },
+  "subgradeMae": 162.17,
+  "subgradeSigned": 157.17
+ },
+ "tokens": {
+  "inPerCard": 45255,
+  "outPerCard": 2771
+ },
+ "costPerCard": 0.3,
+ "costTotal": 1.77,
+ "msPerCard": 64222,
+ "referencesUsedMean": 3.67
+}

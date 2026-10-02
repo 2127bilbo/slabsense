@@ -1,0 +1,121 @@
+{
+ "cert": "C6997053",
+ "arm": "tiles",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 5,
+ "tagLabel": "5 EXCELLENT",
+ "tag": {
+  "centering": 966,
+  "corners": 639,
+  "edges": 980,
+  "surface": 553,
+  "surfaceFront": 505,
+  "surfaceBack": 573
+ },
+ "estimateAfterPass1": 7.5,
+ "grade": 5,
+ "displayGrade": "5",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 66.52,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 80,
+  "backSurface": 97.9,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "extreme",
+   "location": "BOTTOM CENTER"
+  },
+  {
+   "side": "BACK",
+   "type": "PRINT_DEFECT",
+   "severity": "minor",
+   "location": "MIDDLE LEFT"
+  }
+ ],
+ "referencesUsed": 7,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10596,
+   "outputTokens": 914
+  },
+  "pass2": {
+   "inputTokens": 12357,
+   "outputTokens": 1399
+  },
+  "surface": {
+   "inputTokens": 23172,
+   "outputTokens": 1123
+  }
+ },
+ "surfacePassDefects": [
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "moderate"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "moderate"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "moderate"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "moderate"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "minor"
+  },
+  {
+   "side": "BACK",
+   "type": "PRINT_DEFECT",
+   "severity": "minor"
+  }
+ ],
+ "ms": {
+  "pass1": 44023,
+  "pass2": 27595
+ },
+ "raw": {
+  "pass1": "Looking at this Duskull SH2 shiny card from Platinum: Stormfront, I'll perform a complete defect inspection.\n\n**CATASTROPHIC SCAN (both sides first):**\n- Front: No creases, tears, paper loss, or water damage visible. The rainbow holofoil pattern is intact with natural shimmer.\n- Back: Examining carefully for creases - checking diagonals from corners and horizontal lines. The white energy swirls are part of the design (soft-edged, curved). I don't see any straight fractured lines crossing the Pokeball or running through the card. No tears, paper loss, or water damage.\n\n**FRONT SURFACE INSPECTION:**\nThe holofoil surface shows intense rainbow reflection which is normal for this card type. Scanning systematically:\n- Top area near \"Duskull\" text: Clean\n- Artwork window: The Duskull illustration appears clean, no scratches cutting across the holo pattern\n- Text box area: Clean, no print defects\n- Bottom holofoil section: Heavy rainbow shimmer is natural holofoil texture, not damage\n\nI notice what appears to be a very faint diagonal line in the upper portion of the artwork window - examining closely, this follows the natural holo pattern and doesn't show broken surface texture. This is holofoil shimmer, not a scratch.\n\n**BACK SURFACE INSPECTION:**\n- Central Pokeball area: Clean, no dents or scratches visible\n- Blue background: Uniform color, no stains\n- Energy swirl areas: These are design elements with soft curved edges\n- Overall surface: No pits, scratches, or print defects detected\n\nThe corner and edge wear has already been measured by the trained model showing:\n- Front: All corners and edges clean\n- Back: Minor to severe corner wear on all four corners (particularly bottom corners), edges clean\n\n**CREASE HUNT (dedicated):**\n- Front: Tracing diagonals from each corner, horizontal mid-card line - no discontinuities found\n- Back: Same systematic check - no crease lines detected. The white swirls are soft-edged design elements.\n\n**Re-read against TYPE-SPECIFIC DETECTION BIAS:**\n- Structural defects: None found after careful inspection\n- Cosmetic wear: Already measured by corner/edge model, not my task to report\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Duskull\",\n    \"setName\": \"Platinum: Stormfront\",\n    \"cardNumber\": \"SH2\",\n    \"rarity\": \"Shiny Rare\",\n    \"year\": \"2008\",\n    \"hp\": \"60\",\n    \"variant\": \"Shiny/Secret Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"moderate\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with intact holofoil pattern and no scratches\",\n      \"No creases, tears, or structural damage on either side\",\n      \"Back surface is free of scratches, dents, and print defects\",\n      \"All front corners and edges are in excellent condition\"\n    ],\n    \"concerns\": [\n      \"Back corners show wear ranging from minor to severe as measured by corner detection system\"\n    ],\n    \"recommendation\": \"Card has a pristine front surface but exhibits notable corner wear on the back, particularly on the bottom corners which show severe wear with exposed paper fibers.\"\n  }\n}\n```",
+  "pass2": "## Reasoning Through the Card\n\n**Card Identification:**\nThis is a Duskull Lv.18 from the Stormfront set (SH2), a Secret Rare \"Shiny\" card from 2008. It's a reverse holo with a gold border and rainbow holofoil pattern across the text area.\n\n**Overall Condition Statement:**\nThe front appears to be in good condition with the typical holofoil reflections. The back shows visible corner wear on multiple corners, particularly the bottom corners which show whitening/wear.\n\n**Catastrophic Scan (Both Sides):**\n- FRONT: No creases, tears, paper loss, or water damage visible. The rainbow streaks are holofoil reflections, not damage.\n- BACK: Checking for creases - tracing diagonals from each corner and horizontal mid-card lines. The white energy swirls are part of the design (soft-edged, curved). I don't see any straight fractured lines crossing the Pokeball or running through the card. No creases, tears, or paper loss detected.\n\n**Corner/Edge Analysis (Per Instructions - Already Measured, Skipping):**\nThe corner/edge model has already assessed these and found:\n- Front: All corners and edges clean\n- Back: Minor wear top-left, moderate top-right, severe bottom-left and bottom-right\n\n**Front Surface Inspection:**\nLooking at the holofoil area - the prior scan reported extensive scratching. Let me verify:\n- The rainbow vertical streaks are the holofoil pattern reflecting light - this is NORMAL for this card type\n- Looking closely at the text area and holofoil surface, I can see some fine hairline scratches that cross the holofoil pattern, particularly visible in the lower text area\n- These appear to be light surface scratches on the holofoil, not deep gouges\n- The \"network of scratches\" reported seems overstated - I see some light scratching but not \"dense patterns\" everywhere\n- There are some visible fine scratches in the holofoil area, but the severity seems inflated in the prior scan\n\nRe-examining: The holofoil does show some light surface wear/scratching that's typical of played cards, visible when light catches it. I'll consolidate this to a more accurate assessment rather than 5 separate moderate scratch zones.\n\n**Back Surface Inspection:**\n- The tiny dark speck reported at x:23, y:45 - looking at that area, I can see a very small dark spot on the blue background. This appears to be a minor print defect/ink speck.\n- Surface otherwise appears clean with no scratches, dents, or other defects visible.\n\n**Crease Hunt Verification:**\n- Front: Traced diagonals from all corners, horizontal mid-card - no line discontinuities found\n- Back: Same check - the white swirls are design elements (curved, soft-edged), no straight fractured lines detected\n\n**Type-Specific Detection Bias Check:**\n- Structural (crease, tear, dent, stain): None found - confident after thorough check\n- Cosmetic: The prior scan over-reported scratches. The holofoil shows some light surface wear but not \"moderate\" severity across 5 zones. I'll report what I actually see - light surface scratching visible on the holofoil, consolidated appropriately.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Duskull\",\n    \"setName\": \"Stormfront\",\n    \"cardNumber\": \"SH2\",\n    \"rarity\": \"Secret Rare (Shiny)\",\n    \"year\": \"2008\",\n    \"hp\": \"60\",\n    \"variant\": \"Shiny Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"moderate\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"minor\",\n      \"location\": \"BOTTOM CENTER\",\n      \"x\": 50,\n      \"y\": 75,\n      \"width\": 60,\n      \"height\": 20,\n      \"description\": \"Light hairline scratches visible across the holofoil surface in the text/attack area, running in various directions and visible when light catches the surface.\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PRINT_DEFECT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE LEFT\",\n      \"x\": 23,\n      \"y\": 45,\n      \"width\": 1,\n      \"height\": 1,\n      \"description\": \"Tiny dark ink speck visible on the blue background area to the left of the Pokéball.\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface and artwork are well-preserved with vibrant holofoil effect\",\n      \"No creases, tears, dents, or structural damage on either side\",\n      \"Front corners and edges appear clean with no visible wear\",\n      \"Card stock integrity is intact throughout\"\n    ],\n    \"concerns\": [\n      \"Back corners show visible wear, particularly the bottom corners with whitening\",\n      \"Light surface scratching present on the front holofoil area\",\n      \"Minor print defect (ink speck) on back surface\"\n    ],\n    \"recommendation\": \"Card shows a clean front presentation with light holofoil scratching, but the back exhibits notable corner wear especially at the bottom corners which will impact the overall condition assessment.\"\n  }\n}\n```"
+ }
+}
