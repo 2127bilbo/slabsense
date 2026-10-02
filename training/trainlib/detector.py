@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Faster R-CNN ResNet50-FPN v2 with small anchors for surface defects (plan 2026-09-16-surface-detector)."""
 from __future__ import annotations
 

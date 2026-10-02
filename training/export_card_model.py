@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Export a trained CardSegNet checkpoint to ONNX (fp32 -> fp16 + int8) with contract + parity
 sidecars (plan 2026-09-21-card-model, Task 6: Export). Mirrors `export_onnx.py`'s structure.
 

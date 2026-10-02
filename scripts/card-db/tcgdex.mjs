@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * TCGDex REST helpers for the card DB scripts.
  * Shapes verified 2026-09-14:

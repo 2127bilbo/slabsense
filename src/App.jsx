@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 import { useState, useRef, useCallback, useEffect } from "react";
 import { GRADING_COMPANIES, getCompanyOptions, DEFAULT_GRADING_COMPANY } from "./utils/gradingScales.js";
 import { shapeAiResult, shapeDeepResult } from "./services/api.js";

@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * What the app's image pipeline does to the corner/edge models.
  *

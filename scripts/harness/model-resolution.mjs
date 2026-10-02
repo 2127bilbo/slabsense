@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * What the models lose at phone-upload resolution.
  *

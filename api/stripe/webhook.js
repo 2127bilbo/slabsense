@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Stripe Webhook Handler
  * Verifies the signature, claims the event id once, then applies the event through the

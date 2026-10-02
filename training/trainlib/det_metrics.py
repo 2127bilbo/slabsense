@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """AP50 / precision / recall for detections, no external metric dependency."""
 from __future__ import annotations
 

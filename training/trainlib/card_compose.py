@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Synthetic card-on-background compositor.
 
 Places a card cutout (RGBA, produced by `card_cutouts.make_cutout`) onto a background image with

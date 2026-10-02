@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * IEEE 754 binary16 codec (little-endian), shared by node scripts and the browser.
  * No Float16Array dependency. Handles subnormals, ±0, ±Inf, NaN; rounds to nearest even.

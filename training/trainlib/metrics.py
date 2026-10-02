@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Rank-based AUROC and precision/recall metrics for binary targets, no sklearn dependency (spec §7)."""
 from __future__ import annotations
 

@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Keyboard-speed labelling of card photos for the card model's real-photo
  * validation set (training/HANDOFF-card-and-centering.md, Step 10.3).

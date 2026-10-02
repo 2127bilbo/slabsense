@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Paid-path accuracy: the Deep AI grade against TAG on the harness cards, with the exact
  * production flow (two Claude passes, references, structural floor, four images, the model

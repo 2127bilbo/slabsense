@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * GET/POST /api/credits/balance
  * Returns the authenticated user's credits, expiration, and subscription status.

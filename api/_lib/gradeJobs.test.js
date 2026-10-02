@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Run: node api/_lib/gradeJobs.test.js */
 import { runGradeJob, captureHandler, sanitizeRequest } from './gradeJobs.js';
 import { GRADE_TIERS } from '../../src/lib/grade-tiers.js';

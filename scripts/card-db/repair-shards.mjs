@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * One-off repair (2026-09-14): shards 0006 and 0007 were published with un-normalized rows
  * (norm ≈ 9) and dominated every search. Shards are append-only, so instead of rewriting them

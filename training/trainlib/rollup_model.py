@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """TAG's rollup learned: subgrades + defect counts -> TAG grade.
 
 Step 13.5. Monotone gradient-boosted trees on the ordinal grade index (0 = 1 POOR ... 18 = 10

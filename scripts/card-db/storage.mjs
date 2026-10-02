@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Supabase Storage helpers for the `card-db` bucket (service role for writes, public URL for reads). */
 import { createClient } from '@supabase/supabase-js';
 

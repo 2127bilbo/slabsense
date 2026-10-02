@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * grade-records.js — the ONE place that knows how AI / Deep grade results are stored on a saved
  * scan, read back, and turned into damage-report and condition displays.

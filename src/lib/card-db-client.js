@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Card DB client: loads manifest + float16 shards from the public `card-db` bucket.
  * Shards are immutable and addressed by id, so they are cached in the browser Cache API

@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Tests for training/export_card_model.py (plan 2026-09-21-card-model, Task 6: Export)."""
 from __future__ import annotations
 

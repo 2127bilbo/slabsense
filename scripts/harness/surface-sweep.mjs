@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Calibrates the surface deduction model's points -> severity cut lines on
  * the DIG harness, with TAG's own surface markers standing in for Claude's

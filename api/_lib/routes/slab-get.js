@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * GET /api/slab?cert=SS26-00001
  * Public read of one slab through the slab_public view (no user id, no shipping — see migration 20260912_slabs.sql).

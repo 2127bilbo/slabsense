@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Per-card train/val/test assignment, stratified and frozen (spec §6.1, §11)."""
 from __future__ import annotations
 

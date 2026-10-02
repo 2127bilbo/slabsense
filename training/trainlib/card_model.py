@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Card segmentation model: an FPN-lite decoder over a `timm` `features_only` backbone.
 
 `CardSegNet` predicts one logit per pixel (card vs. not-card) at the input resolution. The

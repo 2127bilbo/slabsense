@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 import assert from 'node:assert/strict';
 import { buildSurfacePassPrompt, surfaceDefectsFromTiles, tileGeometry, mergeSurfacePass, TILE_GRID } from './surfacePass.js';
 import { sanitizeDefects } from './detectionPrompt.js';

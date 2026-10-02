@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * /api/slabs — one serverless function for every slab route (Vercel Hobby allows 12 per deployment).
  *   GET  /api/slab?cert=…            → action "get"    (public cert read; rewritten in vercel.json)

@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** POST /api/slabs/status — admin only. {cert,status:'engraved',svg,label_text,label_settings} | {cert,status:'shipped'} */
 import { requireAdmin, sendAuthError } from '../auth.js';
 import { assertTransition, statusPatch, sanitizeSettings, SLAB_LABEL_BUCKET } from '../slabs.js';

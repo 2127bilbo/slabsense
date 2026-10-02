@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Pull the crops a training run needs into the local cache, or resize them from an
 already-cached full-resolution copy with --from-cache."""
 from __future__ import annotations

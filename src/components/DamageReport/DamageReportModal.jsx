@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import ZoomableCardView from './ZoomableCardView';

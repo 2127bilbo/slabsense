@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Browser parity check between the two Transformers.js runtimes (audit E-02 / D-01).
  * The card DB shards were embedded by the old package; the client may switch only if the same

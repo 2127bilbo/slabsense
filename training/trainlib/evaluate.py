@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Per-grade metric tables against TAG typed targets (spec §7 metrics, §12)."""
 from __future__ import annotations
 

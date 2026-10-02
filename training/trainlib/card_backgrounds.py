@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Backgrounds for the synthetic card-on-background compositor.
 
 Six procedural generators (`flat`, `gradient`, `wood`, `weave`, `speckle`, `paper`), each a pure

@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 import assert from 'node:assert/strict';
 import { priceMap, productKeyForPrice, invoiceSubscriptionId, invoicePriceId, decideCheckout, decideInvoicePaid, decideSubscriptionUpdated, decideSubscriptionDeleted, decideChargeRefunded, decideInvoiceFailed, ext } from './stripeLedger.js';
 import { PRODUCTS } from '../../src/lib/products.js';

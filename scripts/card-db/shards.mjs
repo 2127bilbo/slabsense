@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Shard writer shared by build-initial.mjs and update.mjs. Shards are append-only. */
 import fs from 'node:fs';
 import path from 'node:path';

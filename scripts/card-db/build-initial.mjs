@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * One-off: convert the bundled JSON embedding chunks into float16 shards and publish them
  * to the `card-db` bucket. Drops digital-only TCG Pocket entries. No re-embedding.

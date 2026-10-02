@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Label maths for the card model's real-photo set (src/services/trainingCapture.js).
  * Pure: no Supabase, no DOM, so it runs under Node for tests.

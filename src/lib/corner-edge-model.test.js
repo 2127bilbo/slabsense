@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Run: node src/lib/corner-edge-model.test.js */
 import {
   MODEL_DEFAULTS, OUTPUT_CHANNELS, POINT_SCALE, severityFromDeduction, sigmoid,

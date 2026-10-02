@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Adapter guard: legacy dings → engine defects → computeGrade output shape.
  * Run: node src/lib/softwareGrade.test.js

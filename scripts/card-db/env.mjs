@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Loads .env.local from the repo root into process.env (values already set win). */
 import fs from 'node:fs';
 import path from 'node:path';

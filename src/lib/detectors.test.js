@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Detector extraction guard. Runs the real detectors on a committed 1400-px
  * reference card and checks bounds + ding output against a recorded snapshot.

@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 # Pull the 2026 foil-border sample end to end: TAG reports -> images -> R2 -> dataset tables.
 # Run from scripts/tag-dataset:  powershell -File samples\2026-foil-border\run-pull.ps1
 # Resumable: every stage skips what is already done (fetch skips certs in the store, download

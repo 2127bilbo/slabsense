@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Evaluate a trained card segmentation checkpoint on held-out synthetic samples and (if present)
 the app's real-photo validation folder (plan 2026-09-21-card-model)."""
 from __future__ import annotations

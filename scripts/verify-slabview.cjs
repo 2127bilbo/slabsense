@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 // Screenshots the cert page in several states from local fixtures; asserts the DOM reached each
 // state and, for the states that render a card, that the label canvas actually drew.
 // Serves public/ over a local HTTP port (the page uses absolute /slab/ paths because it is

@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Per-grade / per-class tile evaluation and merged full-side evaluation for the surface detector."""
 from __future__ import annotations
 

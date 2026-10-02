@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Export a trained ScoreRegressor checkpoint to ONNX (fp32 → fp16 + int8) with parity checks.
 
     .venv/Scripts/python.exe export_onnx.py --task corners --checkpoint weights/corners/v2/best.pt --run-name v2

@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Run: node src/lib/card-mask.test.js */
 import { letterbox, ringMean, largestComponent, boundaryPoints, fitLine, intersect, extremeQuad, fitQuad, unletterbox, quadStats, refineQuad, cardFromMask, lumSampler, toNormalisedCorners } from './card-mask.js';
 

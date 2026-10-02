@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Metrics for the card segmentation model (plan 2026-09-21-card-model).
 
 `mask_to_quad` fits a 4-corner quadrilateral to a predicted (or ground-truth) binary mask:

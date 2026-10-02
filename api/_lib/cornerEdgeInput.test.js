@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Run: node api/_lib/cornerEdgeInput.test.js */
 import { parseCornerEdgeInput, cornerEdgeContextBlock, cornerEdgeDefects, applyCornerEdge } from './cornerEdgeInput.js';
 import { MODEL_DEFAULTS } from '../../src/lib/corner-edge-model.js';

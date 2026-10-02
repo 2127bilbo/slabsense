@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Run: node src/lib/stage-view.test.js */
 import { fit, clamp, zoomAt, zoomToImagePoint, pan, viewportToImage, imageToViewport, Z_MIN, Z_MAX, CORNER_Z } from './stage-view.js';
 

@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Centering v2b against TAG on every TAG-graded 30th Celebration Crystal Lugia (149/147,
  * Secret Rare, gold-foil border) — the design where the model was first seen to disagree with

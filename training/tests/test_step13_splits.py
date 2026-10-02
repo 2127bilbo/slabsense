@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Step 13.1: arbitrary split names (foil2026-train/-val) through tables, train, evaluate, the
 cutout and centering-prep CLIs, plus the edges_hr task."""
 import json

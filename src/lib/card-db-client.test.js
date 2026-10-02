@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Shard client test. Serves scripts/card-db/out/ (produced by `npm run cards:build-initial -- --dry-run`)
  * over a local HTTP server and checks loading + search. Skips with a message when that folder is absent.

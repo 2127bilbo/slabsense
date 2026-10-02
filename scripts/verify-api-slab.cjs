@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 (async()=>{
 const {makeHandler}=await import('../api/_lib/routes/slab-get.js');
 function res(){const r={code:200,body:null,headers:{}};r.setHeader=(k,v)=>{r.headers[k]=v;};r.status=c=>{r.code=c;return r;};r.json=b=>{r.body=b;return r;};r.end=()=>r;return r;}

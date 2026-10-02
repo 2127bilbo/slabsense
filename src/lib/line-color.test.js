@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Run: node src/lib/line-color.test.js */
 import { LINE_PALETTE, hexToRgb, contrast, haloFor, rectSegments, quadSegments, sampleSegments, pickLineColor, loadLineStyle, DEFAULT_LINE_STYLE } from './line-color.js';
 

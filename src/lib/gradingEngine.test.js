@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * gradingEngine.test.js — run with: node gradingEngine.test.js
  * (Requires "type": "module" in package.json, or rename both files to .mjs)

@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Datasets for the card segmentation model (plan 2026-09-21-card-model).
 
 `SyntheticCards` is an `IterableDataset` that composes synthetic training samples on the fly

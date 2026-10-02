@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** CLIP embeddings in node, same model and options as the app (`clip-matcher.js computeEmbedding`). */
 import path from 'node:path';
 import { pipeline, env } from '@xenova/transformers';

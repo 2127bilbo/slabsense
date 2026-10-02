@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Browser-side re-ranking of CLIP candidates for card identification.
  * Ported from scripts/harness/identify.mjs (bake-off 2026-09-14). Two signals:

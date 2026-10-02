@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * ErrorBoundary — the last line before a blank screen.
  * A render exception anywhere below shows a reload screen instead of an empty page

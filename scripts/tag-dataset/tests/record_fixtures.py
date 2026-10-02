@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """One-off: record real TAG responses for cert C1240631 as test fixtures.
 
 Run from scripts/tag-dataset with the venv active:

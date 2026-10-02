@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * NativeStore — the purchase screen inside the iOS app (Apple in-app purchase).
  * Replaces PricingPage when isNativeApp(): no Stripe, no USD strings of our own (prices come

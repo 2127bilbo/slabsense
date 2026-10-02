@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 (async()=>{
 const L=await import('../api/_lib/slabs.js');
 const {makeHandler:mkQueue}=await import('../api/_lib/routes/slabs-queue.js');

@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Renders docs/legal/*.md into public/<name>.html so the privacy policy, terms and
  * disclaimers are served at /privacy, /terms and /disclaimers (Vercel serves public/ files

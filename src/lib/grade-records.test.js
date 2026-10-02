@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Run: node src/lib/grade-records.test.js */
 import { aiRecordFromResult, scanAiColumns, savedAi, savedGradeMode, conditionScores, damageReportInputs } from './grade-records.js';
 

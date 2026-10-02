@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Run: node src/lib/tag-crops.test.js */
 import {
   TAG_CROP_FRACTIONS, CORNER_KEYS, EDGE_KEYS, cornerBoxes, edgeBoxes, boxesForTask,

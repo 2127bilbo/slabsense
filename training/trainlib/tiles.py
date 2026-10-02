@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Pure tile geometry for the surface detector: grid, box clipping, tile selection."""
 from __future__ import annotations
 

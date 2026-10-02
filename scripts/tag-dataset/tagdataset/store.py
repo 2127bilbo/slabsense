@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """SQLite store for raw TAG responses, uploaded files, and failures (spec §5.2–5.4, §11)."""
 from __future__ import annotations
 

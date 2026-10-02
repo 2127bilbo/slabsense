@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Read-only R2 access. Reader.get returns bytes; Reader.size returns Content-Length."""
 from __future__ import annotations
 

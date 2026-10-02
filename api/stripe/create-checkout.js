@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Create Stripe Checkout Session
  * Plans and packs (src/lib/products.js) and the physical slab. Identity comes from the bearer

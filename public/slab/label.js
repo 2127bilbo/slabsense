@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /* public/slab/label.js — SlabSense label engine.
    Requires globals: qrcode, opentype, polygonClipping, FONT_B64, MARK_PATH, FRAME (load in that order).
    Exposes window.SlabLabel. Pure: no DOM except the canvas handed to drawCanvas. */

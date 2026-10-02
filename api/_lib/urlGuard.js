@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Redirect-URL guard for the Stripe routes: a success/cancel/return URL supplied by the
  * client is used only when it points at one of our own origins (audit G-04: open redirect).

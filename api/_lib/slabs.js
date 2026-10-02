@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * api/_lib/slabs.js — slabbing orders: Checkout params, cert minting, cert-keyed image copies.
  * Pure and dependency-injected so it can be tested with fakes (scripts/verify-slabs-lib.cjs).

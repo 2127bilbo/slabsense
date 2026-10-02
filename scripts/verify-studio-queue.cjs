@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 // Drives the studio's queue mode with stubbed API/auth: rows appear, selecting one renders the label from
 // the record with the real SS cert (locked read-only), the engrave payload carries svg + label_text +
 // sanitized settings, and clearing the selection (setRows([])) leaves no stale SS cert behind.

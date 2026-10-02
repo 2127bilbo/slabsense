@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * SlabSense - Set a new password after a reset email.
  * Shown when Supabase reports PASSWORD_RECOVERY (the user clicked the link we sent from

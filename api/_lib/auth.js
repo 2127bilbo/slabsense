@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** api/_lib/auth.js — Supabase JWT verification for serverless routes. Inject `db` (service-role client). */
 export class AuthError extends Error { constructor(status, code) { super(code); this.status = status; this.code = code; } }
 

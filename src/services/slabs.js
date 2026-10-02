@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Slabbing orders — client side. The cert is minted by the Stripe webhook; the app only starts
  * Checkout and reads the resulting row (owner-only via RLS).

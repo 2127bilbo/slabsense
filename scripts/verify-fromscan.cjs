@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 // fromScan needs no fonts, so it can run in plain node by evaluating label.js with stub globals.
 const fs=require('fs'),vm=require('vm');
 const ctx={window:{},qrcode:function(){},opentype:{parse:function(){throw new Error('stub');}},polygonClipping:{},FONT_B64:{},MARK_PATH:"",FRAME:{_art:{x:0,y:0,w:1,h:1},corner:{box:[0,0,0,0]},edgeMid:{box:[0,0,0,0]},divider:{box:[0,0,0,0]}}};

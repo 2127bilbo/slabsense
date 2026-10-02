@@ -66,4 +66,4 @@ docs/                STATUS.md, GRADING_SYSTEM.md, RIG-PLAN.md, legal/, audits/,
 
 ## License
 
-Proprietary. All rights reserved. The code, models and grading methodology are owned by SlabSense; see the Terms of Use in `docs/legal/`.
+Proprietary. All rights reserved. See `LICENSE`; third-party components and their licences are listed in `NOTICE.md` (regenerate with `npm run notice`). Every source file carries the ownership header (`npm run headers`).

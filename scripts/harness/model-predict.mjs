@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Runs the corner and edge models over every harness card and caches the raw
  * per-slot predictions, so threshold calibration (model-sweep.mjs) can be redone

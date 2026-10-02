@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * PricingPage — the purchase screen on the web (Stripe Checkout).
  * Same three products as the iOS store (src/lib/products.js): one monthly plan, two packs.

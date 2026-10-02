@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Render each `rgb` card image down to a transparent-background PNG cutout: the card rectangle
 (per the centering boxes table) with TAG's orange trim and any rounded-corner notches feathered
 to transparent. Mirrors `phone_aug.recolour_backdrop`'s flood-fill approach, seeded from each

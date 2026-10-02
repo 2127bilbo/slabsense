@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Train the surface defect detector on cached tiles (plan 2026-09-16-surface-detector)."""
 from __future__ import annotations
 

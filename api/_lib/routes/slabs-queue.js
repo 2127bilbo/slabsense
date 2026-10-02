@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** GET /api/slabs/queue?status=paid|engraved|shipped[&q=] — admin only. */
 import { requireAdmin, sendAuthError } from '../auth.js';
 import { QUEUE_SELECT, flattenQueueRow } from '../slabs.js';

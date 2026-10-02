@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Paid grade tiers — the single source of truth for credit costs and labels.
  * Used by the client (buttons, credits service) and the server (api/_lib/credits.js,

@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /**
  * Where the app is running. The web app and the iOS app build from the same code; the
  * native shell (Capacitor) exposes `window.Capacitor`. Anything that must differ by platform

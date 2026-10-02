@@ -1,0 +1,23 @@
+SlabSense — Proprietary License
+
+Copyright (c) 2026 SlabSense. All rights reserved.
+
+This repository contains the source code, models, training pipeline, documentation and
+design assets of SlabSense (https://www.slabsenseai.com).
+
+No part of this repository may be used, copied, modified, merged, published, distributed,
+sublicensed, sold, or used to train or evaluate machine-learning systems, in whole or in
+part, without the prior written permission of the copyright holder. Viewing the repository
+on a public hosting service does not grant any licence.
+
+Third-party components are used under their own licences, which are listed in NOTICE.md.
+Card names and artwork belong to their respective owners and appear only to identify a user's
+own card. Grading-company names are the trademarks of their owners and are used only to
+identify the published scale an estimate is compared against; SlabSense is not affiliated
+with any grading company.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO
+EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
+FROM THE USE OF THE SOFTWARE.
+
+Contact: support@slabsenseai.com

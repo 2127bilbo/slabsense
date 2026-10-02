@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 (async()=>{
 const {bearerToken,requireUser,requireAdmin,adminIdsFromEnv,AuthError,sendAuthError}=await import('../api/_lib/auth.js');
 let bad=0;const fail=(m,...x)=>{console.log('FAIL',m,...x);bad++;};

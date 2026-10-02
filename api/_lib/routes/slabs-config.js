@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** GET /api/slabs/config — public Supabase connection values for the static studio page. */
 export function makeHandler({ env }) {
   return async function handler(req, res) {

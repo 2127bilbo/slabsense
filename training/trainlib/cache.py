@@ -1,3 +1,6 @@
+# SlabSense — https://www.slabsenseai.com
+# Copyright (c) 2026 SlabSense. All rights reserved.
+# Proprietary and confidential; see LICENSE at the repository root.
 """Resumable local cache of bucket objects, laid out as cache_dir/<key>.
 
 When `resize` is set, `build_cache` instead writes a resized JPEG under

@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 // scripts/split-studio.cjs — one-off: carve the vendored libraries and data out of the studio file
 const fs = require('fs'), path = require('path');
 const SRC = path.join(__dirname, '..', 'SlabSense Slab Engraving Studio', 'SlabSense-Engraving-Studio.html');

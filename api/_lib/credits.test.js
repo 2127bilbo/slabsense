@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 /** Run: node api/_lib/credits.test.js — exercises RPC and legacy paths against an in-memory fake Supabase client. */
 import { spendWithDb, refundWithDb, isMissingFunction } from './credits.js';
 import { GRADE_TIERS } from '../../src/lib/grade-tiers.js';

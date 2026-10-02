@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 // Loads public/studio.html headless, drives it through window.SlabStudio, checks the SVG matches label.js output
 const fs=require('fs'),cp=require('child_process'),path=require('path'),os=require('os');
 const CHROME=process.env.CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe';

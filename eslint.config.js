@@ -1,3 +1,8 @@
+/*
+ * SlabSense — https://www.slabsenseai.com
+ * Copyright (c) 2026 SlabSense. All rights reserved.
+ * Proprietary and confidential; see LICENSE at the repository root.
+ */
 // ESLint flat config (audit E-06). `npm run lint` runs inside `npm run check`.
 // Browser globals for the client, Node globals for the API and scripts; React 18 JSX runtime.
 import js from '@eslint/js';
