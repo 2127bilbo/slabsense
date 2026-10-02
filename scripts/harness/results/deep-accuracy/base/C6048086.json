@@ -1,0 +1,55 @@
+{
+ "cert": "C6048086",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 7,
+ "tagLabel": "7 NEAR MINT",
+ "tag": {
+  "centering": 903,
+  "corners": 1000,
+  "edges": 1000,
+  "surface": 745,
+  "surfaceFront": 1000,
+  "surfaceBack": 696
+ },
+ "estimateAfterPass1": 9,
+ "grade": 9,
+ "displayGrade": "9",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 91.25,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 92,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "LEFT EDGE"
+  }
+ ],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10572,
+   "outputTokens": 873
+  },
+  "pass2": {
+   "inputTokens": 11572,
+   "outputTokens": 980
+  }
+ },
+ "ms": {
+  "pass1": 20480,
+  "pass2": 21611
+ },
+ "raw": {
+  "pass1": "Looking at this Pikachu ex card from the Scarlet & Violet era, I'll perform a systematic inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Pikachu ex (276/217) from the Scarlet & Violet: Obsidian Flames set - a Special Art Rare (SAR) full-art card featuring Pikachu in a forest setting.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n- Front: No creases, tears, paper loss, or water damage visible. The artwork is intact with no line discontinuities crossing the print.\n- Back: Examining carefully for creases - checking diagonals from corners, horizontal mid-card lines. The white energy swirls are part of the design (soft-edged, curved). No straight fractured lines crossing the Pokeball or borders. No tears, paper loss, or structural damage detected.\n\n**SURFACE INSPECTION:**\n\n*Front Surface:*\n- The textured full-art surface appears clean\n- No scratches cutting across the artwork pattern\n- No print defects, dents, or pits visible\n- The silver/metallic border areas show normal foil reflection, not damage\n\n*Back Surface:*\n- The left edge area shows some concern - the corner/edge model detected moderate wear on the left edge (0.31 wear score)\n- Surface otherwise appears clean\n- No creases visible in the blue design areas\n- Pokeball artwork is intact\n\n**GLARE ASSESSMENT:**\n- Front: Minor glare visible in upper portions of the artwork (forest canopy area) - this is light reflection on the textured surface, not damage\n- Back: Clean lighting, minimal glare\n\n**CREASE HUNT (Dedicated):**\n- Front: Traced diagonals from all four corners, horizontal mid-card - no line discontinuities found\n- Back: Same systematic check - no creases detected. The white swirls are design elements (soft, curved edges following the artwork pattern)\n\n**RE-READ CHECK:**\nThe corner/edge model has already assessed all corners as clean and edges as clean except left edge (back) with moderate wear. I should not report corner/edge defects per instructions. Surface appears clean on both sides with no structural damage found.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Pikachu ex\",\n    \"setName\": \"Scarlet & Violet: Obsidian Flames\",\n    \"cardNumber\": \"276/217\",\n    \"rarity\": \"Special Art Rare\",\n    \"year\": 2023,\n    \"hp\": \"200\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Full-art textured surface is clean with no visible scratches or print defects\",\n      \"All four corners appear sharp with no visible fiber exposure\",\n      \"No creases or structural damage detected on either side\",\n      \"Back surface is clean with intact Pokeball artwork\"\n    ],\n    \"concerns\": [\n      \"Left edge on back shows moderate wear as detected by edge analysis\"\n    ],\n    \"recommendation\": \"Card is in excellent physical condition with clean surfaces and corners; the left back edge shows some wear that has been measured by the edge detection system.\"\n  }\n}\n```",
+  "pass2": "Looking at this Pikachu ex card from the Scarlet & Violet Astral Radiance set, I'll perform a systematic inspection.\n\n**Overall Condition Assessment:**\nThis is a modern full-art ex card that appears to be in excellent condition. The card has a textured surface typical of modern full-art cards.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n- Front: No creases, tears, paper loss, water damage, or writing visible. Checking diagonals from each corner and horizontal mid-card lines - no line discontinuities crossing the artwork.\n- Back: No creases visible. The white energy swirls are soft-edged and curved, following the natural design. No straight fractured lines crossing the Pokeball or spanning the card width. No tears, paper loss, or structural damage.\n\n**Corner-by-Corner Analysis (Skipping per instructions - already measured as clean):**\nThe pre-measured corner data shows all 8 corners with wear scores of 0.00-0.03, all classified as clean. I will not report corner defects.\n\n**Edge-by-Edge Analysis (Skipping per instructions - already measured):**\nPre-measured data shows LEFT EDGE on back has 0.31 wear (moderate). All other edges are clean. I will not report edge defects as these are handled by the measurement system.\n\n**FRONT Surface Inspection:**\n- Top center: Minor glare from lighting on the silver \"BASIC\" banner area - this is reflection, not damage\n- Middle center (Pikachu artwork): The textured surface shows the natural canvas-like pattern of modern full-art cards. No scratches cutting across the texture pattern.\n- Text box area: Clean, no print defects\n- Bottom info area: Clean printing, no issues\n- No dents, pits, stains, or print defects visible\n\n**BACK Surface Inspection:**\n- Pokeball area: Clean, glossy surface intact\n- Blue background: No scratches, dents, or surface damage\n- Energy swirl patterns: All part of the natural design, soft-edged curves\n- No print defects, stains, or surface damage visible\n\n**Crease Hunt Verification:**\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear\n- Back horizontal mid-card: Clear\n- No line discontinuities found on either side\n\n**Type-Specific Detection Bias Check:**\n- Structural defects: None found after thorough inspection\n- Cosmetic wear: The pre-measured system found moderate left edge wear on back; no additional surface defects visible\n\nThe card surface appears clean with no defects to report beyond what the automated edge/corner system has already captured.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Pikachu ex\",\n    \"setName\": \"Scarlet & Violet Astral Radiance\",\n    \"cardNumber\": \"276/217\",\n    \"rarity\": \"Special Art Rare\",\n    \"year\": \"2023\",\n    \"hp\": \"200\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"All corners appear sharp with no visible fiber exposure\",\n      \"Front surface is clean with intact textured finish\",\n      \"No creases or structural damage on either side\",\n      \"Back surface shows clean glossy finish with no scratches\"\n    ],\n    \"concerns\": [\n      \"Left edge on back shows moderate wear as detected by automated measurement\"\n    ],\n    \"recommendation\": \"Card is in excellent physical condition with clean surfaces and corners; the only notable issue is moderate wear along the left edge of the back which has been captured by automated measurement.\"\n  }\n}\n```"
+ }
+}

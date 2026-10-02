@@ -245,6 +245,35 @@ and those two inputs carry most of the model's signal. With the legacy detectors
 against 3.08. Revisit when the rig's surface model feeds real per-side surface scores and
 counts; until then the model is a report-only comparison on paid grades.
 
+### Paid path accuracy, measured *(added 2026-10-02)*
+
+`scripts/harness/deep-accuracy.mjs` runs the production Deep flow (two Claude passes, references,
+structural floor, four images, the model corner/edge slot table) directly against the provider on
+held-out harness cards, 20 cards spread over the four TAG grade buckets, and scores it against TAG.
+Second arm: the same plus the app's emboss and high-pass maps of each side (owner's idea).
+
+| | Deep (production) | Deep + surface maps | free software grade, same 20 cards |
+|---|---|---|---|
+| grade error vs TAG (MAE) | **0.85** | 1.00 | 1.20 |
+| exact / within ½ grade | 50 % / 60 % | 45 % / 55 % | 40 % / 50 % |
+| lenient by (signed) | +0.70 | +0.85 | +1.05 |
+| 9–10 bucket MAE | 0.00 | 0.00 | — |
+| surface marks found / called / missed (vs TAG's 23) | 1 / 15 / 22 | 1 / 14 / 22 | — |
+| surface subgrade vs TAG | +207 points lenient | +207 | — |
+| provider cost per card (Opus 4.5, measured from usage) | $0.16 | $0.23 | $0 |
+| time per card | 42 s | 45 s | — |
+
+What it says: the paid grade beats the free grade by about a third of a grade and is exact on the
+9–10 bucket, but the surface inspection it is paid for is not working on these images: Claude found
+one of TAG's 23 surface marks, missed every print defect and every crease but one, and called 14
+defects TAG did not mark. The grade gain comes from Claude dropping false corner/edge dings and the
+engine running on cleaner inputs. The processed views did not help (cost +$0.07, accuracy slightly
+worse); they are dropped. The misses are the middle grades (4–7) that TAG downgraded on surface wear.
+Likely cause: the 2,000 px upload is a 3× downscale of TAG's frame, where print lines are ~24 px
+tall and pits ~11 px; at 2,000 px they are a few pixels. Decisions: one paid tier on the Deep flow
+without maps; surface accuracy comes from the rig's surface model, not from more Claude images.
+Results: `scripts/harness/results/deep-accuracy/{base,maps}/`.
+
 ## 2. TAG baseline (the engine's native scale)
 
 TAG is the baseline because the owner has real DIG reports to calibrate against, and TAG publishes the most

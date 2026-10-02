@@ -1,0 +1,55 @@
+{
+ "cert": "F1555020",
+ "arm": "maps",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 9,
+ "tagLabel": "9 MINT",
+ "tag": {
+  "centering": 938,
+  "corners": 970,
+  "edges": 914,
+  "surface": 980,
+  "surfaceFront": 909,
+  "surfaceBack": 950
+ },
+ "estimateAfterPass1": 9,
+ "grade": 9,
+ "displayGrade": "9",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 96.5,
+  "frontCentering": 92,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "PIT",
+   "severity": "minor",
+   "location": "BOTTOM CENTER"
+  }
+ ],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 16980,
+   "outputTokens": 1123
+  },
+  "pass2": {
+   "inputTokens": 18096,
+   "outputTokens": 1041
+  }
+ },
+ "ms": {
+  "pass1": 25071,
+  "pass2": 20547
+ },
+ "raw": {
+  "pass1": "Looking at this Mega Charizard X ex gold card from the Paldean Fates set, I'll perform a systematic inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Mega Charizard X ex, 130/094, from Paldean Fates (PFL), a gold hyper rare secret card with 360 HP.\n\n**OVERALL CONDITION ASSESSMENT:**\nThe card appears to be in excellent condition. This is a gold textured card with heavy reflective properties, which creates significant visual complexity when inspecting.\n\n**CATASTROPHIC SCAN (Both Sides):**\n- Checking for creases: Examining the emboss/relief images (5 & 6) and high-pass images (7 & 8) for line discontinuities. The front relief shows the natural texture pattern of the gold card. No straight lines crossing the card that would indicate creases. The back relief and high-pass images show the standard swirl pattern - no angular or straight fractured lines crossing through the Pokeball or borders.\n- Paper loss/tears: No hard-edged white patches interrupting artwork on either side.\n- Water damage/writing: None visible.\n\n**FRONT SURFACE INSPECTION:**\nThe gold textured surface shows its natural etched pattern throughout. The high-pass image (7) reveals the texture is consistent with the card's design - no scratches cutting across the pattern. The emboss image (5) shows uniform surface topology without dents or indentations. The rainbow color shifts visible in the main image are normal holofoil reflections, not damage.\n\n**BACK SURFACE INSPECTION:**\nThe back appears clean and well-preserved. Examining the relief image (6) - I see the natural paper texture but no creases or dents. The high-pass image (8) shows some very minor surface texture variations but nothing that constitutes a defect. The white swirls are part of the printed design - they are soft-edged and curved, following the artwork pattern.\n\nLooking at the back more carefully - there appear to be two very small light spots near the bottom center of the Pokeball area visible in the high-pass image (8). Checking the normal back image (2 & 4) - these appear to be tiny surface marks/pits.\n\n**CREASE HUNT:**\n- Front diagonals from each corner: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear\n- Back horizontal: Clear\n- No line discontinuities crossing printed elements on either side.\n\n**FIBER VS GLARE CHECK:**\nThe corners and edges per the measured data are all clean (wear scores 0.00-0.02). The bright areas on the gold front are reflective glare from the metallic surface, not exposed paper fibers.\n\n**RE-READ CHECK:**\nNo structural damage found. The surface is clean except for possible minor pits on back. Not over-reporting cosmetic wear.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mega Charizard X ex\",\n    \"setName\": \"Paldean Fates\",\n    \"cardNumber\": \"130/094\",\n    \"rarity\": \"Hyper Rare\",\n    \"year\": 2024,\n    \"hp\": \"360\",\n    \"variant\": \"Gold\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"moderate\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"MIDDLE CENTER\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PIT\",\n      \"severity\": \"minor\",\n      \"location\": \"BOTTOM CENTER\",\n      \"x\": 45,\n      \"y\": 72,\n      \"width\": 1,\n      \"height\": 1,\n      \"description\": \"Tiny surface pit visible in high-pass filter, barely perceptible in normal image\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Gold textured surface is clean and free of scratches\",\n      \"No creases or structural damage on either side\",\n      \"Back surface is well-preserved with clean blue coloring\",\n      \"All corners and edges are sharp and undamaged per measurements\"\n    ],\n    \"concerns\": [\n      \"Very minor surface pit on back, only visible under close inspection\"\n    ],\n    \"recommendation\": \"This card is in excellent physical condition with only a trivial surface imperfection on the back that would require magnification to notice.\"\n  }\n}\n```",
+  "pass2": "Looking at this Mega Charizard X ex gold card from the Paldean Fates set, I'll perform a systematic inspection.\n\n**Card Identification:**\nThis is a Mega Charizard X ex (130/094) from the Paldean Fates set - a gold secret rare card with 360 HP. The gold textured surface is characteristic of this card type.\n\n**Overall Condition Assessment:**\nThe card appears to be in excellent condition. The gold textured surface shows the typical etched pattern of this card type. Both front and back look clean with minimal issues.\n\n**Catastrophic Scan (Both Sides):**\n- No creases visible - checking diagonals from each corner and horizontal mid-card lines on both sides\n- No tears or paper loss\n- No water damage\n- No writing\n- The emboss/relief images (5 & 6) and high-pass images (7 & 8) don't reveal any hidden structural damage lines crossing the card\n\n**Front Surface Inspection:**\n- The gold textured surface shows the normal etched holofoil pattern\n- Glare is present in the top right area, middle center, and bottom center - this is typical flash reflection off the gold surface, not damage\n- No scratches cutting across the texture pattern\n- No dents or indentations visible\n- No print defects observed\n- The surface appears clean and intact\n\n**Back Surface Inspection:**\n- Standard Pokemon card back\n- The prior scan noted a tiny pit at approximately (45, 72) - examining the high-pass filter image, I can see a very small surface irregularity in the lower center area near the bottom Pokemon text\n- Checking for creases: the energy swirls are soft-edged and curved as expected for the design - no straight fractured lines crossing the Pokeball or borders\n- No stains, tears, or other structural damage\n\n**Verification of Prior Scan Finding:**\nThe reported pit at BOTTOM CENTER - examining the high-pass image (image 8), there does appear to be a tiny surface irregularity in that region. It's barely perceptible in the normal image but shows in the filtered view. This is consistent with a minor surface pit.\n\n**Re-read Against Detection Bias:**\n- Structural: The pit finding is retained as it appears in filtered images\n- Cosmetic: Corner/edge measurements show all clean (0.00-0.02 wear scores), and I don't see exposed paper fibers at any corner or edge to contradict this\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mega Charizard X ex\",\n    \"setName\": \"Paldean Fates\",\n    \"cardNumber\": \"130/094\",\n    \"rarity\": \"Special Art Rare / Gold\",\n    \"year\": \"2024\",\n    \"hp\": \"360\",\n    \"variant\": \"Gold Secret Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"moderate\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"MIDDLE CENTER\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PIT\",\n      \"severity\": \"minor\",\n      \"location\": \"BOTTOM CENTER\",\n      \"x\": 45,\n      \"y\": 72,\n      \"width\": 1,\n      \"height\": 1,\n      \"description\": \"Tiny surface pit visible in high-pass filtered image, barely perceptible in standard photo\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Gold textured surface is clean and intact with no scratches penetrating the finish\",\n      \"All four corners show no visible wear or exposed paper fibers\",\n      \"All edges are crisp with no whitening or chips\",\n      \"No creases, tears, or structural damage on either side\"\n    ],\n    \"concerns\": [\n      \"Minor surface pit on back near bottom center area\"\n    ],\n    \"recommendation\": \"Excellent physical condition with only a tiny surface pit on the back; the gold textured front surface and all corners/edges are pristine.\"\n  }\n}\n```"
+ }
+}

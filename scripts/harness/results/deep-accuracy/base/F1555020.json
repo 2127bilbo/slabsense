@@ -1,0 +1,55 @@
+{
+ "cert": "F1555020",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 9,
+ "tagLabel": "9 MINT",
+ "tag": {
+  "centering": 938,
+  "corners": 970,
+  "edges": 914,
+  "surface": 980,
+  "surfaceFront": 909,
+  "surfaceBack": 950
+ },
+ "estimateAfterPass1": 9,
+ "grade": 9,
+ "displayGrade": "9",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 93.75,
+  "backSurface": 100,
+  "frontCentering": 92,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "moderate",
+   "location": "BOTTOM CENTER"
+  }
+ ],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10564,
+   "outputTokens": 957
+  },
+  "pass2": {
+   "inputTokens": 11683,
+   "outputTokens": 1180
+  }
+ },
+ "ms": {
+  "pass1": 19841,
+  "pass2": 25446
+ },
+ "raw": {
+  "pass1": "Looking at this Mega Charizard X ex gold card from the Paldean Fates set, I'll perform a systematic inspection.\n\n**CATASTROPHIC SCAN (both sides first):**\n- Front: No creases, tears, or paper loss visible. The gold foil surface shows natural texture patterns but no structural damage lines crossing the card.\n- Back: Examining carefully for creases - checking diagonals from corners, horizontal mid-card, and along the Pokeball. The white energy swirls are soft-edged and curved (design elements). I see no straight fractured lines or crackled texture indicating creases. No tears, water damage, or writing.\n\n**SURFACE INSPECTION - FRONT:**\nThe gold foil texture is inherent to this card type. Scanning systematically:\n- Top area near title: Clean gold foil, no scratches cutting across the pattern\n- Middle artwork area: The holofoil shows rainbow color shifts (blue, green, gold, red) which is normal for this card type\n- Text box area: Clean, legible text\n- Bottom info area: Clean\n\nI notice some very faint surface marks/handling lines in the gold foil texture, particularly visible in the lower portion of the card around the attack text area. These appear to be light surface scratches that don't penetrate deeply but are visible under close inspection.\n\n**SURFACE INSPECTION - BACK:**\n- The blue Pokemon back appears clean\n- No creases crossing the Pokeball or borders\n- The white swirls are all soft-edged design elements\n- Surface appears clean with no scratches, stains, or print defects visible\n\n**CREASE HUNT VERIFICATION:**\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear\n- Back horizontal: Clear\n- No line discontinuities found\n\n**RE-READ CHECK:**\nThe corners and edges are handled by the automated system (all showing clean). For surface, I identified some faint handling marks on the front gold foil - these are real but minor. No structural damage found.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mega Charizard X ex\",\n    \"setName\": \"Paldean Fates\",\n    \"cardNumber\": \"130/094\",\n    \"rarity\": \"Special Art Rare (Gold)\",\n    \"year\": \"2024\",\n    \"hp\": \"360\",\n    \"variant\": \"Gold Hyper Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"MIDDLE RIGHT\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"minor\",\n      \"location\": \"BOTTOM CENTER\",\n      \"x\": 50,\n      \"y\": 75,\n      \"width\": 25,\n      \"height\": 8,\n      \"description\": \"Faint hairline surface scratches visible in the gold foil texture near the attack text area, not penetrating the foil layer\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Gold foil surface retains excellent luster and reflectivity\",\n      \"Back is clean with no visible wear or damage\",\n      \"No structural defects such as creases, dents, or tears on either side\",\n      \"All text and artwork elements are crisp and well-defined\"\n    ],\n    \"concerns\": [\n      \"Minor hairline surface scratches visible in the gold foil on the front\"\n    ],\n    \"recommendation\": \"This card is in excellent physical condition with only very minor surface handling marks on the front gold foil; the back and structural integrity are pristine.\"\n  }\n}\n```",
+  "pass2": "## Reasoning Through the Card\n\n**Card Identification:**\nThis is a Mega Charizard X ex from the Pokémon 151 set (PFL EN marking visible), card 130/094, a gold hyper rare/special art rare with 360 HP. The gold foil texture is extremely reflective.\n\n**Overall Condition Statement:**\nThis card appears to be in excellent condition with clean corners and edges. The gold foil surface shows typical reflective properties with some minor surface texture variations.\n\n**Corner-by-Corner Inspection (skipping per instructions - already measured as clean):**\nThe corner measurements show all 8 corners at 0.00-0.02 wear levels, indicating clean corners. I will not report corner defects.\n\n**Edge-by-Edge Inspection (skipping per instructions - already measured as clean):**\nAll edges measured at 0.01-0.02 wear levels, indicating clean edges. I will not report edge defects.\n\n**Surface Inspection - FRONT:**\n- The gold foil has intense rainbow shimmer and reflective patterns - this is NORMAL for this card type\n- TOP RIGHT and MIDDLE RIGHT areas show bright reflections - this is GLARE from the gold foil, not damage (soft-edged, follows light pattern)\n- Examining the attack text area (BOTTOM CENTER) where prior scan noted scratches: I see the textured gold foil surface. Looking carefully, there are very faint hairline marks in the foil texture. These appear to be extremely light surface scratches that do NOT penetrate the foil layer - they're visible only under close inspection. This is consistent with the prior scan finding.\n- No creases visible - traced diagonals from all corners and horizontal mid-card lines. No line discontinuities crossing the print.\n- No dents, stains, tears, or paper loss visible.\n\n**Surface Inspection - BACK:**\n- Standard Pokemon card back, clean blue coloring\n- Examining for creases: traced diagonals and full-width horizontal. The white energy swirls are SOFT-EDGED and CURVED - these are part of the design, not creases.\n- No straight fractured lines crossing the Pokeball or borders\n- No paper loss, stains, tears, or dents visible\n- Surface appears clean with no visible scratches or wear\n\n**Crease Hunt (Both Sides):**\n- FRONT: No line discontinuities. The gold foil pattern has natural texture but no creases.\n- BACK: The white swirls are design elements (soft, curved). No straight angular lines with crackled texture. No creases detected.\n\n**Re-read Against Detection Bias:**\n- Structural defects (crease, tear, dent, stain): None found after careful inspection\n- The prior scan's minor scratch finding appears valid - very faint hairline marks in the gold foil area near the attack text, not penetrating the surface\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mega Charizard X ex\",\n    \"setName\": \"Pokemon 151\",\n    \"cardNumber\": \"130/094\",\n    \"rarity\": \"Hyper Rare\",\n    \"year\": \"2023\",\n    \"hp\": \"360\",\n    \"variant\": \"Gold Hyper Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"MIDDLE RIGHT\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"minor\",\n      \"location\": \"BOTTOM CENTER\",\n      \"x\": 48,\n      \"y\": 73,\n      \"width\": 22,\n      \"height\": 6,\n      \"description\": \"Very faint hairline surface scratches visible in the gold foil texture near the Inferno X attack text area, not penetrating the foil layer, only visible under close inspection\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"All four corners on both sides are clean with no visible wear or whitening\",\n      \"All edges are crisp and intact with no chips or whitening\",\n      \"Card back is pristine with no surface defects\",\n      \"No creases, dents, or structural damage present\",\n      \"Gold foil maintains excellent luster and reflectivity\"\n    ],\n    \"concerns\": [\n      \"Very faint hairline scratches in the gold foil surface near the attack text area\"\n    ],\n    \"recommendation\": \"This card is in excellent physical condition with clean corners and edges; the only notable issue is extremely minor surface scratching in the gold foil that does not penetrate the surface layer.\"\n  }\n}\n```"
+ }
+}

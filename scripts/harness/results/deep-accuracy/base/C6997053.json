@@ -1,0 +1,73 @@
+{
+ "cert": "C6997053",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 5,
+ "tagLabel": "5 EXCELLENT",
+ "tag": {
+  "centering": 966,
+  "corners": 639,
+  "edges": 980,
+  "surface": 553,
+  "surfaceFront": 505,
+  "surfaceBack": 573
+ },
+ "estimateAfterPass1": 10,
+ "grade": 6.5,
+ "displayGrade": "6.5",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 66.52,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP LEFT"
+  }
+ ],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10596,
+   "outputTokens": 875
+  },
+  "pass2": {
+   "inputTokens": 11196,
+   "outputTokens": 922
+  }
+ },
+ "ms": {
+  "pass1": 19690,
+  "pass2": 21603
+ },
+ "raw": {
+  "pass1": "Looking at this Duskull SH2 shiny card from Platinum: Stormfront, I'll perform a complete defect inspection.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n- Front: No creases, tears, paper loss, or water damage visible. The rainbow holofoil pattern is intact with natural shimmer.\n- Back: Examining carefully for creases - checking diagonals from each corner and horizontal lines. The white energy swirls are part of the design (soft-edged, curved). I don't see any straight fractured lines crossing the Pokeball or running through the card. No tears, paper loss, or water damage.\n\n**FRONT SURFACE INSPECTION:**\nThe holofoil surface shows intense rainbow reflection which is normal for this card type. Scanning systematically:\n- Top area near \"Duskull\" text: Clean, no scratches penetrating the surface\n- Artwork window: The Duskull illustration is clean, no print defects or scratches visible\n- Text box area: Clean printing, no defects\n- Bottom holofoil area: Rainbow shimmer is natural holofoil pattern, not damage\n\nThe bright vertical rainbow streaks are the holofoil pattern reflecting light - this is NOT damage.\n\n**BACK SURFACE INSPECTION:**\n- Central Pokeball area: Clean, no scratches or dents\n- Blue background: No stains, no print defects visible\n- Energy swirl areas: These are design elements, soft-edged and curved - not damage\n- Overall surface: No visible scratches, pits, or play wear on the surface itself\n\n**CREASE HUNT (Both Sides):**\n- Front: Traced diagonals from all corners, checked horizontal mid-card - no line discontinuities crossing the print\n- Back: Same check - no creases visible. The white swirls follow the curved design pattern and don't show fractured texture\n\n**Re-read against TYPE-SPECIFIC DETECTION BIAS:**\n- Structural defects: None found after careful inspection\n- The corner/edge wear noted in the pre-measured data (back corners showing wear) is handled by the scoring engine\n- No surface defects requiring my report\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Duskull\",\n    \"setName\": \"Platinum: Stormfront\",\n    \"cardNumber\": \"SH2\",\n    \"rarity\": \"Shiny Rare\",\n    \"year\": \"2008\",\n    \"hp\": \"60\",\n    \"variant\": \"Shiny/Secret Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"moderate\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface holofoil is clean with no scratches penetrating the gloss\",\n      \"No creases or structural damage on either side\",\n      \"Back surface is free of scratches, dents, and stains\",\n      \"Print quality is excellent with no visible print defects\"\n    ],\n    \"concerns\": [\n      \"Back corners show wear as noted in pre-measured data (handled by scoring engine)\"\n    ],\n    \"recommendation\": \"Card surfaces are in excellent condition with no structural damage; the primary condition concerns are limited to corner wear on the back which has been measured separately.\"\n  }\n}\n```",
+  "pass2": "Looking at this Duskull SH2 shiny card from Platinum: Stormfront, I'll perform a complete defect inspection.\n\n**Overall Condition Assessment:**\nThis is a shiny/secret rare Duskull with a gold border and reverse holofoil pattern. The front shows significant rainbow holofoil reflections which are normal for this card type. The back shows some visible wear at the corners.\n\n**Catastrophic Scan (Both Sides):**\n- No creases visible - checking diagonals from each corner and horizontal mid-card lines on both sides\n- No tears or paper loss\n- No water damage or writing\n- No structural damage detected\n\n**Front Surface Inspection:**\nThe front has intense holofoil rainbow patterns running vertically through the text box area. These are natural holofoil reflections, not damage. The gold border appears intact. Examining the surface systematically:\n- Top center: Holofoil shimmer, no scratches cutting across pattern\n- Middle: Clean holofoil surface, no dents or indentations visible\n- Bottom: Rainbow reflections are soft-edged glare, not damage\n- No print lines or print defects visible\n- Surface appears clean with no scratches penetrating the gloss\n\n**Back Surface Inspection:**\nThe back shows the standard Pokemon card design. Examining systematically:\n- The white energy swirls are soft-edged and curved - part of the design\n- No straight fractured lines crossing the Pokeball or borders\n- No creases detected running through the artwork\n- Surface appears clean without scratches, dents, or stains\n- No print defects visible\n\n**Corner/Edge Notes (for context - not reporting as instructed):**\nThe corner wear model has already detected wear on the back corners, particularly severe wear on bottom left and bottom right. I can see this is consistent with the images showing some whitening/wear at those corner tips on the back.\n\n**Crease Hunt Verification:**\n- Front: Traced diagonals from all four corners, horizontal mid-card line - no line discontinuities crossing print\n- Back: Same check - the white swirls are all curved and soft-edged, no straight angular lines with crackled texture\n\n**Re-read against Detection Bias:**\n- Structural: No creases, tears, dents, stains, or pits found on either side\n- Cosmetic: Corner/edge wear already handled by the model; no surface scratches or play wear visible\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Duskull\",\n    \"setName\": \"Platinum: Stormfront\",\n    \"cardNumber\": \"SH2\",\n    \"rarity\": \"Shiny Rare\",\n    \"year\": \"2008\",\n    \"hp\": \"60\",\n    \"variant\": \"Shiny\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"moderate\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with intact holofoil pattern and no scratches\",\n      \"Gold border shows no chips or wear\",\n      \"No creases or structural damage on either side\",\n      \"Print quality is sharp with no visible print defects\"\n    ],\n    \"concerns\": [\n      \"Back corners show visible wear as detected by corner model (particularly bottom corners)\"\n    ],\n    \"recommendation\": \"Card has a clean front surface with excellent holofoil presentation, but back corners show notable wear that will impact the overall condition assessment.\"\n  }\n}\n```"
+ }
+}

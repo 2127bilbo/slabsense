@@ -1,0 +1,97 @@
+{
+ "cert": "E5481456",
+ "arm": "maps",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 3,
+ "tagLabel": "3 VG",
+ "tag": {
+  "centering": 982,
+  "corners": 723,
+  "edges": 235,
+  "surface": 800,
+  "surfaceFront": 676,
+  "surfaceBack": 100
+ },
+ "estimateAfterPass1": 10,
+ "grade": 3,
+ "displayGrade": "3",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 53.4,
+  "frontEdges": 100,
+  "backEdges": 34.19,
+  "frontSurface": 100,
+  "backSurface": 94.75,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "extreme",
+   "location": "LEFT EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "extreme",
+   "location": "RIGHT EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "severe",
+   "location": "TOP EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "PRINT_DEFECT",
+   "severity": "moderate",
+   "location": "MIDDLE CENTER"
+  }
+ ],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 17036,
+   "outputTokens": 1033
+  },
+  "pass2": {
+   "inputTokens": 17734,
+   "outputTokens": 1001
+  }
+ },
+ "ms": {
+  "pass1": 23941,
+  "pass2": 22409
+ },
+ "raw": {
+  "pass1": "Looking at this Quilava card from the Call of Legends set, I'll perform a systematic inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Quilava, Stage 1 Fire-type, HP 80, card number 49/95 from Call of Legends (2011), illustrated by Kagemaru Himeno. It's an uncommon card with a standard holo pattern.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n\n*Front:* Examining for creases - checking diagonals from each corner, horizontal mid-card lines. The emboss filter (image 5) shows the card surface texture but no continuous line discontinuities crossing the print that would indicate a crease. The high-pass (image 7) confirms clean surface topology. No paper loss, tears, water damage, or writing visible.\n\n*Back:* The emboss filter (image 6) reveals some concerning linear patterns. There appear to be subtle diagonal lines visible in the upper portion of the card, and some waviness in the surface. Checking the normal back images - the surface shows some texture variation but I need to determine if these are creases or just print/surface texture. The lines in the filtered image appear to follow natural card texture rather than sharp crease discontinuities. No obvious paper loss, tears, or writing.\n\n**SURFACE INSPECTION:**\n\n*Front Surface:*\n- The orange/tan border shows some natural texture variation\n- Artwork area appears clean\n- Text areas are crisp\n- No visible scratches, dents, pits, or print defects in the normal images\n- The high-pass image shows normal print texture, no anomalies\n\n*Back Surface:*\n- The Pokeball area shows a few small dark spots/specks visible in both normal and filtered images\n- These appear to be small surface imperfections or debris/print specks\n- Checking for scratches - no linear scratches visible\n- No staining or discoloration\n\n**GLARE ASSESSMENT:**\n- Front: Very minimal glare, good lighting\n- Back: Clean, even lighting, no significant glare\n\n**FIBER VS GLARE CHECK:**\nThe corner/edge wear detected by the model on the back - reviewing the back images, I can see the edges do show some whitening/wear, particularly along the left and right edges. This is consistent with the model's findings of edge wear. The corners show some softening. These are real wear indicators, not glare.\n\n**SURFACE DEFECTS TO REPORT:**\n\nLooking at the back surface, there are a few small dark specks visible on the Pokeball area that appear to be print imperfections or surface debris.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Quilava\",\n    \"setName\": \"Call of Legends\",\n    \"cardNumber\": \"49/95\",\n    \"rarity\": \"Uncommon\",\n    \"year\": \"2011\",\n    \"hp\": \"80\",\n    \"variant\": null,\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PRINT_DEFECT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 48,\n      \"y\": 58,\n      \"width\": 2,\n      \"height\": 2,\n      \"description\": \"Small dark specks visible on the white portion of the Pokeball, appears to be minor print imperfection or surface debris\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\"Front surface is clean with no visible scratches, creases, or surface damage\", \"Artwork and text areas are crisp and well-preserved\", \"No structural damage such as creases, tears, or paper loss detected\"],\n    \"concerns\": [\"Back shows significant edge wear along left and right edges with whitening\", \"All four back corners exhibit wear with exposed paper fibers\", \"Top edge of back shows notable wear\"],\n    \"recommendation\": \"Card front is in excellent condition but the back shows substantial edge and corner wear that significantly impacts overall condition; suitable for played/LP category\"\n  }\n}\n```",
+  "pass2": "Looking at this Quilava card from the Call of Legends set, I'll perform a systematic inspection.\n\n**Card Identification:**\nThis is a Quilava, Stage 1 Fire-type, HP 80, card number 49/95 from the Call of Legends set (2011), illustrated by Kagemaru Himeno. It's an uncommon card with a holofoil pattern.\n\n**Overall Condition Assessment:**\nThe front of the card appears to be in excellent condition with clean surfaces. The back shows significant edge wear that has already been measured by the corner/edge detection system.\n\n**Catastrophic Scan (Both Sides):**\n- FRONT: No creases, tears, paper loss, or water damage visible. Checking diagonals from each corner and horizontal mid-card lines - no line discontinuities crossing the print.\n- BACK: Examining the emboss filter (image 6), I can see some subtle surface texture but no clear crease lines crossing the card. The high-pass image (8) shows the print pattern but no structural breaks. No tears, paper loss, or water damage.\n\n**Surface Inspection - FRONT:**\nScanning the artwork area, text boxes, and borders systematically. The holofoil pattern shows natural texture. No scratches penetrating the surface, no dents, no print defects visible. The surface appears clean and intact.\n\n**Surface Inspection - BACK:**\nThe prior scan noted small dark specks on the white portion of the Pokeball. Looking at images 2, 4, and 8, I can confirm there are a few tiny dark spots on the lower white portion of the Pokeball - these appear to be minor print imperfections or surface debris, very small (approximately 1-2mm equivalent). This is a legitimate minor print defect.\n\n**Crease Hunt:**\n- Front: Traced diagonals from all four corners, horizontal mid-card, and along borders. No line discontinuities found.\n- Back: Same systematic check. The emboss filter shows some texture but these follow the natural print pattern (the curved energy swirls). No straight or angular fractured lines crossing the artwork or Pokeball.\n\n**Re-evaluation per Detection Bias:**\n- Structural: No creases, tears, dents, stains, or paper loss found on either side.\n- Cosmetic: The corner/edge wear has been measured by the automated system. The print defect on the back is legitimate and minor.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Quilava\",\n    \"setName\": \"Call of Legends\",\n    \"cardNumber\": \"49/95\",\n    \"rarity\": \"Uncommon\",\n    \"year\": \"2011\",\n    \"hp\": \"80\",\n    \"variant\": \"Holofoil\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PRINT_DEFECT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 48,\n      \"y\": 60,\n      \"width\": 2,\n      \"height\": 2,\n      \"description\": \"Small dark specks visible on the white lower portion of the Pokeball, minor print imperfection\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with no visible scratches, dents, or creases\",\n      \"Holofoil pattern intact with no surface damage\",\n      \"No structural damage such as creases or tears on either side\"\n    ],\n    \"concerns\": [\n      \"Significant edge wear detected on back left and right edges\",\n      \"All four back corners show measurable wear\",\n      \"Minor print specks on back Pokeball area\"\n    ],\n    \"recommendation\": \"Card front is in excellent condition but the back shows notable edge and corner wear that will impact overall assessment\"\n  }\n}\n```"
+ }
+}

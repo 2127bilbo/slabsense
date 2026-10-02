@@ -1,0 +1,121 @@
+{
+ "cert": "F2455096",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 3,
+ "tagLabel": "3 VG",
+ "tag": {
+  "centering": 962,
+  "corners": 212,
+  "edges": 407,
+  "surface": 270,
+  "surfaceFront": 708,
+  "surfaceBack": 100
+ },
+ "estimateAfterPass1": 8.5,
+ "grade": 3,
+ "displayGrade": "3",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 53.4,
+  "frontEdges": 100,
+  "backEdges": 31.25,
+  "frontSurface": 100,
+  "backSurface": 85.73,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "extreme",
+   "location": "RIGHT EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "severe",
+   "location": "TOP EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "severe",
+   "location": "BOTTOM EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "severe",
+   "location": "LEFT EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "PLAY_WEAR",
+   "severity": "moderate",
+   "location": "MIDDLE CENTER"
+  },
+  {
+   "side": "BACK",
+   "type": "PIT",
+   "severity": "minor",
+   "location": "MIDDLE CENTER"
+  },
+  {
+   "side": "BACK",
+   "type": "PIT",
+   "severity": "minor",
+   "location": "MIDDLE CENTER"
+  },
+  {
+   "side": "BACK",
+   "type": "PIT",
+   "severity": "minor",
+   "location": "MIDDLE CENTER"
+  }
+ ],
+ "referencesUsed": 7,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10628,
+   "outputTokens": 1130
+  },
+  "pass2": {
+   "inputTokens": 12063,
+   "outputTokens": 1588
+  }
+ },
+ "ms": {
+  "pass1": 23091,
+  "pass2": 31482
+ },
+ "raw": {
+  "pass1": "Looking at this Ho-Oh EX full art card from Dragons Exalted, I'll perform a systematic inspection focusing on surface defects, creases, and structural damage (corners/edges are pre-measured).\n\n## Initial Assessment\nThis is a full art EX card with heavy holofoil coverage. The front appears relatively clean while the back shows significant wear as indicated by the pre-measured corner/edge data.\n\n## Catastrophic Scan (Both Sides First)\n**FRONT:** Scanning for creases - checking diagonals from each corner, horizontal mid-card lines. The holofoil pattern creates visual complexity but I don't see any line discontinuities crossing the artwork that would indicate a crease. No tears, no paper loss, no water damage visible.\n\n**BACK:** Checking for creases across the Pokeball and through the design. I see the white energy swirls which are part of the design (soft-edged, curved). Looking for straight fractured lines... I don't detect any crease lines crossing the card. The corners show significant wear but no structural creases spanning the card.\n\n## Surface Inspection\n\n**FRONT Surface:**\n- The holofoil shows natural rainbow shimmer patterns - this is the card's design, not damage\n- Scanning the text box area - appears clean\n- Ho-Oh artwork area - no scratches cutting across the holo pattern detected\n- No dents, pits, or print defects visible\n- Some minor surface speckling/dust but nothing that appears to be actual card damage\n\n**BACK Surface:**\n- Several small dark specks visible on the Pokeball area (around the white lower portion) - these appear to be small surface debris or minor print inclusions\n- The surface shows general play wear consistent with the heavy corner/edge wear already measured\n- No creases detected crossing the design\n- Light surface wear/scuffing visible across the card face consistent with played condition\n\n## Glare Assessment\nFront: Minor glare on the holofoil creating bright spots, particularly in the golden/orange wing areas - this is foil reflection, not damage\nBack: Two bright spots on the Pokeball (specular highlights from photography lighting)\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Ho-Oh EX\",\n    \"setName\": \"Dragons Exalted\",\n    \"cardNumber\": \"119/124\",\n    \"rarity\": \"Ultra Rare\",\n    \"year\": \"2012\",\n    \"hp\": \"160\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"MIDDLE CENTER\", \"TOP CENTER\"] },\n    \"back\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"MIDDLE CENTER\"] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PLAY_WEAR\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 55,\n      \"width\": 40,\n      \"height\": 30,\n      \"description\": \"General surface wear and light scuffing visible across the Pokeball area consistent with played condition\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PIT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 48,\n      \"y\": 62,\n      \"width\": 1,\n      \"height\": 1,\n      \"description\": \"Small dark speck/pit visible on the white portion of the Pokeball\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PIT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 52,\n      \"y\": 58,\n      \"width\": 1,\n      \"height\": 1,\n      \"description\": \"Second small dark speck visible on the Pokeball surface\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with no visible scratches, creases, or structural damage\",\n      \"Holofoil pattern intact with vibrant color presentation\",\n      \"No creases or tears detected on either side\"\n    ],\n    \"concerns\": [\n      \"Back shows heavy corner and edge wear throughout (per measurements)\",\n      \"General play wear visible on back surface\",\n      \"Minor surface debris/pitting on back\"\n    ],\n    \"recommendation\": \"Card shows a well-preserved front with significant wear concentrated on the back corners, edges, and surface consistent with played condition.\"\n  }\n}\n```",
+  "pass2": "## Card Identification\n\nThis is a Ho-Oh EX from the Dragons Exalted set (2012), card number 119/124. It's a full art EX card with a holographic pattern across the entire surface.\n\n## Overall Condition Assessment\n\nThe front of this card appears to be in excellent condition with the holographic surface intact and vibrant. The back, however, shows significant wear across all corners and edges as indicated by the pre-measured values, along with visible surface wear on the Pokeball area.\n\n## Systematic Inspection\n\n### Step 0: Catastrophic Scan (Both Sides)\n\n**FRONT:** Scanning for creases - checking diagonals from each corner, horizontal mid-card lines, and any line discontinuities crossing the artwork. The holographic pattern shows natural texture but I see no straight lines or angular discontinuities that would indicate a crease. No paper loss, tears, water damage, or writing visible.\n\n**BACK:** Checking for creases - examining the energy swirl pattern carefully. The white swirls are soft-edged and curved, following the natural design. I do not see any straight fractured white lines crossing the Pokeball or running through the card. No tears, paper loss, or writing detected.\n\n### Steps 1, 2, 4, 5: Corners and Edges (SKIPPED per instructions - already measured)\n\n### Step 3: Front Surface Inspection\n\nScanning systematically across the full art holographic surface:\n- **Top area (Ho-Oh's crest/head):** Holographic pattern intact, no scratches cutting across the texture\n- **Middle area (body/wings):** The golden/orange holofoil shows natural texture patterns. There's some light reflection in the center but this is glare on the intact holographic surface, not damage\n- **Text box area:** Clean, text is crisp\n- **Bottom info area:** Clean, no defects visible\n\nThe front surface appears clean with no scratches, dents, pits, or print defects that I can identify as actual damage versus the natural holographic texture.\n\n### Step 6: Back Surface Inspection\n\n**Pokeball area examination:**\n- I can see general surface wear/scuffing across the Pokeball area - this appears as a slight haziness/dulling of the surface consistent with play wear\n- There are small dark specks visible on the white portion of the Pokeball - these appear to be small pits or debris embedded in the surface:\n  - One speck at approximately x:48, y:62\n  - Another speck at approximately x:52, y:58\n  - A third small speck visible near x:45, y:65\n\nThe surface wear is real and visible - the Pokeball area shows a played/handled appearance with light scuffing throughout.\n\n## Fiber vs Glare Analysis\n\n- **Front center brightness:** This is glare/reflection on the holographic surface - soft-edged, follows the light, printed design visible through it. NOT damage.\n- **Back Pokeball specks:** These have hard edges and are dark spots interrupting the printed surface - these ARE pits/debris, not glare.\n- **Back surface haziness:** This is actual surface wear - the finish appears dulled from handling, not a lighting artifact.\n\n## Re-read Against Detection Bias\n\n- Corners/edges: Skipped per instructions (pre-measured)\n- Structural: No creases, tears, or major dents found - confident after full scan\n- Surface cosmetic: The play wear and pits on the back are real and should be reported\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Ho-Oh EX\",\n    \"setName\": \"Dragons Exalted\",\n    \"cardNumber\": \"119/124\",\n    \"rarity\": \"Ultra Rare\",\n    \"year\": \"2012\",\n    \"hp\": \"160\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\", \"TOP CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\"]\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PLAY_WEAR\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 55,\n      \"width\": 35,\n      \"height\": 25,\n      \"description\": \"General surface scuffing and dulling visible across the Pokeball area consistent with handled/played condition\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PIT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 48,\n      \"y\": 62,\n      \"width\": 1,\n      \"height\": 1,\n      \"description\": \"Small dark speck/pit embedded in the white portion of the Pokeball\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PIT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 52,\n      \"y\": 58,\n      \"width\": 1,\n      \"height\": 1,\n      \"description\": \"Second small dark speck visible on the Pokeball white surface\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PIT\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 45,\n      \"y\": 65,\n      \"width\": 1,\n      \"height\": 1,\n      \"description\": \"Third small dark speck visible on lower portion of Pokeball\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Front holographic surface is clean and vibrant with no visible scratches or creases\",\n      \"No structural damage such as creases, tears, or dents detected on either side\",\n      \"Full art holographic pattern displays well with intact coloring\"\n    ],\n    \"concerns\": [\n      \"Significant corner and edge wear on the back (per pre-measured values)\",\n      \"Moderate play wear visible across the back Pokeball surface area\",\n      \"Multiple small pits/specks embedded in the back surface\"\n    ],\n    \"recommendation\": \"Card shows a clean front surface but has substantial wear on the back including corner/edge wear and surface scuffing consistent with played condition\"\n  }\n}\n```"
+ }
+}

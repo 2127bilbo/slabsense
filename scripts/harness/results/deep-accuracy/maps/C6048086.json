@@ -1,0 +1,55 @@
+{
+ "cert": "C6048086",
+ "arm": "maps",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 7,
+ "tagLabel": "7 NEAR MINT",
+ "tag": {
+  "centering": 903,
+  "corners": 1000,
+  "edges": 1000,
+  "surface": 745,
+  "surfaceFront": 1000,
+  "surfaceBack": 696
+ },
+ "estimateAfterPass1": 9,
+ "grade": 9,
+ "displayGrade": "9",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 91.25,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 92,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "LEFT EDGE"
+  }
+ ],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 16988,
+   "outputTokens": 984
+  },
+  "pass2": {
+   "inputTokens": 17972,
+   "outputTokens": 968
+  }
+ },
+ "ms": {
+  "pass1": 24407,
+  "pass2": 23343
+ },
+ "raw": {
+  "pass1": "Looking at this Pikachu ex card from the Scarlet & Violet era, I'll perform a systematic inspection.\n\n**Overall First Impression:** This is a full-art textured card (Illustration Rare) that appears to be in excellent condition. The card has the characteristic embossed texture pattern visible across the artwork.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n- Front: No creases, tears, paper loss, water damage, or writing visible. The textured surface shows normal holofoil pattern, no line discontinuities crossing the print.\n- Back: Examining for creases - checking diagonals from corners and horizontal mid-card. The white energy swirls are soft-edged and curved (design elements). No straight fractured lines crossing the Pokeball or borders. No paper loss, tears, or structural damage visible.\n\n**CORNER INSPECTION (Per instructions, corners already measured as clean - skipping detailed corner reporting):**\nThe corner measurements show all 8 corners as clean with wear scores of 0.00-0.03. Visual inspection confirms no exposed paper fibers at any corner tips.\n\n**EDGE INSPECTION (Per instructions, edges already measured - noting the LEFT EDGE BACK has moderate wear flagged):**\nThe system has already detected moderate wear on the back left edge (0.31 wear score). I will not duplicate this finding.\n\n**FRONT SURFACE SCAN:**\n- Top area (name bar, HP): Clean, no scratches or print defects\n- Main artwork (Pikachu in forest): The textured embossing is intact and uniform. No scratches cutting across the pattern. No dents or pits visible.\n- Attack area: Clean text, no print defects\n- Bottom info bar: Clean\n\n**BACK SURFACE SCAN:**\n- Pokeball area: Intact, no indentations\n- Blue background: Uniform color, no stains\n- Text areas: Clean\n- Overall surface: No scratches penetrating the gloss visible\n\n**Crease Hunt (dedicated check):**\n- Front: Traced diagonals from all corners, horizontal mid-card - no line discontinuities found\n- Back: Same check - the emboss filter (image 6) shows normal card texture, no crease lines\n- High-pass images (7, 8): Show the textured pattern clearly but no anomalous lines crossing the card\n\n**Image Quality Assessment:**\n- Front images show good lighting with minimal glare\n- Back images are clean with good clarity\n- No areas obscured\n\n**Re-read against TYPE-SPECIFIC DETECTION BIAS:**\n- Structural defects: None found after thorough search - confident no creases/tears/dents\n- Cosmetic wear: Corners and edges already measured by system; I see no additional surface wear to report\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Pikachu ex\",\n    \"setName\": \"Scarlet & Violet 151\",\n    \"cardNumber\": \"276/217\",\n    \"rarity\": \"Special Art Rare\",\n    \"year\": \"2023\",\n    \"hp\": \"200\",\n    \"variant\": \"Illustration Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Full-art textured surface is intact with no scratches cutting across the embossed pattern\",\n      \"All corners show sharp, clean tips with no exposed paper fibers\",\n      \"No creases, dents, or structural damage on either side\",\n      \"Print quality is excellent with crisp text and vibrant colors\"\n    ],\n    \"concerns\": [\n      \"System detected moderate wear on back left edge - defer to measured finding\"\n    ],\n    \"recommendation\": \"Card presents in excellent physical condition with clean surfaces and corners; the back left edge shows some wear per automated measurement but overall the card is well-preserved.\"\n  }\n}\n```",
+  "pass2": "Looking at this Pikachu ex card from the Scarlet & Violet era, I'll perform a systematic inspection.\n\n**Overall Condition Assessment:**\nThis is a modern full-art Pikachu ex card that appears to be in excellent condition. The card has a textured surface typical of modern ex cards, with vibrant colors and clean presentation.\n\n**Catastrophic Scan (Both Sides First):**\n- FRONT: No creases, tears, paper loss, water damage, or writing visible. The emboss and high-pass filtered images show the natural texture of the card's full-art surface but no structural damage lines crossing the print.\n- BACK: No creases visible. Checking the filtered images (5-8), I see the natural swirl pattern of the Pokemon back design. No straight fractured lines crossing through the Pokeball or spanning the card width. The energy swirls are soft-edged and curved as expected from the design.\n\n**Corner Inspection (Skipped per instructions - already measured as clean):**\nAll 8 corners measured as clean with wear scores 0.00-0.03.\n\n**Edge Inspection (Skipped per instructions - already measured):**\nNote: LEFT EDGE on BACK shows moderate wear (0.31 score, 232 pts) per the pre-measured data. This will be handled by the scoring engine.\n\n**Front Surface Inspection:**\n- Scanning systematically across the artwork: The forest scene with Pikachu shows clean printing\n- No scratches cutting across the textured holofoil pattern\n- No dents or indentations visible in the emboss filter\n- No print lines or ink defects\n- No pits or surface damage\n- The high-pass filter shows the natural texture of the full-art card but no anomalous marks\n\n**Back Surface Inspection:**\n- The Pokeball and swirl design appear intact\n- No scratches visible\n- No stains or discoloration\n- The filtered images show clean surface topology\n- No print defects noted\n\n**Crease Hunt (Mandatory):**\n- FRONT: Traced diagonals from each corner, horizontal mid-card line, vertical center - no line discontinuities found\n- BACK: Same systematic check - the white swirls are all soft-edged and curved, following the natural design. No straight fractured lines detected.\n\n**Type-Specific Detection Bias Re-check:**\n- Structural defects: None found after careful inspection\n- Cosmetic wear: The pre-measured corner/edge data shows all corners clean; I see no additional surface defects to report\n\n**Glare Assessment:**\nBoth images appear to have good lighting with no significant glare or blur affecting inspection.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Pikachu ex\",\n    \"setName\": \"Scarlet & Violet 151\",\n    \"cardNumber\": \"276/217\",\n    \"rarity\": \"Special Art Rare\",\n    \"year\": \"2023\",\n    \"hp\": \"200\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Clean textured full-art surface with no visible scratches or surface damage\",\n      \"All corners appear sharp with no exposed paper fibers\",\n      \"No creases, tears, or structural damage detected on either side\",\n      \"Vibrant print quality with no print defects or ink issues\"\n    ],\n    \"concerns\": [\n      \"Pre-measured moderate edge wear detected on back left edge by automated system\"\n    ],\n    \"recommendation\": \"Card presents in excellent physical condition with clean surfaces and corners; the back left edge shows some measured wear that should be verified during final inspection.\"\n  }\n}\n```"
+ }
+}

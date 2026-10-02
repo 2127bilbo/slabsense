@@ -1,0 +1,79 @@
+{
+ "cert": "C1714354",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 5,
+ "tagLabel": "5 EXCELLENT",
+ "tag": {
+  "centering": 965,
+  "corners": 577,
+  "edges": 931,
+  "surface": 1000,
+  "surfaceFront": 990,
+  "surfaceBack": 498
+ },
+ "estimateAfterPass1": 10,
+ "grade": 5,
+ "displayGrade": "5",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 82.83,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 80,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 99.5
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "extreme",
+   "location": "MIDDLE CENTER"
+  }
+ ],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10596,
+   "outputTokens": 1020
+  },
+  "pass2": {
+   "inputTokens": 11309,
+   "outputTokens": 1006
+  }
+ },
+ "ms": {
+  "pass1": 22779,
+  "pass2": 19148
+ },
+ "raw": {
+  "pass1": "Looking at this Dragonair card from Base Set, I'll perform a complete defect inspection focusing on surface defects, creases, and structural damage (corners/edges are pre-measured).\n\n## Initial Assessment\nThis is a Base Set Dragonair 18/102, a holo rare card. The card appears to be in reasonably good condition overall, though I need to carefully inspect for surface issues.\n\n## CATASTROPHIC SCAN (Both Sides First)\n\n**Front:** Scanning for creases/wrinkles - checking diagonals from each corner, horizontal mid-card lines. The holo pattern shows natural rainbow shimmer in the artwork area. I don't see any line discontinuities crossing the print that would indicate a crease. No paper loss, tears, or water damage visible.\n\n**Back:** Checking the blue Pokemon back carefully. The white energy swirls are part of the design - they're soft-edged and curved. Looking for any straight fractured lines... I don't see any creases crossing the Pokeball or running through the card. No tears, paper loss, or water damage.\n\n## FRONT SURFACE INSPECTION (Step 3)\n\nExamining the holo window area systematically:\n- The rainbow shimmer across the artwork is natural holofoil pattern\n- Looking for scratches cutting across the holo pattern... I can see some very faint surface scratching in the holo area, particularly visible in the darker sky portion of the artwork\n- The gold border appears clean with no significant wear\n- Text areas are crisp and clear\n- No print defects, dents, or stains visible\n\n## BACK SURFACE INSPECTION (Step 6)\n\n- The blue surface appears clean overall\n- No visible scratches penetrating the surface\n- No dents or indentations visible\n- No stains or discoloration\n- Print quality appears consistent\n\n## Crease Hunt Verification\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear\n- Back horizontal: Clear\n- No structural damage found\n\n## Re-read Against Detection Bias\n- Structural defects: None found (good - these are rare)\n- Surface scratching on front holo: Very faint, only visible under close inspection - this is real but minor\n- Not over-reporting corners (handled by pre-measurement)\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Dragonair\",\n    \"setName\": \"Base Set\",\n    \"cardNumber\": \"18/102\",\n    \"rarity\": \"Rare Holo\",\n    \"year\": \"1999\",\n    \"hp\": \"80\",\n    \"variant\": null,\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"MIDDLE RIGHT\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 35,\n      \"width\": 25,\n      \"height\": 20,\n      \"description\": \"Faint hairline surface scratches visible in the holo artwork area, not penetrating the gloss layer, only visible under close inspection\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"No creases or structural damage on either side\",\n      \"Clean front surface with intact gold borders\",\n      \"Back surface is clean with no visible wear marks\",\n      \"Holo pattern displays well with good color saturation\",\n      \"No print defects or staining present\"\n    ],\n    \"concerns\": [\n      \"Minor surface scratching visible in the holographic artwork area\",\n      \"Back corners show minor to moderate wear as measured\"\n    ],\n    \"recommendation\": \"This Base Set Dragonair is in good overall condition with no structural damage; the main detractions are light holo scratching and some corner wear on the back, typical of a card that has seen light handling.\"\n  }\n}\n```",
+  "pass2": "Looking at this card, I'll perform a systematic inspection.\n\n**Card Identification:**\nThis is a Dragonair from the Base Set (18/102), a rare holo card from 1999. The gold border and holographic artwork are characteristic of this era.\n\n**Overall Condition Assessment:**\nThe front appears to be in excellent condition with clean borders and intact holo. The back shows some wear at the corners that needs careful examination.\n\n**Catastrophic Scan (Both Sides):**\n- No creases visible - checking diagonals from each corner and horizontal mid-card lines on both sides. The white energy swirls on the back are soft-edged and curved, following the printed design pattern - no straight fractured lines crossing through.\n- No tears or paper loss detected\n- No water damage or writing\n- No structural damage observed\n\n**Front Surface Inspection:**\nThe holo artwork area shows the characteristic rainbow shimmer of the holographic pattern. Looking closely at the middle center area where the prior scan noted scratches - I can see very faint surface marks in the holo area. These appear to be extremely light hairline marks that don't penetrate the gloss layer, visible only under close inspection. The gold border is clean and intact throughout.\n\n**Back Surface Inspection:**\nThe back surface is clean with no scratches, dents, or print defects visible. The blue coloring is consistent and the Pokeball artwork is crisp. The white energy swirls are part of the printed design - no damage hiding within them.\n\n**Corner/Edge Notes (for context - already measured by model):**\nThe corner model detected minor to moderate wear on all four back corners. Looking at the images, I can see the back corners do show some softening/wear compared to the crisp front corners. This is consistent with the model's findings.\n\n**Glare Assessment:**\nFront: Minor glare visible in the top right and middle right areas from the holographic surface reflecting light - this is normal holo shimmer, not damage.\nBack: No significant glare.\n\n**Re-checking the prior scan finding:**\nThe reported hairline scratches in the holo area - upon close inspection, I can confirm very faint surface marks are present in the artwork area. These are minor and don't penetrate the gloss.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Dragonair\",\n    \"setName\": \"Base Set\",\n    \"cardNumber\": \"18/102\",\n    \"rarity\": \"Rare Holo\",\n    \"year\": \"1999\",\n    \"hp\": \"80\",\n    \"variant\": null,\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"MIDDLE RIGHT\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 48,\n      \"y\": 38,\n      \"width\": 20,\n      \"height\": 15,\n      \"description\": \"Faint hairline surface scratches visible in the holographic artwork area under close inspection, not penetrating the gloss layer\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Front corners are sharp and clean with no visible wear\",\n      \"Front edges are crisp with no whitening or chips\",\n      \"Gold border is intact and vibrant throughout\",\n      \"Holographic pattern displays well with good color saturation\",\n      \"No structural damage such as creases, dents, or tears on either side\"\n    ],\n    \"concerns\": [\n      \"Minor hairline scratches present in the holographic artwork area\",\n      \"Back corners show minor to moderate wear as detected by corner analysis\"\n    ],\n    \"recommendation\": \"Card is in good overall condition with a clean front presentation; the back corners show some handling wear while the surfaces remain largely intact with only minor surface marks on the holo area\"\n  }\n}\n```"
+ }
+}

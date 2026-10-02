@@ -75,3 +75,6 @@ training/data/
 scripts/Tag scraper/
 /Slabsense Gemini API-.txt
 *API-*.txt
+# Deep accuracy harness: raw provider responses stay local; the scored records are tracked
+scripts/harness/results/deep-accuracy/**/*.raw.json
+scripts/harness/results/deep-accuracy/run.log

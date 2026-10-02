@@ -1,0 +1,79 @@
+{
+ "cert": "C9009046",
+ "arm": "maps",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 6,
+ "tagLabel": "6 EX MT",
+ "tag": {
+  "centering": 933,
+  "corners": 667,
+  "edges": 839,
+  "surface": 1000,
+  "surfaceFront": 1000,
+  "surfaceBack": 596
+ },
+ "estimateAfterPass1": 9,
+ "grade": 7.5,
+ "displayGrade": "7.5",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 76.7,
+  "frontEdges": 100,
+  "backEdges": 91.25,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 92,
+  "backCentering": 99.5
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "BOTTOM EDGE"
+  }
+ ],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 17020,
+   "outputTokens": 907
+  },
+  "pass2": {
+   "inputTokens": 18020,
+   "outputTokens": 973
+  }
+ },
+ "ms": {
+  "pass1": 20397,
+  "pass2": 23597
+ },
+ "raw": {
+  "pass1": "Looking at this Charmander card from Stormfront (101/100), I'll perform a systematic inspection.\n\n## Initial Assessment\nThis is a secret rare reverse holo Charmander with a holofoil pattern visible across the artwork. The card shows the characteristic sparkle pattern of the Stormfront set.\n\n## Catastrophic Scan (Both Sides First)\n**Front:** No creases, tears, or paper loss visible. The holofoil pattern shows normal sparkle distribution. No line discontinuities crossing the print.\n\n**Back:** Examining carefully for creases - the energy swirls are the soft, curved design elements. I don't see any straight fractured lines crossing through the Pokeball or spanning the card width. The relief/emboss images (5-6) don't reveal any ridge lines indicating creases. No tears or paper loss detected.\n\n## Corner/Edge Analysis (Per Instructions - Already Measured)\nThe corner/edge model has already assessed these. I note the back shows moderate wear on all four corners and the bottom edge - this aligns with what I observe: the back corners show some softening/wear visible in the images, and the bottom edge shows some wear. I will NOT report these as they're already captured.\n\n## Front Surface Inspection\nScanning the holofoil artwork area systematically:\n- The sparkle pattern is the natural holofoil texture - NOT scratches\n- No scratches cutting across the pattern\n- No print lines visible\n- No dents or indentations\n- The high-pass image (7) shows the holofoil texture but no surface damage\n- Text areas are clean and crisp\n- Gold border areas show no chips or wear\n\n## Back Surface Inspection\n- The blue surface appears clean\n- No scratches visible\n- No print defects\n- No stains or discoloration\n- The emboss filter (6) shows the normal card texture without any crease lines or dents\n- No pits or surface damage detected\n\n## Glare Assessment\nFront: There's some light reflection on the holofoil, particularly in the upper right area of the artwork - this is normal holofoil behavior, not damage.\nBack: Minimal glare, good visibility.\n\n## Final Verification\n- Structural defects (crease/tear/stain): None found\n- Surface defects: None found on either side\n- The corner/edge wear is already captured by the measurement system\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Charmander\",\n    \"setName\": \"Stormfront\",\n    \"cardNumber\": \"101/100\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": \"2008\",\n    \"hp\": \"50\",\n    \"variant\": \"Reverse Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"MIDDLE RIGHT\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with intact holofoil pattern\",\n      \"No creases, tears, or structural damage on either side\",\n      \"Front corners and edges appear sharp and clean\",\n      \"Print quality is crisp with no visible print defects\"\n    ],\n    \"concerns\": [\n      \"Back corners show moderate wear as detected by measurement system\",\n      \"Back bottom edge shows moderate wear\"\n    ],\n    \"recommendation\": \"Card has a clean front presentation but shows notable wear on the back corners and bottom edge; surface condition is excellent on both sides with no structural damage.\"\n  }\n}\n```",
+  "pass2": "## Reasoning Through the Card\n\n**Card Identification:**\nThis is a Charmander Lv.10 from the Stormfront set (101/100), making it a secret rare reverse holo card from 2008. The card has a distinctive holofoil pattern visible in the artwork area.\n\n**Overall Condition Assessment:**\nThe front of the card appears clean with good surface quality. The back shows the standard Pokemon card design. Let me systematically inspect each area.\n\n**Catastrophic Scan (Both Sides First):**\n- Checking for creases: Examining the emboss/relief images (5 & 6) and high-pass images (7 & 8) for line discontinuities crossing the print. On the back relief image (6), I can see the natural swirl pattern of the card design. No straight angular lines that would indicate creases crossing through the Pokeball or spanning the card width.\n- Paper loss/tears: No hard-edged white patches interrupting artwork on either side.\n- Water damage/writing: None visible.\n\n**Front Surface Inspection:**\nThe holofoil pattern shows natural sparkle/shimmer throughout the artwork area - this is the card's intended design, not damage. The high-pass image (7) shows the texture of the holofoil pattern but no scratches cutting across it. The emboss image (5) shows some texture variation but this appears to be the holofoil pattern, not surface damage.\n\nLooking at the front carefully:\n- No visible scratches penetrating the gloss\n- No dents or indentations visible\n- No print defects apparent\n- The slight brightness in top right and middle right areas noted in prior scan is glare from photography, not damage (soft-edged, follows light pattern)\n\n**Back Surface Inspection:**\nThe back appears clean overall. Examining the relief and high-pass images:\n- No creases visible (the curved white swirls are part of the printed design - soft-edged and curved, following the energy swirl pattern)\n- No stains or pits visible\n- Surface appears intact\n\n**Corner/Edge Note:**\nPer instructions, corners and edges have been pre-measured by the trained model. The back shows moderate wear on all four corners and the bottom edge. I am NOT to report these as they go directly to scoring. The front corners and edges are all clean per the measurements.\n\n**Final Check - Type-Specific Detection Bias:**\n- Structural defects (crease, tear, dent, stain): None found after careful inspection of both normal and filtered images\n- Cosmetic wear: Pre-measured by corner/edge model, not my task\n\nThe card's surfaces appear clean with no reportable surface defects beyond what the corner/edge model has already captured.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Charmander\",\n    \"setName\": \"Stormfront\",\n    \"cardNumber\": \"101/100\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": \"2008\",\n    \"hp\": \"50\",\n    \"variant\": \"Reverse Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"MIDDLE RIGHT\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with intact holofoil pattern\",\n      \"No creases, tears, or structural damage on either side\",\n      \"Front corners and edges are clean\",\n      \"Print quality is sharp with no visible print defects\"\n    ],\n    \"concerns\": [\n      \"Back corners show moderate wear as detected by corner analysis\",\n      \"Back bottom edge shows moderate wear\"\n    ],\n    \"recommendation\": \"Card has a clean front with excellent surface condition, but the back exhibits moderate corner and edge wear that affects overall condition.\"\n  }\n}\n```"
+ }
+}

@@ -1,0 +1,127 @@
+{
+ "cert": "C6665979",
+ "arm": "maps",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 3,
+ "tagLabel": "3 VG",
+ "tag": {
+  "centering": 959,
+  "corners": 813,
+  "edges": 567,
+  "surface": 307,
+  "surfaceFront": 260,
+  "surfaceBack": 363
+ },
+ "estimateAfterPass1": 8.5,
+ "grade": 2,
+ "displayGrade": "2",
+ "subgrades": {
+  "frontCorners": 71.3,
+  "backCorners": 53.4,
+  "frontEdges": 100,
+  "backEdges": 22.12,
+  "frontSurface": 72.39,
+  "backSurface": 93.87,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "FRONT",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "FRONT",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "extreme",
+   "location": "LEFT EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "extreme",
+   "location": "RIGHT EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "severe",
+   "location": "TOP EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "severe",
+   "location": "BOTTOM EDGE"
+  },
+  {
+   "side": "FRONT",
+   "type": "SCRATCH",
+   "severity": "extreme",
+   "location": "MIDDLE CENTER"
+  },
+  {
+   "side": "FRONT",
+   "type": "PLAY_WEAR",
+   "severity": "moderate",
+   "location": "MIDDLE CENTER"
+  },
+  {
+   "side": "BACK",
+   "type": "PLAY_WEAR",
+   "severity": "moderate",
+   "location": "MIDDLE CENTER"
+  }
+ ],
+ "referencesUsed": 7,
+ "usage": {
+  "pass1": {
+   "inputTokens": 17060,
+   "outputTokens": 1052
+  },
+  "pass2": {
+   "inputTokens": 18499,
+   "outputTokens": 1229
+  }
+ },
+ "ms": {
+  "pass1": 19377,
+  "pass2": 26295
+ },
+ "raw": {
+  "pass1": "Looking at this Tyranitar card from the Expedition Base Set, I'll perform a systematic inspection.\n\n**Card Identification:**\nThis is a Tyranitar 29/165 from Expedition Base Set (2002), a holo rare Stage 2 Pokémon card with 120 HP.\n\n**Overall Condition Assessment:**\nThis card shows significant wear consistent with heavy play. The back exhibits substantial edge and corner damage with whitening throughout.\n\n**Catastrophic Scan (Both Sides):**\n- FRONT: No creases, tears, or paper loss visible. The surface appears intact.\n- BACK: Checking for creases - examining the filtered images (5-6), I see edge wear patterns but no continuous line crossing the card face that would indicate a crease. The white swirls are part of the design. No tears or paper loss detected.\n\n**Surface Inspection - FRONT:**\n- The holo surface shows some light surface wear/scratching visible in the artwork area\n- There's a faint horizontal print line visible across the illustration area\n- The gold border shows general play wear with light scuffing\n\n**Surface Inspection - BACK:**\n- Significant whitening along all edges - this is real paper fiber exposure, not glare\n- The surface shows general play wear with light scratching\n- No creases crossing the Pokeball or through the design\n\n**Crease Hunt:**\n- Traced diagonals from each corner on both sides\n- Checked horizontal mid-card lines\n- No continuous crease lines detected - the white areas on the back are edge whitening, not creases\n\n**Re-evaluation:**\nThe corner/edge model has already captured the severe peripheral damage. I need to focus on surface defects only.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Tyranitar\",\n    \"setName\": \"Expedition Base Set\",\n    \"cardNumber\": \"29/165\",\n    \"rarity\": \"Holo Rare\",\n    \"year\": \"2002\",\n    \"hp\": \"120\",\n    \"variant\": \"Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\"] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 35,\n      \"width\": 25,\n      \"height\": 15,\n      \"description\": \"Light surface scratching visible across the holo illustration area, hairline marks not penetrating deeply into the foil\"\n    },\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"PLAY_WEAR\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 50,\n      \"width\": 80,\n      \"height\": 60,\n      \"description\": \"General surface wear across the holo face with light scuffing visible on the gold border areas\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PLAY_WEAR\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 50,\n      \"width\": 70,\n      \"height\": 70,\n      \"description\": \"General surface wear across the card back with light scratching and handling marks visible throughout\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"No creases or structural damage detected on either side\",\n      \"Holo pattern remains intact and visible\",\n      \"No tears, stains, or paper loss on the card surface\"\n    ],\n    \"concerns\": [\n      \"Severe corner and edge wear throughout, particularly on the back\",\n      \"General play wear and surface scratching on both sides\",\n      \"Significant edge whitening on all back edges indicating heavy handling\"\n    ],\n    \"recommendation\": \"This card shows heavy play wear with significant corner and edge damage, particularly on the back, but maintains structural integrity with no creases or tears.\"\n  }\n}\n```",
+  "pass2": "Looking at this Tyranitar card from the Expedition Base Set, I'll perform a systematic inspection.\n\n## Overall Condition Assessment\nThis is a heavily played vintage e-Series holo card with significant wear throughout. The gold border shows extensive handling, and the back displays substantial edge and corner damage.\n\n## Catastrophic Scan (Both Sides First)\n**FRONT:** Examining for creases - checking diagonals from each corner and horizontal mid-card. The emboss/relief images (5, 7) don't show any continuous line discontinuities crossing the card that would indicate a crease. The surface texture variations visible are consistent with the holo pattern and artwork, not structural damage.\n\n**BACK:** Checking the relief image (6) and high-pass (8) carefully. I see the natural energy swirl pattern of the card back. No straight angular lines crossing through the Pokeball or spanning the card width that would indicate a crease. The texture variations follow the printed design curves.\n\nNo tears, paper loss, water damage, or writing detected on either side.\n\n## Surface Inspection\n\n**FRONT Surface:**\n- The holo illustration area shows light surface scratching - visible in the high-pass image (7) as fine hairline marks across the Tyranitar artwork area. These are superficial, not penetrating the foil deeply.\n- The gold border areas show general handling wear/scuffing consistent with play wear.\n- Minor glare visible at top center and middle center from the holo reflection - this is NOT damage.\n\n**BACK Surface:**\n- General surface wear visible throughout with light scratching and handling marks.\n- The high-pass image (8) confirms surface texture consistent with handling wear rather than deep scratches or structural damage.\n- No pits, dents, or stains visible.\n\n## Fiber-vs-Glare Analysis\n- The brightness on the front holo area = natural foil reflection (soft-edged, follows light pattern) → NOT a defect\n- Surface marks visible in high-pass images = light scratching that doesn't penetrate deeply → minor scratches\n- Back surface texture = handling wear consistent with played card → play wear\n\n## Re-read Against Detection Bias\n- Structural defects: No creases, tears, dents, stains, or pits found - confirmed through relief/high-pass images\n- Cosmetic defects: The prior scan's surface findings appear accurate - light scratching on front holo, general play wear on both surfaces\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Tyranitar\",\n    \"setName\": \"Expedition Base Set\",\n    \"cardNumber\": \"29/165\",\n    \"rarity\": \"Rare Holo\",\n    \"year\": \"2002\",\n    \"hp\": \"120\",\n    \"variant\": \"Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 38,\n      \"width\": 30,\n      \"height\": 20,\n      \"description\": \"Light hairline scratching visible across the holo illustration area, superficial marks not penetrating deeply into the foil surface\"\n    },\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"PLAY_WEAR\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 50,\n      \"width\": 75,\n      \"height\": 55,\n      \"description\": \"General surface wear across the card face with light scuffing visible on the gold border areas from handling\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PLAY_WEAR\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 50,\n      \"width\": 65,\n      \"height\": 65,\n      \"description\": \"General surface wear across the card back with light scratching and handling marks visible throughout the blue surface\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"No structural damage such as creases, tears, or dents detected\",\n      \"Holo pattern remains vibrant and intact\",\n      \"Card stock maintains structural integrity\"\n    ],\n    \"concerns\": [\n      \"Significant corner and edge wear throughout (measured separately)\",\n      \"General play wear and surface scratching on both sides consistent with heavy use\"\n    ],\n    \"recommendation\": \"This vintage e-Series holo shows substantial wear from play and handling, with notable corner and edge damage; the surface remains free of structural defects but displays moderate cosmetic wear throughout.\"\n  }\n}\n```"
+ }
+}

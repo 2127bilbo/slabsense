@@ -1,0 +1,48 @@
+{
+ "cert": "E6899567",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 10,
+ "tagLabel": "10 GEM MINT",
+ "tag": {
+  "centering": 974,
+  "corners": 1000,
+  "edges": 1000,
+  "surface": 971,
+  "surfaceFront": 1000,
+  "surfaceBack": 968
+ },
+ "estimateAfterPass1": 10,
+ "grade": 10,
+ "displayGrade": "10",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10564,
+   "outputTokens": 940
+  },
+  "pass2": {
+   "inputTokens": 11141,
+   "outputTokens": 900
+  }
+ },
+ "ms": {
+  "pass1": 21155,
+  "pass2": 18172
+ },
+ "raw": {
+  "pass1": "Looking at this Arceus VSTAR card from the Galarian Gallery subset, I'll perform a complete defect inspection.\n\n## Initial Assessment\nThis is a gold-textured full art VSTAR card with heavy holofoil patterning. The gold texture creates a distinctive swirling pattern across the entire card face. The card appears to be in excellent condition overall.\n\n## Catastrophic Scan (Both Sides First)\n**FRONT:** Scanning for creases - checking diagonals from each corner, horizontal mid-card lines, and any line discontinuities crossing the artwork. The swirling gold texture makes this challenging, but I see no straight lines or angular discontinuities that would indicate a crease. No paper loss, tears, water damage, or writing visible.\n\n**BACK:** Examining the blue Pokemon back carefully. The white energy swirls are part of the design - they are soft-edged and curved. Checking for any straight fractured lines crossing the Pokeball or running through the card. I see no creases, no paper loss, no tears. The back appears clean and intact.\n\n## Surface Inspection\n\n**FRONT Surface:**\n- The gold holofoil texture shows natural pattern variation - this is the card's design, not damage\n- Examining the artwork area around Arceus - no scratches cutting across the pattern\n- Text boxes appear clean with no print defects\n- No dents, pits, or indentations visible\n- No staining or discoloration\n\n**BACK Surface:**\n- The Pokeball and surrounding design are crisp and clean\n- No scratches visible on the surface\n- No print lines or defects\n- No dents or surface depressions\n- The blue coloring is consistent with no staining\n\n## Corner/Edge Review (for context - already measured)\nThe measured values show all corners and edges as \"clean\" with wear scores of 0.00-0.02. Visually confirming: I don't see exposed paper fibers at any corner tips or along any edges. The dark blue border on the back shows no whitening. The gold borders on the front show no chips or wear.\n\n## Glare Assessment\n**FRONT:** There's some brightness variation from the gold holofoil texture, but this is the card's natural reflective properties, not camera glare obscuring details.\n**BACK:** Clean photography with no significant glare issues.\n\n## Final Verification\n- No structural defects found (creases, tears, paper loss)\n- No surface defects found (scratches, dents, pits, stains)\n- No print defects visible\n- Card surfaces appear intact on both sides\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Arceus VSTAR\",\n    \"setName\": \"Crown Zenith - Galarian Gallery\",\n    \"cardNumber\": \"GG70/GG70\",\n    \"rarity\": \"Ultra Rare\",\n    \"year\": \"2023\",\n    \"hp\": \"280\",\n    \"variant\": \"Galarian Gallery Gold\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Card surfaces are clean with no visible scratches or surface wear\",\n      \"No creases or structural damage detected on either side\",\n      \"Gold holofoil texture is intact with no damage cutting across the pattern\",\n      \"Back shows crisp printing with no whitening along edges or corners\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This card presents in excellent physical condition with no visible defects on either the front or back surfaces.\"\n  }\n}\n```",
+  "pass2": "Looking at this Arceus VSTAR card from the Galarian Gallery subset, I'll perform a complete defect inspection.\n\n**Card Identification:**\nThis is Arceus VSTAR GG70/GG70 from the Crown Zenith Galarian Gallery, a gold-textured full art VSTAR card with 280 HP.\n\n**Overall Condition Assessment:**\nThe card appears to be in excellent condition. The gold textured holofoil surface is intact, and the back shows the standard Pokemon design with clean printing.\n\n**Catastrophic Scan (Both Sides):**\n- FRONT: No creases visible. Tracing diagonals from each corner and horizontal mid-card lines - no line discontinuities crossing the artwork. The swirling energy pattern around Arceus is part of the design, not damage.\n- BACK: Examining the blue Pokemon back carefully. The white energy swirls are soft-edged and curved - these are printed design elements. No straight fractured lines crossing the Pokeball or running through the card. No paper loss, tears, water damage, or writing detected.\n\n**Corner Inspection (skipped per instructions - measured by model):**\nAll 8 corners measured as clean (wear scores 0.00-0.01).\n\n**Edge Inspection (skipped per instructions - measured by model):**\nAll 8 edges measured as clean (wear scores 0.01-0.02).\n\n**Front Surface Inspection:**\n- The gold textured pattern shows consistent printing throughout\n- No scratches cutting across the holofoil texture\n- No dents or indentations visible\n- No print lines or ink defects\n- No pits or stains\n- The artwork of Arceus is crisp and undamaged\n\n**Back Surface Inspection:**\n- The blue background is uniform with no discoloration\n- The Pokeball artwork is intact\n- No scratches visible on the surface\n- No print defects or ink spots\n- The \"Pokemon\" text at top and bottom is clean\n- No play wear or surface scuffing detected\n\n**Glare Assessment:**\n- Front images show no significant glare - the gold texture is visible throughout\n- Back images are clean with no glare interference\n\n**Re-read against TYPE-SPECIFIC DETECTION BIAS:**\n- Structural defects: None found after thorough crease hunt on both sides\n- Cosmetic defects: No exposed paper fibers visible at any corner or edge; the clean measurements align with visual inspection\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Arceus VSTAR\",\n    \"setName\": \"Crown Zenith - Galarian Gallery\",\n    \"cardNumber\": \"GG70/GG70\",\n    \"rarity\": \"Ultra Rare\",\n    \"year\": \"2023\",\n    \"hp\": \"280\",\n    \"variant\": \"Gold Textured Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Gold textured holofoil surface is pristine with no scratches or wear\",\n      \"All corners appear sharp with no visible whitening or fiber exposure\",\n      \"Card back is clean with uniform coloring and no surface defects\",\n      \"No creases, dents, or structural damage detected on either side\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This card is in excellent physical condition with no visible defects on either the front or back surfaces.\"\n  }\n}\n```"
+ }
+}

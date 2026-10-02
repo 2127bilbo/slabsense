@@ -1,0 +1,48 @@
+{
+ "cert": "C1287305",
+ "arm": "maps",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 9,
+ "tagLabel": "9 MINT",
+ "tag": {
+  "centering": 939,
+  "corners": 1000,
+  "edges": 1000,
+  "surface": 1000,
+  "surfaceFront": 1000,
+  "surfaceBack": 1000
+ },
+ "estimateAfterPass1": 9,
+ "grade": 9,
+ "displayGrade": "9",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 92,
+  "backCentering": 97
+ },
+ "defects": [],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 16980,
+   "outputTokens": 1021
+  },
+  "pass2": {
+   "inputTokens": 17980,
+   "outputTokens": 945
+  }
+ },
+ "ms": {
+  "pass1": 24458,
+  "pass2": 22872
+ },
+ "raw": {
+  "pass1": "Looking at this Dark Patch gold secret rare card from Lost Origin, I'll perform a systematic inspection.\n\n## Initial Assessment\nThis is a gold secret rare trainer card with heavy holofoil texture. The card appears to be in excellent condition overall. The gold textured surface will create significant light reflection patterns that I need to distinguish from actual damage.\n\n## Catastrophic Scan (Both Sides First)\n**FRONT:** Examining for creases, tears, paper loss. The emboss filter (image 5) shows the textured holofoil pattern but no linear discontinuities crossing the card that would indicate creases. The diagonal light rays in the artwork are part of the design. No paper loss visible - all white/bright areas are soft-edged glare from the gold foil, not hard-edged missing stock.\n\n**BACK:** The emboss filter (image 6) shows some concerning linear patterns. Looking carefully at the upper left quadrant, there appear to be faint diagonal lines. Checking against the normal photo (image 2/4) - the back appears clean with the standard Pokemon design. The swirl patterns are part of the design. No straight fractured lines crossing through the Pokeball or spanning the card width. The lines in the filtered image appear to be artifacts from the print texture rather than actual creases - they don't show in the normal photos as disrupted surface.\n\n## Corner Inspection (Skipping per instructions - already measured as clean)\n\n## Edge Inspection (Skipping per instructions - already measured as clean)\n\n## Front Surface Inspection\n- **Top area (TRAINER/Item text):** Clean gold foil, no scratches or pits visible\n- **Art box area:** The blue energy symbol disc shows clean printing. The dotted pattern is intentional design. No scratches cutting across the pattern.\n- **Text box:** Clean, legible text\n- **Bottom area:** Clean gold texture, illustrator credit visible\n\nThe high-pass filter (image 7) shows the textured foil pattern clearly but no anomalous scratches, pits, or dents that aren't part of the design.\n\n## Back Surface Inspection\n- **Upper area:** Clean blue with Pokemon logo\n- **Center Pokeball:** Clean, no damage\n- **Lower area:** Clean\n\nThe high-pass filter (image 8) shows clean surface texture. The swirl patterns are design elements.\n\n## Glare Assessment\n**FRONT:** There are bright reflective streaks from the gold foil, particularly in the upper right and lower portions - these are normal holofoil reflections, soft-edged, following the light source. Not damage.\n\n**BACK:** Minimal glare, clean imaging.\n\n## Re-evaluation Against Detection Bias\n- Structural defects: None found after careful examination of filtered images\n- Cosmetic wear: The corner/edge model found all clean - I see no exposed paper fibers to contradict this\n- No over-reporting of corners needed as none show visible damage\n\nThis card appears to be in excellent condition with no reportable defects.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Dark Patch\",\n    \"setName\": \"Lost Origin\",\n    \"cardNumber\": \"216/196\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": \"2022\",\n    \"hp\": null,\n    \"variant\": \"Gold Secret Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Gold holofoil surface is clean with no visible scratches or pits\",\n      \"All corners appear sharp with no visible whitening or fiber exposure\",\n      \"Card back is pristine with clean blue coloring and no wear\",\n      \"No creases, dents, or structural damage detected on either side\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This card is in excellent physical condition with clean surfaces, sharp corners, and no structural damage visible.\"\n  }\n}\n```",
+  "pass2": "Looking at this Dark Patch gold secret rare card from Sword & Shield Lost Origin, I'll perform a systematic inspection.\n\n**Overall Condition Assessment:**\nThis is a gold secret rare trainer card with a heavily textured holofoil surface. The card appears to be in excellent condition overall with clean corners and edges.\n\n**Catastrophic Scan (Both Sides):**\n- Front: No creases, tears, paper loss, or water damage visible. The diagonal light streaks in the artwork are part of the cosmic/space design, not damage.\n- Back: Examining the relief/emboss images carefully - I see some wavy lines in the filtered images (5 and 6), but cross-referencing with the actual photos (images 2 and 4), these appear to be normal card texture/slight natural warping rather than creases. No hard-edged white patches indicating paper loss. No tears or writing.\n\n**Corner Inspection (per measured data - all clean):**\nReviewing all 8 corners in the images - the gold borders show no exposed paper fibers. The corners appear factory-sharp with no whitening, dings, or fraying visible.\n\n**Edge Inspection (per measured data - all clean):**\nAll edges appear clean with no chips, nicks, or whitening along the cut lines.\n\n**Front Surface Inspection:**\n- The gold textured holofoil shows its characteristic swirling pattern\n- The blue Dark Energy symbol disc is clean with no scratches crossing the pattern\n- Text box is clear and legible\n- Some bright spots visible (top right area, bottom center) are camera glare/flash reflection on the gold foil surface - these are soft-edged and follow light patterns, not damage\n- No print lines, pits, dents, or scratches detected\n\n**Back Surface Inspection:**\n- Standard Pokemon card back appears clean\n- The white energy swirls are part of the printed design (soft-edged, curved)\n- No straight fractured lines crossing the Pokeball or borders\n- No stains, scratches, or surface damage visible\n- Corners and edges show no whitening\n\n**Crease Hunt:**\n- Traced diagonals from all corners on both sides\n- Checked horizontal mid-card lines\n- The emboss filter (images 5-6) shows some texture but nothing that appears as a crease in the actual photos\n- No line discontinuities crossing printed elements\n\n**Re-evaluation per Detection Bias:**\n- No structural defects found (crease, tear, dent, stain, pit)\n- No cosmetic defects with visible exposed paper fibers\n- The prior scan reported zero defects - this appears accurate\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Dark Patch\",\n    \"setName\": \"Lost Origin\",\n    \"cardNumber\": \"216/196\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": \"2022\",\n    \"hp\": null,\n    \"variant\": \"Gold Secret Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"All eight corners are factory-sharp with no visible wear or whitening\",\n      \"Gold holofoil surface is clean with no scratches or print defects\",\n      \"Card back is pristine with no damage to the blue border or artwork\",\n      \"No structural damage such as creases, dents, or tears detected\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This card is in excellent physical condition with no visible defects on either surface, corners, or edges.\"\n  }\n}\n```"
+ }
+}

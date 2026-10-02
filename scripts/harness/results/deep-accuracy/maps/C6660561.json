@@ -1,0 +1,79 @@
+{
+ "cert": "C6660561",
+ "arm": "maps",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 7,
+ "tagLabel": "7 NEAR MINT",
+ "tag": {
+  "centering": 982,
+  "corners": 987,
+  "edges": 999,
+  "surface": 752,
+  "surfaceFront": 1000,
+  "surfaceBack": 703
+ },
+ "estimateAfterPass1": 10,
+ "grade": 8.5,
+ "displayGrade": "8.5",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 90.69,
+  "frontEdges": 100,
+  "backEdges": 91.25,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "LEFT EDGE"
+  }
+ ],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 17020,
+   "outputTokens": 919
+  },
+  "pass2": {
+   "inputTokens": 17607,
+   "outputTokens": 977
+  }
+ },
+ "ms": {
+  "pass1": 19672,
+  "pass2": 22047
+ },
+ "raw": {
+  "pass1": "Looking at this card, I'll perform a systematic inspection.\n\n## Card Identification\nThis is a Mysterious Fossil Trainer card from the Fossil set, card 62/62, a common card from 1999.\n\n## Initial Assessment\nThe card appears to be in good overall condition. This is a non-holo trainer card with a gold/yellow border.\n\n## Catastrophic Scan (Both Sides First)\n**Front:** Examining for creases, tears, paper loss - I don't see any line discontinuities crossing the print. The emboss filter (image 5) and high-pass (image 7) don't reveal any crease lines crossing the card surface. No paper loss or tears visible.\n\n**Back:** Checking the relief image (image 6) - I can see some very faint diagonal texture lines in the upper portion of the card, but these appear to follow the natural swirl pattern of the card back design rather than being structural creases. The high-pass image (image 8) shows the card texture but no sharp discontinuities that would indicate a crease. No tears or paper loss visible.\n\n## Surface Inspection (My Task)\n\n**Front Surface:**\n- The artwork area showing fossils is clean\n- The text box is clear and legible\n- The gold border appears intact\n- No scratches, dents, pits, or print defects visible\n- The emboss and high-pass filtered images confirm a clean surface\n\n**Back Surface:**\n- The Pokeball and swirl design are intact\n- Looking at the high-pass image (8), I can see some very subtle surface texture variations but nothing that constitutes a scratch or dent\n- The two bright spots on the lower portion of the Pokeball are lighting reflections (glare), not damage - they have soft edges and the printed design is visible through them\n- No print defects, stains, or structural damage visible\n\n## Crease Hunt\nTracing diagonals from each corner and horizontal mid-card lines on both sides:\n- Front: No line discontinuities found\n- Back: The white swirls are part of the design (soft-edged, curved, following the artwork). No straight fractured lines crossing the Pokeball or borders.\n\n## Re-evaluation\nThe corner/edge model has already flagged minor wear on all four back corners and moderate wear on the left edge. I should not duplicate these. For surface defects, I don't see any that meet the threshold for reporting - no exposed fibers, no scratches penetrating the surface, no dents or print defects.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mysterious Fossil\",\n    \"setName\": \"Fossil\",\n    \"cardNumber\": \"62/62\",\n    \"rarity\": \"Common\",\n    \"year\": \"1999\",\n    \"hp\": \"10\",\n    \"variant\": null,\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"back\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"BOTTOM CENTER\"]\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with no visible scratches, dents, or print defects\",\n      \"No creases or structural damage detected on either side\",\n      \"Text and artwork are crisp and well-preserved\",\n      \"Back surface shows no significant surface damage\"\n    ],\n    \"concerns\": [\n      \"Back corners show minor wear as detected by automated inspection\",\n      \"Left edge of back shows moderate wear\"\n    ],\n    \"recommendation\": \"Card is in good condition with wear concentrated on the back corners and left edge; front presents very well with clean surfaces throughout.\"\n  }\n}\n```",
+  "pass2": "Looking at this card, I'll perform a systematic inspection.\n\n**Card Identification:**\nThis is a Mysterious Fossil Trainer card from the Fossil set, card 62/62, a common card from 1999.\n\n**Overall Condition Assessment:**\nThe card appears to be in excellent condition with clean surfaces on both sides. The front shows the characteristic gold/tan border of a Trainer card with clear artwork and text. The back shows the standard Pokemon card back design.\n\n**Catastrophic Scan (Both Sides):**\n- Checking for creases: Examining the emboss/relief images (5 and 6), I see the normal card texture and print patterns. On the back relief image (6), there are some diagonal lines visible in the upper left area - tracing these carefully, they appear to follow the natural swirl pattern of the card back design rather than being structural creases. The lines are curved and soft-edged, consistent with the printed energy swirls, not straight fractured lines.\n- No tears, paper loss, water damage, or writing visible on either side.\n\n**Front Surface Inspection:**\n- The gold border is clean and consistent\n- The TRAINER banner shows no defects\n- The fossil artwork window is clear with no scratches, dents, or print defects visible\n- The text box is clean and legible\n- No pits, scratches, or surface damage detected in the high-pass image (7)\n\n**Back Surface Inspection:**\n- The Pokeball and swirl design are intact\n- There's minor glare at the bottom center (two soft bright spots on the Pokeball's lower half) - these are reflections, not damage, as they have soft edges and the printed design is visible through them\n- No creases crossing the design - the white swirls are part of the printed artwork (curved, soft-edged)\n- No scratches, dents, or surface damage visible\n\n**Corner/Edge Review (per pre-measured data):**\nThe automated system detected minor wear on all four back corners and moderate wear on the left edge. I'm instructed not to report these as they're already measured. Looking at the images, I can see the back corners do show some very light softening, and the left edge shows slight wear - consistent with the automated findings.\n\n**Front corners and edges** were measured as clean, and visual inspection confirms no exposed paper fibers at any front corner or edge.\n\n**Crease Hunt Verification:**\n- Front: Traced diagonals from each corner, horizontal mid-card line - no discontinuities found\n- Back: The relief image shows texture but no straight lines crossing through the Pokeball or spanning the card width. The visible lines follow the curved swirl pattern of the design.\n\n**Final Assessment:**\nNo surface defects to report. The card has clean surfaces on both sides with no creases, scratches, dents, stains, or print defects visible.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mysterious Fossil\",\n    \"setName\": \"Fossil\",\n    \"cardNumber\": \"62/62\",\n    \"rarity\": \"Common\",\n    \"year\": \"1999\",\n    \"hp\": \"10\",\n    \"variant\": null,\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"back\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"BOTTOM CENTER\"]\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with no visible scratches, dents, or print defects\",\n      \"No creases or structural damage detected on either side\",\n      \"Text and artwork are crisp and well-preserved\"\n    ],\n    \"concerns\": [\n      \"Minor wear detected on back corners and left edge by automated measurement\"\n    ],\n    \"recommendation\": \"Card is in very good condition with clean surfaces; minor back corner and edge wear noted by automated systems but no surface defects observed.\"\n  }\n}\n```"
+ }
+}

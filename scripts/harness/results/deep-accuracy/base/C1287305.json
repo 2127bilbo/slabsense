@@ -1,0 +1,48 @@
+{
+ "cert": "C1287305",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 9,
+ "tagLabel": "9 MINT",
+ "tag": {
+  "centering": 939,
+  "corners": 1000,
+  "edges": 1000,
+  "surface": 1000,
+  "surfaceFront": 1000,
+  "surfaceBack": 1000
+ },
+ "estimateAfterPass1": 9,
+ "grade": 9,
+ "displayGrade": "9",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 92,
+  "backCentering": 97
+ },
+ "defects": [],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10564,
+   "outputTokens": 844
+  },
+  "pass2": {
+   "inputTokens": 11564,
+   "outputTokens": 895
+  }
+ },
+ "ms": {
+  "pass1": 18866,
+  "pass2": 19068
+ },
+ "raw": {
+  "pass1": "Looking at this Dark Patch gold secret rare card from Pokémon TCG, I'll perform a systematic inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Dark Patch (216/196) from the Lost Origin set - a gold secret rare Trainer Item card from 2022.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n- Front: Scanning for creases - checking diagonals from each corner, horizontal mid-card lines. The gold holofoil surface shows natural texture patterns but no line discontinuities crossing the print. No paper loss, tears, or water damage visible.\n- Back: Checking the standard Pokemon back for creases. The white energy swirls are soft-edged and curved (design elements). No straight fractured lines crossing the Pokeball or spanning the card width. No paper loss or tears.\n\n**FRONT SURFACE INSPECTION:**\nThe gold textured holofoil shows its natural pattern. Examining systematically:\n- Top area near \"TRAINER\" text: Clean, natural holofoil texture\n- Middle area with Dark Energy symbol: The blue circular design and gold glitter border appear intact\n- Text box area: Clean\n- Bottom area: Clean\n- No scratches cutting across the holofoil pattern\n- No dents, pits, or print defects visible\n- No stains or discoloration\n\n**BACK SURFACE INSPECTION:**\n- Central Pokeball area: Clean, intact printing\n- Blue background: Uniform color, no staining\n- White energy swirls: All appear to be design elements (soft-edged, curved)\n- No scratches, dents, or surface damage visible\n\n**IMAGE QUALITY ASSESSMENT:**\n- Front: Some light reflections from the gold holofoil surface, particularly in the upper right and lower areas - this is natural holofoil behavior, not damage\n- Back: Clean capture with minimal glare\n\n**RE-READ CHECK:**\n- Corners/edges: Already measured by the system as clean (all wear scores ≤0.06)\n- Structural damage: None found - no creases, tears, or paper loss\n- Surface defects: None identified after careful inspection\n- The card appears to be in excellent condition with no reportable defects\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Dark Patch\",\n    \"setName\": \"Lost Origin\",\n    \"cardNumber\": \"216/196\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": \"2022\",\n    \"hp\": null,\n    \"variant\": \"Gold Secret Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Gold holofoil surface is clean with no visible scratches or surface damage\",\n      \"No creases or structural damage detected on either side\",\n      \"Card back is pristine with intact printing throughout\",\n      \"All corners and edges measured as clean by automated system\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This gold secret rare card appears to be in excellent physical condition with no visible defects on either the front or back surfaces.\"\n  }\n}\n```",
+  "pass2": "Looking at this Dark Patch gold secret rare card from Lost Origin, I'll perform a systematic inspection.\n\n**Card Identification:**\nThis is Dark Patch (216/196) from the Lost Origin set - a gold secret rare Trainer Item card from 2022.\n\n**Overall Condition Assessment:**\nThe card appears to be in excellent condition. The gold textured holofoil surface shows the characteristic radial pattern typical of these secret rares. Let me examine each area carefully.\n\n**Catastrophic Scan (Both Sides):**\n- FRONT: Scanning for creases - checking diagonals from each corner, horizontal mid-card, and along borders. The light rays in the artwork are part of the design. No line discontinuities crossing the print that would indicate a crease. No paper loss, tears, or water damage visible.\n- BACK: The standard Pokemon back shows the blue swirl pattern with Pokeball. Checking for creases - the white energy swirls are soft-edged and curved (design elements). No straight fractured lines crossing the card. No structural damage visible.\n\n**Front Surface Inspection:**\n- The gold textured pattern shows normal holofoil texture throughout\n- The bright areas in TOP RIGHT and BOTTOM CENTER are soft-edged light reflections (glare from photography), not damage - the printed design is visible through them\n- The blue Dark energy symbol area is clean with no scratches crossing the dotted pattern\n- Text box area is clean and legible\n- No print defects, dents, pits, or stains visible\n\n**Back Surface Inspection:**\n- Surface appears clean and uniform\n- The blue coloring is consistent throughout\n- No scratches, dents, or surface damage visible\n- The Pokeball and text are crisp\n\n**Corner/Edge Review (per measured data):**\nThe automated measurements show all corners and edges as clean with very low wear scores (0.00-0.06 range). Visual inspection confirms no exposed paper fibers at any corner tip or along any edge.\n\n**Crease Hunt Verification:**\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear\n- Back horizontal: Clear\n- No line discontinuities found\n\n**Glare vs Defect Analysis:**\nThe bright spots on the front (top right area, bottom center) are clearly camera flash reflecting off the gold holofoil surface - they have soft fuzzy edges and the artwork remains visible through them. This is NOT damage.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Dark Patch\",\n    \"setName\": \"Lost Origin\",\n    \"cardNumber\": \"216/196\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": \"2022\",\n    \"hp\": null,\n    \"variant\": \"Gold Secret Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP RIGHT\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Gold holofoil surface is clean with no visible scratches or wear\",\n      \"All corners appear sharp with no exposed paper fibers\",\n      \"Card back is pristine with uniform coloring\",\n      \"No creases, dents, or structural damage detected on either side\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This card presents in excellent physical condition with clean surfaces, sharp corners, and no structural damage on either side.\"\n  }\n}\n```"
+ }
+}

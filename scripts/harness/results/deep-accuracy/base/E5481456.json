@@ -1,0 +1,97 @@
+{
+ "cert": "E5481456",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 3,
+ "tagLabel": "3 VG",
+ "tag": {
+  "centering": 982,
+  "corners": 723,
+  "edges": 235,
+  "surface": 800,
+  "surfaceFront": 676,
+  "surfaceBack": 100
+ },
+ "estimateAfterPass1": 10,
+ "grade": 3,
+ "displayGrade": "3",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 53.4,
+  "frontEdges": 100,
+  "backEdges": 34.19,
+  "frontSurface": 96.5,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "extreme",
+   "location": "LEFT EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "extreme",
+   "location": "RIGHT EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "severe",
+   "location": "TOP EDGE"
+  },
+  {
+   "side": "FRONT",
+   "type": "PLAY_WEAR",
+   "severity": "minor",
+   "location": "MIDDLE CENTER"
+  }
+ ],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10620,
+   "outputTokens": 917
+  },
+  "pass2": {
+   "inputTokens": 11317,
+   "outputTokens": 965
+  }
+ },
+ "ms": {
+  "pass1": 20182,
+  "pass2": 21258
+ },
+ "raw": {
+  "pass1": "Looking at this Quilava card from the Call of Legends set, I'll perform a systematic inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Quilava, Stage 1 Fire-type, 80 HP, card 49/95 from the Call of Legends set (2011), illustrated by Kagemaru Himeno. Non-holo uncommon card.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n- Front: No creases, tears, or paper loss visible. The surface appears intact.\n- Back: Examining carefully for creases - checking diagonals from corners and horizontal lines. The white energy swirls are part of the design (soft-edged, curved). I don't see any straight fractured lines crossing the Pokeball or running through the artwork. No tears or paper loss detected.\n\n**FRONT SURFACE INSPECTION:**\nThe front shows the characteristic vintage/aged yellow border typical of this era. Scanning the surface systematically:\n- The artwork area appears clean without scratches penetrating the surface\n- Text areas are legible and undamaged\n- No print defects, dents, or pits visible\n- The orange/tan lower portion shows no surface damage\n\n**BACK SURFACE INSPECTION:**\n- The blue surface appears intact\n- No scratches cutting across the design\n- No dents or indentations visible\n- The Pokeball area is clean\n- No staining or discoloration beyond normal print\n\n**CREASE HUNT (Dedicated):**\n- Front: Tracing diagonals from each corner, horizontal mid-card - no line discontinuities found\n- Back: Same systematic check - the white swirls are design elements (curved, soft-edged), no straight crackled lines detected\n\n**RE-READ CHECK:**\nThe corner/edge model has flagged severe wear on all back corners and edges. I should not duplicate those findings. For surface defects, I'm not seeing structural damage (creases/tears) or significant surface defects. The card appears to have edge/corner wear (per the model) but a relatively clean surface.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Quilava\",\n    \"setName\": \"Call of Legends\",\n    \"cardNumber\": \"49/95\",\n    \"rarity\": \"Uncommon\",\n    \"year\": \"2011\",\n    \"hp\": \"80\",\n    \"variant\": \"Non-Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"back\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"MIDDLE CENTER\"] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"PLAY_WEAR\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 50,\n      \"width\": 60,\n      \"height\": 40,\n      \"description\": \"Light surface wear visible across the artwork area consistent with handling, no deep scratches\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is largely clean with intact artwork\",\n      \"No creases, tears, or structural damage detected on either side\",\n      \"Print quality is sharp with no visible print defects\",\n      \"Card stock appears intact without paper loss or water damage\"\n    ],\n    \"concerns\": [\n      \"Corner and edge wear detected on back (per automated measurement)\",\n      \"Minor general play wear on front surface\"\n    ],\n    \"recommendation\": \"Card shows significant edge and corner wear on the back side with a relatively clean front surface; the structural integrity is intact with no creases or tears.\"\n  }\n}\n```",
+  "pass2": "Looking at this Quilava card from the Call of Legends set, I'll perform a systematic inspection.\n\n**Overall Condition Assessment:**\nThis is a 2011 Quilava card that shows signs of handling. The front appears relatively clean with some light surface wear, while the back shows more noticeable edge and corner wear based on the pre-measured data.\n\n**Catastrophic Scan (Both Sides):**\n- Checking for creases: Tracing diagonals from each corner and horizontal lines across both sides. On the front, I see no line discontinuities crossing the artwork or borders. On the back, examining the Pokeball area and energy swirls - the white swirls are soft-edged and curved, following the natural design pattern. No straight fractured lines crossing the card. No creases detected.\n- Paper loss/tears: No hard-edged white patches interrupting artwork on either side.\n- Water damage/writing: None visible.\n\n**Front Surface Inspection:**\nThe front shows the characteristic vintage-style texture of this era's cards. Looking at the orange/tan border area and the artwork:\n- There's a subtle texture/wear pattern across the surface consistent with light handling\n- The artwork area shows minor surface wear - not scratches penetrating the surface, but light handling marks\n- No print defects, pits, or stains visible\n- The silver border frame appears intact\n\n**Back Surface Inspection:**\n- The back has minor glare in the middle center area (on the Pokeball)\n- Surface appears clean aside from the edge/corner wear already measured\n- No scratches, dents, or print defects visible on the surface\n- The blue border shows the wear already captured in edge measurements\n\n**Crease Hunt Verification:**\n- Front: Traced all diagonals and horizontals - no line discontinuities\n- Back: Checked carefully around the Pokeball and through the energy swirls - all white areas are soft-edged design elements, not damage\n\n**Re-evaluation of Prior Scan:**\nThe prior scan noted \"light surface wear across artwork area\" - looking closely, I can see very faint handling marks on the front surface, but these are extremely subtle. This is legitimate minor play wear, not glare.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Quilava\",\n    \"setName\": \"Call of Legends\",\n    \"cardNumber\": \"49/95\",\n    \"rarity\": \"Uncommon\",\n    \"year\": \"2011\",\n    \"hp\": \"80\",\n    \"variant\": null,\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"back\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\"]\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"PLAY_WEAR\",\n      \"severity\": \"minor\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 45,\n      \"width\": 55,\n      \"height\": 35,\n      \"description\": \"Very light surface wear visible across the artwork area from handling, no penetrating scratches\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Front corners and edges appear clean with no visible whitening or fiber exposure\",\n      \"No creases, tears, or structural damage detected on either side\",\n      \"Artwork and text remain crisp and legible\",\n      \"No stains, dents, or print defects present\"\n    ],\n    \"concerns\": [\n      \"Back corners and edges show notable wear as measured by the automated system\",\n      \"Minor surface handling wear visible on front artwork area\"\n    ],\n    \"recommendation\": \"Card shows a clean front presentation with minor handling wear, but the back exhibits significant edge and corner wear that impacts overall condition.\"\n  }\n}\n```"
+ }
+}

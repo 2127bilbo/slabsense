@@ -1,0 +1,79 @@
+{
+ "cert": "C8902878",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 7.5,
+ "tagLabel": "7.5 NEAR MINT+",
+ "tag": {
+  "centering": 945,
+  "corners": 756,
+  "edges": 1000,
+  "surface": 1000,
+  "surfaceFront": 806,
+  "surfaceBack": 753
+ },
+ "estimateAfterPass1": 9,
+ "grade": 7,
+ "displayGrade": "7",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 88.42,
+  "frontEdges": 100,
+  "backEdges": 74.89,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 92,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "severe",
+   "location": "BOTTOM EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "LEFT EDGE"
+  }
+ ],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10604,
+   "outputTokens": 862
+  },
+  "pass2": {
+   "inputTokens": 11588,
+   "outputTokens": 860
+  }
+ },
+ "ms": {
+  "pass1": 20458,
+  "pass2": 18823
+ },
+ "raw": {
+  "pass1": "Looking at this Gengar card from Sword & Shield Lost Origin, I'll perform a systematic inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Gengar (SWSH241) from the Lost Origin set, a holo rare promo card with gold borders and 120 HP.\n\n**CATASTROPHIC SCAN (both sides first):**\n- Front: No creases, tears, or paper loss visible. The purple surface and gold borders appear intact.\n- Back: Examining carefully for creases - checking diagonals from corners and horizontal lines. The white energy swirls are part of the design (soft-edged, curved). I don't see any straight fractured lines crossing the Pokeball or running through the card. No tears or paper loss detected.\n\n**IMAGE QUALITY ASSESSMENT:**\n- Front: Very clean scan, minimal glare, good clarity\n- Back: Clean scan, the white swirls are design elements not glare\n\n**SURFACE INSPECTION (my responsibility per instructions):**\n\n*FRONT SURFACE:*\n- Gold border appears clean and consistent\n- Purple textured background shows no scratches or dents\n- Artwork area (Gengar illustration) appears clean\n- Text areas are crisp\n- No print defects, pits, or stains visible\n- Checking for surface scratches across the holo area - none detected\n\n*BACK SURFACE:*\n- The blue background appears clean\n- Pokeball artwork is intact\n- No scratches cutting across the surface\n- No dents or indentations visible\n- No print defects or stains\n- The white energy swirls are design elements (soft-edged, curved, following the artwork pattern)\n\n**CREASE HUNT (mandatory):**\n- Front: Traced diagonals from all corners, horizontal mid-card line - no discontinuities found\n- Back: Same systematic check - no crease lines detected. The white swirls follow natural curves and don't show fractured texture.\n\n**RE-READ CHECK:**\nThe corner/edge model has already flagged wear on the back (top-left moderate, bottom-left minor, bottom-right minor corners; bottom edge severe, left edge moderate). These are handled by the scoring engine. For surface defects within my scope, I found no structural damage (creases, tears, dents) or surface defects (scratches, print issues, stains).\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Gengar\",\n    \"setName\": \"Sword & Shield Promo\",\n    \"cardNumber\": \"SWSH241\",\n    \"rarity\": \"Promo\",\n    \"year\": \"2022\",\n    \"hp\": \"120\",\n    \"variant\": \"Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with no visible scratches or surface damage\",\n      \"No creases or structural damage detected on either side\",\n      \"Gold borders on front appear intact without chips or flaking\",\n      \"Print quality is sharp with no visible print defects\"\n    ],\n    \"concerns\": [\n      \"Corner and edge wear detected on back by automated measurement system\"\n    ],\n    \"recommendation\": \"Card shows clean surfaces with no structural damage; wear is limited to corners and edges on the back side as measured by the automated system.\"\n  }\n}\n```",
+  "pass2": "Looking at this Gengar card from Sword & Shield Lost Origin, I'll perform a systematic inspection.\n\n**Card Identification:**\nThis is a Gengar (SWSH241) from the Lost Origin set, a Stage 2 Psychic-type with 120 HP. It has a gold/yellow border and appears to be a promo or special variant.\n\n**Overall Condition Assessment:**\nThe card appears to be in reasonably good condition on the front, but the back shows some notable wear issues that the corner/edge model has already detected.\n\n**Catastrophic Scan (Both Sides):**\n- FRONT: No creases, tears, paper loss, or water damage visible. The purple/gold surface is intact.\n- BACK: Checking for creases - tracing diagonals from corners and horizontal lines across the card. The white energy swirls are part of the design (soft-edged, curved). I don't see any straight fractured lines crossing through the Pokeball or spanning the card width. No tears or paper loss detected.\n\n**Front Surface Inspection:**\n- The gold border is clean and consistent\n- The purple card face shows no scratches, dents, or print defects\n- The artwork area is clean with no visible surface damage\n- Text areas are crisp with no print issues\n- No pits, stains, or play wear visible on the surface\n\n**Back Surface Inspection:**\n- The blue surface appears clean in the central areas\n- The Pokeball artwork is intact\n- The white energy swirls are design elements, not damage\n- No visible scratches cutting across the surface\n- No dents or indentations visible\n- No print defects or staining observed\n\n**Corner/Edge Analysis (for context - already measured by model):**\nThe model detected wear on back corners (TL moderate, BL/BR minor) and edges (bottom severe, left moderate). Looking at the images, I can see the back does show some edge wear along the bottom and left side, consistent with the model's findings. These are NOT my findings to report per instructions.\n\n**Surface Defect Hunt:**\nExamining both surfaces carefully for any scratches, print lines, or surface damage that would be my responsibility to report... The surfaces appear clean without visible scratches, dents, pits, or print defects.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Gengar\",\n    \"setName\": \"Sword & Shield Lost Origin\",\n    \"cardNumber\": \"SWSH241\",\n    \"rarity\": \"Promo\",\n    \"year\": \"2022\",\n    \"hp\": \"120\",\n    \"variant\": \"Gold Border Promo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with no visible scratches or surface damage\",\n      \"Gold border on front is intact and consistent\",\n      \"No creases or structural damage detected on either side\",\n      \"Artwork and text areas are crisp and undamaged\"\n    ],\n    \"concerns\": [\n      \"Back corners and edges show wear as detected by automated measurement system\"\n    ],\n    \"recommendation\": \"Card front is in excellent condition with clean surfaces; back shows corner and edge wear that has been measured by the automated system.\"\n  }\n}\n```"
+ }
+}

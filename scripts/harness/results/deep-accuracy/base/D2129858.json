@@ -1,0 +1,85 @@
+{
+ "cert": "D2129858",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 4,
+ "tagLabel": "4 VG EX",
+ "tag": {
+  "centering": 952,
+  "corners": 722,
+  "edges": 1000,
+  "surface": 338,
+  "surfaceFront": 805,
+  "surfaceBack": 232
+ },
+ "estimateAfterPass1": 10,
+ "grade": 8,
+ "displayGrade": "8",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 82.83,
+  "frontEdges": 100,
+  "backEdges": 88.21,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "RIGHT EDGE"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "minor",
+   "location": "LEFT EDGE"
+  }
+ ],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10612,
+   "outputTokens": 939
+  },
+  "pass2": {
+   "inputTokens": 11205,
+   "outputTokens": 964
+  }
+ },
+ "ms": {
+  "pass1": 21646,
+  "pass2": 20053
+ },
+ "raw": {
+  "pass1": "Looking at this Voltorb SH3 Shiny card from the Stormfront set, I'll perform a complete defect inspection.\n\n## Initial Assessment\nThis is a reverse holo/shiny Voltorb card with a gold holofoil border. The front appears to be in excellent condition with the characteristic rainbow holofoil pattern. The back shows visible wear, particularly at corners and edges.\n\n## Catastrophic Scan (Both Sides First)\n**FRONT:** No creases, tears, paper loss, or water damage visible. The holofoil pattern shows natural rainbow shimmer throughout - this is the card's design, not damage.\n\n**BACK:** I need to carefully examine for creases. Looking at the back, I see the standard Pokemon card back design. Checking diagonals from each corner and horizontal lines... I don't see any crease lines crossing through the Pokeball or spanning the card width. The white energy swirls are soft-edged and curved - part of the design. No structural creases detected.\n\n## Corner & Edge Analysis (Per Instructions - Already Measured)\nThe corner/edge model has already assessed these - I will NOT report corner or edge defects as instructed.\n\n## Surface Inspection\n\n**FRONT Surface:**\nScanning systematically across the holofoil surface... The rainbow shimmer and color shifts are natural holofoil texture. I don't see any scratches cutting across the pattern, no print lines, no dents or indentations. The artwork area (Voltorb illustration) is clean. Text areas are crisp. No surface defects detected on front.\n\n**BACK Surface:**\nExamining the blue Pokemon back surface zone by zone:\n- Top area around \"Pokemon\" text: Clean\n- Middle area around Pokeball: Clean, no scratches or dents visible\n- Bottom area: Clean\n- General surface: No visible scratches, stains, or print defects on the surface itself\n\nThe wear is concentrated at corners and edges (already measured by the model), but the central surface area appears clean.\n\n## Crease Hunt Verification\n- Front diagonals: No line discontinuities\n- Front horizontal mid-card: Clean\n- Back diagonals: No crease lines\n- Back horizontal: No crease lines crossing the Pokeball or full width\n\n## Final Assessment\nThe front is in excellent condition. The back shows corner and edge wear (already captured by the measurement system), but no surface defects requiring my report. No structural damage (creases, tears, paper loss) detected.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Voltorb\",\n    \"setName\": \"Stormfront\",\n    \"cardNumber\": \"SH3\",\n    \"rarity\": \"Shiny Rare\",\n    \"year\": \"2008\",\n    \"hp\": \"60\",\n    \"variant\": \"Shiny\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is pristine with vibrant holofoil pattern intact\",\n      \"No creases, tears, or structural damage on either side\",\n      \"Artwork and text remain crisp and undamaged\",\n      \"Back surface is clean with no scratches or stains\"\n    ],\n    \"concerns\": [\n      \"Back corners show moderate wear as measured by corner detection system\",\n      \"Back edges show minor to moderate wear along left and right sides\"\n    ],\n    \"recommendation\": \"Card front is in excellent condition; back shows corner and edge wear typical of light play or handling, but no structural damage is present.\"\n  }\n}\n```",
+  "pass2": "Looking at this Voltorb SH3 Secret Rare card from the Stormfront set, I'll perform a complete defect inspection.\n\n**Overall Condition Assessment:**\nThis is a reverse holo shiny Voltorb card that appears to be in good condition on the front, but the back shows notable wear at corners and edges. The holofoil pattern on the front is intact with natural rainbow shimmer visible.\n\n**Catastrophic Scan (Both Sides First):**\n- FRONT: No creases, tears, paper loss, or water damage visible. The holofoil surface appears intact.\n- BACK: Checking for creases - I see the natural white energy swirl pattern of the card back design. Tracing diagonals from each corner and horizontal mid-card lines... I do NOT see any straight fractured lines crossing through the Pokeball or spanning the card width. The white swirls are soft-edged and curved, consistent with the printed design, not crease damage. No tears, paper loss, or water damage.\n\n**Corner and Edge Analysis (Already measured by model - skipping per instructions):**\nThe corner/edge model has already identified:\n- Back corners showing minor to moderate wear\n- Back edges showing minor to moderate wear\n- Front corners and edges are clean\n\n**Front Surface Inspection:**\nScanning systematically across the holofoil surface:\n- TOP CENTER: Natural holofoil shimmer/glare from lighting - soft-edged brightness, not damage\n- MIDDLE CENTER: Rainbow holofoil pattern visible - this is the card's natural texture\n- Artwork area (Voltorb illustration): Clean, no scratches cutting across the holo pattern\n- Text areas: Clean and legible\n- Yellow border areas: No chips, scratches, or print defects visible\n- No dents, pits, or indentations detected\n\n**Back Surface Inspection:**\n- Central Pokeball area: Clean, no scratches or wear\n- Blue background: Examining for scratches or surface wear... appears clean\n- White energy swirls: Part of design, not damage\n- No stains, pits, or print defects visible on the surface itself\n\n**Crease Hunt Verification:**\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear\n- Back horizontal mid-card: Clear\n- No line discontinuities crossing printed elements\n\n**Type-Specific Detection Bias Check:**\n- Structural defects: None found after thorough inspection\n- Cosmetic defects: Corner/edge wear already captured by the model; no additional surface defects to report\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Voltorb\",\n    \"setName\": \"Stormfront\",\n    \"cardNumber\": \"SH3\",\n    \"rarity\": \"Shiny Rare\",\n    \"year\": \"2008\",\n    \"hp\": \"60\",\n    \"variant\": \"Shiny/Secret Rare\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface holofoil is clean with no scratches penetrating the pattern\",\n      \"No creases or structural damage on either side\",\n      \"Front corners and edges are clean with no visible wear\",\n      \"Print quality is sharp with no defects\"\n    ],\n    \"concerns\": [\n      \"Back corners show wear ranging from minor to moderate as detected by corner model\",\n      \"Back edges show minor to moderate wear particularly on left and right edges\"\n    ],\n    \"recommendation\": \"Card has a clean front presentation but shows notable corner and edge wear on the back side consistent with light to moderate handling.\"\n  }\n}\n```"
+ }
+}

@@ -1,0 +1,127 @@
+{
+ "cert": "H5675516",
+ "arm": "maps",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 1,
+ "tagLabel": "1 POOR",
+ "tag": {
+  "centering": 845,
+  "corners": 161,
+  "edges": 1000,
+  "surface": 215,
+  "surfaceFront": 100,
+  "surfaceBack": 120
+ },
+ "estimateAfterPass1": 1,
+ "grade": 1,
+ "displayGrade": "1",
+ "subgrades": {
+  "frontCorners": 62.61,
+  "backCorners": 53.4,
+  "frontEdges": 100,
+  "backEdges": 72,
+  "frontSurface": 10,
+  "backSurface": 10,
+  "frontCentering": 82.5,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "FRONT",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "FRONT",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "severe",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "extreme",
+   "location": "TOP EDGE"
+  },
+  {
+   "side": "FRONT",
+   "type": "STAIN",
+   "severity": "extreme",
+   "location": "BOTTOM CENTER"
+  },
+  {
+   "side": "FRONT",
+   "type": "CREASE",
+   "severity": "severe",
+   "location": "MIDDLE CENTER"
+  },
+  {
+   "side": "BACK",
+   "type": "CREASE",
+   "severity": "severe",
+   "location": "MIDDLE CENTER"
+  },
+  {
+   "side": "BACK",
+   "type": "CREASE",
+   "severity": "severe",
+   "location": "MIDDLE CENTER"
+  },
+  {
+   "side": "BACK",
+   "type": "SCRATCH",
+   "severity": "extreme",
+   "location": "MIDDLE LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "PLAY_WEAR",
+   "severity": "moderate",
+   "location": "BOTTOM CENTER"
+  }
+ ],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 17036,
+   "outputTokens": 1431
+  },
+  "pass2": {
+   "inputTokens": 18687,
+   "outputTokens": 1538
+  }
+ },
+ "ms": {
+  "pass1": 27691,
+  "pass2": 29628
+ },
+ "raw": {
+  "pass1": "Looking at this Base Set Pikachu card, I'll perform a systematic inspection focusing on surface defects, creases, and structural damage (corners/edges are pre-measured).\n\n## Initial Assessment\nThis is a heavily played vintage Base Set Pikachu with obvious structural damage visible immediately. The card shows significant wear consistent with extensive play use.\n\n## CATASTROPHIC SCAN (Both Sides First)\n\n**BACK - Critical Structural Damage:**\nLooking at the back images (especially the emboss/relief in image 6), I can see a prominent horizontal crease running across the card through the Pokeball area. This is a STRAIGHT line with fractured texture crossing from left edge to right edge - this is NOT part of the swirl design (which is curved). The line runs roughly horizontally through the center of the card, clearly visible as a white/light discontinuity in the normal photos and as a sharp ridge in the filtered images.\n\nThere's also a vertical crease/fold line running from approximately the top center down through the Pokeball - visible in both normal and filtered images.\n\n**FRONT Surface:**\nThe emboss filter (image 5) reveals surface texture disturbances. There appear to be creases that correspond to the back damage showing through. The card surface shows general wear patterns.\n\n## Surface Inspection\n\n**FRONT Surface:**\n- General surface wear/scuffing visible across the yellow border areas\n- Some light scratching visible on the illustration window\n- The bottom portion shows discoloration/staining (brownish toning along bottom edge area)\n- No paper loss or tears visible\n\n**BACK Surface:**\n- Major horizontal crease across center - this is structural damage with visible paper fiber disturbance\n- Vertical crease running through center\n- Multiple surface scratches visible\n- Small dark spots/debris marks scattered on surface (visible near Pokeball)\n- Edge whitening visible along top edge area\n- General surface wear throughout\n\n## Crease Hunt Verification\n- Diagonal from top-left: traces through, intersects with vertical crease\n- Diagonal from top-right: clear path\n- Horizontal mid-card: CONFIRMED CREASE - runs full width\n- The horizontal crease on back is unmistakable - it's a straight fractured line crossing through the Pokeball, NOT following the curved swirl design\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Pikachu\",\n    \"setName\": \"Base Set\",\n    \"cardNumber\": \"58/102\",\n    \"rarity\": \"Common\",\n    \"year\": \"1999\",\n    \"hp\": \"40\",\n    \"variant\": null,\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"MIDDLE CENTER\"] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"BACK\",\n      \"type\": \"CREASE\",\n      \"severity\": \"extreme\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 45,\n      \"width\": 90,\n      \"height\": 3,\n      \"description\": \"Major horizontal crease spanning nearly full card width, running through the Pokeball with visible paper fiber fracturing and white stress line\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"CREASE\",\n      \"severity\": \"severe\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 48,\n      \"y\": 35,\n      \"width\": 3,\n      \"height\": 40,\n      \"description\": \"Vertical crease running from upper center down through Pokeball area, intersecting with horizontal crease\"\n    },\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"CREASE\",\n      \"severity\": \"severe\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 45,\n      \"width\": 85,\n      \"height\": 2,\n      \"description\": \"Horizontal crease visible through front surface corresponding to back damage, subtle surface distortion across illustration\"\n    },\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"STAIN\",\n      \"severity\": \"moderate\",\n      \"location\": \"BOTTOM CENTER\",\n      \"x\": 50,\n      \"y\": 92,\n      \"width\": 60,\n      \"height\": 8,\n      \"description\": \"Brown discoloration/toning along bottom border area of card front\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE LEFT\",\n      \"x\": 20,\n      \"y\": 50,\n      \"width\": 15,\n      \"height\": 30,\n      \"description\": \"Multiple light surface scratches visible on left side of card back\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PLAY_WEAR\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 70,\n      \"width\": 40,\n      \"height\": 25,\n      \"description\": \"General surface wear and scuffing across lower portion of card back with minor debris marks\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\"Card retains original artwork clarity and text legibility\", \"No tears or missing card stock\", \"Front illustration remains vibrant despite wear\"],\n    \"concerns\": [\"Major horizontal crease spanning card width through back\", \"Secondary vertical crease through center\", \"Significant corner and edge wear throughout\", \"Brown toning/staining on front bottom border\"],\n    \"recommendation\": \"This card exhibits heavy play wear with multiple structural creases compromising card integrity; suitable for binder collections but not competitive grading\"\n  }\n}\n```",
+  "pass2": "Looking at this Base Set Pikachu card, I'll perform a systematic inspection.\n\n## Overall Condition Assessment\nThis is a heavily played vintage card with significant structural damage. The card shows major creasing on the back, surface wear, and age-related toning.\n\n## Catastrophic Scan (Both Sides First)\n\n**BACK - Critical Structural Damage:**\n- There is a prominent horizontal crease running across the card at approximately the Pokeball level. This is clearly visible as a white stress line with fractured paper fibers - NOT part of the swirl design. It runs nearly the full width of the card.\n- A vertical crease runs from the upper portion down through the center, intersecting with the horizontal crease near the Pokeball. This creates a cross-pattern of damage.\n- The emboss/relief images (5-6) confirm these as true creases - sharp ridge lines crossing the card surface.\n\n**FRONT - Structural Damage:**\n- The horizontal crease from the back is visible through the front as a subtle surface distortion running through the illustration area.\n- Brown toning/discoloration along the bottom border area - this is age-related staining, not glare (it has consistent coloration and doesn't shift with lighting).\n\n## Surface Inspection\n\n**FRONT Surface:**\n- The yellow border shows age toning throughout\n- Minor surface wear visible across the illustration\n- The bright spot on Pikachu's belly is glare from photography (soft-edged, follows light pattern)\n\n**BACK Surface:**\n- Multiple light scratches visible on the left side of the card\n- General surface scuffing and play wear across the lower portion\n- Small debris marks/pitting visible in the lower center area\n- The high-pass image (8) shows extensive surface texture disruption consistent with heavy play\n\n## Corner/Edge Assessment (Noted but not reported per instructions)\nThe measured values show severe wear on multiple corners and extreme edge wear on the top edge - consistent with what I observe.\n\n## Verification of Prior Scan Findings\n- Horizontal crease (BACK): CONFIRMED - extreme severity appropriate, clearly spans card width\n- Vertical crease (BACK): CONFIRMED - severe, intersects horizontal crease\n- Front crease: CONFIRMED - visible surface distortion from back damage\n- Bottom stain: CONFIRMED - brown toning along bottom border\n- Back scratches: CONFIRMED - visible on left side\n- Back play wear: CONFIRMED - scuffing and debris marks present\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Pikachu\",\n    \"setName\": \"Base Set\",\n    \"cardNumber\": \"58/102\",\n    \"rarity\": \"Common\",\n    \"year\": \"1999\",\n    \"hp\": \"40\",\n    \"variant\": null,\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [\n    {\n      \"side\": \"BACK\",\n      \"type\": \"CREASE\",\n      \"severity\": \"extreme\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 44,\n      \"width\": 88,\n      \"height\": 3,\n      \"description\": \"Major horizontal crease spanning nearly full card width through Pokeball area with visible white paper fiber fracturing and stress line\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"CREASE\",\n      \"severity\": \"severe\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 47,\n      \"y\": 32,\n      \"width\": 3,\n      \"height\": 38,\n      \"description\": \"Vertical crease running from upper center down through Pokeball, intersecting horizontal crease with visible surface disruption\"\n    },\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"CREASE\",\n      \"severity\": \"severe\",\n      \"location\": \"MIDDLE CENTER\",\n      \"x\": 50,\n      \"y\": 44,\n      \"width\": 80,\n      \"height\": 2,\n      \"description\": \"Horizontal crease visible through front surface as subtle distortion across illustration area, corresponding to back damage\"\n    },\n    {\n      \"side\": \"FRONT\",\n      \"type\": \"STAIN\",\n      \"severity\": \"moderate\",\n      \"location\": \"BOTTOM CENTER\",\n      \"x\": 50,\n      \"y\": 93,\n      \"width\": 65,\n      \"height\": 7,\n      \"description\": \"Brown age-related toning and discoloration along bottom border area of card front\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"SCRATCH\",\n      \"severity\": \"moderate\",\n      \"location\": \"MIDDLE LEFT\",\n      \"x\": 18,\n      \"y\": 48,\n      \"width\": 12,\n      \"height\": 28,\n      \"description\": \"Multiple light surface scratches visible on left side of card back running vertically\"\n    },\n    {\n      \"side\": \"BACK\",\n      \"type\": \"PLAY_WEAR\",\n      \"severity\": \"moderate\",\n      \"location\": \"BOTTOM CENTER\",\n      \"x\": 50,\n      \"y\": 72,\n      \"width\": 45,\n      \"height\": 22,\n      \"description\": \"General surface scuffing and wear across lower portion of card back with minor debris marks and pitting\"\n    }\n  ],\n  \"summary\": {\n    \"positives\": [\n      \"Card retains original artwork clarity and text legibility\",\n      \"No tears or missing card stock despite heavy play\",\n      \"Front illustration remains largely intact despite creasing\"\n    ],\n    \"concerns\": [\n      \"Major horizontal crease spanning nearly full card width on back\",\n      \"Secondary vertical crease creating cross-pattern damage\",\n      \"Significant age toning along bottom border\",\n      \"Heavy play wear and scratching on back surface\"\n    ],\n    \"recommendation\": \"This heavily played vintage card shows significant structural damage from multiple creases and extensive surface wear consistent with years of use; suitable for binder collections but not for high-grade preservation.\"\n  }\n}\n```"
+ }
+}

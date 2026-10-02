@@ -1,0 +1,48 @@
+{
+ "cert": "E6899567",
+ "arm": "maps",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 10,
+ "tagLabel": "10 GEM MINT",
+ "tag": {
+  "centering": 974,
+  "corners": 1000,
+  "edges": 1000,
+  "surface": 971,
+  "surfaceFront": 1000,
+  "surfaceBack": 968
+ },
+ "estimateAfterPass1": 10,
+ "grade": 10,
+ "displayGrade": "10",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 16980,
+   "outputTokens": 977
+  },
+  "pass2": {
+   "inputTokens": 17573,
+   "outputTokens": 1138
+  }
+ },
+ "ms": {
+  "pass1": 22434,
+  "pass2": 24422
+ },
+ "raw": {
+  "pass1": "Looking at this Arceus VSTAR card from the Galarian Gallery subset, I'll perform a systematic inspection.\n\n## Initial Assessment\nThis is a gold-textured full art VSTAR card with heavy holofoil patterning. The gold texture creates a distinctive swirling pattern across the entire card surface that must not be confused with damage.\n\n## Catastrophic Scan (Both Sides First)\n**FRONT:** Examining for creases, tears, paper loss. The swirling gold texture is part of the card design. Checking diagonals from each corner and horizontal mid-card lines - I see no line discontinuities that cross the printed elements unnaturally. The emboss filter (image 5) shows the textured surface pattern but no crease lines crossing the card.\n\n**BACK:** The standard Pokemon back appears clean. Checking the emboss filter (image 6) - I can see the card edges and the design elements, but no crease lines crossing through the Pokeball or spanning the card width. The white energy swirls are soft-edged and curved, consistent with the printed design rather than damage.\n\n## Surface Inspection\n\n**FRONT Surface:**\n- The gold textured holofoil pattern is uniform and intentional\n- Examining the high-pass filter (image 7) - the texture appears consistent across the surface\n- No scratches cutting across the holofoil pattern\n- No dents, pits, or indentations visible\n- Print quality appears clean with no print lines or ink defects\n- The bright areas near Arceus are part of the artwork (energy burst effect)\n\n**BACK Surface:**\n- Clean blue coloring with no stains\n- The Pokeball artwork is intact\n- Examining high-pass filter (image 8) - surface appears smooth\n- No scratches, dents, or print defects visible\n- The white swirls are the standard design elements, soft-edged and curved\n\n## Glare Assessment\n**FRONT:** There's some light reflection on the gold holofoil surface, particularly visible in the upper portion, but this is normal for this card type and doesn't obscure inspection.\n\n**BACK:** Minimal glare, clean visibility throughout.\n\n## Corner and Edge Review\nPer the provided measurements, all corners and edges scored as \"clean\" with wear values of 0.00-0.02. Visual inspection confirms no exposed paper fibers at any corner tip or along any edge.\n\n## Final Verification\n- No creases found on either side\n- No tears or paper loss\n- No structural damage\n- Surface is clean on both sides\n- This appears to be a well-preserved card\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Arceus VSTAR\",\n    \"setName\": \"Crown Zenith - Galarian Gallery\",\n    \"cardNumber\": \"GG70/GG70\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": 2023,\n    \"hp\": \"280\",\n    \"variant\": \"Gold Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"All four corners on both sides are sharp with no visible wear or exposed fibers\",\n      \"Edges are clean and crisp with no whitening or chips\",\n      \"Gold holofoil surface is pristine with no scratches or surface damage\",\n      \"Back surface is clean with no marks, stains, or wear\",\n      \"No creases or structural damage detected on either side\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This Arceus VSTAR appears to be in excellent physical condition with no visible defects on corners, edges, or surfaces of either side.\"\n  }\n}\n```",
+  "pass2": "Looking at this Arceus VSTAR card from the Galarian Gallery subset, I'll perform a systematic inspection.\n\n## Initial Assessment\nThis is a gold-textured full art VSTAR card with heavy holofoil patterning. The gold texture creates a distinctive swirling pattern across the entire card face. The card appears to be in excellent condition overall.\n\n## Catastrophic Scan (Both Sides First)\n**FRONT:** Examining for creases, tears, paper loss, water damage, writing. The emboss filter (image 5) and high-pass filter (image 7) show the natural texture of the gold holofoil pattern - the swirling lines are part of the card's design, not creases. I see no straight line discontinuities crossing the artwork that would indicate a crease. No paper loss, tears, or water damage visible.\n\n**BACK:** The emboss filter (image 6) and high-pass filter (image 8) show some diagonal lines in the upper left area. Examining closely - these appear to be very faint surface texture variations. Looking at the normal back images (2 and 4), I cannot see any corresponding crease lines. The white energy swirls are part of the standard Pokemon back design - they are curved and soft-edged, not straight fractured lines. No creases, tears, or paper loss detected.\n\n## Corner Inspection (Per ML Model - All Clean)\nThe corner wear model has rated all 8 corners as clean (wear scores 0.00-0.01). Visual inspection confirms:\n- All corners appear sharp with no visible exposed paper fibers\n- The gold border corners show intact metallic finish\n- Back corners show clean dark blue edges with no whitening\n\n## Edge Inspection (Per ML Model - All Clean)\nAll 8 edges rated clean (wear scores 0.01-0.02). Visual inspection confirms:\n- Front edges: Gold border intact along all sides\n- Back edges: Dark blue border clean with no chips or whitening\n\n## Surface Inspection\n\n**FRONT Surface:**\n- The gold holofoil texture is uniform and intact\n- Arceus artwork is crisp with no scratches cutting across the pattern\n- Text boxes are clean and legible\n- There's minor glare at top center and middle center from the reflective gold surface - this is camera reflection, not damage\n- No print defects, pits, dents, or scratches visible\n- The swirling texture pattern is consistent throughout\n\n**BACK Surface:**\n- Pokeball artwork is clean and centered\n- Blue background shows no staining or discoloration\n- No scratches, dents, or surface damage visible\n- The white energy swirls are part of the design, not damage\n- No print defects detected\n\n## Crease Hunt (Mandatory)\n**FRONT:** Traced diagonals from each corner, horizontal mid-card, and vertical lines. The gold texture creates visual lines but these follow the holofoil pattern uniformly - no discontinuities that break across the pattern indicating a crease.\n\n**BACK:** Traced same pattern. The filtered images show some texture but comparing to normal images, there are no visible crease lines. The design swirls are curved and soft-edged as expected.\n\n## Final Assessment\nThis card appears to be in excellent condition with no reportable defects. The prior scan found no defects, and my inspection confirms this. The minor glare on the front is from the reflective gold surface, not damage.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Arceus VSTAR\",\n    \"setName\": \"Crown Zenith - Galarian Gallery\",\n    \"cardNumber\": \"GG70/GG70\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": \"2023\",\n    \"hp\": \"280\",\n    \"variant\": \"Gold Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"TOP CENTER\", \"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"All eight corners are sharp with no visible wear or exposed fibers\",\n      \"Gold holofoil surface is pristine with no scratches or surface damage\",\n      \"Back surface is clean with no whitening, stains, or creases\",\n      \"All edges are intact with no chips or nicks\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This card is in excellent physical condition with no visible defects on either surface, corners, or edges.\"\n  }\n}\n```"
+ }
+}

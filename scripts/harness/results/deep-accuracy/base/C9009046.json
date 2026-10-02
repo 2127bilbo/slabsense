@@ -1,0 +1,79 @@
+{
+ "cert": "C9009046",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 6,
+ "tagLabel": "6 EX MT",
+ "tag": {
+  "centering": 933,
+  "corners": 667,
+  "edges": 839,
+  "surface": 1000,
+  "surfaceFront": 1000,
+  "surfaceBack": 596
+ },
+ "estimateAfterPass1": 9,
+ "grade": 7.5,
+ "displayGrade": "7.5",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 76.7,
+  "frontEdges": 100,
+  "backEdges": 91.25,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 92,
+  "backCentering": 99.5
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "moderate",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "BOTTOM EDGE"
+  }
+ ],
+ "referencesUsed": 6,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10604,
+   "outputTokens": 836
+  },
+  "pass2": {
+   "inputTokens": 11588,
+   "outputTokens": 909
+  }
+ },
+ "ms": {
+  "pass1": 19460,
+  "pass2": 20415
+ },
+ "raw": {
+  "pass1": "Looking at this Charmander card from the Stormfront set, I'll perform a systematic inspection focusing on surface defects, creases, and structural damage (corners and edges are pre-measured).\n\n**Card Identification:**\nThis is a Charmander Lv.10, card 101/100 from the Stormfront set (2008), a secret rare reverse holo variant with 50 HP.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n\n*Front:* Scanning for creases - checking diagonals from each corner, horizontal mid-card lines. The holofoil pattern shows the typical sparkle/star pattern throughout the artwork area. I see no line discontinuities crossing the print that would indicate a crease. No paper loss, tears, or water damage visible.\n\n*Back:* Carefully examining the blue Pokemon back. The white energy swirls are part of the design - they are soft-edged and curved. I'm looking for any straight lines with fractured texture crossing the card. I don't see any crease lines running through the Pokeball or across the card width. No tears, paper loss, or water damage.\n\n**FRONT SURFACE INSPECTION:**\n- The holofoil pattern is intact with typical star/sparkle texture\n- No scratches cutting across the holo pattern\n- No print lines or ink defects visible\n- No dents or indentations detected\n- The gold border appears clean and intact\n- Text areas are crisp with no print defects\n\n**BACK SURFACE INSPECTION:**\n- The blue background appears uniform\n- The Pokeball artwork is intact\n- No scratches visible on the surface\n- No stains or discoloration\n- No print defects detected\n- The surface appears clean overall\n\n**Image Quality Assessment:**\n- Front: Very slight warm lighting but no significant glare or blur\n- Back: Clean, even lighting with no glare issues\n\n**Re-checking against bias rules:**\n- No structural damage found (creases, tears, paper loss) - this is confident after full diagonal and horizontal line checks\n- Not over-reporting cosmetic wear - the pre-measured corner/edge data shows the back has moderate wear but front is clean\n- Surface appears clean on both sides\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Charmander\",\n    \"setName\": \"Stormfront\",\n    \"cardNumber\": \"101/100\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": \"2008\",\n    \"hp\": \"50\",\n    \"variant\": \"Reverse Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with intact holofoil pattern and no visible scratches\",\n      \"No creases or structural damage detected on either side\",\n      \"Front corners and edges appear pristine\",\n      \"Print quality is sharp with no visible defects\"\n    ],\n    \"concerns\": [\n      \"Back corners show moderate wear as measured by corner detection system\",\n      \"Back bottom edge shows moderate wear\"\n    ],\n    \"recommendation\": \"Card front is in excellent condition with clean surfaces; back shows moderate corner and edge wear that will impact the overall condition assessment.\"\n  }\n}\n```",
+  "pass2": "Looking at this Charmander card from the Stormfront set, I'll perform a systematic inspection.\n\n**Card Identification:**\nThis is a Charmander LV.10, card 101/100 from the Stormfront set (2008), a secret rare reverse holo card with 50 HP.\n\n**Overall Condition Assessment:**\nThe front appears clean with good holo pattern visible. The back shows notable wear at all four corners with visible whitening/fiber exposure.\n\n**Catastrophic Scan (Both Sides):**\n- Front: No creases, tears, paper loss, or water damage visible. The diagonal lines from corners and horizontal mid-card check reveal no structural damage.\n- Back: Checking diagonals and full-width horizontals - no creases crossing the card. The white energy swirls are soft-edged and curved (design elements). No straight fractured lines crossing the Pokeball or spanning the card width.\n\n**Corner-by-Corner Analysis (Skipping per instructions - already measured):**\nThe corner/edge model has already detected moderate wear on all four back corners and the bottom edge. I will not duplicate these findings.\n\n**Front Surface Inspection:**\n- Holo pattern shows normal sparkle/shimmer throughout the artwork area\n- No scratches cutting across the holo pattern\n- No print lines visible\n- No dents or indentations\n- Text areas clean and crisp\n- Gold borders intact without chips or wear\n- No surface contamination or stains\n\n**Back Surface Inspection:**\n- Central Pokeball area: Clean, no scratches or marks\n- Blue background: No scratches penetrating the surface\n- Energy swirl areas: These are design elements, soft-edged and curved - not damage\n- No print defects visible\n- No stains or contamination\n- Surface gloss appears intact in central areas\n\n**Crease Hunt Verification:**\n- Front: Traced both diagonals, horizontal mid-card, and vertical center - no line discontinuities\n- Back: Same check - no creases detected. The white swirls follow curved paths and don't cross the Pokeball with hard edges\n\n**Type-Specific Bias Check:**\n- Structural (crease/tear/dent): None found after thorough inspection\n- Cosmetic: Corner/edge wear already captured by model; no additional surface defects to report\n\nThe front surface is clean. The back surface shows no defects beyond the corner/edge wear already measured.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Charmander\",\n    \"setName\": \"Stormfront\",\n    \"cardNumber\": \"101/100\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": \"2008\",\n    \"hp\": \"50\",\n    \"variant\": \"Reverse Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with vibrant holo pattern intact\",\n      \"No creases, tears, or structural damage on either side\",\n      \"Front corners and edges appear sharp and undamaged\",\n      \"Print quality is crisp with no visible print defects\"\n    ],\n    \"concerns\": [\n      \"Back corners show moderate whitening/wear as detected by corner model\",\n      \"Back bottom edge shows moderate wear\"\n    ],\n    \"recommendation\": \"Card has a clean front presentation but the back shows notable corner and edge wear that will impact the overall condition assessment.\"\n  }\n}\n```"
+ }
+}

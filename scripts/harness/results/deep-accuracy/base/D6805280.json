@@ -1,0 +1,48 @@
+{
+ "cert": "D6805280",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 8.5,
+ "tagLabel": "8.5 NM MT+",
+ "tag": {
+  "centering": 955,
+  "corners": 1000,
+  "edges": 1000,
+  "surface": 920,
+  "surfaceFront": 1000,
+  "surfaceBack": 905
+ },
+ "estimateAfterPass1": 10,
+ "grade": 10,
+ "displayGrade": "10",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10564,
+   "outputTokens": 873
+  },
+  "pass2": {
+   "inputTokens": 11158,
+   "outputTokens": 967
+  }
+ },
+ "ms": {
+  "pass1": 20497,
+  "pass2": 20659
+ },
+ "raw": {
+  "pass1": "Looking at this Serperior V card from Silver Tempest, I'll perform a systematic inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Serperior V, 170/195 from Silver Tempest (2022), a Full Art V card with 210 HP.\n\n**CATASTROPHIC SCAN (both sides first):**\n- Front: Scanning for creases - checking diagonals from each corner, horizontal mid-card lines. The holofoil has natural swirling texture patterns but I don't see any line discontinuities that cross the printed elements. No tears, no paper loss, no water damage, no writing.\n- Back: Checking the blue Pokemon back carefully. The white energy swirls are soft-edged and curved - these are design elements. Tracing diagonals and horizontals - no straight fractured lines crossing the Pokeball or borders. No creases, tears, or paper loss detected.\n\n**SURFACE INSPECTION - FRONT:**\nThe card has a beautiful full-art holofoil finish with rainbow shimmer patterns visible throughout - this is the natural holofoil texture, not damage. Scanning systematically:\n- Top area around \"Serperior V\" text: Clean, no scratches or print defects\n- Middle artwork area (Serperior body): The textured holofoil pattern is intact, no scratches cutting across the pattern\n- Lower text box area: Clean printing, no defects\n- There are some bright reflective areas in the lower right quadrant - these have soft edges and follow the holofoil pattern = glare, not damage\n\n**SURFACE INSPECTION - BACK:**\n- Upper Pokemon logo area: Clean, crisp printing\n- Central Pokeball: No scratches, dents, or surface damage visible\n- Lower Pokemon logo: Clean\n- Overall surface appears pristine with no visible wear, scratches, or indentations\n\n**GLARE ASSESSMENT:**\n- Front: Minor glare visible in lower right area from holofoil reflection\n- Back: Essentially no glare, clean even lighting\n\n**FINAL REVIEW:**\nCorners and edges have been measured by the automated system and all show clean readings (wear scores 0.00-0.04). The surfaces on both sides appear clean with no structural damage, scratches, dents, print defects, or play wear visible. The holofoil shimmer and reflections are natural card characteristics, not defects.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Serperior V\",\n    \"setName\": \"Silver Tempest\",\n    \"cardNumber\": \"170/195\",\n    \"rarity\": \"Ultra Rare\",\n    \"year\": \"2022\",\n    \"hp\": \"210\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"BOTTOM RIGHT\", \"MIDDLE RIGHT\"] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\"All corners appear sharp and clean with no visible fiber exposure\", \"Card surfaces on both sides are free of scratches, creases, and dents\", \"Print quality is crisp with no visible defects\", \"Holofoil pattern is intact with no damage cutting across the texture\", \"Back shows excellent preservation with clean blue coloring\"],\n    \"concerns\": [\"No notable concerns\"],\n    \"recommendation\": \"This card presents in excellent physical condition with no visible defects detected on either surface, corners, or edges.\"\n  }\n}\n```",
+  "pass2": "Looking at this Serperior V card, I'll perform a systematic inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Serperior V from Silver Tempest (170/195), a full-art V card with holographic treatment showing the grass-type serpent Pokémon.\n\n**OVERALL CONDITION ASSESSMENT:**\nThe card appears to be in excellent condition. The holofoil surface shows typical rainbow shimmer patterns characteristic of V cards. The orange background visible around the card is the scanning surface, not card damage.\n\n**CATASTROPHIC SCAN (Both Sides):**\n- FRONT: Checking for creases by tracing diagonals from each corner and horizontal mid-card lines. The swirling holofoil pattern and orange/pink background artwork make this challenging, but I see no line discontinuities that cross the printed elements. No tears, no paper loss, no water damage, no writing.\n- BACK: Examining the blue Pokéball design carefully. The white energy swirls are soft-edged and curved - these are part of the printed design. I'm looking for any straight fractured lines that would indicate a crease. None detected. The white areas follow the natural curved pattern of the artwork and don't show exposed paper fibers or hard irregular edges.\n\n**SURFACE INSPECTION - FRONT:**\nThe holofoil surface shows intense light reflection, particularly in the bottom right and middle right areas - this is glare from the photography, not damage. The reflective patterns are soft-edged and follow the card's holographic texture. I see no scratches cutting across the holofoil pattern, no dents, no print lines, no indentations. The surface appears clean and intact.\n\n**SURFACE INSPECTION - BACK:**\nThe classic Pokémon card back is clean. The blue coloring is consistent throughout. No scratches visible on the surface. No print defects. The Pokéball artwork is crisp and undamaged. No staining or discoloration.\n\n**CREASE HUNT VERIFICATION:**\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear\n- Back horizontal mid-card: Clear\n- No line discontinuities detected on either side\n\n**TYPE-SPECIFIC BIAS CHECK:**\n- Structural (crease, tear, dent, stain): None detected after thorough inspection\n- Cosmetic: Corners and edges already measured by the system as clean. Surface shows no scratches or play wear that I can identify as actual damage vs. holofoil reflection\n\nThe prior scan reported no defects, and after my inspection, I agree - this card appears to be in excellent condition with no visible defects.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Serperior V\",\n    \"setName\": \"Silver Tempest\",\n    \"cardNumber\": \"170/195\",\n    \"rarity\": \"Ultra Rare\",\n    \"year\": \"2022\",\n    \"hp\": \"210\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"BOTTOM RIGHT\", \"MIDDLE RIGHT\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"All corners appear sharp with no visible whitening or fiber exposure\",\n      \"Edges are clean and crisp on both sides\",\n      \"Holofoil surface is free of scratches and maintains excellent luster\",\n      \"Card back shows no wear, creases, or surface damage\",\n      \"No structural defects detected on either side\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This Serperior V is in excellent physical condition with no visible defects on corners, edges, or surfaces of either side.\"\n  }\n}\n```"
+ }
+}

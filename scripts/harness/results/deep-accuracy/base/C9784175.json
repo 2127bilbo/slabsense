@@ -1,0 +1,73 @@
+{
+ "cert": "C9784175",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 8.5,
+ "tagLabel": "8.5 NM MT+",
+ "tag": {
+  "centering": 986,
+  "corners": 762,
+  "edges": 1000,
+  "surface": 894,
+  "surfaceFront": 1000,
+  "surfaceBack": 707
+ },
+ "estimateAfterPass1": 10,
+ "grade": 9,
+ "displayGrade": "9",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 92.62,
+  "frontEdges": 100,
+  "backEdges": 91.25,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM RIGHT"
+  },
+  {
+   "side": "BACK",
+   "type": "EDGE",
+   "severity": "moderate",
+   "location": "TOP EDGE"
+  }
+ ],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10596,
+   "outputTokens": 937
+  },
+  "pass2": {
+   "inputTokens": 11183,
+   "outputTokens": 905
+  }
+ },
+ "ms": {
+  "pass1": 19278,
+  "pass2": 20760
+ },
+ "raw": {
+  "pass1": "Looking at this Moltres card from Pokémon GO, I'll perform a systematic inspection focusing on surface defects, creases, and structural damage (since corners and edges are pre-measured).\n\n**Card Identification:**\nThis is a Moltres holo rare from the Pokémon GO set (012/078), featuring a gold border and holofoil artwork. The card has the characteristic Pokemon GO logo stamp.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n\n*Front:* Scanning for creases - checking diagonals from each corner, horizontal mid-card lines. The holofoil shows rainbow shimmer patterns (blue/green/yellow vertical streaks in the artwork area) which is normal holofoil behavior, not damage. No line discontinuities crossing the print that would indicate a crease. No paper loss, tears, or water damage visible.\n\n*Back:* Examining carefully for creases. The white energy swirls are part of the design - they're soft-edged and curved. I don't see any straight fractured lines crossing through the Pokeball or spanning the card width. No paper loss (the blue areas are intact with no hard-edged white patches interrupting the artwork). No tears or water damage.\n\n**FRONT SURFACE INSPECTION:**\n- Gold border appears clean and intact\n- Holofoil area shows normal rainbow reflection patterns - these are NOT scratches\n- Text areas are crisp and clean\n- No print lines, ink dots, or surface scratches visible\n- No dents or indentations detected\n- The vertical light streaks in the artwork are holofoil pattern, not damage\n\n**BACK SURFACE INSPECTION:**\n- The blue background is consistent with no staining\n- Pokeball artwork is intact\n- White swirl patterns are design elements (soft-edged, curved)\n- No scratches penetrating the surface\n- No print defects visible\n- No dents or pits detected\n\n**Image Quality Assessment:**\n- Front: Minor glare from holofoil reflection creating rainbow shimmer, particularly in the middle center area - this is normal for holo cards\n- Back: Clean capture with no significant glare or blur\n\n**Re-checking against TYPE-SPECIFIC DETECTION BIAS:**\n- Structural defects (creases, tears, paper loss): None found after careful inspection\n- The pre-measured data shows back corners/top edge have minor wear - this is handled by the scoring engine\n- No surface defects requiring my report\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Moltres\",\n    \"setName\": \"Pokémon GO\",\n    \"cardNumber\": \"012/078\",\n    \"rarity\": \"Holo Rare\",\n    \"year\": \"2022\",\n    \"hp\": \"120\",\n    \"variant\": \"Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with no scratches or print defects\",\n      \"Holofoil pattern is intact with no damage crossing the artwork\",\n      \"No creases or structural damage on either side\",\n      \"Gold border is well-preserved on the front\"\n    ],\n    \"concerns\": [\n      \"Pre-measured data indicates minor corner wear on back (top right, bottom left, bottom right)\",\n      \"Pre-measured data indicates moderate edge wear on back top edge\"\n    ],\n    \"recommendation\": \"Card front is in excellent condition with clean surfaces; back shows minor corner and edge wear as detected by automated measurement, but no surface defects or structural damage present.\"\n  }\n}\n```",
+  "pass2": "Looking at this Moltres card from Pokémon GO, I'll perform a systematic inspection.\n\n**Overall Condition Assessment:**\nThis is a modern holo card with a gold border. The front appears clean with typical holofoil reflections in the artwork area. The back shows the standard Pokémon card design.\n\n**Catastrophic Scan (Both Sides First):**\n- Front: No creases, tears, paper loss, or water damage visible. The rainbow/prismatic effects in the artwork area are normal holofoil pattern, not damage.\n- Back: Checking for creases by tracing diagonals and horizontals - the white energy swirls are soft-edged and curved, following the printed design. No straight fractured lines crossing the Pokeball or borders. No tears, paper loss, or water damage detected.\n\n**Corner-by-Corner Analysis (skipping per instructions - already measured):**\nThe corner/edge model has already assessed these. I note the back shows minor wear on TR, BL, BR corners and moderate wear on top edge per the measurements provided.\n\n**Front Surface Inspection:**\n- Top area (name/HP): Clean gold border, no scratches or print defects\n- Artwork window: Holofoil with vertical line pattern (intentional design element). The rainbow shimmer and bright areas in the middle center are normal holofoil reflection, not damage. No scratches cutting across the pattern.\n- Text boxes: Clean, no print defects or wear\n- Bottom area: Clean, copyright text legible\n\n**Back Surface Inspection:**\n- Central Pokeball area: Clean, no dents or pits visible\n- Blue background: Uniform color, no stains\n- Energy swirl patterns: All appear to be printed design elements with soft curved edges\n- No scratches penetrating the surface detected\n\n**Crease Hunt Verification:**\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear - the white swirls are design, not damage\n- Back horizontal: Clear\n\n**Re-read Against Detection Bias:**\n- Structural: No creases, tears, dents, stains found - confident after thorough inspection\n- Cosmetic: Corner/edge wear already measured by model; no additional surface defects to report\n\nThe minor glare in middle center of front is holofoil reflection, not obscuring any damage.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Moltres\",\n    \"setName\": \"Pokémon GO\",\n    \"cardNumber\": \"012/078\",\n    \"rarity\": \"Holo Rare\",\n    \"year\": \"2022\",\n    \"hp\": \"120\",\n    \"variant\": \"Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Front surface is clean with no visible scratches or print defects\",\n      \"No creases or structural damage detected on either side\",\n      \"Holofoil pattern intact with no damage cutting across it\",\n      \"Gold border shows no chips or wear on front\"\n    ],\n    \"concerns\": [\n      \"Back corners show minor wear as detected by corner model\",\n      \"Back top edge shows moderate wear as detected by edge model\"\n    ],\n    \"recommendation\": \"Card front is in excellent condition with clean surfaces; back shows minor corner wear and moderate top edge wear that will impact the overall condition assessment.\"\n  }\n}\n```"
+ }
+}

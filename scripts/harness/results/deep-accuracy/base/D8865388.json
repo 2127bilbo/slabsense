@@ -1,0 +1,48 @@
+{
+ "cert": "D8865388",
+ "arm": "base",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 10,
+ "tagLabel": "10 GEM MINT",
+ "tag": {
+  "centering": 982,
+  "corners": 1000,
+  "edges": 1000,
+  "surface": 1000,
+  "surfaceFront": 1000,
+  "surfaceBack": 1000
+ },
+ "estimateAfterPass1": 10,
+ "grade": 10,
+ "displayGrade": "10",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 100,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 10564,
+   "outputTokens": 1012
+  },
+  "pass2": {
+   "inputTokens": 11158,
+   "outputTokens": 975
+  }
+ },
+ "ms": {
+  "pass1": 22362,
+  "pass2": 20200
+ },
+ "raw": {
+  "pass1": "Looking at this Mega Gardevoir ex card, I'll perform a systematic inspection.\n\n**CARD IDENTIFICATION:**\nThis is a Mega Gardevoir ex from the Scarlet & Violet Obsidian Flames set, card 159/132 (secret rare), a full-art holofoil card with 360 HP.\n\n**OVERALL CONDITION ASSESSMENT:**\nThe card appears to be in excellent condition. This is a modern full-art ex card with heavy holofoil texture throughout the artwork area.\n\n**CATASTROPHIC SCAN (Both Sides):**\n- FRONT: Scanning for creases - checking diagonals from each corner, horizontal mid-card lines, and any line discontinuities crossing the artwork. The swirling energy patterns and holofoil texture are part of the design. I see no straight lines or angular discontinuities that would indicate a crease. No paper loss, tears, water damage, or writing visible.\n- BACK: Checking the standard Pokemon back. The white energy swirls are soft-edged and curved - these are design elements. Tracing diagonals and horizontals across the Pokeball and borders - no straight fractured lines visible. No creases, tears, or paper loss detected.\n\n**SURFACE INSPECTION - FRONT:**\nThe holofoil texture shows the characteristic rainbow shimmer pattern of modern ex cards. Scanning systematically:\n- Top area (name/HP region): Clean, no scratches or print defects\n- Middle artwork area: The Gardevoir and Kirlia artwork is crisp, no scratches cutting across the holofoil pattern\n- Text box area: Clean print, no defects\n- Bottom info area: Clean\n\nI notice some brightness variation in the holofoil which is normal light reflection off the textured surface - soft-edged, follows the foil pattern, not damage.\n\n**SURFACE INSPECTION - BACK:**\n- Central Pokeball area: Clean, no dents or scratches\n- Blue background: Uniform color, no stains or marks\n- Energy swirl areas: All soft-edged curves matching the design, no hard-edged white patches indicating paper loss\n\n**CREASE HUNT VERIFICATION:**\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear  \n- Back horizontal mid-card: Clear\n- No line discontinuities found on either side\n\n**GLARE ASSESSMENT:**\n- Front: Minor glare visible in the holofoil area, particularly around the middle-right where the foil reflects more intensely. This is normal holofoil reflection.\n- Back: Minimal glare, good even lighting.\n\n**RE-READ CHECK:**\nPer the type-specific detection bias - I found no structural defects (creases, tears, dents, stains). For cosmetic wear, the corner/edge model has already assessed all corners and edges as clean (wear scores 0.00-0.02), which aligns with my observation that I cannot identify any exposed paper fibers at any corner or edge.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mega Gardevoir ex\",\n    \"setName\": \"Obsidian Flames\",\n    \"cardNumber\": \"159/132\",\n    \"rarity\": \"Secret Rare\",\n    \"year\": 2023,\n    \"hp\": \"360\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": { \"glareLevel\": \"minor\", \"blurLevel\": \"none\", \"glareLocations\": [\"MIDDLE RIGHT\", \"MIDDLE CENTER\"] },\n    \"back\": { \"glareLevel\": \"none\", \"blurLevel\": \"none\", \"glareLocations\": [] },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\"All corners appear sharp with no visible whitening or fiber exposure\", \"Card surfaces on both sides are clean with no scratches, dents, or creases detected\", \"Print quality is crisp with no visible print defects\", \"Edges appear clean and intact throughout\"],\n    \"concerns\": [\"No notable concerns\"],\n    \"recommendation\": \"This card presents in excellent physical condition with no detectable surface defects, corner wear, or structural damage visible in the provided images.\"\n  }\n}\n```",
+  "pass2": "Looking at this Mega Gardevoir ex card, I'll perform a systematic inspection.\n\n**Card Identification:**\nThis is a Mega Gardevoir ex from the Scarlet & Violet era, card 159/132 (secret rare), a full-art Stage 2 card with 360 HP.\n\n**Overall Condition Assessment:**\nThe card appears to be in excellent condition. The holofoil surface shows the typical rainbow shimmer pattern of modern ex cards. Both front and back surfaces look clean and well-preserved.\n\n**Catastrophic Scan (Both Sides):**\n- FRONT: No creases visible. Checking diagonals from each corner - no line discontinuities crossing the artwork. No horizontal mid-card lines. The swirling energy patterns in the artwork are part of the design, not damage. No paper loss, tears, or water damage visible.\n- BACK: Examining the blue Pokemon back carefully. The white energy swirls are soft-edged and curved - these are design elements. No straight fractured lines crossing the Pokeball or running through the card. No creases, tears, or paper loss detected.\n\n**Corner Inspection (skipping per instructions - already measured as clean):**\nAll 8 corners measured as clean with wear scores of 0.00-0.02.\n\n**Edge Inspection (skipping per instructions - already measured as clean):**\nAll 8 edges measured as clean with wear scores of 0.01.\n\n**Front Surface Inspection:**\n- The holofoil texture shows natural rainbow shimmer - this is the card's intended appearance, not scratching\n- Minor glare visible in the middle-right and middle-center areas from photography lighting reflecting off the holographic surface\n- No scratches cutting across the holo pattern\n- No dents, pits, or indentations visible\n- No print defects or ink issues\n- The textured surface appears intact throughout\n\n**Back Surface Inspection:**\n- Clean blue surface with no visible scratches\n- No dents or surface depressions\n- Print quality appears consistent\n- No stains or discoloration\n- The Pokeball and text areas are crisp and undamaged\n\n**Crease Hunt Verification:**\n- Front diagonals: Clear\n- Front horizontal mid-card: Clear\n- Back diagonals: Clear\n- Back horizontal mid-card: Clear\n- No line discontinuities found on either side\n\n**Type-Specific Bias Check:**\n- Structural defects: None found after thorough inspection\n- Cosmetic defects: The glare in the middle areas is clearly light reflection on the intact holographic surface, not damage - no exposed fibers or broken texture visible\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Mega Gardevoir ex\",\n    \"setName\": \"Scarlet & Violet - Obsidian Flames\",\n    \"cardNumber\": \"159/132\",\n    \"rarity\": \"Special Art Rare\",\n    \"year\": \"2023\",\n    \"hp\": \"360\",\n    \"variant\": \"Full Art\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE RIGHT\", \"MIDDLE CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"All corners appear sharp with no visible whitening or fiber exposure\",\n      \"Edges are clean and crisp along all four sides\",\n      \"Holographic surface is free of scratches and maintains full luster\",\n      \"Back surface is pristine with no wear or damage\",\n      \"No structural defects such as creases, dents, or tears detected\"\n    ],\n    \"concerns\": [\n      \"No notable concerns\"\n    ],\n    \"recommendation\": \"This card is in exceptional physical condition with no visible defects on either surface, corners, or edges.\"\n  }\n}\n```"
+ }
+}

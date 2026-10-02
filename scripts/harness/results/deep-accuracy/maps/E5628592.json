@@ -1,0 +1,61 @@
+{
+ "cert": "E5628592",
+ "arm": "maps",
+ "model": "claude-opus-4-5-20251101",
+ "tagGrade": 9,
+ "tagLabel": "9 MINT",
+ "tag": {
+  "centering": 956,
+  "corners": 974,
+  "edges": 1000,
+  "surface": 920,
+  "surfaceFront": 1000,
+  "surfaceBack": 902
+ },
+ "estimateAfterPass1": 10,
+ "grade": 9,
+ "displayGrade": "9",
+ "subgrades": {
+  "frontCorners": 100,
+  "backCorners": 94.77,
+  "frontEdges": 100,
+  "backEdges": 100,
+  "frontSurface": 100,
+  "backSurface": 100,
+  "frontCentering": 97,
+  "backCentering": 97
+ },
+ "defects": [
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "TOP LEFT"
+  },
+  {
+   "side": "BACK",
+   "type": "CORNER",
+   "severity": "minor",
+   "location": "BOTTOM LEFT"
+  }
+ ],
+ "referencesUsed": 2,
+ "usage": {
+  "pass1": {
+   "inputTokens": 16996,
+   "outputTokens": 964
+  },
+  "pass2": {
+   "inputTokens": 17590,
+   "outputTokens": 939
+  }
+ },
+ "ms": {
+  "pass1": 22067,
+  "pass2": 19609
+ },
+ "raw": {
+  "pass1": "Looking at this Chandelure card from Noble Victories, I'll perform a systematic inspection focusing on surface defects, creases, and structural issues (corners and edges are pre-measured).\n\n## Initial Assessment\nThis is a reverse holo Chandelure with a gold/olive border and holographic pattern across the text box area. The card appears to be in good overall condition with the holofoil showing typical rainbow shimmer patterns.\n\n## CATASTROPHIC SCAN (Both Sides First)\n**Front:** Examining for creases - checking diagonals from each corner, horizontal mid-card lines. The emboss filter (image 5) shows the natural texture of the holofoil pattern but no continuous line discontinuities crossing the card that would indicate a crease. The high-pass image (7) confirms surface texture is consistent with holo pattern, no structural breaks visible.\n\n**Back:** Checking the back carefully for creases. The emboss filter (image 6) shows the standard Pokemon back design. I see the natural energy swirl patterns - these are soft-edged and curved, part of the design. No straight fractured lines crossing through the Pokeball or spanning the card width. The high-pass (image 8) confirms no crease lines.\n\nNo tears, paper loss, water damage, or writing detected on either side.\n\n## FRONT SURFACE INSPECTION\n- The holofoil area shows typical rainbow shimmer - this is normal holo pattern, not damage\n- The gold border appears clean and intact\n- Artwork window shows Chandelure clearly with no print defects\n- Text areas are crisp and legible\n- No scratches cutting across the holo pattern\n- No dents, pits, or indentations visible\n- The bright areas in the holo section are foil reflection, not damage (soft-edged, follows light)\n\n## BACK SURFACE INSPECTION\n- The blue background appears uniform\n- Pokeball artwork is intact\n- The white energy swirls are part of the design (soft-edged, curved)\n- No stains or discoloration\n- Surface appears clean with no scratches or pits visible\n- No print defects detected\n\n## Glare Assessment\nFront: Minor glare from the holofoil reflection, particularly in the middle/lower portion where the holo pattern is most active. This is normal for reverse holo cards.\nBack: Minimal glare, good image quality.\n\n## Re-check Against Detection Bias\n- Structural defects: None found after thorough scan\n- The pre-measured corner/edge data shows minor wear on back top-left and bottom-left corners - these are already captured by the measurement system\n- No surface defects to report\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Chandelure\",\n    \"setName\": \"Noble Victories\",\n    \"cardNumber\": \"60/101\",\n    \"rarity\": \"Rare Holo\",\n    \"year\": \"2011\",\n    \"hp\": \"130\",\n    \"variant\": \"Reverse Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Holofoil pattern displays vibrant rainbow effect with no scratches cutting through\",\n      \"Gold border is clean and well-preserved\",\n      \"No creases, tears, or structural damage on either side\",\n      \"Print quality is sharp with clear text and artwork\"\n    ],\n    \"concerns\": [\n      \"Pre-measured minor corner wear detected on back top-left and bottom-left corners\"\n    ],\n    \"recommendation\": \"Card is in excellent physical condition with clean surfaces and no structural damage; minor corner wear on back is the only notable issue.\"\n  }\n}\n```",
+  "pass2": "Looking at this Chandelure card from Noble Victories, I'll perform a systematic inspection.\n\n**Card Overview:**\nThis is a reverse holo Chandelure with a gold/olive border frame. The holofoil pattern covers the lower portion with swirling eye designs. The card appears to be in excellent condition overall.\n\n**CATASTROPHIC SCAN (Both Sides First):**\n- Front: No creases, tears, paper loss, or water damage visible. The emboss filter (image 5) shows the natural texture of the holofoil pattern but no line discontinuities crossing the card that would indicate a crease.\n- Back: No creases visible. The relief image (image 6) shows the standard Pokemon back design with energy swirls - these are soft-edged, curved design elements, not damage. No straight fractured lines crossing the Pokeball or spanning the card width.\n\n**FRONT SURFACE INSPECTION:**\n- The holofoil area shows rainbow shimmer and color shifts - this is normal holofoil behavior, not damage\n- The artwork window (Chandelure illustration) appears clean with no scratches penetrating the surface\n- Text areas are crisp and legible\n- The gold border frame shows consistent coloring\n- Minor glare visible in middle center and bottom center areas from the holofoil reflecting light - this is NOT damage (soft-edged, follows light pattern, printed design visible through it)\n- High-pass image (image 7) shows holofoil texture but no scratches cutting across the pattern\n\n**BACK SURFACE INSPECTION:**\n- The blue Pokemon back appears clean\n- Energy swirls are part of the printed design (soft-edged, curved)\n- No straight lines or fractured textures visible\n- High-pass image (image 8) shows normal card texture, no surface defects\n\n**Corner/Edge Review (per measured data):**\nThe automated system detected minor wear on back top-left and back bottom-left corners. Looking at image 4, I can see these corners appear slightly softer than the right-side corners, consistent with the measured findings.\n\n**Crease Hunt - Diagonal and Horizontal Check:**\n- Front: Traced diagonals from each corner and horizontal mid-card - no line discontinuities found\n- Back: Same check - the white swirls follow curved paths consistent with the design, no straight crease lines\n\n**Final Assessment:**\nThe card is in excellent condition. The holofoil shimmer and glare are normal for this card type. No structural damage detected. The automated corner measurements captured the only notable wear.\n\n```json\n{\n  \"cardInfo\": {\n    \"name\": \"Chandelure\",\n    \"setName\": \"Noble Victories\",\n    \"cardNumber\": \"60/101\",\n    \"rarity\": \"Rare Holo\",\n    \"year\": \"2011\",\n    \"hp\": \"130\",\n    \"variant\": \"Reverse Holo\",\n    \"language\": \"English\"\n  },\n  \"imageQuality\": {\n    \"front\": {\n      \"glareLevel\": \"minor\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": [\"MIDDLE CENTER\", \"BOTTOM CENTER\"]\n    },\n    \"back\": {\n      \"glareLevel\": \"none\",\n      \"blurLevel\": \"none\",\n      \"glareLocations\": []\n    },\n    \"overall\": \"good\",\n    \"warning\": null\n  },\n  \"defects\": [],\n  \"summary\": {\n    \"positives\": [\n      \"Clean front surface with vibrant holofoil pattern intact\",\n      \"No creases, tears, or structural damage on either side\",\n      \"Sharp text and artwork with no print defects\",\n      \"All front corners appear clean with no visible wear\"\n    ],\n    \"concerns\": [\n      \"Minor corner softness detected on back left corners by automated measurement\"\n    ],\n    \"recommendation\": \"This card is in excellent physical condition with clean surfaces, no structural damage, and only minor corner wear on the back left side as detected by automated measurement.\"\n  }\n}\n```"
+ }
+}
