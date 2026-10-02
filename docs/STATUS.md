@@ -28,15 +28,15 @@ document that holds the detail; nothing here is the only copy of a fact.
 - **Rig** (`docs/RIG-PLAN.md`): PC-hosted grading station; machine-vision camera, entry tier first;
   backdrop grey/blue not orange; Phase 0 (Python inference service + parity) not started.
 - **App Store readiness** (`docs/superpowers/plans/2026-10-01-app-store-readiness.md`): audit DONE
-  (`docs/audits/2026-10-app-store-audit.md`, 22 Blockers = 7 problems); fix group 3a security DONE
-  2026-10-02 (`plans/2026-10-01-3a-security.md`); next 3b payments / 3c account+privacy.
+  (`docs/audits/2026-10-app-store-audit.md`, 22 Blockers = 7 problems); fix groups 3a security and 3c account+privacy DONE 2026-10-02
+  (`plans/2026-10-01-3a-security.md`, `plans/2026-10-02-3c-account-privacy.md`); next 3b payments (one paid tier, decided).
 - **Web app**: feature-frozen for accuracy work; bug fixes only. Accuracy moves to the rig and the
   native app.
 
 ## Decisions pending (owner)
 
 1. Phone web app: keep only the card model on phones, heavy models opt-in (stops the reloads).
-2. Native app: one AI grade tier or two (AI + Deep AI); price points; which features ship in v1.
+2. DECIDED 2026-10-02: one paid tier "AI Grade" on the Deep flow; free keeps the software grade. Open: price points; the ~$120 Deep-path accuracy run on the 507 harness cards (owner funds it; see plan 3b).
 3. Rig: camera vendor (Basler/FLIR/IDS vs Hikrobot/Daheng); GPU bought vs rented for the big runs.
 4. Source-file header text (owner will specify) before the header pass in the App Store plan.
 
@@ -46,7 +46,9 @@ document that holds the detail; nothing here is the only copy of a fact.
   ignored; TAG signing values now come from `scripts/tag-dataset/data/env.ps1`; git objects pruned
   12 GB → 137 MB. STILL OWED by the owner: rotate the Google AI and OpenAI keys that were in the
   root file; decide whether to rewrite history for the two TAG constants (public repo, force push);
-  apply `supabase/migrations/20261001_lockdown.sql` in the SQL editor.
+  apply `supabase/migrations/20261001_lockdown.sql` AND `20261002_account_deletion.sql` in the SQL editor;
+  confirm the support mailbox `support@slabsenseai.com` and the governing-law state (Indiana assumed) in
+  `docs/legal/`; add `https://www.slabsenseai.com/?recovery=1` to the Supabase auth redirect allow-list.
 - 118 HEIC photos on the owner's desktop still unlabelled for card-val (`npm run models:label-card-val`).
 - Owner's uncommitted `scripts/tag-dataset/tagdataset/{cli,download}.py` proxy changes: they are
   what the foil pull ran on; commit them or they stay local forever.
