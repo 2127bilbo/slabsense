@@ -1,153 +1,86 @@
-# SlabSense - Privacy Policy
+# SlabSense Privacy Policy
 
-*Effective Date: April 2025*
+*Effective October 2, 2026*
 
-## Introduction
-
-SlabSense ("we", "our", or "us") respects your privacy and is committed to protecting your personal data. This privacy policy explains how we collect, use, and safeguard your information when you use our card grading analysis service.
+SlabSense ("we", "us") is an independent tool that estimates the condition of trading cards from photographs. This policy says what we collect, what we do with it, who else receives it, and how you delete it. It applies to the SlabSense website, the web app and the SlabSense iOS app.
 
 ---
 
-## Information We Collect
+## What we collect
 
-### Information You Provide
-- **Account Information**: Email address, username, display name (when you create an account)
-- **Card Images**: Photos of trading cards you upload for analysis
-- **Scan History**: Records of cards you've analyzed (if logged in)
-- **Payment Information**: Processed securely through Stripe; we do not store credit card numbers
+### Things you give us
+- **Account**: your email address, a display name and a password (the password is stored only as a hash by our authentication provider).
+- **Card photos**: the front and back photos you take or upload, the cropped card image, and the card outline you draw in the centering tool.
+- **Grade results**: the estimate for each card you save, with the detected defects and the centering numbers.
+- **Slab orders**: if you order a physical slab, the shipping name and address you enter and a card image for the engraved label and the public cert page.
+- **Training photos (opt-in)**: if you turn on "Keep Originals For Training" in Settings, the original front and back photos and your card outline are stored with the saved card and may be used to train our card-detection and grading models. This is off by default.
 
-### Information Collected Automatically
-- **Device Information**: Browser type, operating system, device type
-- **Usage Data**: Features used, analysis performed, time spent
-- **Log Data**: IP address, access times, pages viewed
+### Things collected automatically
+- **Device and usage data** needed to run the service: browser or app version, operating system, the time of each request, and error logs. We do not run advertising or analytics trackers and we do not use an advertising identifier.
+- **Local settings** stored on your device only (for example which grading models are on, the centering line style, whether you have seen the first-run notice).
 
----
-
-## How We Use Your Information
-
-We use your information to:
-- Provide card analysis services
-- Store your scan history (for registered users)
-- Improve our grading algorithms
-- Communicate service updates
-- Process payments for premium features
-- Prevent fraud and abuse
+We do not collect your location, contacts, or anything from your photo library other than the photos you pick.
 
 ---
 
-## Data Storage and Security
-
-### Image Storage
-- Card images are stored securely using industry-standard encryption
-- Images are used only for analysis and your personal scan history
-- You may delete your images at any time from your account
-
-### Data Retention
-- **Free Users**: Analysis data is processed but not stored
-- **Registered Users**: Scan history retained until you delete it or your account
-- **Account Deletion**: All associated data is permanently deleted within 30 days
-
-### Security Measures
-- SSL/TLS encryption for all data transmission
-- Secure cloud storage with access controls
-- Regular security audits and updates
+## How we use it
+- To produce the condition estimate for your card and to save it to your account if you choose to.
+- To fulfil a slab order and show its public cert page.
+- To run, secure and debug the service and to prevent abuse.
+- To improve our grading models, using only the training photos you have opted in to share.
+- To send you emails about your account (confirmation, password reset, order status). We do not send marketing email.
 
 ---
 
-## Data Sharing
+## Who else receives your data
 
-**We do NOT sell your personal data.**
+We do not sell personal data. The following providers process it on our behalf, each under its own privacy terms:
 
-We may share data only in these circumstances:
-- **Service Providers**: Cloud hosting, payment processing (with contractual protections)
-- **Legal Requirements**: If required by law, court order, or government request
-- **Business Transfers**: In the event of merger, acquisition, or asset sale
-- **With Your Consent**: When you explicitly authorize sharing
+| Provider | What they receive | Why |
+|---|---|---|
+| Supabase | account data, saved cards, photos, grade results | database, authentication and file storage |
+| Vercel | request data, including photos submitted for a grade while the request is processed | hosting for the website and the API |
+| Anthropic | the card photos and the measurements for a **paid AI Grade**, plus the card's name once identified | the AI inspection of the card's surface and the written summary |
+| Stripe | payment details you enter on Stripe's pages, your email, and order amounts | payments on the website and physical slab orders. We never see your card number. |
+| Apple | purchases made inside the iOS app | in-app purchases are handled by Apple's App Store |
+| TCGdex | the name and set of the card being identified | reference images and card details |
 
----
+The free software grade runs on your own device and on our servers without any AI provider. Only a paid AI Grade sends your photos to Anthropic. We do not use other AI providers for your photos.
 
-## Your Rights
-
-You have the right to:
-- **Access**: Request a copy of your personal data
-- **Correction**: Update inaccurate information
-- **Deletion**: Delete your account and associated data
-- **Export**: Download your scan history
-- **Opt-out**: Unsubscribe from marketing communications
-
-To exercise these rights, contact us at [email TBD].
+We may also disclose data if the law requires it, or to a successor if SlabSense is sold, in which case this policy continues to apply.
 
 ---
 
-## Cookies and Tracking
-
-We use essential cookies for:
-- Authentication and session management
-- Security and fraud prevention
-- Remembering your preferences
-
-We do NOT use third-party advertising trackers.
-
-Optional analytics cookies (if implemented) can be disabled in settings.
+## Where it is stored and for how long
+- Data is stored in the United States with the providers above, encrypted in transit and at rest.
+- **Saved cards and photos** stay until you delete the card or your account.
+- **Photos submitted for a paid grade** are kept for up to 7 days so the result can be delivered and re-checked, then removed.
+- **Training photos** stay until you delete the card or your account.
+- **Slab orders**: the public cert page and the engraved-label record are kept as the permanent record of the physical slab. Your name and shipping address are removed from the order when you delete your account.
+- **Payment records** are kept by Stripe and Apple for as long as their rules require.
 
 ---
 
-## Children's Privacy
+## Your choices and rights
+- **Delete a card**: removes the card, its grade and its stored photos.
+- **Delete your account**: in Settings, type DELETE. This removes your account, every saved card and photo, your grade history, remaining credits and your billing record, cancels an active subscription, and detaches your name and address from any slab order. It happens immediately and cannot be undone.
+- **Download your data**: Settings → "Download my data" gives you a file with your cards, grades, credits and links to your stored images.
+- **Change your email or password**: in Settings.
+- **Training photos**: turn the option off in Settings at any time; photos already stored are deleted when you delete those cards.
+- **Email**: account and order emails are required to run the service; there is no marketing email to opt out of.
 
-SlabSense is not intended for users under 13 years of age. We do not knowingly collect personal information from children under 13. If you believe we have collected such information, please contact us immediately.
-
----
-
-## International Users
-
-Your data may be processed in the United States. By using SlabSense, you consent to the transfer of your data to the US, which may have different data protection laws than your country.
-
----
-
-## Changes to This Policy
-
-We may update this privacy policy from time to time. We will notify you of significant changes via:
-- Email (for registered users)
-- In-app notification
-- Website announcement
-
-Continued use after changes constitutes acceptance of the updated policy.
+If you are in the EU, EEA, UK or California you also have rights of access, correction, deletion, portability and objection under GDPR and the CCPA. The controls above satisfy them; for anything else, write to the address below.
 
 ---
 
-## Contact Us
+## Children
+SlabSense is for people 13 and older. We do not knowingly collect data from children under 13; if we learn we have, we delete it.
 
-For privacy-related questions or concerns:
-- Email: [privacy email TBD]
-- Subject line: "Privacy Inquiry"
+## Security
+Transport encryption everywhere, encrypted storage, access to production data limited to the operator, and no secrets in the client. No system is perfectly secure; if we learn of a breach affecting you we will tell you.
 
----
+## Changes
+We will post changes here with a new effective date and, for material changes, tell you in the app.
 
-## California Residents (CCPA)
-
-California residents have additional rights under the California Consumer Privacy Act:
-- Right to know what personal information is collected
-- Right to know if personal information is sold or disclosed
-- Right to say no to the sale of personal information
-- Right to equal service and price
-
-We do not sell personal information.
-
----
-
-## EU/EEA Residents (GDPR)
-
-If you are in the European Union or European Economic Area, you have additional rights under the General Data Protection Regulation:
-- Right to data portability
-- Right to restrict processing
-- Right to object to processing
-- Right to lodge a complaint with a supervisory authority
-
-Our legal basis for processing is:
-- **Contract**: To provide services you've requested
-- **Legitimate Interest**: To improve our services
-- **Consent**: For optional features and marketing
-
----
-
-*Last Updated: April 2025*
+## Contact
+SlabSense · support@slabsenseai.com

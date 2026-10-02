@@ -1,249 +1,90 @@
-# SlabSense - Terms of Service
+# SlabSense Terms of Service
 
-*Effective Date: April 2025*
+*Effective October 2, 2026*
 
-## Agreement to Terms
-
-By accessing or using SlabSense ("Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Service.
+These terms are the agreement between you and SlabSense ("we", "us") for the SlabSense website, web app and iOS app (the "Service"). By creating an account or using the Service you accept them. If you do not accept them, do not use the Service.
 
 ---
 
-## Description of Service
+## 1. What SlabSense is
 
-SlabSense is a card condition analysis tool that provides:
-- Automated analysis of trading card images
-- Grade estimates based on centering, corners, edges, and surface condition
-- Comparison against multiple grading company scales
-- Storage of scan history (for registered users)
-- Premium features (for paid subscribers)
+SlabSense estimates the condition of trading cards from photographs and compares the estimate to the published grading scales of several grading companies. Every result is an **estimate produced by software**. SlabSense is not a grading company, does not authenticate cards and is not affiliated with PSA, BGS, CGC, SGC, TAG, Nintendo, The Pokémon Company or any card game publisher. The Disclaimers page is part of these terms.
 
-**SlabSense is NOT a professional grading service and does NOT provide official grades.**
+## 2. Who may use it
 
----
+You must be at least 13 years old, and at least 18 to make a purchase or order a slab. You are responsible for keeping your password private and for everything done with your account.
 
-## Eligibility
+## 3. Your account
 
-You must be at least 13 years old to use SlabSense. If you are under 18, you must have parental or guardian consent. By using the Service, you represent that you meet these requirements.
+- One account per person. Give accurate information and keep it current.
+- You can change your email and password, download your data and delete your account in Settings. Deletion is immediate and permanent; see the Privacy Policy for what it removes.
+- We may suspend or close an account that breaks these terms, abuses the Service or is used to defraud others.
 
----
+## 4. Acceptable use
 
-## Account Registration
+Do not: reverse-engineer or scrape the Service; use it to misrepresent a card's condition to a buyer; present a SlabSense estimate or slab as an official grade or certification; upload content you do not have the right to use; interfere with the Service or other users; or use automated tools to make requests at a rate a person would not.
 
-### Account Creation
-- You may create an account using a valid email address
-- You are responsible for maintaining the security of your account
-- You must provide accurate and complete information
-- One person may not maintain multiple accounts
+## 5. Free and paid features
 
-### Account Security
-- You are responsible for all activity under your account
-- Notify us immediately of any unauthorized access
-- We are not liable for losses due to compromised passwords
-- Use strong, unique passwords
+- **Free**: capturing and aligning a card and the on-device condition estimate.
+- **AI Grade**: a paid inspection in which your card photos are sent to an AI provider for a surface inspection and written summary. Paid grades are sold as a subscription allowance or as a pack of credits.
+- **Physical slab**: a display case engraved with a SlabSense estimate and a public cert page, sold as a physical product.
 
----
+### Purchases on the iOS app
+Subscriptions and credit packs bought in the iOS app are sold by Apple through the App Store under Apple's terms. Prices, renewal, cancellation, refunds and restoring purchases are handled in your Apple ID settings. A subscription renews automatically at the shown price until you cancel at least 24 hours before the end of the current period.
 
-## Acceptable Use
+### Purchases on the website
+Website purchases and physical slab orders are processed by Stripe. Prices are shown in US dollars before you confirm. A website subscription renews monthly until cancelled from Settings; cancelling stops the next renewal and access continues to the end of the paid period.
 
-You agree NOT to:
-- Use the Service for any illegal purpose
-- Upload malicious content, viruses, or harmful code
-- Attempt to reverse engineer or copy our algorithms
-- Scrape, crawl, or automate access to the Service
-- Impersonate others or misrepresent your identity
-- Harass, abuse, or harm other users
-- Circumvent any access restrictions or security measures
-- Use the Service to deceive buyers or sellers about card condition
-- Resell or commercially exploit the Service without permission
-
----
-
-## Intellectual Property
-
-### Our Property
-- SlabSense name, logo, and branding are our property
-- Our algorithms, code, and analysis methods are proprietary
-- All original content and features are protected by copyright
-
-### Your Property
-- You retain ownership of card images you upload
-- By uploading, you grant us a license to process and analyze images
-- This license is limited to providing the Service
-- We do not claim ownership of your cards or images
-
-### Third-Party Trademarks
-- All grading company names are trademarks of their respective owners
-- Trading card game names are trademarks of their respective owners
-- We are not affiliated with any grading company or game publisher
-
----
-
-## Grade Estimates
-
-### No Guarantees
-- All grades are ESTIMATES based on automated image analysis
-- Actual professional grades may differ significantly
-- We do not guarantee any specific grade outcome
-- Grade estimates are for informational purposes only
-
-### Limitations
-- Image quality affects analysis accuracy
-- Certain defects may not be detectable from photos
-- Professional grading involves human judgment we cannot replicate
-- Different grading companies have different standards
-
-### Your Responsibility
-- Do not make financial decisions based solely on SlabSense
-- Always seek professional grading for valuable cards
-- Verify condition in person before buying or selling
-
----
-
-## Payments and Subscriptions
-
-### Free Tier
-- Basic features available without payment
-- May be subject to usage limits
-- Features may change at our discretion
-
-### Paid Subscriptions
-- Premium features require payment
-- Payments processed securely through Stripe
-- Prices displayed at time of purchase
-- All prices in USD unless otherwise stated
-
-### Beta Lifetime Access
-- One-time payment for lifetime access to premium features
-- "Lifetime" means the life of the SlabSense service
-- Non-refundable after 14-day trial period
-- Features included may evolve over time
+### Credits
+Credits are consumed when a paid grade is delivered. If a paid grade fails to complete, the credit is returned automatically. Unused credits from a subscription allowance expire at the end of the period they were granted for; credits from a pack expire as stated at purchase. Credits have no cash value and are not transferable.
 
 ### Refunds
-- Refund requests within 14 days honored for any reason
-- After 14 days, refunds at our discretion
-- Contact support for refund requests
+App Store purchases: request a refund from Apple. Website purchases: write to us within 14 days of the purchase; unused credits are refundable, consumed ones are not. Physical slabs: refundable before engraving; after engraving only if the product is defective.
 
-### Cancellation
-- Cancel monthly subscriptions anytime
-- Access continues until end of billing period
-- No partial refunds for unused time
+## 6. Physical slab orders
 
----
+A slab order is for a display case engraved with the estimate recorded at the time of the order. It is not an authentication or a grade from any grading company. You are responsible for the accuracy of the shipping address. Shipping times are estimates. Risk of loss passes to you on delivery to the carrier. The public cert page for a slab remains online as the record of the product; your name and address are not shown on it.
 
-## Data and Privacy
+## 7. Estimates are not guarantees
 
-Your use of the Service is also governed by our Privacy Policy. By using SlabSense, you consent to the collection and use of data as described in the Privacy Policy.
+The condition estimate, the detected defects and the comparison to grading-company scales are produced by software from the photos you provide and are offered "as is". They can be wrong, and a grading company's grade of the same card may differ materially. You agree not to rely on an estimate as the sole basis for buying, selling or submitting a card.
 
----
+## 8. Intellectual property
 
-## Service Availability
+The Service, its software, models, designs and text are ours or our licensors' and are protected by copyright and other laws. You keep the rights to the photos you upload and grant us a licence to store, process and display them to run the Service for you, and, only if you opt in, to use them to train our models. Card names and images belong to their owners and appear only to identify your card. Grading-company names are used only to identify the scale an estimate is compared against.
 
-### Uptime
-- We strive for high availability but do not guarantee 100% uptime
-- Scheduled maintenance will be announced when possible
-- Unscheduled outages may occur
+## 9. Privacy
 
-### Modifications
-- We may modify features at any time
-- We may discontinue features with notice
-- Major changes will be communicated to users
+The Privacy Policy explains what we collect and how it is used, including that paid AI grades send your photos to our AI provider. It is part of these terms.
 
-### Beta Status
-- SlabSense is currently in beta
-- Features and accuracy may change
-- Bugs and errors are expected
+## 10. Availability and changes
 
----
+We may change, suspend or discontinue any part of the Service. We will give reasonable notice of material changes that affect a paid feature, and refund unused credits if a paid feature is discontinued. We may update these terms; the effective date above changes when we do, and continued use after that date is acceptance.
 
-## Disclaimers
+## 11. Disclaimer of warranties
 
-### AS-IS Service
-THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE". TO THE FULLEST EXTENT PERMITTED BY LAW WE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, ACCURACY AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT AN ESTIMATE WILL MATCH ANY GRADE.
 
-### No Professional Advice
-SlabSense does not provide professional grading, authentication, or valuation services. Our estimates are not a substitute for professional evaluation.
+## 12. Limitation of liability
 
----
+TO THE FULLEST EXTENT PERMITTED BY LAW, SLABSENSE IS NOT LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES, OR FOR LOST PROFITS, GRADING FEES, OR THE VALUE OF ANY CARD, ARISING FROM THE SERVICE OR RELIANCE ON AN ESTIMATE. OUR TOTAL LIABILITY FOR ANY CLAIM IS LIMITED TO THE AMOUNT YOU PAID US IN THE TWELVE MONTHS BEFORE THE CLAIM. SOME JURISDICTIONS DO NOT ALLOW THESE LIMITS, IN WHICH CASE THEY APPLY TO THE EXTENT PERMITTED.
 
-## Limitation of Liability
+## 13. Indemnity
 
-TO THE MAXIMUM EXTENT PERMITTED BY LAW:
-- We are not liable for any indirect, incidental, special, consequential, or punitive damages
-- We are not liable for any loss of profits, data, or goodwill
-- Our total liability shall not exceed the amount you paid us in the past 12 months
-- These limitations apply regardless of the legal theory
+You will defend and hold us harmless from claims arising from your content, your use of the Service in breach of these terms, or your presenting an estimate or slab as an official grade.
 
----
+## 14. Disputes
 
-## Indemnification
+These terms are governed by the laws of the State of Indiana, United States, without regard to conflict-of-law rules. Before filing a claim, write to us and allow 30 days to resolve it informally. Claims that cannot be resolved informally will be brought in the state or federal courts located in Indiana, except that either party may bring a qualifying claim in small-claims court. Nothing here limits consumer rights that cannot be waived where you live.
 
-You agree to indemnify and hold harmless SlabSense, its operators, and affiliates from any claims, damages, losses, or expenses arising from:
-- Your use of the Service
-- Your violation of these Terms
-- Your violation of any rights of another party
+## 15. Apple
 
----
+If you use the iOS app: these terms are between you and SlabSense, not Apple; Apple has no obligation to provide support or maintenance for the app; Apple is not responsible for any claim relating to the app or your use of it, including product-liability, consumer-protection or intellectual-property claims; and Apple and its subsidiaries are third-party beneficiaries of these terms and may enforce them against you.
 
-## Dispute Resolution
+## 16. General
 
-### Informal Resolution
-Before filing any formal dispute, contact us to attempt informal resolution. Most concerns can be resolved quickly this way.
-
-### Governing Law
-These Terms are governed by the laws of [State TBD], United States, without regard to conflict of law principles.
-
-### Arbitration
-Any disputes that cannot be resolved informally shall be resolved through binding arbitration, except for claims that qualify for small claims court.
-
----
-
-## Termination
-
-### By You
-You may terminate your account at any time by deleting it in settings or contacting support.
-
-### By Us
-We may suspend or terminate your account if you:
-- Violate these Terms
-- Engage in fraudulent activity
-- Abuse the Service or other users
-- Fail to pay for premium services
-
-### Effect of Termination
-- Access to the Service will cease
-- Your data will be deleted per our Privacy Policy
-- Paid subscriptions will not be refunded (except as stated above)
-
----
-
-## Changes to Terms
-
-We may modify these Terms at any time. Changes will be effective when posted. Continued use after changes constitutes acceptance. We will notify users of material changes via email or in-app notification.
-
----
-
-## General Provisions
-
-### Entire Agreement
-These Terms, along with the Privacy Policy and Disclaimers, constitute the entire agreement between you and SlabSense.
-
-### Severability
-If any provision is found unenforceable, the remaining provisions remain in effect.
-
-### Waiver
-Failure to enforce any right or provision is not a waiver of that right.
-
-### Assignment
-We may assign our rights under these Terms. You may not assign yours.
-
----
+If a part of these terms is unenforceable the rest remains in effect. These terms, the Privacy Policy and the Disclaimers are the whole agreement. You may not transfer your account. Notices to you go to your account email.
 
 ## Contact
-
-For questions about these Terms:
-- Email: [legal email TBD]
-- Subject line: "Terms of Service Inquiry"
-
----
-
-*Last Updated: April 2025*
+SlabSense · support@slabsenseai.com

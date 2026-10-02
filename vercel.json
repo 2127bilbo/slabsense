@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
+      "source": "/disclaimers",
+      "destination": "/disclaimers.html"
+    },
+    {
       "source": "/api/slabs/:action",
       "destination": "/api/slabs?action=:action"
     },
