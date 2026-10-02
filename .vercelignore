@@ -1,0 +1,8 @@
+# never ship local data or tooling with a CLI deploy (the Git deploy only sees tracked files)
+../SlabSense-data
+training
+scripts
+docs
+staging
+models
+*.md

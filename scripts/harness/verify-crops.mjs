@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { boxesForTask, drawBox, rgbaToTensor, INPUT_SIZE } from '../../src/lib/tag-crops.js';
-import { decodeLogits, OUTPUT_CHANNELS } from '../../src/lib/corner-edge-model.js';
+import { decodeLogits } from '../../src/lib/corner-edge-model.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..', '..');

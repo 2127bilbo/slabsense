@@ -293,7 +293,7 @@ export async function getCroppedDataUrl(source, options = {}) {
  */
 export async function visualizeDetection(source, options = {}) {
   const img = await loadImage(source);
-  const { canvas, ctx, scale } = createScaledCanvas(img, options.maxSize || 800);
+  const { canvas, ctx } = createScaledCanvas(img, options.maxSize || 800);
 
   const result = await detectAndCropCard(source, options);
   const bounds = result.bounds;

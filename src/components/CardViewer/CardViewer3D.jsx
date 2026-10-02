@@ -16,7 +16,6 @@ import { RealisticSlab } from './RealisticSlab.jsx';
 import { SlabSenseSlab } from './SlabSenseSlab.jsx';
 
 const mono = "'JetBrains Mono','SF Mono','Consolas',monospace";
-const sans = "'Inter','Helvetica Neue',Arial,sans-serif";
 
 // Card edge color (white cardstock)
 const CARD_EDGE_COLOR = '#f5f5f0';
@@ -30,7 +29,7 @@ export function CardViewer3D({
   subgrades = null,
   certNumber = null,
   cardInfo = null, // { name, cardNumber, setName, year, rarity, hp }
-  onClose,
+  onClose: _onClose,
   style = {},
 }) {
   const [rotateY, setRotateY] = useState(0);
@@ -77,15 +76,6 @@ export function CardViewer3D({
   const onTouchStart = (e) => handleDragStart(e.touches[0].clientX);
   const onTouchMove = (e) => handleDragMove(e.touches[0].clientX);
   const onTouchEnd = () => handleDragEnd();
-
-  // Company display names
-  const companyNames = {
-    psa: 'PSA',
-    bgs: 'BGS',
-    cgc: 'CGC',
-    sgc: 'SGC',
-    tag: 'TAG',
-  };
 
   // Generate cert number if not provided
   const displayCert = certNumber || Math.floor(Math.random() * 90000000 + 10000000).toString();

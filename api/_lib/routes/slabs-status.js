@@ -1,5 +1,5 @@
 /** POST /api/slabs/status — admin only. {cert,status:'engraved',svg,label_text,label_settings} | {cert,status:'shipped'} */
-import { requireAdmin, adminIdsFromEnv, sendAuthError } from '../auth.js';
+import { requireAdmin, sendAuthError } from '../auth.js';
 import { assertTransition, statusPatch, sanitizeSettings, SLAB_LABEL_BUCKET } from '../slabs.js';
 
 

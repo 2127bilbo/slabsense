@@ -41,7 +41,7 @@ export default async function handler(req, res) {
   }
 
   let event;
-  let rawBody = '';
+  let rawBody;
 
   try {
     // Read raw body for signature verification

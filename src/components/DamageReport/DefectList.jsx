@@ -1,5 +1,4 @@
 const mono = "'JetBrains Mono', 'SF Mono', monospace";
-const sans = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
 /**
  * DefectList - Detailed list of all defects

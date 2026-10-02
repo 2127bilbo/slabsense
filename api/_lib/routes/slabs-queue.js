@@ -1,5 +1,5 @@
 /** GET /api/slabs/queue?status=paid|engraved|shipped[&q=] — admin only. */
-import { requireAdmin, adminIdsFromEnv, sendAuthError } from '../auth.js';
+import { requireAdmin, sendAuthError } from '../auth.js';
 import { QUEUE_SELECT, flattenQueueRow } from '../slabs.js';
 
 const STATUSES = ['paid', 'engraved', 'shipped'];

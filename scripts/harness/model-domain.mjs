@@ -40,19 +40,7 @@ let certs = Object.keys(gt.certs).filter((c) => splits[c] && splits[c] !== 'trai
 if (LIMIT) certs = certs.slice(0, LIMIT);
 
 /** TAG's backdrop colour, sampled from the corner of its scans. */
-const TAG_ORANGE = [236, 96, 32];
-const isOrange = (r, g, b) => r > 170 && g > 50 && g < 160 && b < 110 && r - b > 90;
 
-/** The app's crop, as cropToOuterBounds() draws it: rounded clip, transparent outside. */
-function withClip(img) {
-  const c = createCanvas(img.width, img.height);
-  const ctx = c.getContext('2d');
-  ctx.beginPath();
-  ctx.roundRect(0, 0, img.width, img.height, Math.round(img.width * 0.048));
-  ctx.clip();
-  ctx.drawImage(img, 0, 0);
-  return c;
-}
 /**
  * Replace the backdrop cleanly: flood-fill from each outer corner over pixels
  * close to the corner's own colour, grow the region by a few pixels so the

@@ -280,7 +280,7 @@ export default function ZoomableCardView({
             pointerEvents: 'none'
           }}>
             {defects.map(defect => {
-              const { bounds, type, id, label, location } = defect;
+              const { bounds, type, id } = defect;
               const width = bounds.x2 - bounds.x1;
               const height = bounds.y2 - bounds.y1;
 

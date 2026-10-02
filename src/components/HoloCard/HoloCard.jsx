@@ -6,7 +6,7 @@
  * Only renders sparkles when card is visible (IntersectionObserver).
  */
 
-import React, { useRef, useEffect, useState, memo } from 'react';
+import { useRef, useEffect, useState, memo } from 'react';
 import { createSparkleField, renderSparkles } from '../../lib/sparkle-engine.js';
 
 export const HoloCard = memo(function HoloCard({

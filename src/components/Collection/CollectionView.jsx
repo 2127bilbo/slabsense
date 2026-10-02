@@ -5,13 +5,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getUserScans, deleteScan, updateScan } from '../../services/scans.js';
-import { getGradeFromScore, GRADING_COMPANIES as GRADE_SCALES } from '../../utils/gradingScales.js';
+import { getGradeFromScore } from '../../utils/gradingScales.js';
 import { HoloCard } from '../HoloCard/HoloCard.jsx';
 import { getGyroInput } from '../../lib/gyro-input.js';
-import { loadImg, genMaps, LUM } from '../../lib/image-utils.js';
+import { genMaps } from '../../lib/image-utils.js';
 import { CardViewer3D } from '../CardViewer/CardViewer3D.jsx';
 import { claudeGradingAnalysis, deepGradingAnalysisV2 } from '../../services/api.js';
-import { GradeResultDisplay } from '../Grading/GradeResultDisplay.jsx';
 import { DamageReportModal } from '../DamageReport';
 import { aiRecordFromResult, scanAiColumns, savedAi, conditionScores, damageReportInputs } from '../../lib/grade-records.js';
 import holoConfig from '../../../config/holo-config.json';
@@ -54,17 +53,6 @@ function getCardPrice(scan) {
     }
   }
   return null;
-}
-
-/**
- * Format price for display
- */
-function formatPrice(price, currency = 'usd') {
-  if (!price) return null;
-  if (currency === 'usd') {
-    return `$${price.usd?.toFixed(2) || '—'}`;
-  }
-  return `€${price.eur?.toFixed(2) || '—'}`;
 }
 
 // Check if card is holo based on rarity string
@@ -112,7 +100,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   const [deepGradeStatus, setDeepGradeStatus] = useState(null);
   const [deepGradeResult, setDeepGradeResult] = useState(null);
   const [deepAiGrades, setDeepAiGrades] = useState(null);
-  const [deepAiCentering, setDeepAiCentering] = useState(null);
+  const [, setDeepAiCentering] = useState(null);
 
   // Damage Report modal state
   const [showDamageReport, setShowDamageReport] = useState(false);
@@ -171,8 +159,9 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
     return scan?.enhanced_back_path || scan?.back_image_path || null;
   };
 
-  // Generate vision maps when card is selected
+  // Generate vision maps when card is selected (a later selection cancels the earlier maps; audit E-17)
   useEffect(() => {
+    let cancelled = false;
     if (selectedCard) {
       const frontImg = getFrontImage(selectedCard);
       const backImg = getBackImage(selectedCard);
@@ -224,16 +213,18 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           frontImg ? genMaps(frontImg) : Promise.resolve(null),
           backImg ? genMaps(backImg) : Promise.resolve(null),
         ]).then(([frontMaps, backMaps]) => {
+          if (cancelled) return;
           setFM(frontMaps);
           setBM(backMaps);
           setMapsLoading(false);
-        }).catch(() => setMapsLoading(false));
+        }).catch(() => { if (!cancelled) setMapsLoading(false); });
       }
     } else {
       setFM(null);
       setBM(null);
       setShow3DViewer(false);
     }
+    return () => { cancelled = true; };
   }, [selectedCard]);
 
   // Load the slab order (if any) for the selected card
@@ -1891,7 +1882,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
               No cards yet
             </div>
             <div style={{ fontFamily: mono, fontSize: 11, color: '#444' }}>
-              Grade a card and click "Save to Collection"
+              Grade a card and click &quot;Save to Collection&quot;
             </div>
           </div>
         ) : (
@@ -1999,7 +1990,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
 }
 
 // Helper Components
-function SubgradeBox({ label, value, small = false, maxValue = 100 }) {
+function SubgradeBox({ label, value, small = false }) {
   // Get color based on score value (100-point scale)
   const getScoreColor = (val) => {
     if (val >= 95) return '#00ff88';
@@ -2067,7 +2058,6 @@ function ConditionBox({ label, value, isTAG = false }) {
   // For TAG: value is out of 100 (unified scale)
   // For others: value is out of 10
   const displayValue = isTAG ? value : value;
-  const maxValue = isTAG ? 100 : 10;
   const normalizedValue = isTAG ? (value / 10) : value;
   const color = normalizedValue >= 9 ? '#00ff88' : normalizedValue >= 7 ? '#ffcc00' : '#ff6633';
 

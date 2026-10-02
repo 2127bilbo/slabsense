@@ -18,8 +18,8 @@ if(JSON.stringify(pickImages({}))!=='{"front":null,"back":null}')fail('pick 3');
 
 // fakes
 function fakeStorage(){const up=[];return {uploads:up,from:(b)=>({upload:async(path,buf,opts)=>{up.push({b,path,len:buf.length,opts});return {data:{path},error:null};},getPublicUrl:(path)=>({data:{publicUrl:'https://cdn/'+b+'/'+path}})})};}
-const fetchOk=async(url)=>({ok:true,arrayBuffer:async()=>new Uint8Array([1,2,3]).buffer,headers:{get:()=>'image/jpeg'}});
-const fetchBad=async(url)=>({ok:false,status:404});
+const fetchOk=async()=>({ok:true,arrayBuffer:async()=>new Uint8Array([1,2,3]).buffer,headers:{get:()=>'image/jpeg'}});
+const fetchBad=async()=>({ok:false,status:404});
 
 // copySlabImages
 let st=fakeStorage();

@@ -477,7 +477,7 @@ CLIP (Contrastive Language-Image Pre-training) provides visual card matching tha
 | `src/lib/card-detector.js` | Card cropping from photo |
 | `src/lib/identify-card.js` | Main identification pipeline |
 | `public/models/clip_embeddings_*.json` | Pre-computed embeddings (5 chunks) |
-| `public/card-hashes.json` | Card metadata (names, sets) |
+| `../SlabSense-data/card-hashes.json` | Card metadata for the one-time initial card-DB build only (moved out of `public/` 2026-10-02; names ship in the shards) |
 
 ### Embedding Files
 
@@ -504,7 +504,7 @@ Each file is under 50MB to comply with Vercel's 100MB per-file limit.
 ```javascript
 1. Load CLIP model (lazy, cached)
 2. Load embeddings (5 chunks in parallel)
-3. Load card info (from card-hashes.json)
+3. Card names come from the shards (the card-hashes.json fallback was removed 2026-10-02)
 4. Detect & crop card from photo
 5. Compute 512-dim embedding for photo
 6. Cosine similarity search against all embeddings
@@ -727,7 +727,7 @@ export async function saveScan({
 | `src/lib/card-detector.js` | Card cropping from photo |
 | `src/lib/identify-card.js` | Main identification pipeline |
 | `src/lib/phash.js` | Perceptual hash (legacy, backup) |
-| `src/lib/card-matcher.js` | pHash database matching (legacy) |
+| ~~`src/lib/card-matcher.js`~~ | pHash matching, deleted 2026-10-02 (no importer) |
 | `src/lib/corner-measurement.js` | Corner-anchored centering calculation |
 
 ### Utilities
@@ -747,14 +747,14 @@ export async function saveScan({
 
 | File | Purpose |
 |------|---------|
-| `public/card-hashes.json` | Card metadata (21,900 cards, 1.94MB) |
+| `../SlabSense-data/card-hashes.json` | Card metadata (21,900 cards, 1.94MB), outside the repo since 2026-10-02 |
 | `public/models/clip_embeddings_*.json` | CLIP embeddings (5 chunks, ~215MB total) |
 
 ### Scripts
 
 | File | Purpose |
 |------|---------|
-| `scripts/build-hash-db.cjs` | Build card hash database |
+| `scripts/card-db/update.mjs` | Weekly card-DB update (replaced `build-hash-db.cjs`, deleted 2026-10-02) |
 | `scripts/split-embeddings.cjs` | Split embeddings into chunks |
 
 ---
@@ -947,7 +947,7 @@ vercel                         # Preview deployment
 vercel --prod                  # Production deployment
 
 # Update hash database (new card sets)
-node scripts/build-hash-db.cjs --update --save-images
+node scripts/card-db/update.mjs --save-images   # images go to ../SlabSense-data/card-images
 
 # Split embeddings (if regenerated)
 node scripts/split-embeddings.cjs

@@ -6,7 +6,6 @@
 import { useRef, useState } from 'react';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
-const sans = "'Inter',-apple-system,sans-serif";
 
 export function ExportCard({ gradeResult, frontImage, backImage, gradingCompany, onClose }) {
   const cardRef = useRef(null);
@@ -173,10 +172,10 @@ slabsenseai.com`;
         {/* Card Images */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           <div style={{ flex: 1, aspectRatio: '2.5/3.5', borderRadius: 8, overflow: 'hidden', background: '#151720' }}>
-            {frontImage && <img src={frontImage} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+            {frontImage && <img src={frontImage} alt="Front of card" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
           </div>
           <div style={{ flex: 1, aspectRatio: '2.5/3.5', borderRadius: 8, overflow: 'hidden', background: '#151720' }}>
-            {backImage && <img src={backImage} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+            {backImage && <img src={backImage} alt="Back of card" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
           </div>
         </div>
 

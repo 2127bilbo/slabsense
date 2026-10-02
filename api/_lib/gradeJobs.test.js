@@ -34,7 +34,7 @@ function fakeDb({ jobsTable = true, balance = 5 } = {}) {
         eq(k, v) { q.filters.push((r) => r[k] === v); return api; },
         in(k, vs) { q.filters.push((r) => vs.includes(r[k])); return api; },
         limit() { return api; },
-        then(res, rej) {
+        then(res, _rej) {
           if (table === 'ai_grade_jobs' && !jobsTable) return res({ data: null, error: { code: '42P01', message: 'relation "ai_grade_jobs" does not exist' } });
           const rows = t[table];
           if (q.op === 'insert') {

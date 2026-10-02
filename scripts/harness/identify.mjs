@@ -27,7 +27,7 @@ const ROOT = path.resolve(here, '..', '..');
 const DATA_DIR = process.env.SLABSENSE_DATA_DIR || path.join(ROOT, '..', 'SlabSense-data');
 const CACHE = path.join(os.tmpdir(), 'slabsense-harness-cache');
 const PHOTOS = path.join(DATA_DIR, 'Tag scraper', 'dig info', 'weights by tag', 'TAG Map', 'Front');
-const REF_DIR = path.join(ROOT, 'public', 'card-images');
+const REF_DIR = path.join(DATA_DIR, 'card-images'); // moved out of public/ 2026-10-02 (18 GB copied into dist on every build)
 const OUT_DIR = path.join(ROOT, 'scripts', 'card-db', 'out');
 const RESULTS = path.join(here, 'results');
 
@@ -231,7 +231,7 @@ for (const cert of certs) {
   try { q = Array.from((await extractor(src, { pooling: 'mean', normalize: true })).data); let n = 0; for (const v of q) n += v * v; n = Math.sqrt(n) || 1; q = q.map((v) => v / n); }
   catch (e) { cards.push({ cert, truth: { name: t.name, number: t.number, set: t.set }, inDb, error: String(e?.message || e) }); errors++; continue; }
   const hits = topK(db, q, K);
-  let d = null;
+  let d;
   try { d = (VARIANTS.includes('ocr') || VARIANTS.includes('pixel')) ? await draw500x700(src, true, true) : null; }
   catch (e) { cards.push({ cert, truth: { name: t.name, number: t.number, set: t.set }, inDb, error: String(e?.message || e) }); errors++; continue; }
   const rec = { cert, truth: { name: t.name, number: t.number, set: t.set }, inDb, top: hits.slice(0, 5).map((h) => ({ id: h.id, s: +h.s.toFixed(4) })), variants: {} };

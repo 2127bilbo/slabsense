@@ -38,7 +38,7 @@ const input = parseCornerEdgeInput({ front: wornSide(), back: cleanSide() });
 const block = cornerEdgeContextBlock(input, PIN);
 check('empty without input', cornerEdgeContextBlock(null) === '');
 check('tells Claude corners and edges are measured', /ALREADY MEASURED/.test(block) && /Do NOT report CORNER or\s+EDGE/.test(block));
-check('lists every slot of both sides', (block.match(/^  corner /gm) || []).length === 8 && (block.match(/^  edge /gm) || []).length === 8);
+check('lists every slot of both sides', (block.match(/^ {2}corner /gm) || []).length === 8 && (block.match(/^ {2}edge /gm) || []).length === 8);
 check('verdicts follow the calibrated thresholds', /TOP LEFT.*-> SEVERE corner wear/.test(block) && /BOTTOM LEFT.*-> clean/.test(block));
 check('an edge under 0.5 wear is reported clean', /LEFT EDGE.*-> clean/.test(block));
 check('front-only says so', /BACK: not measured/.test(cornerEdgeContextBlock(parseCornerEdgeInput({ front: cleanSide() }), PIN)));

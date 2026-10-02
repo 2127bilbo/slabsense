@@ -10,7 +10,7 @@
  * 6. Text Glare - Sharp white band sweep
  */
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { createSparkleField, renderSparkles, renderIdlePulse } from '../../lib/sparkle-engine.js';
 
 export function HoloLogo({

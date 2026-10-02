@@ -207,7 +207,7 @@ export function renderSparkles(ctx, width, height, stars, tiltData, config) {
     return;
   }
 
-  const { tiltDist, angle, xP, yP } = tiltData;
+  const { tiltDist, angle } = tiltData;
 
   // If motionOnly and below dead zone, don't render
   if (config.motionOnly && tiltDist <= 0) {

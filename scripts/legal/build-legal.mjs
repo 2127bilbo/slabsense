@@ -80,7 +80,7 @@ ${body}
 
 for (const [name, file] of Object.entries(PAGES)) {
   const md = fs.readFileSync(path.join(SRC, file), 'utf8');
-  const title = (/^#\s+(.*)$/m.exec(md) || [, name])[1].replace(/^SlabSense\s*[-—]\s*/, '');
+  const title = (/^#\s+(.*)$/m.exec(md) || [null, name])[1].replace(/^SlabSense\s*[-—]\s*/, '');
   const updated = (/\*(Effective|Last updated)[^*]*\*/i.exec(md) || [''])[0].replace(/\*/g, '');
   const html = shell(title, mdToHtml(md), updated);
   fs.writeFileSync(path.join(OUT, `${name}.html`), html);

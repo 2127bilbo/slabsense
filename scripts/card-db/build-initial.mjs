@@ -15,6 +15,7 @@ import { fetchSets, isPocketSetId } from './tcgdex.mjs';
 
 loadEnv();
 const DRY = process.argv.includes('--dry-run');
+const DATA_DIR = process.env.SLABSENSE_DATA_DIR || path.join(process.cwd(), '..', 'SlabSense-data'); // card-hashes.json and card-images live here (outside the repo)
 const OUT = path.join(process.cwd(), 'scripts', 'card-db', 'out');
 const SHARD_SIZE = 4000;
 
@@ -26,7 +27,7 @@ for (let i = 0; i < 5; i++) {
   Object.assign(db, j.embeddings);
 }
 const info = {};
-for (const c of JSON.parse(fs.readFileSync('public/card-hashes.json', 'utf8')).cards) info[c.id] = { name: c.name, set: c.set, number: c.number };
+for (const c of JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'card-hashes.json'), 'utf8')).cards) info[c.id] = { name: c.name, set: c.set, number: c.number };
 
 // TCG Pocket (digital-only) ids: A1/A2/B1... sets and the P-A promo set.
 const isPocketId = (id) => /^[AB]\d/.test(id) || /^P-A-/.test(id);

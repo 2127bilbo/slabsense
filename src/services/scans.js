@@ -27,7 +27,7 @@ export async function uploadCardImage(userId, scanId, dataUrl, type) {
     const filename = `${userId}/${scanId}/${type}_${timestamp}.jpg`;
 
     // Upload to storage bucket
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('card-images')
       .upload(filename, blob, {
         contentType: 'image/jpeg',

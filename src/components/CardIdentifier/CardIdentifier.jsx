@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { identifyCard, selectCard } from '../../lib/identify-card.js';
+import { identifyCard } from '../../lib/identify-card.js';
 import { smartSearch, getFullCardData } from '../../services/tcgdex.js';
 import { logIdentification } from '../../services/scans.js';
 
@@ -345,7 +345,15 @@ export function CardIdentifier({
                     e.currentTarget.style.borderColor = '#6366f1';
                     e.currentTarget.style.background = '#111318';
                   }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#6366f1';
+                    e.currentTarget.style.background = '#111318';
+                  }}
                   onMouseOut={(e) => {
+                    e.currentTarget.style.borderColor = '#1a1c22';
+                    e.currentTarget.style.background = '#0d0f13';
+                  }}
+                  onBlur={(e) => {
                     e.currentTarget.style.borderColor = '#1a1c22';
                     e.currentTarget.style.background = '#0d0f13';
                   }}
@@ -535,6 +543,7 @@ export function CardIdentifier({
                 fontSize: 12,
                 outline: 'none',
               }}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just chose "search by name"; the box is the only control
               autoFocus
             />
             <button
@@ -592,7 +601,7 @@ export function CardIdentifier({
               cursor: 'pointer',
             }}
           >
-            Skip - I'll enter details later
+            Skip - I&apos;ll enter details later
           </button>
         </div>
       )}

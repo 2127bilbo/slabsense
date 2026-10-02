@@ -17,7 +17,7 @@ const flat=L.flattenQueueRow({cert:'SS26-00001',status:'paid',scans:{id:'s1',car
 const admin={auth:{getUser:async(t)=>t==='adm'?{data:{user:{id:'u1'}},error:null}:t==='usr'?{data:{user:{id:'u2'}},error:null}:{data:{user:null},error:{message:'x'}}}};
 const rows=[{cert:'SS26-00001',status:'paid',paid_at:'2026-09-13',scans:{id:'s1',card_name:'Glaceon'}},{cert:'SS26-00002',status:'paid',paid_at:'2026-09-14',scans:{id:'s2',card_name:'Pikachu'}}];
 function fakeDb(){const st={rows:rows.map(r=>({...r})),updates:[],uploads:[]};
-  const q=(t)=>{let f=[],ord=null;const b={select:()=>b,eq:(k,v)=>{f.push([k,v]);return b;},order:(k,o)=>{ord=[k,o];return b;},limit:()=>b,
+  const q=()=>{let f=[];const b={select:()=>b,eq:(k,v)=>{f.push([k,v]);return b;},order:()=>b,limit:()=>b,
     maybeSingle:async()=>({data:st.rows.find(r=>f.every(([k,v])=>r[k]===v))||null,error:null}),
     update:(patch)=>{const conds=[];const u={eq:(k,v)=>{conds.push([k,v]);return u;},then:(ok)=>{const r=st.rows.find(r=>conds.every(([k,v])=>r[k]===v));if(r)Object.assign(r,patch);st.updates.push({patch,k:conds[0][0],v:conds[0][1]});return ok({data:null,error:null});}};return u;},
     then:(ok)=>ok({data:st.rows.filter(r=>f.every(([k,v])=>r[k]===v)),error:null})};

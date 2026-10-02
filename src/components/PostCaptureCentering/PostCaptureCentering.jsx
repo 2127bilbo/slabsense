@@ -12,16 +12,13 @@
  *   - "Back" returns to Step 1, "Confirm" finalizes
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { CornerHandles, EdgeBreakdownPanel } from '../CornerHandles.jsx';
-import { calculateCornerCentering } from '../../lib/corner-measurement.js';
-import { fit as fitView, zoomAt, zoomToImagePoint, pan as panView, imageToViewport, CORNER_Z } from '../../lib/stage-view.js';
+import { fit as fitView, zoomAt, zoomToImagePoint, pan as panView, CORNER_Z } from '../../lib/stage-view.js';
 import { genMaps, loadImg } from '../../lib/image-utils.js';
 import { LINE_PALETTE, loadLineStyle, saveLineStyle, haloFor, sampleSegments, pickLineColor, rectSegments, quadSegments } from '../../lib/line-color.js';
 import { Loupe } from './Loupe.jsx';
 import {
-  initializeCorners,
-  initializeInnerCorners,
   cropToOuterBounds,
   getBoundsFromCorners,
 } from '../../lib/centering-utils.js';
@@ -126,8 +123,10 @@ export function PostCaptureCentering({
     if (!image) return;
 
     const MAX_DIM = 1400;
+    let cancelled = false;              // a newer image or unmount discards this load (audit E-17)
     const img = new Image();
     img.onload = () => {
+      if (cancelled) return;
       let w = img.width;
       let h = img.height;
       if (Math.max(w, h) > MAX_DIM) {
@@ -194,6 +193,7 @@ export function PostCaptureCentering({
       setInnerCorners(null);
     };
     img.src = image;
+    return () => { cancelled = true; };
   }, [image]);
 
   // ═══════════════════════════════════════════

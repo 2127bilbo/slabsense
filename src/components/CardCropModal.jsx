@@ -5,7 +5,7 @@
  * to create a placeholder image for the collection.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
 

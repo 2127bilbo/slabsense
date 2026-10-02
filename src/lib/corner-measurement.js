@@ -76,7 +76,6 @@ export function calculateBorderMeasurement(outerStart, outerEnd, innerStart, inn
   const samples = [];
 
   for (const t of SAMPLE_POSITIONS) {
-    const outerPt = lerp(outerStart, outerEnd, t);
     const innerPt = lerp(innerStart, innerEnd, t);
     // Perpendicular distance from inner point to outer edge line
     const width = perpendicularDistance(innerPt, outerStart, outerEnd);

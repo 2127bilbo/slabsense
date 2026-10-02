@@ -9,15 +9,13 @@ import { UserMenu } from "./components/Auth/UserMenu.jsx";
 import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
-import { upsertScan, logMissingImage } from "./services/scans.js";
+import { upsertScan, logMissingImage, getUserScans } from "./services/scans.js";
 import { CardCropModal } from "./components/CardCropModal.jsx";
 import { claudeGradingAnalysis, deepGradingAnalysisV2 } from "./services/api.js";
 import { CardViewer3D } from "./components/CardViewer/CardViewer3D.jsx";
 import { CardIdentifier } from "./components/CardIdentifier/CardIdentifier.jsx";
-import { CornerHandles, EdgeBreakdownPanel } from "./components/CornerHandles.jsx";
 import { PostCaptureCentering } from "./components/PostCaptureCentering/PostCaptureCentering.jsx";
 import { HoloLogo } from "./components/HoloLogo/HoloLogo.jsx";
-import { GradeResultDisplay } from "./components/Grading/GradeResultDisplay.jsx";
 import { DamageReportModal } from "./components/DamageReport";
 import { CreditBalance, PricingPage } from "./components/Billing";
 import { NativeStore } from "./components/Billing/NativeStore.jsx";
@@ -26,10 +24,10 @@ import { getGradeJob } from "./services/credits.js";
 import { GRADE_TIERS, creditsLabel, PAID_GRADE_TYPE } from "./lib/grade-tiers.js";
 import { getGyroInput } from "./lib/gyro-input.js";
 import { loadImg, genMaps, LUM, loadImageElement } from "./lib/image-utils.js";
-import { cropToOuterBounds, getBoundsFromCorners } from "./lib/centering-utils.js";
-import { getGrade, computeGrade } from "./lib/softwareGrade.js";
+import { cropToOuterBounds } from "./lib/centering-utils.js";
+import { computeGrade } from "./lib/softwareGrade.js";
 import { analyzePixels, findBounds, PX } from "./lib/detectors.js";
-import { modelGradingEnabled, modelSlotsForSide, cornerEdgeRequest, markModelPass, modelPassCrashed } from "./services/cornerEdgeModels.js";
+import { modelGradingEnabled, modelSlotsForSide, cornerEdgeRequest, markModelPass } from "./services/cornerEdgeModels.js";
 import { mergeModelDings } from "./lib/corner-edge-model.js";
 import { trainingCaptureEnabled, captureForTraining } from "./services/trainingCapture.js";
 import { suggestOuterCorners, suggestInnerCorners, preloadCardModel, liveCardQuad, detectCardInSource } from "./services/cardModels.js";
@@ -153,7 +151,6 @@ async function analyzePhotoQuality(imageSrc) {
 }
 
 
-function cropReg(src,rg,mx=300){return new Promise(r=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>{const cx=Math.max(0,rg.x),cy=Math.max(0,rg.y),cw=Math.min(rg.w,img.width-cx),ch=Math.min(rg.h,img.height-cy);if(cw<=0||ch<=0){r(null);return;}const sc=Math.min(mx/cw,mx/ch,4);const c=document.createElement("canvas");c.width=~~(cw*sc);c.height=~~(ch*sc);const ctx=c.getContext("2d");ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";ctx.drawImage(img,cx,cy,cw,ch,0,0,c.width,c.height);r(c.toDataURL("image/png"));};img.src=src;});}
 
 /* ═══════════════════════════════════════════
    FULL ANALYSIS PIPELINE
@@ -212,135 +209,6 @@ async function withModelDings(src, side, result, onProgress = null) {
   }
 }
 
-
-/* ═══════════════════════════════════════════
-   UI COMPONENTS
-   ═══════════════════════════════════════════ */
-
-function ScoreRing({score,size=80,strokeWidth=4,label}){
-  const g=getGrade(score),pct=Math.min(100,Math.max(0,(score-300)/7)),r=(size-strokeWidth)/2,c=Math.PI*2*r;
-  return(<div style={{textAlign:"center"}}><svg width={size} height={size} style={{transform:"rotate(-90deg)"}}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1a1c22" strokeWidth={strokeWidth}/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={g.color} strokeWidth={strokeWidth} strokeDasharray={c} strokeDashoffset={c-(pct/100)*c} strokeLinecap="round" style={{transition:"stroke-dashoffset .8s ease"}}/></svg>
-    <div style={{marginTop:-size+12,position:"relative",height:size-16,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}><div style={{fontFamily:mono,fontSize:size>70?22:14,fontWeight:700,color:g.color}}>{score}</div>{label&&<div style={{fontFamily:mono,fontSize:8,color:"#555",textTransform:"uppercase",letterSpacing:".1em",marginTop:2}}>{label}</div>}</div></div>);
-}
-
-/* Grade Display - Shows grade number prominently with company-specific formatting */
-function GradeDisplay({ gradeResult, companyId, isPro = true }) {
-  const company = GRADING_COMPANIES[companyId];
-  const grade = gradeResult.grade;
-  const score = gradeResult.rawScore;
-
-  // Format grade number (handle 9.5, 10, etc.)
-  const gradeNum = grade.grade;
-  const gradeStr = Number.isInteger(gradeNum) ? gradeNum.toString() : gradeNum.toFixed(1);
-
-  return (
-    <div style={{textAlign:"center",padding:"24px 16px 20px",background:grade.bg,borderRadius:12,border:`1px solid ${grade.color}22`,marginBottom:16}}>
-      {/* Main Grade Number */}
-      <div style={{marginBottom:8}}>
-        <span style={{fontFamily:mono,fontSize:56,fontWeight:800,color:grade.color,lineHeight:1}}>{gradeStr}</span>
-      </div>
-
-      {/* Grade Label */}
-      <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:grade.color,marginBottom:8}}>{grade.label}</div>
-
-      {/* Company Name */}
-      <div style={{fontFamily:mono,fontSize:11,color:"#666",textTransform:"uppercase",letterSpacing:".1em"}}>{company?.name || 'TAG'} Estimate</div>
-
-      {/* TAG-specific: Show 1000-point score */}
-      {companyId === 'tag' && isPro && (
-        <div style={{marginTop:12,padding:"8px 16px",background:"rgba(0,0,0,.3)",borderRadius:20,display:"inline-block"}}>
-          <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>TAG Score: </span>
-          <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:grade.color}}>{score}</span>
-          <span style={{fontFamily:mono,fontSize:10,color:"#555"}}> / 1000</span>
-        </div>
-      )}
-
-      {/* Software Confidence */}
-      {gradeResult.confidence !== undefined && isPro && (
-        <div style={{marginTop:10}}>
-          <span style={{
-            fontFamily:mono,
-            fontSize:11,
-            color: gradeResult.confidence >= 0.8 ? '#00ff88' :
-                   gradeResult.confidence >= 0.6 ? '#ffcc00' : '#ff6633',
-          }}>
-            {Math.round(gradeResult.confidence * 100)}% confidence
-          </span>
-          {gradeResult.confidenceFactors?.length > 0 && (
-            <div style={{fontFamily:mono,fontSize:9,color:'#555',marginTop:4}}>
-              {gradeResult.confidenceFactors.slice(0,2).join(' · ')}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Grade Caps (for debugging/transparency) */}
-      {gradeResult.gradeCaps && isPro && gradeResult.gradeCaps.final < 10 && (
-        <div style={{marginTop:8,fontFamily:mono,fontSize:9,color:'#666'}}>
-          Limited by: {
-            gradeResult.overall?.capsApplied?.length > 0
-              ? gradeResult.overall.capsApplied.map(cap =>
-                  cap.replace('_CAP_', ' ≤').replace('MIN_SUBGRADE_CLAMP', 'Min Subgrade')
-                ).join(', ')
-              : (gradeResult.gradeCaps.centering < gradeResult.gradeCaps.defects ? 'centering' : 'defects')
-          }
-        </div>
-      )}
-
-      {/* BGS/CGC: Show subgrades if Pro */}
-      {(companyId === 'bgs' || companyId === 'cgc') && isPro && gradeResult.subgrades && (
-        <div style={{marginTop:16,display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,padding:"0 8px"}}>
-          {[
-            {label:"Center",score:gradeResult.companyGrades?.[companyId]?.subgrades?.centering ?? gradeResult.subgrades?.frontCentering},
-            {label:"Corners",score:gradeResult.companyGrades?.[companyId]?.subgrades?.corners ?? gradeResult.subgrades?.frontCorners},
-            {label:"Edges",score:gradeResult.companyGrades?.[companyId]?.subgrades?.edges ?? gradeResult.subgrades?.frontEdges},
-            {label:"Surface",score:gradeResult.companyGrades?.[companyId]?.subgrades?.surface ?? gradeResult.subgrades?.frontSurface}
-          ].map((sub,i)=>{
-            const subGrade = getGrade(sub.score, companyId);
-            return (
-              <div key={i} style={{textAlign:"center"}}>
-                <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:subGrade.color}}>{subGrade.grade}</div>
-                <div style={{fontFamily:mono,fontSize:8,color:"#555",textTransform:"uppercase"}}>{sub.label}</div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* Simple Grade Display for Free Users - Just grade number and label */
-function GradeDisplaySimple({ gradeResult, companyId }) {
-  const company = GRADING_COMPANIES[companyId];
-  const grade = gradeResult.grade;
-
-  const gradeNum = grade.grade;
-  const gradeStr = Number.isInteger(gradeNum) ? gradeNum.toString() : gradeNum.toFixed(1);
-
-  return (
-    <div style={{textAlign:"center",padding:"32px 16px",background:grade.bg,borderRadius:12,border:`1px solid ${grade.color}22`,marginBottom:16}}>
-      {/* Company Logo/Name */}
-      <div style={{fontFamily:mono,fontSize:12,color:"#666",textTransform:"uppercase",letterSpacing:".15em",marginBottom:16}}>{company?.name || 'TAG'}</div>
-
-      {/* Main Grade Number */}
-      <div style={{marginBottom:8}}>
-        <span style={{fontFamily:mono,fontSize:72,fontWeight:800,color:grade.color,lineHeight:1}}>{gradeStr}</span>
-      </div>
-
-      {/* Grade Label */}
-      <div style={{fontFamily:mono,fontSize:20,fontWeight:600,color:grade.color}}>{grade.label}</div>
-
-      {/* Upgrade prompt */}
-      <div style={{marginTop:24,padding:"12px 20px",background:"rgba(99,102,241,.1)",borderRadius:8,border:"1px solid rgba(99,102,241,.2)"}}>
-        <div style={{fontFamily:sans,fontSize:12,color:"#8b8fff"}}>Run an AI Grade for the full report</div>
-        <div style={{fontFamily:sans,fontSize:10,color:"#666",marginTop:4}}>DINGS breakdown • Subgrades • Centering ratios</div>
-      </div>
-    </div>
-  );
-}
-
-function SubScoreBar({label,score,icon}){const g=getGrade(score),pct=Math.min(100,Math.max(0,(score-300)/7));return(<div style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:13}}>{icon}</span><span style={{fontFamily:mono,fontSize:11,color:"#999",textTransform:"uppercase",letterSpacing:".08em"}}>{label}</span></div><span style={{fontFamily:mono,fontSize:13,fontWeight:600,color:g.color}}>{score}</span></div><div style={{height:4,background:"#1a1c22",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:g.color,borderRadius:2,transition:"width .6s ease"}}/></div></div>);}
 
 /* ═══════════════════════════════════════════
    HOME TAB - Portfolio & Dashboard
@@ -478,115 +346,6 @@ function HomeTab({ auth, onOpenCollection, onStartScan, collectionStats }) {
   );
 }
 
-/* Photo Quality Warning Badge */
-function PhotoQualityBadge({ quality }) {
-  if (!quality || quality.warnings.length === 0) return null;
-
-  const hasHighSeverity = quality.warnings.some(w => w.severity === 'high');
-  const color = hasHighSeverity ? '#ff6633' : '#ffaa00';
-
-  return (
-    <div style={{
-      marginTop:8,
-      padding:"8px 12px",
-      background:`${color}15`,
-      border:`1px solid ${color}33`,
-      borderRadius:8,
-    }}>
-      <div style={{fontFamily:mono,fontSize:9,color,textTransform:"uppercase",marginBottom:4}}>
-        {hasHighSeverity ? '⚠ Quality Issues' : '⚡ Tips'}
-      </div>
-      {quality.warnings.map((w, i) => (
-        <div key={i} style={{fontFamily:sans,fontSize:11,color:"#999",marginTop:i>0?4:0}}>
-          • {w.message}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SurfaceVision({maps,label}){
-  const[mode,setMode]=useState("original"),[blend,setBlend]=useState(0);
-  const modes=[{id:"original",l:"Normal"},{id:"emboss",l:"Emboss"},{id:"highpass",l:"Hi-Pass"},{id:"edges",l:"Edges"}];
-  if(!maps)return null;
-  return(<div style={{marginBottom:16,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",overflow:"hidden"}}>
-    <div style={{padding:"10px 12px 6px"}}><span style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase"}}>{label} — Card Vision</span></div>
-    <div style={{position:"relative",width:"100%",aspectRatio:`${maps.width}/${maps.height}`,background:"#0a0a0a"}}><img src={maps.original} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain"}}/>{mode!=="original"&&<img src={maps[mode]} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain",opacity:blend/100,mixBlendMode:mode==="edges"?"screen":"normal"}}/>}</div>
-    <div style={{display:"flex",gap:4,padding:"8px 8px 4px"}}>{modes.map(m=>(<button key={m.id} onClick={()=>{setMode(m.id);if(m.id!=="original"&&blend===0)setBlend(80);}} style={{flex:1,padding:"5px 3px",borderRadius:5,background:mode===m.id?"rgba(0,255,136,.1)":"transparent",border:`1px solid ${mode===m.id?"#00ff8833":"#1a1c22"}`,color:mode===m.id?"#00ff88":"#555",fontFamily:mono,fontSize:9,textTransform:"uppercase",cursor:"pointer"}}>{m.l}</button>))}</div>
-    {mode!=="original"&&<div style={{padding:"4px 12px 10px"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:mono,fontSize:8,color:"#444"}}>TRANSPARENCY</span><span style={{fontFamily:mono,fontSize:10,color:"#00ff88"}}>{blend}%</span></div><input type="range" min="0" max="100" value={blend} onChange={e=>setBlend(+e.target.value)} style={{width:"100%",accentColor:"#00ff88"}}/></div>}
-  </div>);
-}
-
-/* Measurement Annotations Overlay — shows detected bounds on card photo */
-function MeasurementOverlay({ image, result, label }) {
-  const [showAnnotations, setShowAnnotations] = useState(false);
-  const [imgDims, setImgDims] = useState(null);
-  
-  useEffect(() => {
-    if (!image) return;
-    const img = new Image();
-    img.onload = () => setImgDims({ w: img.width, h: img.height });
-    img.src = image;
-  }, [image]);
-  
-  if (!result || !image) return null;
-  const bn = result.bounds;
-  const c = result.centering;
-  
-  return (
-    <div style={{marginBottom:12,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",overflow:"hidden"}}>
-      <div style={{padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <span style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase"}}>{label}</span>
-        <button onClick={()=>setShowAnnotations(!showAnnotations)} style={{padding:"4px 10px",borderRadius:4,background:showAnnotations?"rgba(0,255,136,.1)":"transparent",border:`1px solid ${showAnnotations?"#00ff8833":"#1a1c22"}`,color:showAnnotations?"#00ff88":"#555",fontFamily:mono,fontSize:9,cursor:"pointer"}}>
-          {showAnnotations?"HIDE":"SHOW"} ANNOTATIONS
-        </button>
-      </div>
-      <div style={{position:"relative",width:"100%",aspectRatio:"2.5/3.5",background:"#0a0a0a"}}>
-        <img src={image} style={{width:"100%",height:"100%",objectFit:"contain"}}/>
-        {showAnnotations && imgDims && (
-          <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}} viewBox={`0 0 ${imgDims.w} ${imgDims.h}`} preserveAspectRatio="xMidYMid meet">
-            {/* Card boundary rectangle */}
-            <rect x={bn.left} y={bn.top} width={bn.cardW} height={bn.cardH} fill="none" stroke="#00ff88" strokeWidth="3" strokeDasharray="12,6"/>
-            
-            {/* Border measurements */}
-            {/* Left border */}
-            <line x1={0} y1={bn.top+bn.cardH/2} x2={bn.left} y2={bn.top+bn.cardH/2} stroke="#ff9944" strokeWidth="2"/>
-            <text x={bn.left/2} y={bn.top+bn.cardH/2-8} fill="#ff9944" fontSize={Math.max(14,bn.cardW*0.03)} fontFamily={mono} textAnchor="middle">{c.borderL}px</text>
-            
-            {/* Right border */}
-            <line x1={bn.left+bn.cardW} y1={bn.top+bn.cardH/2} x2={imgDims.w} y2={bn.top+bn.cardH/2} stroke="#ff9944" strokeWidth="2"/>
-            <text x={bn.left+bn.cardW+(imgDims.w-bn.left-bn.cardW)/2} y={bn.top+bn.cardH/2-8} fill="#ff9944" fontSize={Math.max(14,bn.cardW*0.03)} fontFamily={mono} textAnchor="middle">{c.borderR}px</text>
-            
-            {/* Top border */}
-            <line x1={bn.left+bn.cardW/2} y1={0} x2={bn.left+bn.cardW/2} y2={bn.top} stroke="#ff9944" strokeWidth="2"/>
-            <text x={bn.left+bn.cardW/2+10} y={bn.top/2+5} fill="#ff9944" fontSize={Math.max(14,bn.cardW*0.03)} fontFamily={mono}>{c.borderT}px</text>
-            
-            {/* Bottom border */}
-            <line x1={bn.left+bn.cardW/2} y1={bn.top+bn.cardH} x2={bn.left+bn.cardW/2} y2={imgDims.h} stroke="#ff9944" strokeWidth="2"/>
-            <text x={bn.left+bn.cardW/2+10} y={bn.top+bn.cardH+(imgDims.h-bn.top-bn.cardH)/2+5} fill="#ff9944" fontSize={Math.max(14,bn.cardW*0.03)} fontFamily={mono}>{c.borderB}px</text>
-            
-            {/* Center crosshair */}
-            <line x1={bn.left+bn.cardW/2-20} y1={bn.top+bn.cardH/2} x2={bn.left+bn.cardW/2+20} y2={bn.top+bn.cardH/2} stroke="#0088ff66" strokeWidth="2"/>
-            <line x1={bn.left+bn.cardW/2} y1={bn.top+bn.cardH/2-20} x2={bn.left+bn.cardW/2} y2={bn.top+bn.cardH/2+20} stroke="#0088ff66" strokeWidth="2"/>
-            
-            {/* Centering ratio text */}
-            <rect x={bn.left+bn.cardW/2-60} y={bn.top+10} width={120} height={22} rx={4} fill="rgba(0,0,0,.7)"/>
-            <text x={bn.left+bn.cardW/2} y={bn.top+25} fill="#00ff88" fontSize={Math.max(12,bn.cardW*0.025)} fontFamily={mono} textAnchor="middle">
-              {c.lrRatio}/{Math.round((100-c.lrRatio)*10)/10} LR · {c.tbRatio}/{Math.round((100-c.tbRatio)*10)/10} TB
-            </text>
-            
-            {/* Corner scan regions */}
-            {result.corners.details.map(corner => (
-              <rect key={corner.name} x={corner.cropX} y={corner.cropY} width={corner.cropSize} height={corner.cropSize}
-                fill="none" stroke={corner.hasDing?"#ff6633":"#00ff8844"} strokeWidth="2" strokeDasharray={corner.hasDing?"none":"4,4"}/>
-            ))}
-          </svg>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* Grade Confidence Calculator */
 function calcConfidence(gradeResult, frontResult, backResult) {
   let confidence = 100;
@@ -626,10 +385,7 @@ function getNextGradeInfo(gradeResult) {
   const dings = gradeResult.allDings;
   const totalDings = gradeResult.totalDings;
   const frontDings = dings.filter(d => d.side === "FRONT");
-  const backDings = dings.filter(d => d.side === "BACK");
   const surfaceDings = dings.filter(d => d.type.includes("SURFACE"));
-  const cornerDings = dings.filter(d => d.type.includes("CORNER"));
-  const edgeDings = dings.filter(d => d.type.includes("EDGE"));
   const centerDings = dings.filter(d => d.type === "CENTERING");
   
   const tips = [];
@@ -655,207 +411,6 @@ function getNextGradeInfo(gradeResult) {
   }
   
   return tips;
-}
-
-/* DINGS Map Schematic */
-function DingsMap({ frontResult, backResult }) {
-  const [side, setSide] = useState("front");
-  const result = side === "front" ? frontResult : backResult;
-  if (!result) return null;
-  
-  const cornerData = result.corners.details;
-  const edgeData = result.edges.details;
-  const centering = result.centering;
-  const sideLabel = side === "front" ? "FRONT" : "BACK";
-  const dingColor = "#ff6633";
-  const cleanColor = "#333";
-  const getCorner = (name) => cornerData.find(c => c.name === name) || {};
-  const getEdge = (name) => edgeData.find(e => e.name === name) || {};
-  
-  // Card rect coordinates
-  const cx=100, cy=80, cw=160, ch=224;
-
-  const CornerScore = ({x, y, data, align="middle"}) => (
-    <g>
-      <text x={x} y={y} fill={data.hasDing?dingColor:"#555"} fontSize="7.5" fontFamily={mono} textAnchor={align} fontWeight={data.hasDing?600:400}>
-        {data.name || ""}
-      </text>
-      <text x={x} y={y+11} fill="#555" fontSize="6.5" fontFamily={mono} textAnchor={align}>F:{data.fray||"—"} Fi:{data.fill||"—"}{data.angle!==undefined?` A:${data.angle}`:""}</text>
-    </g>
-  );
-
-  const EdgeScore = ({x, y, data, align="middle"}) => (
-    <g>
-      <text x={x} y={y} fill={data.hasDing?dingColor:"#555"} fontSize="7.5" fontFamily={mono} textAnchor={align} fontWeight={data.hasDing?600:400}>
-        {data.name||""} EDGE
-      </text>
-      <text x={x} y={y+11} fill="#555" fontSize="6.5" fontFamily={mono} textAnchor={align}>F:{data.fray||"—"} Fi:{data.fill||"—"}</text>
-    </g>
-  );
-
-  return (
-    <div style={{background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",padding:12,marginBottom:16}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <span style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase"}}>DINGS Map</span>
-        <div style={{display:"flex",gap:4}}>
-          {["front","back"].map(s=>(<button key={s} onClick={()=>setSide(s)} style={{padding:"4px 10px",borderRadius:4,background:side===s?"rgba(0,255,136,.1)":"transparent",border:`1px solid ${side===s?"#00ff8833":"#1a1c22"}`,color:side===s?"#00ff88":"#555",fontFamily:mono,fontSize:9,textTransform:"uppercase",cursor:"pointer"}}>{s}</button>))}
-        </div>
-      </div>
-      <svg viewBox="0 0 360 540" style={{width:"100%"}}>
-        {/* Card outline */}
-        <rect x={cx} y={cy} width={cw} height={ch} rx="6" fill="none" stroke="#333" strokeWidth="1.5"/>
-        
-        {/* Center crosshair */}
-        <line x1={cx+cw/2} y1={cy} x2={cx+cw/2} y2={cy+ch} stroke="#1a1c22" strokeWidth="0.5" strokeDasharray="4,4"/>
-        <line x1={cx} y1={cy+ch/2} x2={cx+cw} y2={cy+ch/2} stroke="#1a1c22" strokeWidth="0.5" strokeDasharray="4,4"/>
-        <text x={cx+cw/2} y={cy+ch/2+3} fill="#222" fontSize="10" fontFamily={mono} textAnchor="middle" fontWeight="700">TAG</text>
-        
-        {/* Centering values on card */}
-        <text x={cx+cw/2} y={cy-8} fill="#888" fontSize="8.5" fontFamily={mono} textAnchor="middle">C: {centering.tbRatio}</text>
-        <text x={cx+cw/2} y={cy+ch+16} fill="#888" fontSize="8.5" fontFamily={mono} textAnchor="middle">C: {Math.round((100-centering.tbRatio)*10)/10}</text>
-        <text x={cx-10} y={cy+ch/2+3} fill="#888" fontSize="8.5" fontFamily={mono} textAnchor="end">C: {centering.lrRatio}</text>
-        <text x={cx+cw+10} y={cy+ch/2+3} fill="#888" fontSize="8.5" fontFamily={mono} textAnchor="start">C: {Math.round((100-centering.lrRatio)*10)/10}</text>
-        
-        {/* Corner indicators on card */}
-        {[{n:"TOP LEFT",x:cx,y:cy},{n:"TOP RIGHT",x:cx+cw,y:cy},{n:"BOTTOM LEFT",x:cx,y:cy+ch},{n:"BOTTOM RIGHT",x:cx+cw,y:cy+ch}].map(({n,x,y})=>{
-          const data=getCorner(n);
-          return(<rect key={n} x={x-7} y={y-7} width={14} height={14} rx={3} fill="none"
-            stroke={data.hasDing?dingColor:cleanColor} strokeWidth={data.hasDing?2.5:1} strokeDasharray={data.hasDing?"none":"3,3"}/>);
-        })}
-        
-        {/* Edge indicators on card */}
-        {[{n:"TOP",x1:cx+30,y1:cy,x2:cx+cw-30,y2:cy},{n:"BOTTOM",x1:cx+30,y1:cy+ch,x2:cx+cw-30,y2:cy+ch},{n:"LEFT",x1:cx,y1:cy+30,x2:cx,y2:cy+ch-30},{n:"RIGHT",x1:cx+cw,y1:cy+30,x2:cx+cw,y2:cy+ch-30}].map(({n,x1,y1,x2,y2})=>{
-          const data=getEdge(n);
-          return(<line key={n} x1={x1} y1={y1} x2={x2} y2={y2} stroke={data.hasDing?dingColor:cleanColor} strokeWidth={data.hasDing?3:1.5}/>);
-        })}
-
-        {/* === SCORE LABELS (below card, well-spaced) === */}
-        
-        {/* Top corners row */}
-        <CornerScore x={45} y={cy+ch+40} data={getCorner("TOP LEFT")} align="start"/>
-        <CornerScore x={315} y={cy+ch+40} data={getCorner("TOP RIGHT")} align="end"/>
-        
-        {/* Top edge (centered) */}
-        <EdgeScore x={180} y={cy+ch+40} data={getEdge("TOP")} align="middle"/>
-        
-        {/* Left/Right edges row */}
-        <EdgeScore x={45} y={cy+ch+72} data={getEdge("LEFT")} align="start"/>
-        <EdgeScore x={315} y={cy+ch+72} data={getEdge("RIGHT")} align="end"/>
-        
-        {/* Bottom edge (centered) */}
-        <EdgeScore x={180} y={cy+ch+72} data={getEdge("BOTTOM")} align="middle"/>
-        
-        {/* Bottom corners row */}
-        <CornerScore x={45} y={cy+ch+104} data={getCorner("BOTTOM LEFT")} align="start"/>
-        <CornerScore x={315} y={cy+ch+104} data={getCorner("BOTTOM RIGHT")} align="end"/>
-        
-        {/* Separator line */}
-        <line x1="30" y1={cy+ch+126} x2="330" y2={cy+ch+126} stroke="#1a1c22" strokeWidth="0.5"/>
-        
-        {/* Side label */}
-        <text x="180" y={cy+ch+142} fill="#444" fontSize="9" fontFamily={mono} textAnchor="middle">{sideLabel}</text>
-        
-        {/* DINGS legend */}
-        {result.allDings.length > 0 && (<g>
-          <rect x="30" y={cy+ch+152} width="300" height={20+result.allDings.length*14} rx="4" fill="rgba(255,102,51,.04)" stroke="#ff663322" strokeWidth="0.5"/>
-          <text x="40" y={cy+ch+166} fill="#ff6633" fontSize="7.5" fontFamily={mono} fontWeight="600">DINGS DETECTED:</text>
-          {result.allDings.map((d,i)=>(
-            <text key={i} x="40" y={cy+ch+180+i*14} fill="#ff9944" fontSize="7" fontFamily={mono}>⚡ {d.type} — {d.location}</text>
-          ))}
-        </g>)}
-      </svg>
-    </div>
-  );
-}
-
-/* DING Location Overlay — shows card image with DING regions highlighted */
-function DingLocationOverlay({image, result, label}){
-  if(!image||!result)return null;
-  const displayImg = result.scaledImgUrl || image;
-  const imgW=result.imgW||1400, imgH=result.imgH||1960;
-
-  // Collect all detectable DING regions in analysis coordinate space
-  const regions=[];
-  // Corner DINGS
-  for(const c of (result.corners?.details||[])){
-    if(c.hasDing) regions.push({x:c.cropX,y:c.cropY,w:c.cropSize,h:c.cropSize,label:"CORNER",color:"#ff6633"});
-  }
-  // Edge DINGS
-  for(const e of (result.edges?.details||[])){
-    if(e.hasDing) regions.push({x:e.cropX,y:e.cropY,w:e.cropW,h:e.cropH,label:"EDGE",color:"#ff9944"});
-  }
-  // Surface DING clusters
-  for(const rg of (result.surface?.defectRegions||[])){
-    // Only show clusters associated with actual DINGS
-    if(result.surface.dings.length>0) regions.push({x:rg.x,y:rg.y,w:rg.w,h:rg.h,label:"SURFACE",color:"#ffcc00"});
-  }
-
-  const hasDings = regions.length > 0;
-
-  return(
-    <div style={{marginBottom:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${hasDings?"#332200":"#1a1c22"}`,overflow:"hidden"}}>
-      <div style={{padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #151720"}}>
-        <span style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".08em"}}>{label} — Defect Map</span>
-        <span style={{fontFamily:mono,fontSize:9,color:hasDings?"#ff6633":"#00ff88"}}>{hasDings?`${regions.length} region${regions.length!==1?"s":""} flagged`:"Clean"}</span>
-      </div>
-      <div style={{position:"relative",lineHeight:0}}>
-        <img src={displayImg} style={{width:"100%",display:"block"}}/>
-        <svg viewBox={`0 0 ${imgW} ${imgH}`} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",pointerEvents:"none"}}>
-          {regions.map((rg,i)=>(
-            <g key={i}>
-              <rect x={rg.x} y={rg.y} width={rg.w} height={rg.h}
-                fill="rgba(255,102,51,0.12)" stroke={rg.color} strokeWidth={8} strokeDasharray="16,8"/>
-              <rect x={rg.x} y={Math.max(0,rg.y-28)} width={rg.label.length*9+16} height={24}
-                fill={rg.color} rx={4}/>
-              <text x={rg.x+8} y={Math.max(0,rg.y-28)+16} fill="#000" fontSize={14}
-                fontFamily="'JetBrains Mono',monospace" fontWeight="700">{rg.label}</text>
-            </g>
-          ))}
-        </svg>
-        {!hasDings&&<div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",background:"rgba(0,255,136,0.15)",border:"1px solid rgba(0,255,136,0.3)",borderRadius:8,padding:"8px 14px",fontFamily:mono,fontSize:11,color:"#00ff88",whiteSpace:"nowrap"}}>No defects detected</div>}
-      </div>
-    </div>
-  );
-}
-
-/* DINGS Preview Cards */
-function DingsPreview({frontResult,backResult,frontMaps,backMaps,frontImg,backImg}){
-  const[crops,setCrops]=useState([]),[loading,setLoading]=useState(true);
-  useEffect(()=>{(async()=>{setLoading(true);const all=[];
-    for(const[sLabel,result,img,maps]of[["Front",frontResult,frontResult?.scaledImgUrl||frontImg,frontMaps],["Back",backResult,backResult?.scaledImgUrl||backImg,backMaps]]){
-      if(!result||!img)continue;
-      for(const c of result.corners.details){if(!c.hasDing)continue;const rg={x:c.cropX,y:c.cropY,w:c.cropSize,h:c.cropSize};
-        const norm=await cropReg(img,rg);const enh=maps?.emboss?await cropReg(maps.emboss,rg):null;
-        if(norm)all.push({area:"Corner",loc:`${sLabel} / ${c.name}`,fray:c.fray,fill:c.fill,angle:c.angle,norm,enh,enhLabel:"Emboss"});}
-      for(const e of result.edges.details){if(!e.hasDing)continue;const rg={x:e.cropX,y:e.cropY,w:e.cropW,h:e.cropH};
-        const norm=await cropReg(img,rg);const enh=maps?.emboss?await cropReg(maps.emboss,rg):null;
-        if(norm)all.push({area:"Edge",loc:`${sLabel} / ${e.name}`,fray:e.fray,fill:e.fill,norm,enh,enhLabel:"Emboss"});}
-      for(const rg of (result.surface.defectRegions||[])){
-        const norm=await cropReg(img,rg);const enh=maps?.highpass?await cropReg(maps.highpass,rg):null;
-        if(norm)all.push({area:"Surface",loc:sLabel,norm,enh,enhLabel:"Hi-Pass"});}
-    }
-    setCrops(all);setLoading(false);})();},[frontResult,backResult,frontMaps,backMaps,frontImg,backImg]);
-  
-  if(loading)return<div style={{padding:20,textAlign:"center"}}><div style={{fontFamily:mono,fontSize:11,color:"#555"}}>Generating previews...</div></div>;
-  if(!crops.length)return<div style={{padding:16,background:"rgba(0,255,136,.05)",borderRadius:8,border:"1px solid rgba(0,255,136,.15)"}}><div style={{fontFamily:mono,fontSize:11,color:"#00ff88"}}>No defects to preview</div></div>;
-  
-  return(<div style={{display:"flex",flexDirection:"column",gap:10}}>{crops.map((c,i)=>(
-    <div key={i} style={{background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",overflow:"hidden"}}>
-      <div style={{padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #151720"}}>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <div style={{width:4,height:4,borderRadius:"50%",background:"#ff6633"}}/>
-          <span style={{fontFamily:mono,fontSize:10,color:"#888",textTransform:"uppercase"}}>{c.area}</span>
-          <span style={{color:"#555",fontSize:10}}>·</span>
-          <span style={{fontFamily:mono,fontSize:10,color:"#aaa"}}>{c.loc}</span>
-        </div>
-        {c.fray!==undefined&&<div style={{fontFamily:mono,fontSize:9,color:"#555"}}>F:{c.fray} Fi:{c.fill}{c.angle!==undefined?` A:${c.angle}`:""}</div>}
-      </div>
-      <div style={{display:"flex",gap:1,background:"#111"}}>
-        <div style={{flex:1,position:"relative"}}><img src={c.norm} style={{width:"100%",display:"block"}}/><div style={{position:"absolute",bottom:4,left:4,fontFamily:mono,fontSize:8,color:"rgba(255,255,255,.5)",background:"rgba(0,0,0,.6)",padding:"2px 5px",borderRadius:3}}>NORMAL</div></div>
-        {c.enh&&<div style={{flex:1,position:"relative"}}><img src={c.enh} style={{width:"100%",display:"block"}}/><div style={{position:"absolute",bottom:4,left:4,fontFamily:mono,fontSize:8,color:"rgba(0,255,136,.7)",background:"rgba(0,0,0,.6)",padding:"2px 5px",borderRadius:3}}>{c.enhLabel}</div></div>}
-      </div>
-    </div>
-  ))}</div>);
 }
 
 /* ═══════════════════════════════════════════
@@ -1013,20 +568,21 @@ function CameraViewfinder({ side, onCapture, onClose }) {
     return () => { running=false; clearTimeout(detectRef.current); markModelPass(false); };
   }, [active, captured]);
 
+  const tiltHandler = useCallback(e => setTilt({ beta:Math.round((e.beta||0)*10)/10, gamma:Math.round((e.gamma||0)*10)/10 }), []);
   useEffect(() => {
-    const handler = e => setTilt({ beta:Math.round((e.beta||0)*10)/10, gamma:Math.round((e.gamma||0)*10)/10 });
     if (typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function") {
       setOrientPerm("needs-request");
     } else if (typeof DeviceOrientationEvent!=="undefined") {
-      window.addEventListener("deviceorientation",handler); setOrientPerm("granted");
-      return () => window.removeEventListener("deviceorientation",handler);
+      window.addEventListener("deviceorientation",tiltHandler); setOrientPerm("granted");
     }
-  }, []);
+    // one cleanup covers both paths (the permission path adds the same handler later; audit E-15)
+    return () => window.removeEventListener("deviceorientation",tiltHandler);
+  }, [tiltHandler]);
 
   const requestOrient = async () => {
     try {
       const p = await DeviceOrientationEvent.requestPermission();
-      if (p==="granted") { setOrientPerm("granted"); window.addEventListener("deviceorientation",e=>setTilt({beta:Math.round((e.beta||0)*10)/10,gamma:Math.round((e.gamma||0)*10)/10})); }
+      if (p==="granted") { setOrientPerm("granted"); window.addEventListener("deviceorientation",tiltHandler); }
     } catch { setOrientPerm("denied"); }
   };
 
@@ -1301,7 +857,7 @@ function CameraViewfinder({ side, onCapture, onClose }) {
         {/* Captured image preview */}
         {captured && (
           <div style={{width:"100%",height:"100%",position:"relative"}}>
-            <img src={captured} style={{width:"100%",height:"100%",objectFit:"contain"}}/>
+            <img src={captured} alt="Captured card" style={{width:"100%",height:"100%",objectFit:"contain"}}/>
             {validating&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.6)"}}><div style={{fontFamily:mono,fontSize:12,color:"#00ff88"}}>Checking card detection...</div></div>}
             {validation&&(
               <div style={{position:"absolute",bottom:0,left:0,right:0,padding:16,background:"linear-gradient(transparent,rgba(0,0,0,.9))"}}>
@@ -1376,23 +932,6 @@ async function validateCap(src){
   const{w,h,data}=await loadImg(src,600);const bn=findBounds(data.data,w,h);const fill=bn.cardW*bn.cardH/(w*h),asp=bn.cardH>0?bn.cardW/bn.cardH:0,aDiff=Math.abs(asp-2.5/3.5);const ok=bn.cardW>50&&bn.cardH>50&&fill>.2&&fill<.95&&aDiff<.15;const issues=[];if(bn.cardW<=50)issues.push("Card not detected — use contrasting background");if(fill<.2&&bn.cardW>50)issues.push("Card too small — move closer");if(fill>=.95)issues.push("Too close — back up slightly");if(aDiff>=.15&&bn.cardW>50)issues.push("Card may be tilted");return{valid:ok,fillRatio:~~(fill*100),issues,source:'grid'};
 }
 
-/* Image Capture (opens viewfinder or fallback) - Original horizontal layout */
-function CaptureCard({label,side,image,onImage,onOpenCamera}){
-  const ref=useRef(null);
-  return(<div style={{flex:1}}>
-    <div style={{fontFamily:mono,fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".12em",marginBottom:6}}>{label}</div>
-    {!image?(<div onClick={()=>onOpenCamera(side)} style={{aspectRatio:"2.5/3.5",background:"#0d0f13",border:"1px dashed #2a2d35",borderRadius:10,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      <div style={{fontFamily:mono,fontSize:11,color:"#444",marginTop:8}}>Tap to capture</div>
-      <div style={{fontFamily:mono,fontSize:9,color:"#00ff8866",marginTop:4}}>with level + guide</div>
-    </div>):(<div style={{position:"relative",aspectRatio:"2.5/3.5",borderRadius:10,overflow:"hidden",background:"#0a0a0a"}}>
-      <img src={image} style={{width:"100%",height:"100%",objectFit:"contain"}}/>
-      <div style={{position:"absolute",top:4,left:4,fontFamily:mono,fontSize:8,color:"#00ff88",background:"rgba(0,0,0,.6)",padding:"2px 6px",borderRadius:4}}>✓</div>
-      <button onClick={()=>onImage(null)} style={{position:"absolute",top:6,right:6,width:26,height:26,borderRadius:"50%",background:"rgba(0,0,0,.7)",border:"1px solid #333",color:"#888",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:13}}>×</button>
-    </div>)}
-  </div>);
-}
-
 /* Image Capture - Vertical stack layout (horizontal card with image left, info right) */
 function CaptureCardVertical({label,side,image,onImage,onOpenCamera,quality}){
   const isFront = side === "front";
@@ -1433,7 +972,7 @@ function CaptureCardVertical({label,side,image,onImage,onOpenCamera,quality}){
             </svg>
           ) : (
             <>
-              <img src={image} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              <img src={image} alt="Card" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
               <div style={{position:"absolute",top:4,left:4,width:16,height:16,borderRadius:"50%",background:hasHighSeverity?"#ff6633":accentColor,display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <span style={{color:"#fff",fontSize:10,fontWeight:700}}>{hasHighSeverity?"!":"✓"}</span>
               </div>
@@ -1546,7 +1085,7 @@ export default function SlabSense(){
 
   // 3D Viewer / AI Enhanced Cards state
   const[enhancedCards,setEnhancedCards]=useState(null); // { front, back } - AI cropped cards
-  const[enhancingStatus,setEnhancingStatus]=useState(null); // 'enhancing' | 'done' | 'error' | null
+  const[,setEnhancingStatus]=useState(null); // 'enhancing' | 'done' | 'error' | null
   const[deepGradeStatus,setDeepGradeStatus]=useState(null); // 'grading' | 'done' | 'error' | null
   const[deepGradeResult,setDeepGradeResult]=useState(null); // Deep AI grade result
   const[aiDefects,setAiDefects]=useState(null); // AI (standard) defects { counts, items }
@@ -1575,19 +1114,19 @@ export default function SlabSense(){
   const[deepAiOverall,setDeepAiOverall]=useState(null); // Deep AI overall: { score, grade, label, displayGrade, capsApplied }
   const[deepAiGrades,setDeepAiGrades]=useState(null); // Deep AI company grades: { psa, bgs, sgc, cgc, tag }
   const[deepAiConfidence,setDeepAiConfidence]=useState(null); // Deep AI confidence: { value: 0-1, factors: [] }
-  const[deepAiCentering,setDeepAiCentering]=useState(null); // Deep AI centering: numeric shape
+  const[,setDeepAiCentering]=useState(null); // Deep AI centering: numeric shape
   const[deepAiSummary,setDeepAiSummary]=useState(null); // Deep AI summary
-  const[extractingInfo,setExtractingInfo]=useState(false); // AI analysis in progress
+  const[,setExtractingInfo]=useState(false); // AI analysis in progress
 
   // Card identification (OCR + TCGDex)
   const[showCardIdentifier,setShowCardIdentifier]=useState(false); // Show card identifier modal
   const[tcgdexData,setTcgdexData]=useState(null); // Full card data from TCGDex
   const[tcgdexImage,setTcgdexImage]=useState(null); // High-quality card image URL from TCGDex
-  const[identifyingCard,setIdentifyingCard]=useState(false); // Card identification in progress
+  const[,setIdentifyingCard]=useState(false); // Card identification in progress
   const[showCropModal,setShowCropModal]=useState(false); // Show crop modal for missing TCGDex images
   const[showPricing,setShowPricing]=useState(false); // Pricing/credits modal visibility
-  const[insufficientCredits,setInsufficientCredits]=useState(null); // { type: 'ai'|'deep', needed: number }
-  const[pendingSaveData,setPendingSaveData]=useState(null); // Pending save data while waiting for crop
+  const[,setInsufficientCredits]=useState(null); // { type: 'ai'|'deep', needed: number }
+  const[,setPendingSaveData]=useState(null); // Pending save data while waiting for crop
 
   // Post-capture centering state
   const[showPostCaptureCentering,setShowPostCaptureCentering]=useState(null); // 'front' | 'back' | null
@@ -1614,7 +1153,6 @@ export default function SlabSense(){
   // Function to refresh collection stats (called on load and after changes)
   const refreshCollectionStats = useCallback(() => {
     if (auth.isAuthenticated && auth.user?.id) {
-      import('./services/scans.js').then(({ getUserScans }) => {
         getUserScans(auth.user.id, { limit: 100 }).then(scans => {
           let totalValue = 0;
           let gradeSum = 0;
@@ -1640,7 +1178,6 @@ export default function SlabSense(){
             avgGrade: gradeCount > 0 ? Math.round(gradeSum / gradeCount * 10) / 10 : 0,
           });
         }).catch(console.error);
-      });
     }
   }, [auth.isAuthenticated, auth.user?.id]);
 
@@ -2916,19 +2453,19 @@ export default function SlabSense(){
           <div style={{display:"flex",gap:8,marginBottom:12}}>
             <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
               {/* Base image - cropped preferred over original */}
-              <img src={frontCroppedImage || fI} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
+              <img src={frontCroppedImage || fI} alt="Front of card" style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
               {/* Filtered overlay with intensity (maps are built from the same image shown below) */}
               {visionMode!=='normal'&&fM?.[visionMode]&&(
-                <img src={fM[visionMode]} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
+                <img src={fM[visionMode]} alt="" style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
               )}
               <div style={{position:"absolute",bottom:4,left:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>FRONT</div>
             </div>
             <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
               {/* Base image - cropped preferred over original */}
-              <img src={backCroppedImage || bI} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
+              <img src={backCroppedImage || bI} alt="Back of card" style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0}}/>
               {/* Filtered overlay with intensity (maps are built from the same image shown below) */}
               {visionMode!=='normal'&&bM?.[visionMode]&&(
-                <img src={bM[visionMode]} style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
+                <img src={bM[visionMode]} alt="" style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
               )}
               <div style={{position:"absolute",bottom:4,right:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>BACK</div>
             </div>
@@ -3326,7 +2863,7 @@ export default function SlabSense(){
     {tab==="centering"&&step===2&&gr&&fR&&bR&&(<div style={{flex:1,padding:16,overflowY:"auto"}}>
           {/* Manual Adjust toggle buttons */}
           <div style={{display:"flex",gap:8,marginBottom:14}}>
-            {[["front","Front",fR,fI],["back","Back",bR,bI]].map(([s,sl,r,img])=>(
+            {[["front","Front"],["back","Back"]].map(([s,sl])=>(
               <button key={s} onClick={()=>setManualMode(s)}
                 style={{flex:1,padding:"9px 0",borderRadius:7,
                   border:`1px solid ${manualMode===s?"#ff9944":"#333"}`,
@@ -3424,7 +2961,7 @@ export default function SlabSense(){
             <div style={{padding:20,background:"rgba(255,153,68,0.05)",borderRadius:10,border:"1px solid rgba(255,153,68,0.2)",textAlign:"center",marginBottom:16}}>
               <div style={{fontFamily:mono,fontSize:11,color:"#ff9944",marginBottom:8}}>⚠ ALIGNMENT REQUIRED</div>
               <div style={{fontFamily:sans,fontSize:12,color:"#888",lineHeight:1.5}}>
-                Adjust rotation and borders above, then click "Confirm Alignment" to calculate centering score.
+                Adjust rotation and borders above, then click &quot;Confirm Alignment&quot; to calculate centering score.
               </div>
             </div>
           )}

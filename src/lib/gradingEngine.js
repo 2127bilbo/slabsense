@@ -273,7 +273,7 @@ function bandCeiling(score) {
  * Hard caps + the min-subgrade clamp (GRADING_SYSTEM.md, "Caps").
  * Returns { score, capsApplied[] }.
  */
-export function applyCaps(rawScore, defects, subgradeMin, centering, subgrades) {
+export function applyCaps(rawScore, defects, subgradeMin, centering, _subgrades) {
   let score = rawScore;
   const capsApplied = [];
   const cap = (maxScore, name) => {

@@ -5,7 +5,7 @@
  * centering measurement. Each corner can be dragged independently.
  */
 
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { getSamplePoints, calculateCornerCentering } from '../lib/corner-measurement.js';
 import { haloFor } from '../lib/line-color.js';
 

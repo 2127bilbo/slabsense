@@ -13,7 +13,7 @@
  * - CLIP fail → fall back to manual search
  */
 
-import { matchCard as clipMatchCard, preload as preloadClip, loadEmbeddings } from './clip-matcher.js';
+import { matchCard as clipMatchCard, preload as preloadClip } from './clip-matcher.js';
 import { getFullCardData } from '../services/tcgdex.js';
 
 /**

@@ -23,9 +23,6 @@ let modelLoadPromise = null;
 // Embeddings database
 let embeddingsMeta = null;
 
-// Card info lookup (from card-hashes.json; only used on the bundled-JSON fallback path)
-let cardInfoDb = null;
-
 // Unified DB: { matrix: Float32Array(count×dim, unit rows), ids: string[], cards: {id:{name,set,number}}, meta }
 let cardDb = null;
 let cardDbPromise = null;
@@ -57,19 +54,6 @@ function l2normalize(v) {
   n = Math.sqrt(n) || 1;
   const out = new Float32Array(v.length); for (let i = 0; i < v.length; i++) out[i] = v[i] / n;
   return out;
-}
-
-/**
- * Cosine similarity between two vectors
- */
-function cosineSimilarity(a, b) {
-  let dot = 0, normA = 0, normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
 /**
@@ -131,38 +115,6 @@ export async function loadModel(onProgress = null) {
 }
 
 /**
- * Load card info from card-hashes.json (for name lookups)
- */
-async function loadCardInfo() {
-  if (cardDb?.cards) return cardDb.cards;
-  if (cardInfoDb) return cardInfoDb;
-
-  try {
-    const response = await fetch('/card-hashes.json');
-    if (!response.ok) {
-      console.warn('[CLIPMatcher] Could not load card-hashes.json for name lookups');
-      return {};
-    }
-    const data = await response.json();
-
-    // Convert array to lookup object by ID
-    cardInfoDb = {};
-    for (const card of data.cards) {
-      cardInfoDb[card.id] = {
-        name: card.name,
-        set: card.set,
-        number: card.number,
-      };
-    }
-    console.log(`[CLIPMatcher] Loaded card info for ${Object.keys(cardInfoDb).length} cards`);
-    return cardInfoDb;
-  } catch (e) {
-    console.warn('[CLIPMatcher] Failed to load card info:', e);
-    return {};
-  }
-}
-
-/**
  * Load pre-computed embeddings database
  * Supports chunked loading for large databases
  */
@@ -182,7 +134,7 @@ export async function loadEmbeddings(forceRefresh = false) {
         return { embeddings: cardDb, meta: embeddingsMeta };
       } catch (e) {
         console.error('[CLIPMatcher] card DB unavailable:', e?.message || e);
-        throw new Error(`Card database unavailable: ${e?.message || e}`);
+        throw new Error(`Card database unavailable: ${e?.message || e}`, { cause: e });
       }
     }
     throw new Error('Card database not configured (VITE_SUPABASE_URL missing)');
@@ -276,14 +228,14 @@ function getSeriesFromSetId(setId) {
 /**
  * Find best matching cards for an embedding
  */
-export function findMatches(queryEmbedding, cardInfo, topK = 10) {
+export function findMatches(queryEmbedding, topK = 10) {
   if (!cardDb) {
     throw new Error('Embeddings not loaded. Call loadEmbeddings() first.');
   }
   const q = l2normalize(queryEmbedding);
   const hits = dbTopK(cardDb, q, topK);
   return hits.map(({ id, s }) => {
-    const card = cardDb.cards[id] || cardInfo?.[id] || {};
+    const card = cardDb.cards[id] || {};
     const setId = card.set || id.split('-')[0] || '';
     const number = card.number || id.split('-')[1] || '';
     const series = getSeriesFromSetId(setId);
@@ -324,7 +276,6 @@ export async function matchCard(imageSource, options = {}) {
   const {
     cropCard = true,
     topK = 10,
-    cardInfo = null,
     onProgress = null,
   } = options;
 
@@ -337,8 +288,7 @@ export async function matchCard(imageSource, options = {}) {
 
     // Step 2: Ensure embeddings and card info are loaded
     if (onProgress) onProgress({ step: 'embeddings', message: 'Loading card database...' });
-    await loadEmbeddings();          // names ship inside the shards; loadCardInfo() is then a no-op
-    await loadCardInfo();
+    await loadEmbeddings();          // names ship inside the shards
 
     // Step 3: Crop card if requested
     let processedImage = imageSource;
@@ -358,9 +308,9 @@ export async function matchCard(imageSource, options = {}) {
     if (onProgress) onProgress({ step: 'embed', message: 'Analyzing image...' });
     const embedding = await computeEmbedding(processedImage);
 
-    // Step 5: Find matches (use loaded cardInfoDb for names)
+    // Step 5: Find matches (names come from the shards)
     if (onProgress) onProgress({ step: 'match', message: 'Finding matches...' });
-    const matches = findMatches(embedding, cardInfoDb, topK);
+    const matches = findMatches(embedding, topK);
 
     // Step 5b: optional re-ranking on the number line (see DEFAULT_RERANK)
     const rerank = options.rerank ?? DEFAULT_RERANK;
@@ -443,7 +393,6 @@ export function getEmbeddingsMeta() {
  */
 export async function preload(onProgress = null) {
   await Promise.all([loadModel(onProgress), loadEmbeddings()]);
-  await loadCardInfo();
 }
 
 export default {

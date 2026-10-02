@@ -122,10 +122,11 @@ export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
         <form onSubmit={handleSubmit}>
           {mode === 'register' && (
             <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 6, textTransform: 'uppercase' }}>
+              <label htmlFor="auth-display-name" style={{ display: 'block', fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 6, textTransform: 'uppercase' }}>
                 Display Name
               </label>
               <input
+                id="auth-display-name"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -146,10 +147,11 @@ export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
           )}
 
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 6, textTransform: 'uppercase' }}>
+            <label htmlFor="auth-email" style={{ display: 'block', fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 6, textTransform: 'uppercase' }}>
               Email
             </label>
             <input
+              id="auth-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -171,10 +173,11 @@ export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
 
           {mode !== 'forgot' && (
           <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 6, textTransform: 'uppercase' }}>
+            <label htmlFor="auth-password" style={{ display: 'block', fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 6, textTransform: 'uppercase' }}>
               Password
             </label>
             <input
+              id="auth-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

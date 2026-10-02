@@ -1,7 +1,7 @@
 {
-  "name": "TAG Pre-Grader",
-  "short_name": "PreGrader",
-  "description": "Pre-grade TCG cards using TAG grading criteria",
+  "name": "SlabSense",
+  "short_name": "SlabSense",
+  "description": "Card pre-grading estimates against PSA, BGS, CGC, SGC and TAG standards. Not affiliated with any grading company.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0b0e",

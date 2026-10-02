@@ -142,11 +142,22 @@ export function createGyroInput(config = {}) {
     }
   }
 
+  /** Remove every listener this singleton installed (audit E-16). The page-level instance lives
+   *  as long as the page; call this only when tearing the whole input down. */
+  function destroy() {
+    if (typeof document === 'undefined') return;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchstart', handleFirstTouch);
+    window.removeEventListener('deviceorientation', handleGyro);
+  }
+
   return {
     subscribe,
     requestPermission,
     getCurrentTilt,
     isGyroAvailable,
+    destroy,
   };
 }
 

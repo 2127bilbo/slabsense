@@ -122,7 +122,6 @@ export function intersect(a, b) {
 }
 
 const SIDES = ['top', 'right', 'bottom', 'left'];      // TL->TR, TR->BR, BR->BL, BL->TL
-const CORNERS = ['tl', 'tr', 'br', 'bl'];
 
 function sideSegments(q) {
   return { top: [q.tl, q.tr], right: [q.tr, q.br], bottom: [q.br, q.bl], left: [q.bl, q.tl] };

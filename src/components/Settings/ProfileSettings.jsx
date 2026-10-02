@@ -158,7 +158,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
 
           {/* Display Name */}
           <div style={{ marginBottom: 16 }}>
-            <label style={{
+            <label htmlFor="settings-display-name" style={{
               display: 'block',
               fontFamily: mono,
               fontSize: 10,
@@ -169,6 +169,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
               Display Name
             </label>
             <input
+              id="settings-display-name"
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -189,7 +190,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
 
           {/* Email (read-only) */}
           <div style={{ marginBottom: 16 }}>
-            <label style={{
+            <div style={{
               display: 'block',
               fontFamily: mono,
               fontSize: 10,
@@ -198,7 +199,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
               textTransform: 'uppercase',
             }}>
               Email
-            </label>
+            </div>
             <div style={{
               padding: '10px 12px',
               background: '#151720',
@@ -227,7 +228,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
 
           {/* Preferred Grading Company */}
           <div>
-            <label style={{
+            <label htmlFor="settings-company" style={{
               display: 'block',
               fontFamily: mono,
               fontSize: 10,
@@ -238,6 +239,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
               Default Grading Company
             </label>
             <select
+              id="settings-company"
               value={preferredCompany}
               onChange={(e) => setPreferredCompany(e.target.value)}
               style={{
@@ -269,7 +271,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
 
           {/* Corner and edge models (software grade) */}
           <div>
-            <label style={{
+            <label htmlFor="settings-models-toggle" style={{
               display: 'block',
               fontFamily: mono,
               fontSize: 10,
@@ -280,6 +282,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
               Corner &amp; Edge Models
             </label>
             <button
+              id="settings-models-toggle"
               type="button"
               onClick={() => { const next = !modelGrading; setModelGrading(next); setModelGradingState(next); if (next) { clearModelPassCrash(); setModelCrash(null); } }}
               style={{
@@ -332,7 +335,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
 
           {/* Keep originals for training */}
           <div>
-            <label style={{
+            <label htmlFor="settings-training-toggle" style={{
               display: 'block',
               fontFamily: mono,
               fontSize: 10,
@@ -343,6 +346,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
               Keep Originals For Training
             </label>
             <button
+              id="settings-training-toggle"
               type="button"
               onClick={() => { const next = !keepOriginals; setTrainingCapture(next); setKeepOriginalsState(next); }}
               style={{
@@ -375,7 +379,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
               </span>
             </button>
             <div style={{ fontFamily: sans, fontSize: 11, color: '#777', marginTop: 6, lineHeight: 1.5 }}>
-              Off by default. When on, the original front and back photos and the card outline you draw are stored with the saved card and may be used to train SlabSense's card-detection and grading models. They are tied to your account, not shared with anyone else, and are deleted when you delete the card or your account. Turn it off any time; photos already saved stay until you delete those cards.
+              Off by default. When on, the original front and back photos and the card outline you draw are stored with the saved card and may be used to train SlabSense&apos;s card-detection and grading models. They are tied to your account, not shared with anyone else, and are deleted when you delete the card or your account. Turn it off any time; photos already saved stay until you delete those cards.
             </div>
           </div>
         </div>

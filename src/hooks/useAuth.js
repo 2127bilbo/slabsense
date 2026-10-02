@@ -32,8 +32,10 @@ export function useAuth() {
       return;
     }
 
-    // Get initial session
+    // Get initial session (ignored if the hook unmounted first; audit E-17)
+    let cancelled = false;
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return;
       setUser(session?.user ?? null);
       if (session?.user) {
         loadProfile(session.user.id);
@@ -55,7 +57,7 @@ export function useAuth() {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => { cancelled = true; subscription.unsubscribe(); };
   }, [loadProfile]);
 
   // Sign up

@@ -4,7 +4,7 @@
  * Uses actual slab template images with dynamic card and text overlay
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const mono = "'JetBrains Mono','SF Mono','Consolas',monospace";
 
@@ -59,7 +59,6 @@ export function SlabSenseSlab({
   const rarity = cardInfo?.rarity || '';
 
   // For back side, we mirror the text
-  const isMirrored = side === 'back';
 
   return (
     <div style={{

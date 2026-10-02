@@ -23,6 +23,7 @@ const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] :
 const DRY = args.includes('--dry-run');
 const ONLY = opt('--set', null);
 const SAVE = args.includes('--save-images');
+const DATA_DIR = process.env.SLABSENSE_DATA_DIR || path.join(process.cwd(), '..', 'SlabSense-data'); // --save-images writes here, outside the repo
 const RETRY = args.includes('--retry-pending');
 const MAX = Number(opt('--max-new', 5000));
 const today = () => new Date().toISOString().slice(0, 10);
@@ -109,7 +110,7 @@ await new Promise((resolve) => {
     while (active < 4 && queue.length) {
       const c = queue.shift();
       active++;
-      const dest = SAVE ? path.join(process.cwd(), 'public', 'card-images', c.set, `${c.localId}.png`) : path.join(tmp, `${c.id}.png`);
+      const dest = SAVE ? path.join(DATA_DIR, 'card-images', c.set, `${c.localId}.png`) : path.join(tmp, `${c.id}.png`);
       downloadImage(c.image, dest)
         .then((r) => { if (r === 'ok') { ok.push({ ...c, path: dest }); delete pending[c.id]; } else pending[c.id] = { id: c.id, reason: c.image ? 'image 404' : 'no image on TCGDex', since: pending[c.id]?.since || today() }; })
         .catch((e) => { pending[c.id] = { id: c.id, reason: e.message, since: pending[c.id]?.since || today() }; })
