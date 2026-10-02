@@ -26,7 +26,7 @@ export const PRODUCTS = {
     allowance: 15,                  // AI Grades granted each period
     period: 'month',
     appleId: 'com.slabsense.app.plus.monthly',
-    stripeKey: 'hobby',             // existing STRIPE_PRICE_HOBBY until the web catalogue is re-cut
+    stripeKey: 'sub_monthly', stripeEnv: 'STRIPE_PRICE_PLUS_MONTHLY',
     webPrice: 9.99,
     tagline: '15 AI Grades every month',
   },
@@ -35,7 +35,7 @@ export const PRODUCTS = {
     name: '5 AI Grades',
     credits: 5,
     appleId: 'com.slabsense.app.grades.5',
-    stripeKey: 'pack_10',           // nearest existing web pack until re-cut
+    stripeKey: 'pack_5', stripeEnv: 'STRIPE_PRICE_GRADES_5',
     webPrice: 7.99,
     tagline: 'Never expire',
   },
@@ -44,7 +44,7 @@ export const PRODUCTS = {
     name: '20 AI Grades',
     credits: 20,
     appleId: 'com.slabsense.app.grades.20',
-    stripeKey: 'pack_20',
+    stripeKey: 'pack_20', stripeEnv: 'STRIPE_PRICE_GRADES_20',
     webPrice: 24.99,
     tagline: 'Never expire · best value',
   },

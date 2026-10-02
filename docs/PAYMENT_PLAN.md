@@ -1,5 +1,8 @@
 # SlabSense Payment & Subscription System - Game Plan
 
+> **Superseded (2026-10-02).** The catalogue is now the three products in `src/lib/products.js` (one monthly plan, two packs) sold through Stripe on the web and Apple in-app purchase in the iOS app; the trial, the three tiers, singles and the four packs below were never configured and are gone. Credits move only through `grant_credits` / `revoke_credits` / `spend_credits` (migration `20261002_apple_iap.sql`). The living plan is `docs/superpowers/plans/2026-10-02-3b-payments.md`. This file is kept as history.
+
+
 **Status:** Planning Complete - Ready for Implementation
 **Target:** P11-P13 (Token System, Subscriptions, Production)
 

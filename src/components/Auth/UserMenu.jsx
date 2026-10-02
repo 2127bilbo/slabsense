@@ -8,7 +8,7 @@ import { useState } from 'react';
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
 
-export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSettings }) {
+export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSettings, onBuyCredits }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
@@ -151,9 +151,9 @@ export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSet
                 Settings
               </button>
 
-              {tier === 'free' && (
+              {tier === 'free' && onBuyCredits && (
                 <button
-                  onClick={() => { /* TODO: Upgrade */ setIsOpen(false); }}
+                  onClick={() => { onBuyCredits(); setIsOpen(false); }}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
@@ -173,7 +173,7 @@ export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSet
                   onMouseLeave={(e) => e.target.style.background = 'rgba(139,92,246,0.1)'}
                 >
                   <span style={{ fontSize: 14 }}>⭐</span>
-                  Upgrade to Pro
+                  Get AI Grades
                 </button>
               )}
             </div>

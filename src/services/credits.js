@@ -89,8 +89,7 @@ export async function getGradeJob(jobId) {
 
 /**
  * Create checkout session for purchase
- * @param {string} priceKey - 'trial', 'hobby', 'pro', 'dealer', 'single', 'pack_10', etc.
- * @param {number} quantity - For singles only
+ * @param {string} priceKey - a PRODUCTS key ('sub_monthly' | 'pack_5' | 'pack_20') or 'slab'
  */
 export async function createCheckout(userId, priceKey, quantity = 1) {
   try {
@@ -136,23 +135,5 @@ export async function openCustomerPortal(userId) {
 /** Credit costs for display — single source: src/lib/grade-tiers.js */
 export const CREDIT_COSTS = { ai: GRADE_TIERS.ai.credits, deep: GRADE_TIERS.deep.credits };
 
-/**
- * Subscription tier info for display
- */
-export const SUBSCRIPTION_TIERS = {
-  trial: { name: '7-Day Trial', price: 4.99, credits: 5, period: 'once' },
-  hobby: { name: 'Hobby Collector', price: 9.99, credits: 10, period: 'month' },
-  pro: { name: 'Pro Collector', price: 19.99, credits: 30, period: 'month' },
-  dealer: { name: 'Dealer', price: 49.99, credits: 100, period: 'month' },
-};
-
-/**
- * Bundle info for display
- */
-export const CREDIT_BUNDLES = {
-  single: { name: 'Single Credit', price: 1.99, credits: 1 },
-  pack_10: { name: '10 Credit Pack', price: 14.99, credits: 10 },
-  pack_20: { name: '20 Credit Pack', price: 29.99, credits: 20 },
-  pack_30: { name: '30 Credit Pack', price: 39.99, credits: 30 },
-  pack_50: { name: '50 Credit Pack', price: 49.99, credits: 50 },
-};
+/** The sellable products are in src/lib/products.js (shared with the iOS app). */
+export { PRODUCTS } from '../lib/products.js';

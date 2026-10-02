@@ -8,6 +8,8 @@ import { createClient } from '@supabase/supabase-js';
 import { SLAB_PRICE_KEY, slabSessionParams } from '../_lib/slabs.js';
 import { requireUser, sendAuthError } from '../_lib/auth.js';
 import { sameOriginUrl, clampQuantity } from '../_lib/urlGuard.js';
+import { priceMap } from '../_lib/stripeLedger.js';
+import { PRODUCTS } from '../../src/lib/products.js';
 
 export const config = {
   api: {
@@ -23,22 +25,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Price IDs mapping
-const PRICES = {
-  trial: process.env.STRIPE_PRICE_TRIAL,
-  hobby: process.env.STRIPE_PRICE_HOBBY,
-  pro: process.env.STRIPE_PRICE_PRO,
-  dealer: process.env.STRIPE_PRICE_DEALER,
-  single: process.env.STRIPE_PRICE_SINGLE,
-  pack_10: process.env.STRIPE_PRICE_PACK_10,
-  pack_20: process.env.STRIPE_PRICE_PACK_20,
-  pack_30: process.env.STRIPE_PRICE_PACK_30,
-  pack_50: process.env.STRIPE_PRICE_PACK_50,
-  slab: process.env.STRIPE_PRICE_SLAB,
-};
-
-// Subscription prices (for mode detection)
-const SUBSCRIPTION_PRICES = [PRICES.hobby, PRICES.pro, PRICES.dealer];
+// Price ids by product key: the same three products as the iOS app (src/lib/products.js) plus the
+// physical slab. The old nine price variables (trial, hobby/pro/dealer, single, four packs) are gone;
+// they were never configured and the trial was never a real subscription (audit B-02, B-07, B-12).
+const PRICES = priceMap(process.env);
+const isSubscriptionKey = (key) => PRODUCTS[key]?.kind === 'subscription';
 
 export default async function handler(req, res) {
   // CORS headers
@@ -65,7 +56,8 @@ export default async function handler(req, res) {
     // Client-supplied redirect targets are used only on our own origins (open redirect).
     const successUrl = sameOriginUrl(req.body.successUrl);
     const cancelUrl = sameOriginUrl(req.body.cancelUrl);
-    const quantity = clampQuantity(req.body.quantity);
+    const quantity = 1; // packs and plans are fixed-size; quantity is no longer accepted
+    void clampQuantity;
 
     if (!priceKey || !PRICES[priceKey]) {
       return res.status(400).json({ error: 'Invalid price key' });
@@ -82,14 +74,6 @@ export default async function handler(req, res) {
 
     if (profileError || !profile) {
       return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Check trial eligibility
-    if (priceKey === 'trial' && profile.used_trial) {
-      return res.status(400).json({
-        error: 'Trial already used',
-        message: 'You have already used your 7-day trial.'
-      });
     }
 
     // Get or create Stripe customer
@@ -130,15 +114,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, sessionId: session.id, url: session.url });
     }
 
-    // Determine checkout mode
-    const isSubscription = SUBSCRIPTION_PRICES.includes(priceId);
-    const isTrial = priceKey === 'trial';
-
-    // Build line items
-    const lineItems = [{
-      price: priceId,
-      quantity: priceKey === 'single' ? quantity : 1,
-    }];
+    const isSubscription = isSubscriptionKey(priceKey);
+    const lineItems = [{ price: priceId, quantity }];
 
     // Build checkout session params
     const sessionParams = {
@@ -153,18 +130,6 @@ export default async function handler(req, res) {
         price_key: priceKey,
       },
     };
-
-    // For trial: Set up subscription with 7-day trial that converts to Hobby
-    if (isTrial) {
-      // Trial is a one-time payment, but we need to set up subscription for auto-renewal
-      // Actually, for the trial model described, we do a one-time payment first,
-      // then create a subscription that starts in 7 days
-      sessionParams.mode = 'payment';
-      sessionParams.metadata.is_trial = 'true';
-
-      // We'll handle the subscription creation in the webhook
-      // by creating a subscription with trial_end set to 7 days
-    }
 
     // For subscriptions, allow promotion codes
     if (isSubscription) {

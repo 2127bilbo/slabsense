@@ -333,7 +333,7 @@ function GradeDisplaySimple({ gradeResult, companyId }) {
 
       {/* Upgrade prompt */}
       <div style={{marginTop:24,padding:"12px 20px",background:"rgba(99,102,241,.1)",borderRadius:8,border:"1px solid rgba(99,102,241,.2)"}}>
-        <div style={{fontFamily:sans,fontSize:12,color:"#8b8fff"}}>Upgrade to Pro for full report</div>
+        <div style={{fontFamily:sans,fontSize:12,color:"#8b8fff"}}>Run an AI Grade for the full report</div>
         <div style={{fontFamily:sans,fontSize:10,color:"#666",marginTop:4}}>DINGS breakdown • Subgrades • Centering ratios</div>
       </div>
     </div>
@@ -2681,7 +2681,7 @@ export default function SlabSense(){
         {/* Auth UI */}
         {auth.isConfigured && (
           auth.isAuthenticated ? (
-            <UserMenu user={auth.user} profile={auth.profile} onSignOut={auth.signOut} onOpenCollection={() => setShowCollection(true)} onOpenSettings={() => setShowSettings(true)} />
+            <UserMenu user={auth.user} profile={auth.profile} onSignOut={auth.signOut} onOpenCollection={() => setShowCollection(true)} onOpenSettings={() => setShowSettings(true)} onBuyCredits={() => setShowPricing(true)} />
           ) : (
             <button onClick={() => setShowAuthModal(true)} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:6,color:"#fff",fontFamily:mono,fontSize:10,padding:"6px 12px",cursor:"pointer",textTransform:"uppercase"}}>Sign In</button>
           )

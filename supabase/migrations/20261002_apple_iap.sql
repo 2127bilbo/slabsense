@@ -54,7 +54,8 @@ CREATE OR REPLACE FUNCTION public.grant_credits(
   p_bucket text,              -- 'pack' | 'sub'
   p_external_id text,         -- e.g. 'apple:2000000123456789'
   p_description text default null,
-  p_expires_at timestamptz default null   -- for 'sub': the period end
+  p_expires_at timestamptz default null,  -- for 'sub': the period end
+  p_payment_ref text default null         -- Stripe payment intent, for refunds
 ) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -72,13 +73,14 @@ BEGIN
   SELECT * INTO v_profile FROM profiles WHERE id = p_user_id FOR UPDATE;
   IF NOT FOUND THEN RETURN jsonb_build_object('success', false, 'error', 'user_not_found'); END IF;
   IF p_bucket = 'pack' THEN
-    UPDATE profiles SET credits_balance = coalesce(credits_balance, 0) + p_amount WHERE id = p_user_id;
+    -- packs never expire: a pack grant also clears the legacy 30-day expiry on the pack bucket
+    UPDATE profiles SET credits_balance = coalesce(credits_balance, 0) + p_amount, credits_expire_at = NULL WHERE id = p_user_id;
   ELSE
     -- a new period replaces the old allowance rather than stacking it
     UPDATE profiles SET sub_credits_balance = p_amount, sub_credits_expire_at = p_expires_at WHERE id = p_user_id;
   END IF;
-  INSERT INTO credit_transactions (user_id, amount, transaction_type, description, external_id, bucket)
-    VALUES (p_user_id, p_amount, 'purchase', coalesce(p_description, 'Purchase'), p_external_id, p_bucket)
+  INSERT INTO credit_transactions (user_id, amount, transaction_type, description, external_id, bucket, stripe_payment_id)
+    VALUES (p_user_id, p_amount, 'purchase', coalesce(p_description, 'Purchase'), p_external_id, p_bucket, p_payment_ref)
     RETURNING id INTO v_tx_id;
   SELECT * INTO v_profile FROM profiles WHERE id = p_user_id;
   RETURN jsonb_build_object('success', true, 'duplicate', false, 'granted', p_amount, 'transaction_id', v_tx_id,
@@ -113,6 +115,23 @@ BEGIN
   INSERT INTO credit_transactions (user_id, amount, transaction_type, description, external_id, bucket)
     VALUES (p_user_id, -v_take, 'revoke', p_reason, p_external_id || ':revoked', v_purchase.bucket);
   RETURN jsonb_build_object('success', true, 'duplicate', false, 'revoked', v_take);
+END $$;
+
+-- Refund arriving as a Stripe charge: find the purchase by its payment intent, then revoke it.
+CREATE OR REPLACE FUNCTION public.revoke_credits_by_payment(
+  p_user_id uuid,
+  p_payment_ref text,
+  p_reason text default 'stripe refund'
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_ext text;
+BEGIN
+  SELECT external_id INTO v_ext FROM credit_transactions
+    WHERE user_id = p_user_id AND stripe_payment_id = p_payment_ref AND external_id IS NOT NULL AND transaction_type = 'purchase'
+    ORDER BY created_at DESC LIMIT 1;
+  IF v_ext IS NULL THEN RETURN jsonb_build_object('success', false, 'error', 'purchase_not_found'); END IF;
+  RETURN revoke_credits(p_user_id, v_ext, p_reason);
 END $$;
 
 -- spend_credits v2: allowance first (if not expired), then the pack.

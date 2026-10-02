@@ -30,7 +30,7 @@ document that holds the detail; nothing here is the only copy of a fact.
 - **App Store readiness** (`docs/superpowers/plans/2026-10-01-app-store-readiness.md`): audit DONE
   (`docs/audits/2026-10-app-store-audit.md`, 22 Blockers = 7 problems); fix groups 3a security and 3c account+privacy DONE 2026-10-02; 3b payments core DONE; one-button AI Grade LIVE
   (Deep flow, 1 credit); accuracy measured (GRADING_SYSTEM "Paid path accuracy"): Deep 0.85 vs free 1.20, surface
-  recall near zero at 2,000 px, tiled native-res surface pass IN PRODUCTION since Oct 2 (~$0.30/grade); originals no longer uploaded. Open: Stripe web re-cut, App Store Connect (owner), sandbox after 3f.
+  recall near zero at 2,000 px, tiled native-res surface pass IN PRODUCTION since Oct 2 (~$0.30/grade); originals no longer uploaded. Stripe web catalogue re-cut to the same three products (2026-10-02; owner creates the prices). Open: App Store Connect (owner), sandbox after 3f.
 - **Web app**: feature-frozen for accuracy work; bug fixes only. Accuracy moves to the rig and the
   native app.
 
