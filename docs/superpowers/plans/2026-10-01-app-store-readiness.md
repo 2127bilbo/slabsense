@@ -198,10 +198,23 @@ guideline", and the repo facts in `docs/STATUS.md`.
 - [ ] **3c Account and privacy.** Permission strings, privacy policy page, data-flow disclosure
   in-app before a paid grade ("your photos are sent to…"), account deletion cascade (Review Focus
   5), Sign in with Apple only if a social login is added, data export if the audit says.
-- [ ] **3d Code cleanup.** Delete dead code and scratch files; split `src/App.jsx` into feature
-  modules (capture, grade, collection, settings, billing) as the capture screen is replaced; fix
-  every warning class the audit lists; add the ESLint config to CI (`npm run lint` in `test:lib`'s
-  neighbour).
+- [x] **3d Code cleanup** — first pass DONE 2026-10-02 (commits e741bfb, + part 2). Done: dead
+  code out (api.js SAM/perspective chain, ocr/card-matcher/phash/image-converter, 11 unused
+  App.jsx components → 3,025 lines, dead barrels, backup-api/, backend/, June scripts, root
+  leftovers; D-07/08/09/10/14/28, M-17); 18 GB `public/card-images` + `card-hashes.json` moved to
+  `../SlabSense-data` (dist 18 GB → 5.8 MB; D-02, E-09) + `.vercelignore`; ESLint flat config with
+  `npm run lint` / `npm run check`, 0 errors (E-06); ErrorBoundary + unhandledrejection (E-01);
+  prod bundles drop console.log/info/debug (E-04); leak/stale-state fixes (E-15/16/17); manifest,
+  viewport, theme-color (E-05/14/22); alt text, labels, aria-labels (E-13); scans import (E-07);
+  vite 6.4.3 + audit fix: 12 → 5 advisories, all inside `@xenova/transformers` (E-03).
+  DEFERRED: `App.jsx` split by screen → with 3f when the capture screen is replaced (D-05, E-08);
+  `@xenova/transformers` → `@huggingface/transformers` v4 (E-02, D-01): a node parity check could
+  not run (v4's onnxruntime-node DirectML binding fails to load on the owner's PC; the web build
+  cannot fetch models under node) — redo the parity in the browser (Playwright, port 5175) during
+  3f, or move CLIP server-side; API `db`/`handler` wrapper (D-15) and legacy result shapes
+  (D-18) → after 3f; `legacySpend` fallback (D-19) → delete once the owner confirms the credits RPC
+  migration is live; tesseract worker/lang paths bundled (E-18) → 3f; D-06 (pixel corner/edge
+  detectors decide the free grade when the crash guard flips models off) → owner decision.
 - [ ] **3e Headers and IP.** Script that adds the owner's header to every source file (`src/`,
   `api/`, `scripts/`, `training/*.py`, `rig/`), LICENSE file, NOTICE file listing third-party
   licences, "not affiliated" disclaimer on the grade screens and the store listing, remove any
