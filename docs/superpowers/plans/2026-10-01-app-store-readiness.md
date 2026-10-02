@@ -211,7 +211,7 @@ guideline", and the repo facts in `docs/STATUS.md`.
   `@xenova/transformers` → `@huggingface/transformers` v4 (E-02, D-01): a node parity check could
   not run (v4's onnxruntime-node DirectML binding fails to load on the owner's PC; the web build
   cannot fetch models under node) — redo the parity in the browser (Playwright, port 5175) during
-  3f, or move CLIP server-side; API `db`/`handler` wrapper (D-15) and legacy result shapes
+  3f, or move CLIP server-side; API route wrapper DONE (D-15, `api/_lib/route.js`, commit 17394e4); legacy result shapes
   (D-18) → after 3f; `legacySpend` fallback (D-19) → delete once the owner confirms the credits RPC
   migration is live; tesseract worker/lang paths bundled (E-18) → 3f; D-06 (pixel corner/edge
   detectors decide the free grade when the crash guard flips models off) → owner decision.
@@ -228,7 +228,7 @@ guideline", and the repo facts in `docs/STATUS.md`.
   shortfall explained on the store screen (I-13), first-run notice with legal links (I-25),
   aria-labels on every icon button (I-06), company slab look-alikes removed (K-04). REMAINING
   (needs the native shell or a design pass): Dynamic Type / 11 pt minimum across the 148 small
-  labels (I-09), bottom tab bar (I-15), alert() → in-app banners (I-19), iPad layout (I-08),
+  labels DONE (I-09, 128 sizes → 11 px, commit 8c7d5f3), bottom tab bar (I-15), alert() → in-app banners DONE (I-19), iPad layout (I-08),
   bundled fonts (I-14), haptics (I-22), model-download gate (I-24), capture-path cancel (I-16).
 - [x] **3h Metadata and assets** — drafts DONE 2026-10-02 in `docs/app-store/listing.md`:
   product page (name, subtitle, promo, description, keywords, category, URLs), IAP table with the
