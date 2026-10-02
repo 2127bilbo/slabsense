@@ -23,8 +23,10 @@ import { loadEnv } from '../card-db/env.mjs';
 loadEnv();
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..', '..');
+// TAG reference photos live outside the repo (12.5 GB): ../SlabSense-data by default, or SLABSENSE_DATA_DIR
+const DATA_DIR = process.env.SLABSENSE_DATA_DIR || path.join(ROOT, '..', 'SlabSense-data');
 const CACHE = path.join(os.tmpdir(), 'slabsense-harness-cache');
-const PHOTOS = path.join(ROOT, 'scripts', 'Tag scraper', 'dig info', 'weights by tag', 'TAG Map', 'Front');
+const PHOTOS = path.join(DATA_DIR, 'Tag scraper', 'dig info', 'weights by tag', 'TAG Map', 'Front');
 const REF_DIR = path.join(ROOT, 'public', 'card-images');
 const OUT_DIR = path.join(ROOT, 'scripts', 'card-db', 'out');
 const RESULTS = path.join(here, 'results');

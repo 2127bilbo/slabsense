@@ -9,7 +9,7 @@ Scores the client-side Software Grade (detectors + adapter + engine) against 507
 Ground truth: `ground-truth.json`, regenerated with
 `scripts/tag-dataset/.venv/Scripts/python scripts/harness/export_ground_truth.py`.
 
-Photos: `scripts/Tag scraper/dig info/weights by tag/TAG Map/{Front,Back}` (studio shots, card fills ~96% of frame).
+Photos: `../SlabSense-data/Tag scraper (set SLABSENSE_DATA_DIR to move it)/dig info/weights by tag/TAG Map/{Front,Back}` (studio shots, card fills ~96% of frame).
 Centering fed to the engine is TAG's own, so the numbers measure detector accuracy only.
 Sign convention: software − TAG; positive = software too lenient.
 

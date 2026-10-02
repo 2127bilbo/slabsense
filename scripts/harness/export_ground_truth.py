@@ -14,13 +14,15 @@ import math
 import re
 import sys
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 DATASET = ROOT / "scripts" / "tag-dataset" / "data" / "dataset"
-PHOTOS = ROOT / "scripts" / "Tag scraper" / "dig info" / "weights by tag" / "TAG Map"
+DATA_DIR = Path(os.environ.get("SLABSENSE_DATA_DIR", ROOT.parent / "SlabSense-data"))  # TAG photos live outside the repo
+PHOTOS = DATA_DIR / "Tag scraper" / "dig info" / "weights by tag" / "TAG Map"
 OUT = ROOT / "scripts" / "harness" / "ground-truth.json"
 
 SIDE = {"F": "FRONT", "B": "BACK"}

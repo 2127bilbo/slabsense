@@ -70,3 +70,8 @@ training/weights/**/*.onnx
 
 # training inputs supplied by the owner (backgrounds, real-val photos)
 training/data/
+
+# TAG scraper output (12.5 GB of TAG images) and key files live OUTSIDE the repo in ../SlabSense-data
+scripts/Tag scraper/
+/Slabsense Gemini API-.txt
+*API-*.txt

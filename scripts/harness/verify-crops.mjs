@@ -18,7 +18,9 @@ import { decodeLogits, OUTPUT_CHANNELS } from '../../src/lib/corner-edge-model.j
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..', '..');
-const PHOTOS = path.join(ROOT, 'scripts', 'Tag scraper', 'dig info', 'weights by tag', 'TAG Map');
+// TAG reference photos live outside the repo (12.5 GB): ../SlabSense-data by default, or SLABSENSE_DATA_DIR
+const DATA_DIR = process.env.SLABSENSE_DATA_DIR || path.join(ROOT, '..', 'SlabSense-data');
+const PHOTOS = path.join(DATA_DIR, 'Tag scraper', 'dig info', 'weights by tag', 'TAG Map');
 const CACHE = path.join(ROOT, 'scripts', 'tag-dataset', 'data', 'cache', 'tag-dataset');
 const ONNX = path.join(ROOT, 'training', 'weights', 'onnx');
 

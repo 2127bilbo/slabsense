@@ -35,8 +35,9 @@ class FakeSession:
         return FakeResponse(self.status, self.body)
 
 
-def test_make_key_matches_sha256_of_secret_and_args():
-    expected = hashlib.sha256(f"{tagapi.SIGNING_SECRET}:ABC123,true".encode()).hexdigest()
+def test_make_key_matches_sha256_of_secret_and_args(monkeypatch):
+    monkeypatch.setattr(tagapi, "SIGNING_SECRET", "test-signing-secret")
+    expected = hashlib.sha256("test-signing-secret:ABC123,true".encode()).hexdigest()
     assert tagapi.make_key("ABC123", "true") == expected
     assert tagapi.make_key("ABC123") != tagapi.make_key("ABC123", "true")
 

@@ -365,8 +365,8 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 BASE_URL = "https://api.taggrading.com"
-SIGNING_SECRET = "TZY0j76MKF1AA0QK0ppAGySAaCNgKG"
-AES_KEY_STRING = "K5ucGQIf7vigW9ITOXLak5MjSIxxsgixqj"
+SIGNING_SECRET = os.environ["TAG_SIGNING_SECRET"]  # value lives in data/env.ps1, never in the tree
+AES_KEY_STRING = os.environ["TAG_AES_KEY"]
 
 HEADERS_BASE = {
     "Accept": "application/json, text/plain, */*",
