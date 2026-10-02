@@ -20,6 +20,8 @@ import { HoloLogo } from "./components/HoloLogo/HoloLogo.jsx";
 import { GradeResultDisplay } from "./components/Grading/GradeResultDisplay.jsx";
 import { DamageReportModal } from "./components/DamageReport";
 import { CreditBalance, PricingPage } from "./components/Billing";
+import { NativeStore } from "./components/Billing/NativeStore.jsx";
+import { isNativeApp } from "./lib/platform.js";
 import { getGradeJob } from "./services/credits.js";
 import { GRADE_TIERS, creditsLabel } from "./lib/grade-tiers.js";
 import { getGyroInput } from "./lib/gyro-input.js";
@@ -2622,7 +2624,10 @@ export default function SlabSense(){
       />
     )}
     {/* Pricing/Credits Modal */}
-    {showPricing && (
+    {showPricing && isNativeApp() && (
+      <NativeStore userId={auth.user?.id} onClose={() => { setShowPricing(false); setInsufficientCredits(null); }} />
+    )}
+    {showPricing && !isNativeApp() && (
       <PricingPage
         userId={auth.user?.id}
         onClose={() => {
