@@ -3,7 +3,7 @@
  * Copyright (c) 2026 SlabSense. All rights reserved.
  * Proprietary and confidential; see LICENSE at the repository root.
  */
-// scripts/plate-measure.cjs — finds the label window and the card well in the plate:
+// scripts/studio/plate-measure.cjs — finds the label window and the card well in the plate:
 // the two largest fully-dark axis-aligned rectangles bounded by bright (acrylic) edges.
 const {createCanvas,loadImage}=require('canvas');
 loadImage('public/slab/plate-straight.png').then(im=>{

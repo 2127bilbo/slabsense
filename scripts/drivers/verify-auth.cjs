@@ -4,7 +4,7 @@
  * Proprietary and confidential; see LICENSE at the repository root.
  */
 (async()=>{
-const {bearerToken,requireUser,requireAdmin,adminIdsFromEnv,AuthError,sendAuthError}=await import('../api/_lib/auth.js');
+const {bearerToken,requireUser,requireAdmin,adminIdsFromEnv,AuthError,sendAuthError}=await import('../../api/_lib/auth.js');
 let bad=0;const fail=(m,...x)=>{console.log('FAIL',m,...x);bad++;};
 const req=(h)=>({headers:h||{}});
 if(bearerToken(req({authorization:'Bearer abc'}))!=='abc')fail('bearer');

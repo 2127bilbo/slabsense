@@ -40,7 +40,7 @@ const percentile = (arr, p) => {
   return sorted[Math.max(0, idx)];
 };
 const max = arr => arr.length ? Math.max(...arr) : 0;
-const min = arr => arr.length ? Math.min(...arr) : 0;
+const _min = arr => arr.length ? Math.min(...arr) : 0;
 
 async function analyze() {
   console.log('═══════════════════════════════════════════════════════════════');

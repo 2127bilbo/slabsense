@@ -4,7 +4,7 @@
  * Proprietary and confidential; see LICENSE at the repository root.
  */
 (async()=>{
-const {slabSessionParams,pickImages,copySlabImages,mintSlab,slabOrderFromSession,SLAB_PRICE_KEY}=await import('../api/_lib/slabs.js');
+const {slabSessionParams,pickImages,copySlabImages,mintSlab,slabOrderFromSession,SLAB_PRICE_KEY}=await import('../../api/_lib/slabs.js');
 let bad=0;const fail=(m,...x)=>{console.log('FAIL',m,...x);bad++;};
 
 // slabSessionParams

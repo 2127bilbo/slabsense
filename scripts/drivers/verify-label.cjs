@@ -4,7 +4,7 @@
  * Proprietary and confidential; see LICENSE at the repository root.
  */
 // Renders the label through public/slab/label.js in headless Chrome, rasterises the SVG, decodes the QR.
-// Usage: node scripts/verify-label.cjs [key=value ...]   e.g. node scripts/verify-label.cjs grade=8.5 gradeWord=NM-MT+
+// Usage: node scripts/drivers/verify-label.cjs [key=value ...]   e.g. node scripts/drivers/verify-label.cjs grade=8.5 gradeWord=NM-MT+
 const fs=require('fs'),cp=require('child_process'),path=require('path'),os=require('os');
 const jsQR=require('jsqr'),{PNG}=require('pngjs');
 const CHROME=process.env.CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe';

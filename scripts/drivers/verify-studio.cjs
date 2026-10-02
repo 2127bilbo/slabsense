@@ -6,7 +6,7 @@
 // Loads public/studio.html headless, drives it through window.SlabStudio, checks the SVG matches label.js output
 const fs=require('fs'),cp=require('child_process'),path=require('path'),os=require('os');
 const CHROME=process.env.CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const root=path.join(__dirname,'..').split(path.sep).join('/');
+const root=path.join(__dirname,'..','..').split(path.sep).join('/');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'verify-studio-'));
 fs.writeFileSync(tmp+'/w.html',`<!doctype html><meta charset="utf-8">
 <iframe id="f" src="file:///${root}/public/studio.html" style="width:1400px;height:900px"></iframe>

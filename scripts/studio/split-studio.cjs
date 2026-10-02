@@ -3,10 +3,10 @@
  * Copyright (c) 2026 SlabSense. All rights reserved.
  * Proprietary and confidential; see LICENSE at the repository root.
  */
-// scripts/split-studio.cjs — one-off: carve the vendored libraries and data out of the studio file
+// scripts/studio/split-studio.cjs — one-off: carve the vendored libraries and data out of the studio file
 const fs = require('fs'), path = require('path');
-const SRC = path.join(__dirname, '..', 'SlabSense Slab Engraving Studio', 'SlabSense-Engraving-Studio.html');
-const OUT = path.join(__dirname, '..', 'public', 'slab');
+const SRC = path.join(__dirname, '..', '..', 'SlabSense Slab Engraving Studio', 'SlabSense-Engraving-Studio.html');
+const OUT = path.join(__dirname, '..', '..', 'public', 'slab');
 const lines = fs.readFileSync(SRC, 'utf8').split('\n');
 const L = (a, b) => lines.slice(a - 1, b).join('\n') + '\n';            // 1-based inclusive
 const strip = s => s.replace(/^<script>/, '').replace(/<\/script>\s*$/, '');

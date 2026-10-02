@@ -8,7 +8,7 @@
 // sanitized settings, and clearing the selection (setRows([])) leaves no stale SS cert behind.
 const fs=require('fs'),cp=require('child_process'),path=require('path'),http=require('http');
 const CHROME=process.env.CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const root=path.join(__dirname,'..'),MIME={'.html':'text/html','.js':'application/javascript','.json':'application/json','.png':'image/png'};
+const root=path.join(__dirname,'..','..'),MIME={'.html':'text/html','.js':'application/javascript','.json':'application/json','.png':'image/png'};
 const wrapPath=path.join(__dirname,'__studio-wrap.html');
 const server=http.createServer((req,res)=>{const u=decodeURIComponent(req.url.split('?')[0]);const f=u==='/__wrap.html'?wrapPath:path.join(root,'public',u);
   fs.readFile(f,(e,d)=>{if(e){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':MIME[path.extname(f)]||'application/octet-stream'});res.end(d);});});

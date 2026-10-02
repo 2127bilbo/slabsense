@@ -9,7 +9,7 @@
 // rewritten from /v/<cert> in production, where relative paths would resolve under /v/).
 const fs=require('fs'),cp=require('child_process'),path=require('path'),http=require('http');
 const CHROME=process.env.CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const root=path.join(__dirname,'..');
+const root=path.join(__dirname,'..','..');
 const MIME={'.html':'text/html','.js':'application/javascript','.json':'application/json','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg'};
 const MOUNTS=[['/__fixtures/',path.join(root,'scripts','fixtures')],['/__ref/',path.join(root,'SlabSense Slab Engraving Studio','Referances')],['/',path.join(root,'public')]];
 const server=http.createServer((req,res)=>{

@@ -51,9 +51,9 @@ src/                 app (App.jsx, components/, lib/ engine + models + tools, se
 api/                 Vercel functions; api/_lib/ shared, tested modules (credits, ledgers, prompts, surface pass)
 supabase/migrations/ schema, RLS and the credit ledger functions
 public/              static pages (studio, slab view), legal pages rendered from docs/legal
-scripts/             card-db job, harnesses, model export/upload, Playwright drivers (verify-*.cjs), TAG dataset tooling
+scripts/             card-db job, harnesses, model upload, headless drivers, legal tooling, TAG dataset package (scripts/README.md)
 training/            model training, weights, export manifests (training/MODEL-ROADMAP.md)
-docs/                STATUS.md, GRADING_SYSTEM.md, RIG-PLAN.md, legal/, audits/, superpowers/ (plans, specs, runbooks)
+docs/                STATUS.md, GRADING_SYSTEM.md, RIG-PLAN.md, app-store/, legal/, brand/, audits/, superpowers/ (plans, specs, runbooks)
 ```
 
 ## Where to read next

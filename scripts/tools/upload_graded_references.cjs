@@ -9,7 +9,7 @@
  * Transforms training.json (509 TAG-graded cards) into the graded_references table format
  * and uploads to Supabase for the two-pass grading system.
  *
- * Usage: node scripts/upload_graded_references.cjs
+ * Usage: node scripts/tools/upload_graded_references.cjs
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -35,7 +35,7 @@ function loadEnv(filepath) {
 }
 
 // Load from project root (try multiple paths)
-const projectRoot = path.resolve(__dirname, '..');
+const projectRoot = path.resolve(__dirname, '..', '..');
 const envLocal = path.join(projectRoot, '.env.local');
 const envFile = path.join(projectRoot, '.env');
 
@@ -57,7 +57,7 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Load training data
-const trainingPath = path.join(__dirname, 'Tag scraper', 'training.json');
+const trainingPath = path.join(process.env.SLABSENSE_DATA_DIR || path.resolve(projectRoot, '..', 'SlabSense-data'), 'Tag scraper', 'training.json'); // the scraper folder lives outside the repo
 const training = JSON.parse(fs.readFileSync(trainingPath, 'utf8'));
 
 /**

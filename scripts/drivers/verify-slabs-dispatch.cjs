@@ -5,7 +5,7 @@
  */
 // The single /api/slabs function must route ?action= to the right handler and 404 unknown actions.
 (async()=>{
-const {makeHandler}=await import('../api/slabs.js');
+const {makeHandler}=await import('../../api/slabs.js');
 let bad=0;const fail=(m,...x)=>{console.log('FAIL',m,...x);bad++;};
 function res(){return {code:200,body:null,headers:{},setHeader(k,v){this.headers[k]=v;},status(c){this.code=c;return this;},json(b){this.body=b;return this;},end(){return this;}};}
 const row={cert:'SS26-00001',status:'paid',card_name:'Glaceon'};
