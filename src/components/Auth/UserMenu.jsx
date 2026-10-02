@@ -30,7 +30,7 @@ export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSet
   return (
     <div style={{ position: 'relative' }}>
       {/* Avatar Button */}
-      <button
+      <button aria-label="Account menu" aria-haspopup="menu" aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
         style={{
           width: 32,

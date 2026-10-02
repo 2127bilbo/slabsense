@@ -88,7 +88,7 @@ export function PricingPage({ userId, onClose }) {
                 <div style={{ fontFamily: sans, fontSize: 15, color: '#fff', fontWeight: 600 }}>{p.name}</div>
                 <div style={{ fontFamily: sans, fontSize: 12, color: '#aaa', marginTop: 2 }}>{p.tagline}</div>
               </div>
-              <button disabled={!!busy} onClick={() => buy(p.key)} style={btn(false)}>{busy === p.key ? '…' : p.displayPrice}</button>
+              <button disabled={!!busy} onClick={() => buy(p.key)} aria-label={`Buy ${p.name}`} style={btn(false)}>{busy === p.key ? '…' : p.displayPrice}</button>
             </div>
           </div>
         ))}

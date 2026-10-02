@@ -883,12 +883,12 @@ function CameraViewfinder({ side, onCapture, onClose }) {
           ) : (
             /* Camera mode - show shutter + upload button */
             <>
-              <button onClick={()=>fileRef.current?.click()} style={{width:40,height:40,borderRadius:"50%",background:"transparent",border:"1px solid #444",color:"#888",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+              <button onClick={()=>fileRef.current?.click()} aria-label="Choose a photo" style={{width:40,height:40,borderRadius:"50%",background:"transparent",border:"1px solid #444",color:"#888",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
               </button>
               <input ref={fileRef} type="file" accept="image/*,.heic,.heif" onChange={handleFile} style={{display:"none"}}/>
               {/* Shutter button - changes color when card locked */}
-              <button onClick={captureFrame} disabled={!active} style={{position:"relative",width:68,height:68,borderRadius:"50%",background:"transparent",border:`4px solid ${cardLocked?"#00ff88":active?"#fff":"#444"}`,cursor:active?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"border-color .3s"}}>
+              <button onClick={captureFrame} disabled={!active} aria-label="Take photo" style={{position:"relative",width:68,height:68,borderRadius:"50%",background:"transparent",border:`4px solid ${cardLocked?"#00ff88":active?"#fff":"#444"}`,cursor:active?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",transition:"border-color .3s"}}>
                 <div style={{width:56,height:56,borderRadius:"50%",background:cardLocked?"#00ff88":active?"#fff":"#333",transition:"all .3s"}}/>
                 {autoArmed&&<svg data-autosnap={autoProgress.toFixed(2)} style={{position:"absolute",inset:-8,width:76,height:76,transform:"rotate(-90deg)",pointerEvents:"none"}} viewBox="0 0 76 76">
                   <circle cx="38" cy="38" r="35" fill="none" stroke="#000" strokeWidth="3"/>
@@ -2083,7 +2083,7 @@ export default function SlabSense(){
         justifyContent:"center",
       }}>
         {/* Close button */}
-        <button
+        <button aria-label="Close 3D view"
           onClick={() => setShow3DViewer(false)}
           style={{
             position:"absolute",

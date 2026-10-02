@@ -103,7 +103,7 @@ slabsenseai.com`;
       padding: 16,
     }}>
       {/* Close button */}
-      <button
+      <button aria-label="Close"
         onClick={onClose}
         style={{
           position: 'absolute',

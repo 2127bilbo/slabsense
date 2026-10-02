@@ -202,7 +202,7 @@ export function CardIdentifier({
           Card Identification
         </div>
         {onCancel && (
-          <button
+          <button aria-label="Cancel"
             onClick={onCancel}
             style={{
               background: 'transparent',

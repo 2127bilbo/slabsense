@@ -73,7 +73,7 @@ export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
           <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 600, color: '#fff' }}>
             {mode === 'login' ? 'Sign In' : 'Create Account'}
           </div>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             style={{
               background: 'transparent',

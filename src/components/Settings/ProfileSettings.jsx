@@ -89,7 +89,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
         alignItems: 'center',
         gap: 12,
       }}>
-        <button
+        <button aria-label="Back"
           onClick={onClose}
           style={{
             background: 'transparent',

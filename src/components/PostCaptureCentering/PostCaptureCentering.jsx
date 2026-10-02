@@ -867,7 +867,7 @@ export function PostCaptureCentering({
 
             {/* Adjustment Controls */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <button
+              <button aria-label="Decrease by 1"
                 onClick={() => withHistory(() => {
                   if (activeAxis === 'X') setTiltX(v => Math.round((v - 1) * 100) / 100);
                   else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 1) * 100) / 100);
@@ -877,7 +877,7 @@ export function PostCaptureCentering({
               >
                 ‹‹
               </button>
-              <button
+              <button aria-label="Decrease by 0.05"
                 onClick={() => withHistory(() => {
                   if (activeAxis === 'X') setTiltX(v => Math.round((v - 0.05) * 100) / 100);
                   else if (activeAxis === 'Y') setTiltY(v => Math.round((v - 0.05) * 100) / 100);
@@ -899,7 +899,7 @@ export function PostCaptureCentering({
                   {activeAxis === 'X' ? tiltX.toFixed(2) : activeAxis === 'Y' ? tiltY.toFixed(2) : rotation.toFixed(2)}°
                 </div>
               </div>
-              <button
+              <button aria-label="Increase by 0.05"
                 onClick={() => withHistory(() => {
                   if (activeAxis === 'X') setTiltX(v => Math.round((v + 0.05) * 100) / 100);
                   else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 0.05) * 100) / 100);
@@ -909,7 +909,7 @@ export function PostCaptureCentering({
               >
                 ›
               </button>
-              <button
+              <button aria-label="Increase by 1"
                 onClick={() => withHistory(() => {
                   if (activeAxis === 'X') setTiltX(v => Math.round((v + 1) * 100) / 100);
                   else if (activeAxis === 'Y') setTiltY(v => Math.round((v + 1) * 100) / 100);

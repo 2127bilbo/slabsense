@@ -131,58 +131,51 @@ async function postGrade(url, body, { timeoutMs }) {
 }
 
 /**
- * Upload image to Supabase for Standard AI analysis (Direct Anthropic path)
- * Returns public URL that Claude can fetch directly
+ * Upload one grade image to the user's folder in the card-images bucket and return its public URL.
+ * Claude downsizes anything past ~1,568 px on the long edge before it looks at it, so a 2,000 px
+ * copy keeps every pixel it uses at roughly a fifth of the bytes (and of the bucket storage).
+ * @param {string} folder - 'standard-analysis' | 'deep-analysis' (the storage cleanup job knows both)
  */
-async function uploadImageForStandardAnalysis(dataUrl, side, userId) {
-  if (!isSupabaseConfigured()) {
-    throw new Error('Supabase not configured - required for Direct Anthropic API');
-  }
-
-  if (!userId) {
-    throw new Error('User ID required for Direct Anthropic uploads');
-  }
-
+async function uploadGradeImage(dataUrl, side, userId, folder, label) {
+  if (!isSupabaseConfigured()) throw new Error(`Supabase not configured - required for ${label}`);
+  if (!userId) throw new Error(`User ID required for ${label} uploads`);
   try {
-    // Claude downsizes anything past ~1,568 px on the long edge before it looks at it, so a 2,000 px
-    // copy keeps every pixel it uses at roughly a fifth of the bytes (and of the bucket storage).
     const response = await fetch(await resizeImage(dataUrl, GRADE_UPLOAD_MAX_PX, GRADE_UPLOAD_MAX_PX, 0.9));
     const blob = await response.blob();
-
-    // Generate unique filename under user's folder (required by RLS policy)
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 8);
-    const filename = `${userId}/standard-analysis/${timestamp}_${randomId}_${side}.jpg`;
-
-    // Upload to storage bucket
-    const { error } = await supabase.storage
-      .from('card-images')
-      .upload(filename, blob, {
-        contentType: 'image/jpeg',
-        upsert: true,
-      });
-
-    if (error) {
-      console.error('[Standard AI] Upload error:', error);
-      throw new Error(`Failed to upload ${side} image: ${error.message}`);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('card-images')
-      .getPublicUrl(filename);
-
-    const publicUrl = urlData?.publicUrl;
-    if (!publicUrl) {
-      throw new Error(`Failed to get public URL for ${side} image`);
-    }
-
-    console.log(`[Standard AI] Uploaded ${side}:`, publicUrl.substring(0, 60) + '...');
-    return publicUrl;
+    const filename = `${userId}/${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${side}.jpg`;
+    const { error } = await supabase.storage.from('card-images').upload(filename, blob, { contentType: 'image/jpeg', upsert: true });
+    if (error) throw new Error(`Failed to upload ${side} image: ${error.message}`);
+    const { data: urlData } = supabase.storage.from('card-images').getPublicUrl(filename);
+    if (!urlData?.publicUrl) throw new Error(`Failed to get public URL for ${side} image`);
+    return urlData.publicUrl;
   } catch (err) {
-    console.error(`[Standard AI] Upload ${side} error:`, err);
+    console.error(`[${label}] Upload ${side} error:`, err);
     throw err;
   }
+}
+const uploadImageForStandardAnalysis = (dataUrl, side, userId) => uploadGradeImage(dataUrl, side, userId, 'standard-analysis', 'AI Grade (basic)');
+const uploadImageForDeepAnalysis = (dataUrl, side, userId) => uploadGradeImage(dataUrl, side, userId, 'deep-analysis', 'AI Grade');
+
+/**
+ * Native-resolution tiles of a card crop for the tiled surface pass (api/_lib/surfacePass.js):
+ * a 2 x 3 grid, each tile at most `maxPx` on its long side (Anthropic's cap), as JPEG data URLs.
+ * Cut from the full-resolution crop, never from the 2,000 px upload copy.
+ */
+export async function cutSurfaceTiles(cropDataUrl, { cols = 2, rows = 3, maxPx = 1568, quality = 0.9 } = {}) {
+  const img = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error('tile source failed to load')); i.src = cropDataUrl; });
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+  const tw = Math.ceil(W / cols), th = Math.ceil(H / rows);
+  const out = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const sx = c * tw, sy = r * th, sw = Math.min(tw, W - sx), sh = Math.min(th, H - sy);
+    const sc = Math.min(1, maxPx / Math.max(sw, sh));
+    const canvas = document.createElement('canvas'); canvas.width = Math.round(sw * sc); canvas.height = Math.round(sh * sc);
+    const ctx = canvas.getContext('2d'); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    out.push(canvas.toDataURL('image/jpeg', quality));
+  }
+  img.src = '';
+  return out;
 }
 
 /**
@@ -267,79 +260,6 @@ export async function claudeGradingAnalysis(
  * Upload image to Supabase for Deep AI analysis
  * Returns public URL that Claude can fetch directly
  */
-/**
- * Native-resolution tiles of a card crop for the tiled surface pass (api/_lib/surfacePass.js):
- * a 2 x 3 grid, each tile at most `maxPx` on its long side (Anthropic's cap), as JPEG data URLs.
- * Cut from the full-resolution crop, never from the 2,000 px upload copy.
- */
-export async function cutSurfaceTiles(cropDataUrl, { cols = 2, rows = 3, maxPx = 1568, quality = 0.9 } = {}) {
-  const img = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error('tile source failed to load')); i.src = cropDataUrl; });
-  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
-  const tw = Math.ceil(W / cols), th = Math.ceil(H / rows);
-  const out = [];
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const sx = c * tw, sy = r * th, sw = Math.min(tw, W - sx), sh = Math.min(th, H - sy);
-    const sc = Math.min(1, maxPx / Math.max(sw, sh));
-    const canvas = document.createElement('canvas'); canvas.width = Math.round(sw * sc); canvas.height = Math.round(sh * sc);
-    const ctx = canvas.getContext('2d'); ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-    out.push(canvas.toDataURL('image/jpeg', quality));
-  }
-  img.src = '';
-  return out;
-}
-
-async function uploadImageForDeepAnalysis(dataUrl, side, userId) {
-  if (!isSupabaseConfigured()) {
-    throw new Error('Supabase not configured - required for Deep AI Grade');
-  }
-
-  if (!userId) {
-    throw new Error('User ID required for Deep AI Grade uploads');
-  }
-
-  try {
-    // Claude downsizes anything past ~1,568 px on the long edge before it looks at it, so a 2,000 px
-    // copy keeps every pixel it uses at roughly a fifth of the bytes (and of the bucket storage).
-    const response = await fetch(await resizeImage(dataUrl, GRADE_UPLOAD_MAX_PX, GRADE_UPLOAD_MAX_PX, 0.9));
-    const blob = await response.blob();
-
-    // Generate unique filename under user's folder (required by RLS policy)
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 8);
-    const filename = `${userId}/deep-analysis/${timestamp}_${randomId}_${side}.jpg`;
-
-    // Upload to storage bucket
-    const { error } = await supabase.storage
-      .from('card-images')
-      .upload(filename, blob, {
-        contentType: 'image/jpeg',
-        upsert: true,
-      });
-
-    if (error) {
-      console.error('[Deep AI] Upload error:', error);
-      throw new Error(`Failed to upload ${side} image: ${error.message}`);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('card-images')
-      .getPublicUrl(filename);
-
-    const publicUrl = urlData?.publicUrl;
-    if (!publicUrl) {
-      throw new Error(`Failed to get public URL for ${side} image`);
-    }
-
-    console.log(`[Deep AI] Uploaded ${side}:`, publicUrl.substring(0, 60) + '...');
-    return publicUrl;
-  } catch (err) {
-    console.error(`[Deep AI] Upload ${side} error:`, err);
-    throw err;
-  }
-}
-
 /**
  * Deep Grading Analysis V2 - Two-Pass with Reference Comparison (MULTI-PROVIDER)
  *

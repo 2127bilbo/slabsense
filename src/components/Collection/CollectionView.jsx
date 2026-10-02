@@ -749,7 +749,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           background: '#0a0b0e',
           zIndex: 10,
         }}>
-          <button
+          <button aria-label="Back to collection"
             onClick={() => setSelectedCard(null)}
             style={{
               background: 'transparent',
@@ -768,7 +768,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           {slab ? (
             <span style={{ width: 32 }} />
           ) : (
-            <button
+            <button aria-label="Delete card"
               onClick={() => setDeleteConfirm(selectedCard.id)}
               style={{
                 background: 'transparent',
@@ -1725,7 +1725,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
             justifyContent: 'center',
           }}>
             {/* Close Button */}
-            <button
+            <button aria-label="Close 3D view"
               onClick={() => setShow3DViewer(false)}
               style={{
                 position: 'absolute',
@@ -1787,7 +1787,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           justifyContent: 'space-between',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
+            <button aria-label="Close collection"
               onClick={onClose}
               style={{
                 background: 'transparent',
@@ -1899,7 +1899,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 gap: 24,
                 marginTop: 32,
               }}>
-                <button
+                <button aria-label="Previous card"
                   onClick={goToPrev}
                   style={{
                     width: 48,
@@ -1924,7 +1924,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 }}>
                   {currentIndex + 1} / {scans.length}
                 </div>
-                <button
+                <button aria-label="Next card"
                   onClick={goToNext}
                   style={{
                     width: 48,
