@@ -18,7 +18,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createClient } from '@supabase/supabase-js';
+import { serviceDb } from './_lib/route.js';
 import { SignedDataVerifier, Environment } from '@apple/app-store-server-library';
 import { requireUser, sendAuthError } from './_lib/auth.js';
 import { applyToDb, resolveUser } from './_lib/appleLedger.js';
@@ -54,7 +54,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!SUPABASE_URL || !SERVICE_KEY) return res.status(500).json({ error: 'server_not_configured' });
-  const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+  const db = serviceDb();
   const action = req.query?.action || req.body?.action;
   let v;
   try { v = verifier(); } catch (e) { console.error('[apple] verifier', e.message); return res.status(500).json({ error: 'verifier_not_configured' }); }

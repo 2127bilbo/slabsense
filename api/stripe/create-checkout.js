@@ -1,13 +1,13 @@
 /**
  * Create Stripe Checkout Session
- * Handles subscriptions, trials, and one-time purchases
+ * Plans and packs (src/lib/products.js) and the physical slab. Identity comes from the bearer
+ * token, never from the body (audit G-04 / B-06).
  */
 
 import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
 import { SLAB_PRICE_KEY, slabSessionParams } from '../_lib/slabs.js';
-import { requireUser, sendAuthError } from '../_lib/auth.js';
-import { sameOriginUrl, clampQuantity } from '../_lib/urlGuard.js';
+import { userRoute } from '../_lib/route.js';
+import { sameOriginUrl } from '../_lib/urlGuard.js';
 import { priceMap } from '../_lib/stripeLedger.js';
 import { PRODUCTS } from '../../src/lib/products.js';
 
@@ -20,44 +20,19 @@ export const config = {
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 // Price ids by product key: the same three products as the iOS app (src/lib/products.js) plus the
 // physical slab. The old nine price variables (trial, hobby/pro/dealer, single, four packs) are gone;
 // they were never configured and the trial was never a real subscription (audit B-02, B-07, B-12).
 const PRICES = priceMap(process.env);
 const isSubscriptionKey = (key) => PRODUCTS[key]?.kind === 'subscription';
 
-export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default userRoute({ label: 'Checkout' }, async ({ req, res, db: supabase, user }) => {
     const { priceKey, scanId } = req.body;
-    // Identity comes from the bearer token, never from the body (audit G-04 / B-06); a body
-    // userId is accepted only when it matches the token, for older clients that still send it.
-    let payer;
-    try { payer = await requireUser({ db: supabase }, req); } catch (e) { return sendAuthError(res, e); }
-    if (req.body.userId && req.body.userId !== payer.id) return res.status(403).json({ error: 'user_mismatch' });
-    const userId = payer.id;
+    const userId = user.id;
     // Client-supplied redirect targets are used only on our own origins (open redirect).
     const successUrl = sameOriginUrl(req.body.successUrl);
     const cancelUrl = sameOriginUrl(req.body.cancelUrl);
     const quantity = 1; // packs and plans are fixed-size; quantity is no longer accepted
-    void clampQuantity;
 
     if (!priceKey || !PRICES[priceKey]) {
       return res.status(400).json({ error: 'Invalid price key' });
@@ -145,11 +120,4 @@ export default async function handler(req, res) {
       url: session.url,
     });
 
-  } catch (error) {
-    console.error('[Checkout] Error:', error);
-    return res.status(500).json({
-      error: 'Failed to create checkout session',
-      message: error.message,
-    });
-  }
-}
+});

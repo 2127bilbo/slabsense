@@ -1,11 +1,11 @@
 /**
  * Create Stripe Customer Portal Session
  * Allows users to manage their subscription, update payment method, etc.
+ * Identity from the bearer token only (audit G-03): the portal exposes invoices and card details.
  */
 
 import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
-import { requireUser, sendAuthError } from '../_lib/auth.js';
+import { userRoute } from '../_lib/route.js';
 import { sameOriginUrl } from '../_lib/urlGuard.js';
 
 export const config = {
@@ -14,31 +14,8 @@ export const config = {
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    // Identity from the bearer token only (audit G-03): the portal exposes invoices and card details.
-    let payer;
-    try { payer = await requireUser({ db: supabase }, req); } catch (e) { return sendAuthError(res, e); }
-    if (req.body?.userId && req.body.userId !== payer.id) return res.status(403).json({ error: 'user_mismatch' });
-    const userId = payer.id;
+export default userRoute({ label: 'Portal' }, async ({ req, res, db: supabase, user }) => {
+    const userId = user.id;
     const returnUrl = sameOriginUrl(req.body?.returnUrl);
 
     // Get user profile
@@ -70,11 +47,4 @@ export default async function handler(req, res) {
       url: session.url,
     });
 
-  } catch (error) {
-    console.error('[Portal] Error:', error);
-    return res.status(500).json({
-      error: 'Failed to create portal session',
-      message: error.message,
-    });
-  }
-}
+});

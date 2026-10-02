@@ -16,7 +16,7 @@
  * must be complete, not a request.
  * ============================================================================
  */
-import { createClient } from '@supabase/supabase-js';
+import { serviceDb } from './_lib/route.js';
 import Stripe from 'stripe';
 import { requireUser, sendAuthError } from './_lib/auth.js';
 
@@ -26,7 +26,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const IMAGE_BUCKET = 'card-images';
 
-function db() { return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } }); }
+function db() { return serviceDb(); }
 
 /** Every object under a prefix in a bucket, recursing into folders. */
 export async function listAllObjects(storage, bucket, prefix) {
