@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { updateProfile, deleteAccount } from '../../services/auth.js';
+import { updateProfile, deleteAccount, updatePassword, updateEmail, exportAccountData } from '../../services/auth.js';
 import { getCompanyOptions } from '../../utils/gradingScales.js';
 import { modelGradingEnabled, setModelGrading, modelPassCrashed, clearModelPassCrash } from '../../services/cornerEdgeModels.js';
 import { trainingCaptureEnabled, setTrainingCapture } from '../../services/trainingCapture.js';
@@ -23,6 +23,9 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
   const [error, setError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteText, setDeleteText] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [accountMsg, setAccountMsg] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -58,7 +61,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
     setError(null);
 
     try {
-      await deleteAccount(user.id);
+      await deleteAccount();
       onSignOut();
       onClose();
     } catch (err) {
@@ -123,6 +126,19 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
         )}
 
         {/* Profile Section */}
+        {/* Legal + your data */}
+        <div style={{ marginBottom: 20, padding: 16, background: '#0d0f13', border: '1px solid #1a1c22', borderRadius: 12 }}>
+          <div style={{ fontFamily: mono, fontSize: 10, color: '#555', marginBottom: 10, textTransform: 'uppercase' }}>Legal &amp; your data</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontFamily: sans, fontSize: 13 }}>
+            <a href="/privacy" target="_blank" rel="noopener" style={{ color: '#8b5cf6' }}>Privacy Policy</a>
+            <a href="/terms" target="_blank" rel="noopener" style={{ color: '#8b5cf6' }}>Terms of Service</a>
+            <a href="/disclaimers" target="_blank" rel="noopener" style={{ color: '#8b5cf6' }}>Disclaimers</a>
+            <button type="button" onClick={async () => { setAccountMsg(null); try { const data = await exportAccountData(); const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'slabsense-export.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); } catch (e) { setAccountMsg(e.message); } }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#8b5cf6', fontFamily: sans, fontSize: 13, cursor: 'pointer', textDecoration: 'underline', minHeight: 44 }}>Download my data</button>
+          </div>
+          <div style={{ fontFamily: sans, fontSize: 11, color: '#666', marginTop: 8, lineHeight: 1.5 }}>Grades in SlabSense are estimates and SlabSense is not affiliated with any grading company. Paid AI grades send your card photos to Anthropic for analysis, as described in the privacy policy.</div>
+        </div>
+
         <div style={{
           background: '#0d0f13',
           borderRadius: 10,
@@ -194,6 +210,19 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
             }}>
               {user?.email}
             </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="New email address" aria-label="New email address"
+                style={{ flex: 1, padding: '10px 12px', background: '#1a1c22', border: '1px solid #2a2d35', borderRadius: 6, color: '#fff', fontFamily: sans, fontSize: 14, outline: 'none' }} />
+              <button type="button" disabled={!newEmail} onClick={async () => { setAccountMsg(null); try { await updateEmail(newEmail); setAccountMsg('Check the new address for a confirmation link; the change applies after you click it.'); setNewEmail(''); } catch (e) { setAccountMsg(e.message); } }}
+                style={{ padding: '0 14px', minHeight: 44, borderRadius: 6, border: '1px solid #2a2d35', background: 'transparent', color: newEmail ? '#fff' : '#555', fontFamily: mono, fontSize: 11, cursor: 'pointer' }}>Change</button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <input type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password (8+ characters)" aria-label="New password"
+                style={{ flex: 1, padding: '10px 12px', background: '#1a1c22', border: '1px solid #2a2d35', borderRadius: 6, color: '#fff', fontFamily: sans, fontSize: 14, outline: 'none' }} />
+              <button type="button" disabled={newPassword.length < 8} onClick={async () => { setAccountMsg(null); try { await updatePassword(newPassword); setAccountMsg('Password updated.'); setNewPassword(''); } catch (e) { setAccountMsg(e.message); } }}
+                style={{ padding: '0 14px', minHeight: 44, borderRadius: 6, border: '1px solid #2a2d35', background: 'transparent', color: newPassword.length >= 8 ? '#fff' : '#555', fontFamily: mono, fontSize: 11, cursor: 'pointer' }}>Change</button>
+            </div>
+            {accountMsg && <div role="status" style={{ fontFamily: sans, fontSize: 12, color: '#999', marginTop: 8 }}>{accountMsg}</div>}
           </div>
 
           {/* Preferred Grading Company */}
@@ -333,7 +362,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
                 textAlign: 'left',
               }}
             >
-              <span>Save the full photos and the card outline with each card</span>
+              <span>Let SlabSense keep my full card photos to train its models</span>
               <span style={{
                 fontFamily: mono,
                 fontSize: 11,
@@ -345,14 +374,8 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
                 {keepOriginals ? 'ON' : 'OFF'}
               </span>
             </button>
-            <div style={{
-              fontFamily: mono,
-              fontSize: 10,
-              color: '#444',
-              marginTop: 6,
-            }}>
-              Builds the real-photo test set for the card-detection model. Stores the original
-              front and back photos next to the saved card, about 1 MB per card.
+            <div style={{ fontFamily: sans, fontSize: 11, color: '#777', marginTop: 6, lineHeight: 1.5 }}>
+              Off by default. When on, the original front and back photos and the card outline you draw are stored with the saved card and may be used to train SlabSense's card-detection and grading models. They are tied to your account, not shared with anyone else, and are deleted when you delete the card or your account. Turn it off any time; photos already saved stay until you delete those cards.
             </div>
           </div>
         </div>
@@ -426,7 +449,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
                 marginBottom: 12,
                 lineHeight: 1.5,
               }}>
-                This will permanently delete your account and all saved scans. This action cannot be undone.
+                This permanently deletes your account: every saved card and photo, your grade history, any remaining credits, and your billing record. An active subscription is cancelled. A physical slab you ordered keeps its public cert page, but your name and address are removed from it. This cannot be undone.
               </div>
               <div style={{
                 fontFamily: mono,

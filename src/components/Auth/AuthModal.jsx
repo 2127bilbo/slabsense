@@ -9,7 +9,7 @@ const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
 
 export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
-  const [mode, setMode] = useState(initialMode); // 'login' | 'register'
+  const [mode, setMode] = useState(initialMode); // 'login' | 'register' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -29,6 +29,9 @@ export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
       if (mode === 'register') {
         await onAuth.signUp(email, password, displayName);
         setSuccess('Check your email to confirm your account!');
+      } else if (mode === 'forgot') {
+        await onAuth.requestPasswordReset(email);
+        setSuccess('If that address has an account, a reset link is on its way. Open it on this device.');
       } else {
         await onAuth.signIn(email, password);
         onClose();
@@ -166,6 +169,7 @@ export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
             />
           </div>
 
+          {mode !== 'forgot' && (
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'block', fontFamily: mono, fontSize: 10, color: '#666', marginBottom: 6, textTransform: 'uppercase' }}>
               Password
@@ -174,9 +178,9 @@ export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === 'register' ? 'Min 6 characters' : 'Your password'}
-              required
-              minLength={6}
+              placeholder={mode === 'register' ? 'Min 8 characters' : 'Your password'}
+              required={mode !== 'forgot'}
+              minLength={mode === 'register' ? 8 : 6}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -190,6 +194,7 @@ export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
               }}
             />
           </div>
+          )}
 
           <button
             type="submit"
@@ -209,8 +214,20 @@ export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
               letterSpacing: '.05em',
             }}
           >
-            {loading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Create Account')}
+            {loading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : mode === 'forgot' ? 'Send Reset Link' : 'Create Account')}
           </button>
+          {mode === 'login' && (
+            <button type="button" onClick={() => { setMode('forgot'); setError(null); setSuccess(null); }}
+              style={{ display: 'block', margin: '12px auto 0', background: 'none', border: 'none', color: '#8b5cf6', fontFamily: sans, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', minHeight: 44 }}>
+              Forgot password?
+            </button>
+          )}
+          {mode === 'forgot' && (
+            <button type="button" onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
+              style={{ display: 'block', margin: '12px auto 0', background: 'none', border: 'none', color: '#8b5cf6', fontFamily: sans, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', minHeight: 44 }}>
+              Back to sign in
+            </button>
+          )}
         </form>
 
         {/* Switch Mode */}
@@ -237,7 +254,7 @@ export function AuthModal({ isOpen, onClose, onAuth, initialMode = 'login' }) {
         {/* Terms notice for register */}
         {mode === 'register' && (
           <div style={{ marginTop: 16, fontFamily: sans, fontSize: 10, color: '#555', textAlign: 'center', lineHeight: 1.5 }}>
-            By creating an account, you agree to our Terms of Service and Privacy Policy.
+            By creating an account, you agree to our <a href="/terms" target="_blank" rel="noopener" style={{ color: '#8b5cf6' }}>Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener" style={{ color: '#8b5cf6' }}>Privacy Policy</a>. Grades are estimates; see the <a href="/disclaimers" target="_blank" rel="noopener" style={{ color: '#8b5cf6' }}>disclaimers</a>.
           </div>
         )}
       </div>

@@ -5,13 +5,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabase.js';
-import { getProfile } from '../services/auth.js';
+import { getProfile, requestPasswordReset as requestReset, updatePassword as setPassword } from '../services/auth.js';
 
 export function useAuth() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // true after the user arrives from a password-reset email (Supabase PASSWORD_RECOVERY event)
+  const [recovery, setRecovery] = useState(false);
 
   // Load user profile
   const loadProfile = useCallback(async (userId) => {
@@ -42,6 +44,7 @@ export function useAuth() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') setRecovery(true);
         setUser(session?.user ?? null);
         if (session?.user) {
           loadProfile(session.user.id);
@@ -111,6 +114,11 @@ export function useAuth() {
     }
   };
 
+  // Password reset: request the email, then set the new password once back in the app
+  const requestPasswordReset = async (email) => { setError(null); await requestReset(email); };
+  const completePasswordReset = async (newPassword) => { setError(null); await setPassword(newPassword); setRecovery(false); };
+  const dismissRecovery = () => setRecovery(false);
+
   // Refresh profile
   const refreshProfile = useCallback(() => {
     if (user) {
@@ -135,5 +143,9 @@ export function useAuth() {
     signIn,
     signOut,
     refreshProfile,
+    recovery,
+    requestPasswordReset,
+    completePasswordReset,
+    dismissRecovery,
   };
 }

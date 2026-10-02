@@ -4,6 +4,7 @@ import { shapeAiResult, shapeDeepResult } from "./services/api.js";
 import { aiRecordFromResult, damageReportInputs } from "./lib/grade-records.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { AuthModal } from "./components/Auth/AuthModal.jsx";
+import { SetPasswordModal } from "./components/Auth/SetPasswordModal.jsx";
 import { UserMenu } from "./components/Auth/UserMenu.jsx";
 import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
@@ -39,7 +40,7 @@ import holoConfig from "../config/holo-config.json";
    Supports: TAG, PSA, BGS, CGC, SGC
 
    DISCLAIMER: SlabSense is NOT affiliated with any grading company.
-   All grades are ESTIMATES only. See docs/DISCLAIMERS.md for full details.
+   All grades are ESTIMATES only. See /disclaimers (docs/legal/DISCLAIMERS.md) for full details.
    ═══════════════════════════════════════════ */
 
 const mono="'JetBrains Mono','SF Mono',monospace", sans="'Inter',-apple-system,sans-serif";
@@ -2605,6 +2606,10 @@ export default function SlabSense(){
           AI-Enhanced with SAM 2 • Perfect edges & perspective correction
         </div>
       </div>
+    )}
+    {/* New password after a reset email (Supabase PASSWORD_RECOVERY) */}
+    {auth.recovery && (
+      <SetPasswordModal onSubmit={auth.completePasswordReset} onClose={auth.dismissRecovery} />
     )}
     {/* Profile Settings Modal */}
     {showSettings && (
