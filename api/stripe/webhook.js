@@ -71,23 +71,17 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
   }
 
-  // Check for duplicate event (idempotency)
-  const { data: existingEvent } = await supabase
-    .from('stripe_events')
-    .select('id')
-    .eq('id', event.id)
-    .single();
-
-  if (existingEvent) {
-    console.log('[Webhook] Duplicate event ignored:', event.id);
-    return res.status(200).json({ received: true, duplicate: true });
+  // Idempotency: claim the event id FIRST; a concurrent duplicate delivery then fails the insert
+  // on the primary key instead of both passing a select-then-insert race (audit B-05).
+  const { error: claimError } = await supabase.from('stripe_events').insert({ id: event.id, type: event.type });
+  if (claimError) {
+    if (claimError.code === '23505') {
+      console.log('[Webhook] Duplicate event ignored:', event.id);
+      return res.status(200).json({ received: true, duplicate: true });
+    }
+    console.error('[Webhook] Could not record event:', claimError.message);
+    return res.status(500).json({ error: 'Webhook storage failed' });
   }
-
-  // Store event ID for idempotency
-  await supabase.from('stripe_events').insert({
-    id: event.id,
-    type: event.type,
-  });
 
   console.log('[Webhook] Processing event:', event.type, event.id);
 
@@ -141,6 +135,12 @@ async function handleCheckoutComplete(session) {
   if (session.metadata?.price_key === SLAB_PRICE_KEY) {
     const { slab, created } = await mintSlab({ db: supabase, storage: supabase.storage, fetchImpl: fetch }, slabOrderFromSession(session));
     console.log(`[Webhook] Slab ${created ? 'minted' : 'already existed'}: ${slab.cert} for scan ${slab.scan_id}`);
+    return;
+  }
+
+  // Pay before deliver (audit B-13): delayed payment methods complete the session unpaid.
+  if (session.payment_status && session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') {
+    console.log('[Webhook] Session not paid yet, no credits granted:', session.id, session.payment_status);
     return;
   }
 
