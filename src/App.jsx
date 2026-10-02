@@ -2978,7 +2978,7 @@ export default function SlabSense(){
                 </div>
               )}
             </button>
-            <button onClick={()=>startGradeJob('deep')} disabled={deepGradeStatus==='grading'||deepGradeStatus==='done'} title={`Deep AI Grade - Full Resolution (${creditsLabel(GRADE_TIERS.deep.credits)})`} style={{
+            <button onClick={()=>startGradeJob('deep')} disabled={deepGradeStatus==='grading'||deepGradeStatus==='done'} title={`Deep AI Grade — two-pass inspection with TAG reference cards (${creditsLabel(GRADE_TIERS.deep.credits)})`} style={{
               background:"transparent",border:"none",cursor:deepGradeStatus==='grading'?"wait":"pointer",padding:4,transition:"opacity .2s",opacity:deepGradeStatus==='done'?0.5:1
             }}>
               {deepGradeStatus==='grading'?<span style={{fontSize:18,color:"#666"}}>⏳</span>:deepGradeStatus==='done'?<span style={{fontSize:18,color:"#00ff88"}}>✓</span>:(

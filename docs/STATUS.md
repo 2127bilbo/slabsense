@@ -28,8 +28,9 @@ document that holds the detail; nothing here is the only copy of a fact.
 - **Rig** (`docs/RIG-PLAN.md`): PC-hosted grading station; machine-vision camera, entry tier first;
   backdrop grey/blue not orange; Phase 0 (Python inference service + parity) not started.
 - **App Store readiness** (`docs/superpowers/plans/2026-10-01-app-store-readiness.md`): audit DONE
-  (`docs/audits/2026-10-app-store-audit.md`, 22 Blockers = 7 problems); fix groups 3a security and 3c account+privacy DONE 2026-10-02
-  (`plans/2026-10-01-3a-security.md`, `plans/2026-10-02-3c-account-privacy.md`); next 3b payments (one paid tier, decided).
+  (`docs/audits/2026-10-app-store-audit.md`, 22 Blockers = 7 problems); fix groups 3a security and 3c account+privacy DONE 2026-10-02; 3b payments core DONE
+  (catalogue, Apple ledger + route, purchases facade, native store; `plans/2026-10-02-3b-payments.md` tasks 8–12 open:
+  single-tier UI, Stripe web re-cut, accuracy run (needs ANTHROPIC_API_KEY in .env.local), App Store Connect, sandbox).
 - **Web app**: feature-frozen for accuracy work; bug fixes only. Accuracy moves to the rig and the
   native app.
 
@@ -47,6 +48,7 @@ document that holds the detail; nothing here is the only copy of a fact.
   12 GB → 137 MB. STILL OWED by the owner: rotate the Google AI and OpenAI keys that were in the
   root file; decide whether to rewrite history for the two TAG constants (public repo, force push);
   apply `supabase/migrations/20261001_lockdown.sql` AND `20261002_account_deletion.sql` in the SQL editor;
+  apply `20261002_apple_iap.sql` too; add `ANTHROPIC_API_KEY` to `.env.local` for the accuracy run;
   confirm the support mailbox `support@slabsenseai.com` and the governing-law state (Indiana assumed) in
   `docs/legal/`; add `https://www.slabsenseai.com/?recovery=1` to the Supabase auth redirect allow-list.
 - 118 HEIC photos on the owner's desktop still unlabelled for card-val (`npm run models:label-card-val`).
