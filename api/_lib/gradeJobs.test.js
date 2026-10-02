@@ -1,5 +1,7 @@
 /** Run: node api/_lib/gradeJobs.test.js */
 import { runGradeJob, captureHandler, sanitizeRequest } from './gradeJobs.js';
+import { GRADE_TIERS } from '../../src/lib/grade-tiers.js';
+const AFTER_DEEP = 5 - GRADE_TIERS.deep.credits; // starting balance 5 minus one Deep grade
 
 let passed = 0, failed = 0;
 const check = (n, ok, extra = '') => { if (ok) { passed++; console.log(`  ✓ ${n}`); } else { failed++; console.log(`  ✗ ${n} ${extra}`); } };
@@ -56,10 +58,10 @@ console.log('— success path');
 {
   const db = fakeDb();
   const r = await runGradeJob({ db, user, gradeType: 'deep', body, run: async () => ({ status: 200, body: { success: true, analysis: { overall: { grade: 8 } } } }) });
-  check('200 with jobId, transactionId and creditsRemaining', r.status === 200 && r.body.jobId === body.jobId && r.body.transactionId === 'tx1' && r.body.creditsRemaining === 3, JSON.stringify(r.body));
+  check('200 with jobId, transactionId and creditsRemaining', r.status === 200 && r.body.jobId === body.jobId && r.body.transactionId === 'tx1' && r.body.creditsRemaining === AFTER_DEEP, JSON.stringify(r.body));
   const job = db.t.ai_grade_jobs[0];
   check('job stored as done with the result and sanitized request', job.status === 'done' && job.result.analysis.overall.grade === 8 && job.request.frontUrl && job.request.secret === undefined, JSON.stringify(job));
-  check('credit stays spent', db.t.profiles[0].credits_balance === 3);
+  check('credit stays spent', db.t.profiles[0].credits_balance === AFTER_DEEP);
 }
 
 console.log('— failure path refunds server-side');
@@ -80,7 +82,7 @@ console.log('— one-shot: duplicate in-flight request is refused and refunded')
   await new Promise((r) => setTimeout(r, 10));
   const second = await runGradeJob({ db, user, gradeType: 'deep', body: { ...body, jobId: '22222222-2222-4222-8222-222222222222' }, run: async () => ({ status: 200, body: { success: true } }) });
   check('second request → 409 with the running job id', second.status === 409 && second.body.error === 'in_flight' && second.body.jobId === body.jobId, JSON.stringify(second.body));
-  check('second request charged then refunded (net one deduction)', db.t.profiles[0].credits_balance === 3, String(db.t.profiles[0].credits_balance));
+  check('second request charged then refunded (net one deduction)', db.t.profiles[0].credits_balance === AFTER_DEEP, String(db.t.profiles[0].credits_balance));
   release(); const r1 = await first;
   check('first request completes normally', r1.status === 200 && db.t.ai_grade_jobs.length === 1 && db.t.ai_grade_jobs[0].status === 'done');
   const third = await runGradeJob({ db, user, gradeType: 'deep', body: { ...body, jobId: '33333333-3333-4333-8333-333333333333' }, run: async () => ({ status: 200, body: { success: true } }) });
@@ -89,7 +91,7 @@ console.log('— one-shot: duplicate in-flight request is refused and refunded')
 
 console.log('— insufficient credits stops before any job');
 {
-  const db = fakeDb({ balance: 1 });
+  const db = fakeDb({ balance: GRADE_TIERS.deep.credits - 1 });
   const r = await runGradeJob({ db, user, gradeType: 'deep', body, run: async () => ({ status: 200, body: { success: true } }) });
   check('402 passthrough, no job row', r.status === 402 && db.t.ai_grade_jobs.length === 0);
 }

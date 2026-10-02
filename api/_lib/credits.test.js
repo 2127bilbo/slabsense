@@ -1,5 +1,6 @@
 /** Run: node api/_lib/credits.test.js — exercises RPC and legacy paths against an in-memory fake Supabase client. */
 import { spendWithDb, refundWithDb, isMissingFunction } from './credits.js';
+import { GRADE_TIERS } from '../../src/lib/grade-tiers.js';
 
 let passed = 0, failed = 0;
 const check = (n, ok, extra = '') => { if (ok) { passed++; console.log(`  ✓ ${n}`); } else { failed++; console.log(`  ✗ ${n} ${extra}`); } };
@@ -74,19 +75,20 @@ console.log('— RPC path');
 {
   const db = new FakeDb(); db.tables.profiles.push(user());
   const r = await spendWithDb(db, { userId: 'u1', gradeType: 'deep' });
-  check('spend deep via RPC → 200, 2 credits, tx id', r.status === 200 && r.body.creditsSpent === 2 && r.body.creditsRemaining === 3 && !!r.body.transactionId, JSON.stringify(r));
-  check('RPC received the tier cost from grade-tiers', db.rpcCalls[0].args.p_cost === 2);
+  const DEEP = GRADE_TIERS.deep.credits; // one paid tier since 2026-10-02: the Deep flow costs 1
+  check(`spend deep via RPC → 200, ${DEEP} credit(s), tx id`, r.status === 200 && r.body.creditsSpent === DEEP && r.body.creditsRemaining === 5 - DEEP && !!r.body.transactionId, JSON.stringify(r));
+  check('RPC received the tier cost from grade-tiers', db.rpcCalls[0].args.p_cost === DEEP);
   const rr = await refundWithDb(db, { userId: 'u1', transactionId: r.body.transactionId, reason: 'test' });
-  check('refund via RPC restores balance', rr.status === 200 && rr.body.creditsRefunded === 2 && rr.body.creditsRemaining === 5, JSON.stringify(rr));
+  check('refund via RPC restores balance', rr.status === 200 && rr.body.creditsRefunded === DEEP && rr.body.creditsRemaining === 5, JSON.stringify(rr));
   const again = await refundWithDb(db, { userId: 'u1', transactionId: r.body.transactionId });
   check('second refund is a no-op', again.status === 200 && again.body.creditsRefunded === 0 && again.body.alreadyRefunded === true, JSON.stringify(again));
   const other = await refundWithDb(db, { userId: 'u2', transactionId: r.body.transactionId });
   check('refund by another user → 404', other.status === 404);
   const bad = await spendWithDb(db, { userId: 'u1', gradeType: 'ultra' });
   check('unknown tier → 400', bad.status === 400);
-  db.tables.profiles[0].credits_balance = 1;
+  db.tables.profiles[0].credits_balance = 0;
   const poor = await spendWithDb(db, { userId: 'u1', gradeType: 'deep' });
-  check('insufficient → 402 with required/remaining', poor.status === 402 && poor.body.creditsRequired === 2 && poor.body.creditsRemaining === 1, JSON.stringify(poor));
+  check('insufficient → 402 with required/remaining', poor.status === 402 && poor.body.creditsRequired === DEEP && poor.body.creditsRemaining === 0, JSON.stringify(poor));
   const dbL = new FakeDb(); dbL.tables.profiles.push(user({ subscription_status: 'beta_lifetime' }));
   const life = await spendWithDb(dbL, { userId: 'u1', gradeType: 'ai' });
   check('lifetime → 0 spent, unlimited, still has a tx id', life.status === 200 && life.body.creditsSpent === 0 && life.body.isLifetime && !!life.body.transactionId, JSON.stringify(life));

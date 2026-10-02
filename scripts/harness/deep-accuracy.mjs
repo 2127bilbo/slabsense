@@ -63,7 +63,8 @@ certs.sort();
 const byBucket = {}; for (const c of certs) (byBucket[bucketOf(gt.certs[c].grade)] ||= []).push(c);
 const picked = [];
 for (let i = 0; picked.length < OFFSET + LIMIT; i++) { let any = false; for (const b of ['9-10', '7-8.5', '5-6.5', '1-4.5']) { if (byBucket[b]?.[i]) { picked.push(byBucket[b][i]); any = true; } } if (!any) break; }
-const selected = picked.slice(OFFSET, OFFSET + LIMIT);
+const ONLY = opt('--certs', null);
+const selected = ONLY ? ONLY.split(',').map((c) => c.trim()).filter((c) => gt.certs[c]) : picked.slice(OFFSET, OFFSET + LIMIT);
 
 // ── images: the TAG photo resized like the app's upload (2000 px, JPEG 0.9), plus the maps ────
 const LUM = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
@@ -88,6 +89,30 @@ function maps(canvas) {
   hX.putImageData(hD, 0, 0);
   return { emboss: eC, highpass: hC };
 }
+
+/**
+ * Native-resolution tiles of one side for the surface pass (arm "tiles"): a 2 x 3 grid of the
+ * card, each tile sent at up to 1568 px on its long side (Anthropic's cap), i.e. ~2.5x the pixels
+ * per card millimetre that the whole-card view gets. Tile order is row-major from the top-left.
+ */
+function sideTiles(file, cols = 2, rows = 3, maxPx = 1568) {
+  const img = new Image(); img.src = fs.readFileSync(file);
+  const tiles = [];
+  const tw = Math.ceil(img.width / cols), th = Math.ceil(img.height / rows);
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const sx = c * tw, sy = r * th, sw = Math.min(tw, img.width - sx), sh = Math.min(th, img.height - sy);
+    const sc = Math.min(1, maxPx / Math.max(sw, sh));
+    const cv = createCanvas(Math.round(sw * sc), Math.round(sh * sc)); const ctx = cv.getContext('2d'); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+    tiles.push({ b64: b64(cv), row: r, col: c, x: sx / img.width, y: sy / img.height, w: sw / img.width, h: sh / img.height });
+  }
+  return tiles;
+}
+const SURFACE_PASS_PROMPT = (side, tiles) => `You are inspecting the ${side} of ONE trading card for SURFACE defects only. You are given ${tiles.length} close-up tiles that together cover the whole ${side}, in reading order (row by row from the top-left): ${tiles.map((t, i) => `tile ${i + 1} = row ${t.row + 1} col ${t.col + 1}`).join(', ')}. Each tile is a magnified crop of the same physical card, not a different card.
+
+Look for: scratches, scuffs and whitened lines in the ink, creases or bends (a line where the paper has folded), dents, pits (tiny holes in the gloss), print lines (fine straight lines of lighter ink from the press), print defects (ink spots, missing ink), stains and residue, and play wear (dull or whitened areas from handling, usually near the edges and corners). Ignore the orange background outside the card and the card's own rounded corners. Holographic foil pattern, printed texture and halftone dots are NOT defects. If a mark looks like a glare highlight, say so and do not list it.
+
+Report ONLY surface defects you can actually see. Give each one as JSON with: "side" ("${side.toUpperCase()}"), "type" (one of SCRATCH, CREASE, DENT, PIT, PRINT_DEFECT, STAIN, PLAY_WEAR, TEAR), "severity" (minor | moderate | severe | extreme), "tile" (the tile number it is in), "x","y","width","height" as fractions 0-1 of that TILE, "description" (one sentence). Write one short paragraph of what you see first, then the JSON object: {"defects": [...]}. If there are none, return {"defects": []}.`;
 
 function slotTable(cert) {
   const p = preds.cards[cert];
@@ -150,13 +175,34 @@ async function runCard(cert) {
   const pass1 = prior?.pass1 || await callClaude({ systemPrompt: DETECTION_SYSTEM, userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout, cornerEdge }), images, maxTokens: 3000, temperature: 0.1, ...(MODEL ? { model: MODEL } : {}) });
   if (!pass1.success) throw new Error('pass 1: ' + pass1.error);
   const det1 = parseDetection(pass1.text); if (!det1) throw new Error('pass 1 parse failed');
-  const pass1Defects = sanitizeDefects(det1.defects);
+  let pass1Defects = sanitizeDefects(det1.defects);
+  // arm "tiles": a dedicated surface pass per side on native-resolution tiles; its findings join pass 1's
+  let surfacePass = null;
+  if (ARM === 'tiles') {
+    surfacePass = prior?.surfacePass || {};
+    for (const side of ['front', 'back']) {
+      if (surfacePass[side]) continue;
+      const tiles = sideTiles(path.join(PHOTOS, side === 'front' ? 'Front' : 'Back', side === 'front' ? g.images.front : g.images.back));
+      const r = await callClaude({ systemPrompt: DETECTION_SYSTEM, userPrompt: SURFACE_PASS_PROMPT(side, tiles), images: tiles.map((t) => t.b64), maxTokens: 2500, temperature: 0.1, ...(MODEL ? { model: MODEL } : {}) });
+      if (!r.success) throw new Error(`surface pass ${side}: ` + r.error);
+      const parsed = parseDetection(r.text) || { defects: [] };
+      // tile-relative boxes -> card fractions, then the engine's percent-of-card shape
+      const defects = (parsed.defects || []).map((d) => {
+        const t = tiles[(Number(d.tile) || 1) - 1] || tiles[0];
+        const cx = t.x + (Number(d.x) || 0.5) * t.w, cy = t.y + (Number(d.y) || 0.5) * t.h;
+        return { side: side.toUpperCase(), type: d.type, severity: d.severity, location: d.location || null, x: Math.round(cx * 100), y: Math.round(cy * 100), width: Math.round((Number(d.width) || 0.05) * t.w * 100), height: Math.round((Number(d.height) || 0.05) * t.h * 100), description: d.description };
+      });
+      surfacePass[side] = { text: r.text, usage: r.usage || null, defects };
+    }
+    const surfaceDefects = sanitizeDefects([...surfacePass.front.defects, ...surfacePass.back.defects]);
+    pass1Defects = [...pass1Defects.filter((d) => ['CORNER', 'EDGE'].includes(d.type)), ...surfaceDefects];
+  }
   const est = gradeCard({ defects: pass1Defects, centering }).overall.grade;
   const references = await getReferences(est, cardType);
   const t1 = Date.now();
   const pass2 = prior?.pass2 || await callClaude({ systemPrompt: DETECTION_SYSTEM, userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout, referencesText: formatReferences(references), priorFindings: { imageQuality: det1.imageQuality, defects: pass1Defects }, cornerEdge }), images, maxTokens: 3000, temperature: 0.1, ...(MODEL ? { model: MODEL } : {}) });
   if (!pass2.success) throw new Error('pass 2: ' + pass2.error);
-  fs.writeFileSync(rawFile, JSON.stringify({ pass1, pass2, references, est }, null, 1)); // paid for: keep before any post-processing
+  fs.writeFileSync(rawFile, JSON.stringify({ pass1, pass2, references, est, surfacePass }, null, 1)); // paid for: keep before any post-processing
   const det2 = parseDetection(pass2.text); if (!det2) throw new Error('pass 2 parse failed');
   const finalDetection = { ...det2, defects: mergeStructural(pass1Defects, sanitizeDefects(det2.defects)) };
   const analysis = assembleUnifiedOutput({ detection: finalDetection, centering, gradePath: 'deep', cornerEdge, meta: { referencesUsed: references.length } });
@@ -164,7 +210,8 @@ async function runCard(cert) {
     cert, arm: ARM, model: pass1.model || MODEL || 'default', tagGrade: g.grade, tagLabel: g.label, tag: g.tag,
     estimateAfterPass1: est, grade: analysis.overall.grade, displayGrade: analysis.overall.displayGrade, subgrades: analysis.subgrades,
     defects: analysis.defects.items.map((d) => ({ side: d.side, type: d.type, severity: d.severity, location: d.location })),
-    referencesUsed: references.length, usage: { pass1: pass1.usage || null, pass2: pass2.usage || null },
+    referencesUsed: references.length, usage: { pass1: pass1.usage || null, pass2: pass2.usage || null, ...(surfacePass ? { surface: { inputTokens: (surfacePass.front.usage?.inputTokens || 0) + (surfacePass.back.usage?.inputTokens || 0), outputTokens: (surfacePass.front.usage?.outputTokens || 0) + (surfacePass.back.usage?.outputTokens || 0) } } : {}) },
+    surfacePassDefects: surfacePass ? [...surfacePass.front.defects, ...surfacePass.back.defects].map((d) => ({ side: d.side, type: d.type, severity: d.severity })) : null,
     ms: { pass1: t1 - t0, pass2: Date.now() - t1 }, raw: { pass1: pass1.text, pass2: pass2.text },
   };
   fs.writeFileSync(cacheFile, JSON.stringify(rec, null, 1));
@@ -189,7 +236,7 @@ function score(recs) {
   }
   const surfErr = recs.flatMap((r) => [10 * r.subgrades.frontSurface - r.tag.surfaceFront, 10 * r.subgrades.backSurface - r.tag.surfaceBack]).filter(Number.isFinite);
   const tok = (u, k) => (u?.[k] ?? u?.[k === 'inputTokens' ? 'input_tokens' : 'output_tokens'] ?? 0);
-  const usage = recs.map((r) => ({ in: tok(r.usage.pass1, 'inputTokens') + tok(r.usage.pass2, 'inputTokens'), out: tok(r.usage.pass1, 'outputTokens') + tok(r.usage.pass2, 'outputTokens') }));
+  const usage = recs.map((r) => ({ in: tok(r.usage.pass1, 'inputTokens') + tok(r.usage.pass2, 'inputTokens') + tok(r.usage.surface, 'inputTokens'), out: tok(r.usage.pass1, 'outputTokens') + tok(r.usage.pass2, 'outputTokens') + tok(r.usage.surface, 'outputTokens') }));
   const cost = usage.map((u) => (u.in * IN_PRICE + u.out * OUT_PRICE) / 1e6);
   const byBucket = {};
   for (const r of recs) { const b = bucketOf(r.tagGrade); (byBucket[b] ||= []).push(r.grade - r.tagGrade); }
@@ -216,7 +263,7 @@ if (SCORE_ONLY) {
       const r = await runCard(cert);
       recs.push(r);
       if (DRY) { console.log(`${cert}: ${r.images} images, ${Math.round(r.imageBytes / 1024)} KB, prompt ${r.promptChars} chars`); continue; }
-      const u = r.usage; const tk = (x, k) => (x?.[k] ?? 0); const c = ((tk(u.pass1, 'inputTokens') + tk(u.pass2, 'inputTokens')) * IN_PRICE + (tk(u.pass1, 'outputTokens') + tk(u.pass2, 'outputTokens')) * OUT_PRICE) / 1e6; spent += c;
+      const u = r.usage; const tk = (x, k) => (x?.[k] ?? 0); const c = ((tk(u.pass1, 'inputTokens') + tk(u.pass2, 'inputTokens') + tk(u.surface, 'inputTokens')) * IN_PRICE + (tk(u.pass1, 'outputTokens') + tk(u.pass2, 'outputTokens') + tk(u.surface, 'outputTokens')) * OUT_PRICE) / 1e6; spent += c;
       console.log(`${i + 1}/${selected.length} ${cert} TAG ${r.tagLabel} → ${r.displayGrade} (pass1 est ${r.estimateAfterPass1}, refs ${r.referencesUsed}, ${r.defects.length} defects, $${c.toFixed(3)}, ${Math.round((r.ms.pass1 + r.ms.pass2) / 1000)} s)  spent $${spent.toFixed(2)}`);
     } catch (e) { console.error(`${cert}: ${e.message}`); if (process.env.DEBUG) console.error(e.stack); }
   }
