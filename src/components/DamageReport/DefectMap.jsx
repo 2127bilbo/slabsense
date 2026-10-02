@@ -177,7 +177,7 @@ export default function DefectMap({
               strokeWidth="0.5"
             />
             <text x="40" y={cy + ch + 80} fill="#ff6633" fontSize="7.5" fontFamily={mono} fontWeight="600">
-              DINGS DETECTED:
+              DEFECTS:
             </text>
             {sideDefects.map((d, i) => (
               <text

@@ -31,7 +31,7 @@ export default function DefectList({
           fontSize: 12,
           color: '#00ff88'
         }}>
-          No DINGS detected — potential Gem Mint candidate
+          No defects detected in these photos
         </div>
       </div>
     );

@@ -66,7 +66,7 @@ export function ExportCard({ gradeResult, frontImage, backImage, gradingCompany,
 ━━━━━━━━━━━━━━━━━━━━
 ${companyLabels[gradingCompany]} Estimate: ${gr.grade.grade} (${gr.grade.label})
 Raw Score: ${gr.rawScore}/1000
-DINGS: ${gr.totalDings}
+Defects: ${gr.totalDings}
 
 Subgrades (0-100 scale):
 • Front Centering: ${gr.subgrades.frontCentering || '--'}

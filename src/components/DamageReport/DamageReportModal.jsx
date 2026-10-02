@@ -154,7 +154,7 @@ export default function DamageReportModal({
               letterSpacing: '0.12em',
               marginBottom: 4
             }}>
-              Defects Identified of Notable Grade Significance
+              Defects found in these photos
             </div>
             <div style={{
               fontFamily: mono,
@@ -169,7 +169,7 @@ export default function DamageReportModal({
               fontSize: 10,
               color: '#444'
             }}>
-              DINGS
+              DEFECTS
             </div>
           </div>
         </Section>

@@ -13,6 +13,10 @@
       "destination": "/disclaimers.html"
     },
     {
+      "source": "/support",
+      "destination": "/support.html"
+    },
+    {
       "source": "/api/slabs/:action",
       "destination": "/api/slabs?action=:action"
     },

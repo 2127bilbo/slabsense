@@ -16,7 +16,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..', '..');
 const SRC = path.join(ROOT, 'docs', 'legal');
 const OUT = path.join(ROOT, 'public');
-const PAGES = { 'privacy': 'PRIVACY_POLICY.md', 'terms': 'TERMS_OF_SERVICE.md', 'disclaimers': 'DISCLAIMERS.md' };
+const PAGES = { 'privacy': 'PRIVACY_POLICY.md', 'terms': 'TERMS_OF_SERVICE.md', 'disclaimers': 'DISCLAIMERS.md', 'support': 'SUPPORT.md' };
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const inline = (s) => esc(s)

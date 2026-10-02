@@ -23,7 +23,7 @@ export default [
       ...react.configs.flat.recommended.languageOptions,
       ecmaVersion: 'latest',
       sourceType: 'module',
-      globals: { ...globals.browser, ...globals.es2021 },
+      globals: { ...globals.browser, ...globals.es2021, __APP_VERSION__: 'readonly' },
     },
     settings: { react: { version: '18.3' } },
   },

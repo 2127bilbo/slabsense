@@ -1270,7 +1270,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 color: '#666',
                 marginTop: 4,
               }}>
-                TAG Score: {grade.score || grade.rawScore} / 1000
+                Score (TAG-style 1000-pt scale): {grade.score || grade.rawScore} / 1000
               </div>
             )}
             {/* Confidence indicator for AI grades */}
@@ -1550,7 +1550,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 color: '#666',
                 marginBottom: 8,
               }}>
-                GRADER NOTES
+                AI NOTES
               </div>
               <div style={{
                 fontFamily: sans,
@@ -1612,7 +1612,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                     fontSize: 9,
                     color: '#555',
                   }}>
-                    <div>via Cardmarket</div>
+                    <div>Cardmarket via TCGdex</div>
                     <div style={{ color: '#444', marginTop: 2 }}>Raw card price</div>
                   </div>
                 </div>
@@ -1882,7 +1882,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
               No cards yet
             </div>
             <div style={{ fontFamily: mono, fontSize: 11, color: '#444' }}>
-              Grade a card and click &quot;Save to Collection&quot;
+              Grade a card and tap &quot;Save to Collection&quot;
             </div>
           </div>
         ) : (

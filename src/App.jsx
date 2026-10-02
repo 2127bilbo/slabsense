@@ -34,7 +34,7 @@ import { suggestOuterCorners, suggestInnerCorners, preloadCardModel, liveCardQua
 import holoConfig from "../config/holo-config.json";
 
 /* ═══════════════════════════════════════════
-   SLABSENSE v0.1.0-beta
+   SLABSENSE (version from package.json via __APP_VERSION__)
    Multi-Company Card Pre-Grading Analysis Tool
 
    Supports: TAG, PSA, BGS, CGC, SGC
@@ -280,7 +280,7 @@ function HomeTab({ auth, onOpenCollection, onStartScan, collectionStats }) {
             </span>
           </div>
           <div style={{fontFamily:mono,fontSize:10,color:"#555"}}>
-            {portfolio.totalValue > 0 ? 'Raw card values via Cardmarket' : 'Add cards with pricing to see value'}
+            {portfolio.totalValue > 0 ? 'Raw card values · Cardmarket via TCGdex' : 'Add cards with pricing to see value'}
           </div>
         </div>
       )}
@@ -396,17 +396,17 @@ function getNextGradeInfo(gradeResult) {
     if (centerDings.length > 0) tips.push({ text: "Centering is the only DING — improve framing won't fix the card, but it's close to a 10", color: "#66dd44" });
     if (totalDings <= 1) tips.push({ text: "Only 1 DING away from Gem Mint 10", color: "#66dd44" });
   } else if (score >= 800) {
-    if (frontDings.length > 0) tips.push({ text: `${frontDings.length} front DING${frontDings.length>1?"s":""} — front defects weigh 2x. A clean front pushes toward Mint 9`, color: "#ffcc00" });
+    if (frontDings.length > 0) tips.push({ text: `${frontDings.length} front defect${frontDings.length>1?"s":""} — front defects weigh 2x. A clean front pushes toward Mint 9`, color: "#ffcc00" });
     if (surfaceDings.length > 0) tips.push({ text: "Surface wear is the heaviest grade penalty — this is what separates 8 from 9+", color: "#ffcc00" });
-    tips.push({ text: `${totalDings} total DINGS — reducing to 0-1 needed for Mint 9`, color: "#ffcc00" });
+    tips.push({ text: `${totalDings} defects in total — 0-1 is where Mint 9 estimates sit`, color: "#ffcc00" });
   } else if (score >= 700) {
-    if (frontDings.length >= 2) tips.push({ text: `Multiple front defects detected — cards with back-only DINGS grade significantly higher`, color: "#ff9900" });
-    tips.push({ text: `Need ${Math.max(0, totalDings - 4)} fewer DINGS for NM-MT 8 range`, color: "#ff9900" });
+    if (frontDings.length >= 2) tips.push({ text: `Multiple front defects detected — cards with back-only defects estimate significantly higher`, color: "#ff9900" });
+    tips.push({ text: `${Math.max(0, totalDings - 4)} fewer defects would reach the NM-MT 8 range`, color: "#ff9900" });
   } else if (score >= 600) {
-    tips.push({ text: `${totalDings} DINGS with front surface wear — this pattern typically grades 6-7 at TAG`, color: "#ff6633" });
+    tips.push({ text: `${totalDings} defects with front surface wear — this pattern usually estimates in the 6-7 range`, color: "#ff6633" });
     if (surfaceDings.length > 0) tips.push({ text: "Front surface play wear is the biggest grade limiter", color: "#ff6633" });
   } else {
-    tips.push({ text: `Heavy defect load (${totalDings} DINGS) — card shows significant wear`, color: "#ff4444" });
+    tips.push({ text: `Heavy defect load (${totalDings} defects) — card shows significant wear`, color: "#ff4444" });
     if (surfaceDings.length >= 2) tips.push({ text: "Surface wear on both sides — characteristic of grade 5 range", color: "#ff4444" });
   }
   
@@ -1054,6 +1054,7 @@ export default function SlabSense(){
   const[fM,setFM]=useState(null),[bM,setBM]=useState(null);
   const[gradeResult,setGradeResult]=useState(null);
   const[prog,setProg]=useState("");
+  const[analysisFailed,setAnalysisFailed]=useState(false); // the free analysis threw; show Try again instead of a spinner (audit I-07)
   const[camTarget,setCamTarget]=useState(null);
   const[manualMode,setManualMode]=useState(null); // 'front'|'back'|null
   const[centeringConfirmed,setCenteringConfirmed]=useState(false); // User confirmed edge alignment
@@ -1125,7 +1126,8 @@ export default function SlabSense(){
   const[,setIdentifyingCard]=useState(false); // Card identification in progress
   const[showCropModal,setShowCropModal]=useState(false); // Show crop modal for missing TCGDex images
   const[showPricing,setShowPricing]=useState(false); // Pricing/credits modal visibility
-  const[,setInsufficientCredits]=useState(null); // { type: 'ai'|'deep', needed: number }
+  const[insufficientCredits,setInsufficientCredits]=useState(null); // { type: 'ai'|'deep', needed: number }
+  const creditNotice = insufficientCredits ? `This AI Grade needs ${insufficientCredits.needed} credit${insufficientCredits.needed === 1 ? '' : 's'}. Buy a pack or a plan to continue.` : null;
   const[,setPendingSaveData]=useState(null); // Pending save data while waiting for crop
 
   // Post-capture centering state
@@ -1283,7 +1285,7 @@ export default function SlabSense(){
   }, [applyManualCorrection]);
 
   const run=useCallback(async()=>{
-    if(!fI||!bI)return; setStep(1);
+    if(!fI||!bI)return; setAnalysisFailed(false); setStep(1);
     try{
       // Manual centering from the tool overrides the measured ratios (the crop it made is analyzed below)
       let frontOverrideCentering = null, backOverrideCentering = null;
@@ -1344,7 +1346,7 @@ export default function SlabSense(){
       // Vision maps are generated from the same image the detectors saw (the crop when one exists)
       setFM(await genMaps(frontSrc)); setBM(await genMaps(backSrc));
       setStep(2);
-    }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);}
+    }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);setAnalysisFailed(true);}
   },[fI,bI,frontCroppedImage,backCroppedImage,ignoreCentering,gradingCompany,frontCenteringData,backCenteringData,frontQuality,backQuality]);
 
   // Restore step 1: once the restored photos are in state, run the software analysis
@@ -2142,7 +2144,7 @@ export default function SlabSense(){
           color:"#555",
           textAlign:"center",
         }}>
-          AI-Enhanced with SAM 2 • Perfect edges & perspective correction
+          Card outline from your photo · perspective-corrected
         </div>
       </div>
     )}
@@ -2162,11 +2164,12 @@ export default function SlabSense(){
     )}
     {/* Pricing/Credits Modal */}
     {showPricing && isNativeApp() && (
-      <NativeStore userId={auth.user?.id} onClose={() => { setShowPricing(false); setInsufficientCredits(null); }} />
+      <NativeStore userId={auth.user?.id} notice={creditNotice} onClose={() => { setShowPricing(false); setInsufficientCredits(null); }} />
     )}
     {showPricing && !isNativeApp() && (
       <PricingPage
         userId={auth.user?.id}
+        notice={creditNotice}
         onClose={() => {
           setShowPricing(false);
           setInsufficientCredits(null);
@@ -2182,8 +2185,11 @@ export default function SlabSense(){
           <div style={{fontSize:13,color:"#999",lineHeight:1.6,marginBottom:16}}>
             <strong style={{color:"#fff"}}>SlabSense</strong> is an independent card analysis tool. We are <strong style={{color:"#ff6633"}}>NOT affiliated</strong> with any professional grading company (PSA, BGS, CGC, SGC, TAG, etc.).
           </div>
-          <div style={{fontSize:12,color:"#666",lineHeight:1.5,marginBottom:20}}>
+          <div style={{fontSize:13,color:"#777",lineHeight:1.5,marginBottom:12}}>
             All grades shown are <strong style={{color:"#ff9944"}}>estimates only</strong>. Actual grades from professional services may vary significantly. Do not make financial decisions based solely on these estimates.
+          </div>
+          <div style={{fontSize:12,color:"#666",lineHeight:1.5,marginBottom:20}}>
+            The camera is used only to photograph your card. Read the <a href="/disclaimers" target="_blank" rel="noopener" style={{color:"#8b5cf6"}}>disclaimers</a>, <a href="/terms" target="_blank" rel="noopener" style={{color:"#8b5cf6"}}>terms</a> and <a href="/privacy" target="_blank" rel="noopener" style={{color:"#8b5cf6"}}>privacy policy</a>; they stay available under Settings.
           </div>
           <button onClick={()=>{localStorage.setItem('slabsense_disclaimer_acknowledged','true');setShowDisclaimer(false);}} style={{width:"100%",padding:"12px 0",borderRadius:8,border:"none",background:"linear-gradient(135deg,#00ff88,#0088ff)",color:"#000",fontFamily:mono,fontSize:12,fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>I Understand</button>
         </div>
@@ -2192,7 +2198,7 @@ export default function SlabSense(){
     {/* Camera Viewfinder Overlay */}
     {camTarget&&<CameraViewfinder side={camTarget} onCapture={handleCam} onClose={()=>setCamTarget(null)}/>}
     {/* Header */}
-    <div style={{padding:"14px 16px",borderBottom:"1px solid #1a1c22",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,background:"#0a0b0e"}}>
+    <div style={{padding:"calc(14px + env(safe-area-inset-top)) 16px 14px",borderBottom:"1px solid #1a1c22",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,background:"#0a0b0e"}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
         <HoloLogo
           size={32}
@@ -2203,7 +2209,7 @@ export default function SlabSense(){
           }}
           showSparkles={true}
         />
-        <div><div style={{fontSize:14,fontWeight:600}}>SlabSense</div><div style={{fontFamily:mono,fontSize:9,color:"#444",textTransform:"uppercase",letterSpacing:".1em"}}>v0.1.0-beta</div></div>
+        <div><div style={{fontSize:14,fontWeight:600}}>SlabSense</div><div style={{fontFamily:mono,fontSize:9,color:"#444",textTransform:"uppercase",letterSpacing:".1em"}}>v{__APP_VERSION__}</div></div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
         {/* Grading Company Selector */}
@@ -2227,7 +2233,7 @@ export default function SlabSense(){
     </div>
 
     {/* UNIFIED TAB BAR */}
-    <div style={{display:"flex",borderBottom:"1px solid #1a1c22",background:"#0a0b0e",position:"sticky",top:54,zIndex:99}}>
+    <div style={{display:"flex",borderBottom:"1px solid #1a1c22",background:"#0a0b0e",position:"sticky",top:"calc(54px + env(safe-area-inset-top))",zIndex:99}}>
       {tabs.map(t=>{
         const isActive = tab===t.id;
         const isAnalysis = t.analysis;
@@ -2282,9 +2288,12 @@ export default function SlabSense(){
     </div>)}
 
     {/* ANALYZING */}
-    {tab==="scan"&&step===1&&(<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
-      <div style={{width:48,height:48,borderRadius:"50%",border:"3px solid #1a1c22",borderTopColor:"#00ff88",animation:"spin .8s linear infinite"}}/>
-      <div style={{fontFamily:mono,fontSize:12,color:"#666",marginTop:16}}>{prog}</div>
+    {tab==="scan"&&step===1&&(<div role="status" aria-live="polite" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
+      {analysisFailed
+        ? <div aria-hidden="true" style={{width:48,height:48,borderRadius:"50%",border:"3px solid #ff4444",display:"flex",alignItems:"center",justifyContent:"center",color:"#ff4444",fontSize:22}}>!</div>
+        : <div aria-hidden="true" style={{width:48,height:48,borderRadius:"50%",border:"3px solid #1a1c22",borderTopColor:"#00ff88",animation:"spin .8s linear infinite"}}/>}
+      <div style={{fontFamily:mono,fontSize:12,color:analysisFailed?"#ff6666":"#666",marginTop:16,textAlign:"center"}}>{prog}</div>
+      {analysisFailed&&<button onClick={()=>{setAnalysisFailed(false);setProg("");setStep(0);}} style={{marginTop:20,minHeight:44,padding:"12px 24px",borderRadius:10,border:"none",background:"#6366f1",color:"#fff",fontFamily:mono,fontSize:12,fontWeight:600,cursor:"pointer"}}>Try again with new photos</button>}
       <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
     </div>)}
 
@@ -2576,7 +2585,7 @@ export default function SlabSense(){
             return (
               <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>{gradeMode === 'software' ? 'Total DINGS' : `Defects found (${gradeMode === 'deep' ? 'Deep AI' : 'AI'})`}</span>
+                  <span style={{fontFamily:mono,fontSize:11,color:"#888"}}>{gradeMode === 'software' ? 'Defects found' : 'Defects found (AI Grade)'}</span>
                   <span style={{fontFamily:mono,fontSize:20,fontWeight:800,color:count===0?"#00ff88":count<=2?"#66dd44":count<=4?"#ffcc00":"#ff6633"}}>{count}</span>
                 </div>
               </div>
@@ -3019,7 +3028,7 @@ export default function SlabSense(){
       </div>
     )}
 
-    <div style={{padding:"10px 16px",borderTop:"1px solid #1a1c22",textAlign:"center"}}><div style={{fontFamily:mono,fontSize:8,color:"#333",textTransform:"uppercase",letterSpacing:".15em"}}>Pre-grade estimate · DINGS-based · Not affiliated with TAG</div></div>
+    <div style={{padding:"10px 16px",borderTop:"1px solid #1a1c22",textAlign:"center"}}><div style={{fontFamily:mono,fontSize:11,color:"#666",textTransform:"uppercase",letterSpacing:".12em",paddingBottom:"env(safe-area-inset-bottom)"}}>Pre-grade estimate · Not affiliated with any grading company</div></div>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   </div>);
 }

@@ -320,7 +320,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
               color: '#444',
               marginTop: 6,
             }}>
-              Finds corner and edge wear with the TAG-trained models instead of the pixel
+              Finds corner and edge wear with models trained on photos of professionally graded cards instead of the pixel
               detectors. Downloads about 110 MB the first time, then works offline. Slower on
               phones without WebGPU.
             </div>

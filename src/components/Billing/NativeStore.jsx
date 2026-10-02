@@ -12,7 +12,7 @@ import { APPLE_SUBSCRIPTION_TERMS } from '../../lib/products.js';
 const mono = "'JetBrains Mono', monospace";
 const sans = "'Inter', -apple-system, sans-serif";
 
-export function NativeStore({ userId, onClose }) {
+export function NativeStore({ userId, onClose, notice = null }) {
   const [products, setProducts] = useState([]);
   const [balance, setBalance] = useState(null);
   const [busy, setBusy] = useState(null);
@@ -51,6 +51,7 @@ export function NativeStore({ userId, onClose }) {
         <div style={{ fontFamily: sans, fontSize: 13, color: '#aaa', lineHeight: 1.5, marginBottom: 16 }}>
           An AI Grade sends your card photos for a full surface inspection and a written report. The free grade (corners, edges and centering) stays free. Grades are estimates, not official grades.
         </div>
+        {notice && <div role="alert" style={{ ...card, color: '#ffcc00', fontFamily: sans, fontSize: 13 }}>{notice}</div>}
         {balance && (
           <div style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: '#888' }}>AI GRADES AVAILABLE</span>
