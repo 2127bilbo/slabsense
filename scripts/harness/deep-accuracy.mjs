@@ -31,6 +31,7 @@ for (const line of fs.existsSync(path.join(ROOT, '.env.local')) ? fs.readFileSyn
 const { callClaude } = await import('../../api/_providers/anthropic.js');
 const { DETECTION_SYSTEM, buildDetectionPrompt, parseDetection, sanitizeDefects, mergeStructural, assembleUnifiedOutput } = await import('../../api/_lib/detectionPrompt.js');
 const { gradeCard } = await import('../../src/lib/gradingEngine.js');
+const { parseCornerEdgeInput } = await import('../../api/_lib/cornerEdgeInput.js');
 const { createClient } = await import('@supabase/supabase-js');
 
 const args = process.argv.slice(2);
@@ -136,22 +137,26 @@ async function runCard(cert) {
     imageLayout += '\n- IMAGE 5: FRONT relief (emboss filter of image 3) · IMAGE 6: BACK relief (emboss of image 4) · IMAGE 7: FRONT high-pass (local contrast of image 3) · IMAGE 8: BACK high-pass (of image 4). Images 5–8 are processed views of the SAME two sides, not other cards: use them to confirm or rule out surface texture (pits, print lines, scratches, dents, edge fray) seen in images 1–4. Do not report a defect that appears only in a processed view unless image 3 or 4 shows it too.';
   }
   const centering = { front: g.centering.front, back: g.centering.back };
-  const cornerEdge = slotTable(cert);
+  const cornerEdge = parseCornerEdgeInput(slotTable(cert)); // validated exactly as the handler does (api/deep-analyze-v2.js)
+  if (!cornerEdge) throw new Error('slot table failed validation');
   const cardType = 'modern_holo';
   if (DRY) {
     const p1 = buildDetectionPrompt({ cardType, centering, imageLayout, cornerEdge });
     return { cert, dry: true, images: images.length, imageBytes: images.reduce((s, i) => s + i.length * 0.75, 0), promptChars: p1.length + DETECTION_SYSTEM.length };
   }
+  const rawFile = path.join(OUT_DIR, `${cert}.raw.json`);
+  const prior = fs.existsSync(rawFile) ? JSON.parse(fs.readFileSync(rawFile, 'utf8')) : null;
   const t0 = Date.now();
-  const pass1 = await callClaude({ systemPrompt: DETECTION_SYSTEM, userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout, cornerEdge }), images, maxTokens: 3000, temperature: 0.1, ...(MODEL ? { model: MODEL } : {}) });
+  const pass1 = prior?.pass1 || await callClaude({ systemPrompt: DETECTION_SYSTEM, userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout, cornerEdge }), images, maxTokens: 3000, temperature: 0.1, ...(MODEL ? { model: MODEL } : {}) });
   if (!pass1.success) throw new Error('pass 1: ' + pass1.error);
   const det1 = parseDetection(pass1.text); if (!det1) throw new Error('pass 1 parse failed');
   const pass1Defects = sanitizeDefects(det1.defects);
   const est = gradeCard({ defects: pass1Defects, centering }).overall.grade;
   const references = await getReferences(est, cardType);
   const t1 = Date.now();
-  const pass2 = await callClaude({ systemPrompt: DETECTION_SYSTEM, userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout, referencesText: formatReferences(references), priorFindings: { imageQuality: det1.imageQuality, defects: pass1Defects }, cornerEdge }), images, maxTokens: 3000, temperature: 0.1, ...(MODEL ? { model: MODEL } : {}) });
+  const pass2 = prior?.pass2 || await callClaude({ systemPrompt: DETECTION_SYSTEM, userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout, referencesText: formatReferences(references), priorFindings: { imageQuality: det1.imageQuality, defects: pass1Defects }, cornerEdge }), images, maxTokens: 3000, temperature: 0.1, ...(MODEL ? { model: MODEL } : {}) });
   if (!pass2.success) throw new Error('pass 2: ' + pass2.error);
+  fs.writeFileSync(rawFile, JSON.stringify({ pass1, pass2, references, est }, null, 1)); // paid for: keep before any post-processing
   const det2 = parseDetection(pass2.text); if (!det2) throw new Error('pass 2 parse failed');
   const finalDetection = { ...det2, defects: mergeStructural(pass1Defects, sanitizeDefects(det2.defects)) };
   const analysis = assembleUnifiedOutput({ detection: finalDetection, centering, gradePath: 'deep', cornerEdge, meta: { referencesUsed: references.length } });
@@ -213,7 +218,7 @@ if (SCORE_ONLY) {
       if (DRY) { console.log(`${cert}: ${r.images} images, ${Math.round(r.imageBytes / 1024)} KB, prompt ${r.promptChars} chars`); continue; }
       const u = r.usage; const tk = (x, k) => (x?.[k] ?? 0); const c = ((tk(u.pass1, 'inputTokens') + tk(u.pass2, 'inputTokens')) * IN_PRICE + (tk(u.pass1, 'outputTokens') + tk(u.pass2, 'outputTokens')) * OUT_PRICE) / 1e6; spent += c;
       console.log(`${i + 1}/${selected.length} ${cert} TAG ${r.tagLabel} → ${r.displayGrade} (pass1 est ${r.estimateAfterPass1}, refs ${r.referencesUsed}, ${r.defects.length} defects, $${c.toFixed(3)}, ${Math.round((r.ms.pass1 + r.ms.pass2) / 1000)} s)  spent $${spent.toFixed(2)}`);
-    } catch (e) { console.error(`${cert}: ${e.message}`); }
+    } catch (e) { console.error(`${cert}: ${e.message}`); if (process.env.DEBUG) console.error(e.stack); }
   }
   if (!DRY && recs.length) { const s = score(recs); console.log(JSON.stringify(s, null, 1)); fs.writeFileSync(path.join(OUT_DIR, 'summary.json'), JSON.stringify(s, null, 1)); }
 }
