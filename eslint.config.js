@@ -70,6 +70,11 @@ export default [
     },
   },
   {
+    files: ['scripts/harness/clip-parity/**/*.js'],   // browser harness page served by the dev server
+    languageOptions: { globals: { ...globals.browser } },
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['**/*.cjs'],
     languageOptions: { sourceType: 'commonjs' },
   },

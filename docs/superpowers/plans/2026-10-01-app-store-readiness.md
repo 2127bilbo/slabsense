@@ -231,7 +231,7 @@ guideline", and the repo facts in `docs/STATUS.md`.
   aria-labels on every icon button (I-06), company slab look-alikes removed (K-04). REMAINING
   (needs the native shell or a design pass): Dynamic Type / 11 pt minimum across the 148 small
   labels DONE (I-09, 128 sizes → 11 px, commit 8c7d5f3), bottom tab bar (I-15), alert() → in-app banners DONE (I-19), iPad layout (I-08),
-  bundled fonts (I-14), haptics (I-22), model-download gate (I-24), capture-path cancel (I-16).
+  haptics (I-22). DONE later on 2026-10-02: bundled fonts (I-14), model-download gate (I-24), capture-path cancel (I-16).
 - [x] **3h Metadata and assets** — drafts DONE 2026-10-02 in `docs/app-store/listing.md`:
   product page (name, subtitle, promo, description, keywords, category, URLs), IAP table with the
   ids from `products.js`, privacy labels, age rating (4+), App Review notes, screenshot plan,
