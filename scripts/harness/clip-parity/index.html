@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CLIP runtime parity</title>
+  <style>body{background:#0a0b0e;color:#ddd;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:16px}</style>
+</head>
+<body>
+  <h1>CLIP runtime parity (browser)</h1>
+  <p>Old <code>@xenova/transformers</code> (what embedded the card DB) vs <code>@huggingface/transformers</code> v4 on WASM. Open via the Vite dev server; the Playwright runner reads <code>window.__parity</code>.</p>
+  <pre id="out">starting…</pre>
+  <script type="module" src="./parity.js"></script>
+</body>
+</html>

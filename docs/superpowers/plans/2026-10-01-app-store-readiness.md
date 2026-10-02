@@ -210,8 +210,10 @@ guideline", and the repo facts in `docs/STATUS.md`.
   DEFERRED: `App.jsx` split by screen → with 3f when the capture screen is replaced (D-05, E-08);
   `@xenova/transformers` → `@huggingface/transformers` v4 (E-02, D-01): a node parity check could
   not run (v4's onnxruntime-node DirectML binding fails to load on the owner's PC; the web build
-  cannot fetch models under node) — redo the parity in the browser (Playwright, port 5175) during
-  3f, or move CLIP server-side; API route wrapper DONE (D-15, `api/_lib/route.js`, commit 17394e4); legacy result shapes
+  cannot fetch models under node). Browser parity DONE 2026-10-02 (`scripts/harness/clip-parity/`):
+  cosine old-vs-new 0.988–0.993 (q8), 0.978–0.986 (fp32) — NOT interchangeable; the swap needs the
+  card DB re-embedded with the new runtime first (scripts/card-db on a machine where its node
+  binding loads, e.g. the rented GPU box), then client + DB switch together; API route wrapper DONE (D-15, `api/_lib/route.js`, commit 17394e4); legacy result shapes
   (D-18) → after 3f; `legacySpend` fallback (D-19) → delete once the owner confirms the credits RPC
   migration is live; tesseract worker/lang paths bundled (E-18) → 3f; D-06 (pixel corner/edge
   detectors decide the free grade when the crash guard flips models off) → owner decision.
