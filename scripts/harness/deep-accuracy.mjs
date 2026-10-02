@@ -183,7 +183,8 @@ function score(recs) {
     for (const [k, n] of Object.entries(need)) { fn += n; (perType[k.split('|')[1]] ||= { tp: 0, fp: 0, fn: 0 }).fn += n; }
   }
   const surfErr = recs.flatMap((r) => [10 * r.subgrades.frontSurface - r.tag.surfaceFront, 10 * r.subgrades.backSurface - r.tag.surfaceBack]).filter(Number.isFinite);
-  const usage = recs.map((r) => ({ in: (r.usage.pass1?.input_tokens || 0) + (r.usage.pass2?.input_tokens || 0), out: (r.usage.pass1?.output_tokens || 0) + (r.usage.pass2?.output_tokens || 0) }));
+  const tok = (u, k) => (u?.[k] ?? u?.[k === 'inputTokens' ? 'input_tokens' : 'output_tokens'] ?? 0);
+  const usage = recs.map((r) => ({ in: tok(r.usage.pass1, 'inputTokens') + tok(r.usage.pass2, 'inputTokens'), out: tok(r.usage.pass1, 'outputTokens') + tok(r.usage.pass2, 'outputTokens') }));
   const cost = usage.map((u) => (u.in * IN_PRICE + u.out * OUT_PRICE) / 1e6);
   const byBucket = {};
   for (const r of recs) { const b = bucketOf(r.tagGrade); (byBucket[b] ||= []).push(r.grade - r.tagGrade); }
@@ -210,7 +211,7 @@ if (SCORE_ONLY) {
       const r = await runCard(cert);
       recs.push(r);
       if (DRY) { console.log(`${cert}: ${r.images} images, ${Math.round(r.imageBytes / 1024)} KB, prompt ${r.promptChars} chars`); continue; }
-      const u = r.usage; const c = (((u.pass1?.input_tokens || 0) + (u.pass2?.input_tokens || 0)) * IN_PRICE + ((u.pass1?.output_tokens || 0) + (u.pass2?.output_tokens || 0)) * OUT_PRICE) / 1e6; spent += c;
+      const u = r.usage; const tk = (x, k) => (x?.[k] ?? 0); const c = ((tk(u.pass1, 'inputTokens') + tk(u.pass2, 'inputTokens')) * IN_PRICE + (tk(u.pass1, 'outputTokens') + tk(u.pass2, 'outputTokens')) * OUT_PRICE) / 1e6; spent += c;
       console.log(`${i + 1}/${selected.length} ${cert} TAG ${r.tagLabel} → ${r.displayGrade} (pass1 est ${r.estimateAfterPass1}, refs ${r.referencesUsed}, ${r.defects.length} defects, $${c.toFixed(3)}, ${Math.round((r.ms.pass1 + r.ms.pass2) / 1000)} s)  spent $${spent.toFixed(2)}`);
     } catch (e) { console.error(`${cert}: ${e.message}`); }
   }
