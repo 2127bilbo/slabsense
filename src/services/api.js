@@ -6,7 +6,6 @@
  *
  * Endpoints:
  * - /api/ai-analyze-unified → Standard AI Grade
- * - /api/card-info-unified?mode=claude → Card identification
  * - /api/deep-analyze-v2 → Deep AI Grade (multi-provider)
  *
  * Last updated: 2026-06-12
@@ -25,78 +24,10 @@ const ENDPOINTS = {
   // AI grading analysis (Direct Anthropic)
   AI_ANALYZE_UNIFIED: '/api/ai-analyze-unified',
   // Card identification (Claude Vision)
-  CARD_INFO_UNIFIED: '/api/card-info-unified',
   // Multi-provider deep analysis
   DEEP_ANALYZE_V2: '/api/deep-analyze-v2',
 };
 // ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Analyze card using Claude Vision AI (UNIFIED ENDPOINT)
- * Extracts card identification info (name, set, rarity, etc.)
- *
- * NOTE: This endpoint is IDENTIFICATION-ONLY. For grading, use:
- * - claudeGradingAnalysis() for Standard AI Grade
- * - deepGradingAnalysisV2() for Deep AI Grade
- *
- * @param {string} imageDataUrl - Card image (cropped preferred)
- * @param {string} cardType - 'pokemon' | 'sports' | 'tcg'
- * @returns {Promise<object>} Card identification result
- */
-export async function analyzeCardWithVision(imageDataUrl, cardType = 'pokemon') {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for vision
-
-  try {
-    console.log(`[Claude Vision] Starting ${cardType} card identification...`);
-
-    // Use unified endpoint with mode=claude (identification-only)
-    const response = await fetch(`${ENDPOINTS.CARD_INFO_UNIFIED}?mode=claude`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        image: imageDataUrl,
-        cardType,
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(error.error || `API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('[Claude Vision] Identification complete:', result.analysis?.cardInfo?.name);
-    return result;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      throw new Error('Card identification timed out - please try again');
-    }
-    console.error('[Claude Vision] Error:', error);
-    throw error;
-  }
-}
-
-/**
- * Legacy function - redirects to new Claude Vision API
- * @deprecated Use analyzeCardWithVision instead
- */
-export async function extractCardInfo(imageDataUrl, cardType = 'pokemon') {
-  const result = await analyzeCardWithVision(imageDataUrl, cardType);
-  // Transform to legacy format for backwards compatibility
-  return {
-    success: result.success,
-    cardInfo: result.analysis?.cardInfo || null,
-    rawResponse: result.rawResponse,
-  };
-}
-
 
 /**
  * Shape a raw /api/ai-analyze-unified response into the client result (unified schema).
