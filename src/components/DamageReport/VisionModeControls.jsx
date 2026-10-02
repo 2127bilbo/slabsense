@@ -42,7 +42,7 @@ export default function VisionModeControls({
               background: mode === vm.id ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
               color: mode === vm.id ? '#8b5cf6' : '#666',
               fontFamily: mono,
-              fontSize: 9,
+              fontSize: 11,
               textTransform: 'uppercase',
               cursor: 'pointer',
               transition: 'all 0.2s'

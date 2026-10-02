@@ -93,7 +93,7 @@ export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSet
                 borderRadius: 4,
                 background: tierColors[tier]?.bg || tierColors.free.bg,
                 fontFamily: mono,
-                fontSize: 9,
+                fontSize: 11,
                 color: tierColors[tier]?.color || tierColors.free.color,
                 textTransform: 'uppercase',
               }}>

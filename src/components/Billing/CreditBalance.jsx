@@ -118,7 +118,7 @@ export function CreditBalance({ userId, onBuyCredits, compact = false }) {
         <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: textColor }}>
           {credits}
         </span>
-        <span style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>CR</span>
+        <span style={{ fontFamily: mono, fontSize: 11, color: '#666' }}>CR</span>
       </div>
     );
   }
@@ -156,7 +156,7 @@ export function CreditBalance({ userId, onBuyCredits, compact = false }) {
           </div>
 
           {isExpiringSoon && (
-            <span style={{ fontFamily: mono, fontSize: 9, color: '#ffcc00' }}>
+            <span style={{ fontFamily: mono, fontSize: 11, color: '#ffcc00' }}>
               expires in {daysLeft}d
             </span>
           )}
@@ -168,7 +168,7 @@ export function CreditBalance({ userId, onBuyCredits, compact = false }) {
             background: '#ff6633',
             borderRadius: 4,
             fontFamily: mono,
-            fontSize: 9,
+            fontSize: 11,
             fontWeight: 600,
             color: '#fff',
           }}>

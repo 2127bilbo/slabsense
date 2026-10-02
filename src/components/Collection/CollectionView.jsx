@@ -74,6 +74,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionError, setActionError] = useState(null); // delete / slab-order failure shown inline (audit I-19)
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState('tag');
@@ -146,7 +147,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       if (onCollectionChange) onCollectionChange();
     } catch (err) {
       console.error('Delete failed:', err);
-      alert('This card could not be deleted.' + (err?.message ? ` (${err.message})` : ''));
+      setActionError('This card could not be deleted.' + (err?.message ? ` (${err.message})` : ''));
     }
   };
 
@@ -162,6 +163,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
   // Generate vision maps when card is selected (a later selection cancels the earlier maps; audit E-17)
   useEffect(() => {
     let cancelled = false;
+    setActionError(null);
     if (selectedCard) {
       const frontImg = getFrontImage(selectedCard);
       const backImg = getBackImage(selectedCard);
@@ -243,7 +245,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
       window.location.href = url;
     } catch (err) {
       console.error('Slab order failed:', err);
-      alert(`Could not start checkout: ${err.message}`);
+      setActionError(`Could not start checkout: ${err.message}`);
       setSlabBusy(false);
     }
   };
@@ -612,7 +614,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                     </div>
                     <div style={{
                       fontFamily: mono,
-                      fontSize: 9,
+                      fontSize: 11,
                       color: '#555',
                     }}>
                       {scan.card_set || scan.card_info?.setName || ''}
@@ -644,7 +646,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 </div>
                 <div style={{
                   fontFamily: mono,
-                  fontSize: 7,
+                  fontSize: 11,
                   color: getGradeColor(grade.value),
                   opacity: 0.8,
                   marginTop: 2,
@@ -669,7 +671,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                     background: 'rgba(139,92,246,0.9)',
                     borderRadius: 4,
                     fontFamily: mono,
-                    fontSize: 7,
+                    fontSize: 11,
                     fontWeight: 600,
                     color: '#fff',
                   }}>
@@ -686,7 +688,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                       background: 'rgba(0,255,136,0.9)',
                       borderRadius: 4,
                       fontFamily: mono,
-                      fontSize: 7,
+                      fontSize: 11,
                       fontWeight: 600,
                       color: '#000',
                     }}>
@@ -704,7 +706,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   left: '50%',
                   transform: 'translateX(-50%)',
                   fontFamily: mono,
-                  fontSize: 9,
+                  fontSize: 11,
                   color: '#444',
                   whiteSpace: 'nowrap',
                 }}>
@@ -765,6 +767,11 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
           <div style={{ fontFamily: sans, fontSize: 14, fontWeight: 600, color: '#fff' }}>
             Card Details
           </div>
+          {actionError && (
+            <div role="alert" onClick={() => setActionError(null)} style={{ position: 'absolute', left: 12, right: 12, top: '100%', marginTop: 8, padding: '10px 12px', background: '#2a1215', border: '1px solid #ff4444', borderRadius: 10, color: '#ffb3b3', fontFamily: sans, fontSize: 13, zIndex: 11 }}>
+              {actionError} <span style={{ color: '#888' }}>(tap to dismiss)</span>
+            </div>
+          )}
           {slab ? (
             <span style={{ width: 32 }} />
           ) : (
@@ -900,7 +907,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                         background: visionMode === mode ? 'rgba(99,102,241,0.15)' : 'transparent',
                         color: visionMode === mode ? '#8b5cf6' : '#666',
                         fontFamily: mono,
-                        fontSize: 9,
+                        fontSize: 11,
                         cursor: mapsLoading ? 'wait' : 'pointer',
                         textTransform: 'uppercase',
                         opacity: mapsLoading ? 0.5 : 1,
@@ -932,7 +939,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   <style>{`input[type=range]::-webkit-slider-thumb{appearance:none;width:14px;height:14px;border-radius:50%;background:#8b5cf6;cursor:pointer;border:2px solid #0a0b0e;}`}</style>
                   <div style={{
                     fontFamily: mono,
-                    fontSize: 9,
+                    fontSize: 11,
                     color: '#555',
                     textAlign: 'center',
                     marginTop: 4,
@@ -999,7 +1006,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                     bottom: 4,
                     left: 4,
                     fontFamily: mono,
-                    fontSize: 8,
+                    fontSize: 11,
                     color: '#555',
                     background: 'rgba(0,0,0,0.7)',
                     padding: '2px 6px',
@@ -1065,7 +1072,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                     bottom: 4,
                     left: 4,
                     fontFamily: mono,
-                    fontSize: 8,
+                    fontSize: 11,
                     color: '#555',
                     background: 'rgba(0,0,0,0.7)',
                     padding: '2px 6px',
@@ -1430,7 +1437,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 </div>
                 {defects?.length > 0 && (
                   <div style={{ marginTop: 10 }}>
-                    <div style={{ fontFamily: mono, fontSize: 9, color: '#ff9944', marginBottom: 4 }}>
+                    <div style={{ fontFamily: mono, fontSize: 11, color: '#ff9944', marginBottom: 4 }}>
                       DEFECTS {gradeMode === 'deep' && '(Deep AI)'}
                     </div>
                     {defects.map((d, i) => {
@@ -1469,7 +1476,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 <div style={{ marginBottom: 12 }}>
                   <div style={{
                     fontFamily: mono,
-                    fontSize: 9,
+                    fontSize: 11,
                     color: gradeMode === 'deep' ? '#f97316' : '#00ff88',
                     marginBottom: 6,
                   }}>
@@ -1491,7 +1498,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 <div style={{ marginBottom: 12 }}>
                   <div style={{
                     fontFamily: mono,
-                    fontSize: 9,
+                    fontSize: 11,
                     color: '#ff9944',
                     marginBottom: 6,
                   }}>
@@ -1518,7 +1525,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                 }}>
                   <div style={{
                     fontFamily: mono,
-                    fontSize: 9,
+                    fontSize: 11,
                     color: gradeMode === 'deep' ? '#f97316' : '#00ff88',
                     marginBottom: 4,
                   }}>
@@ -1609,7 +1616,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   <div style={{
                     textAlign: 'right',
                     fontFamily: mono,
-                    fontSize: 9,
+                    fontSize: 11,
                     color: '#555',
                   }}>
                     <div>Cardmarket via TCGdex</div>
@@ -1820,7 +1827,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
               <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: '#00ff88' }}>
                 ${collectionValue.usd.toFixed(2)}
               </div>
-              <div style={{ fontFamily: mono, fontSize: 8, color: '#00ff8866' }}>
+              <div style={{ fontFamily: mono, fontSize: 11, color: '#00ff8866' }}>
                 {collectionValue.cardsWithPrice}/{collectionValue.totalCards} priced
               </div>
             </div>
@@ -1857,7 +1864,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
               <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: '#00ff88' }}>
                 ${collectionValue.usd.toFixed(2)}
               </div>
-              <div style={{ fontFamily: mono, fontSize: 8, color: '#00ff8866' }}>
+              <div style={{ fontFamily: mono, fontSize: 11, color: '#00ff8866' }}>
                 {collectionValue.cardsWithPrice}/{collectionValue.totalCards} priced
               </div>
             </div>
@@ -2011,7 +2018,7 @@ function SubgradeBox({ label, value, small = false }) {
       </div>
       <div style={{
         fontFamily: "'JetBrains Mono',monospace",
-        fontSize: 8,
+        fontSize: 11,
         color: '#555',
         textTransform: 'uppercase',
       }}>
@@ -2030,7 +2037,7 @@ function CenteringBox({ label, lr, tb }) {
     }}>
       <div style={{
         fontFamily: "'JetBrains Mono',monospace",
-        fontSize: 9,
+        fontSize: 11,
         color: '#666',
         marginBottom: 4,
       }}>

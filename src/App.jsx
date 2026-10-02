@@ -289,11 +289,11 @@ function HomeTab({ auth, onOpenCollection, onStartScan, collectionStats }) {
       {auth?.isAuthenticated && (
         <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12,marginBottom:16}}>
           <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
-            <div style={{fontFamily:mono,fontSize:9,color:"#888",textTransform:"uppercase",marginBottom:6}}>Cards Graded</div>
+            <div style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase",marginBottom:6}}>Cards Graded</div>
             <div style={{fontSize:24,fontWeight:700,color:"#fff"}}>{portfolio.cardCount}</div>
           </div>
           <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22"}}>
-            <div style={{fontFamily:mono,fontSize:9,color:"#888",textTransform:"uppercase",marginBottom:6}}>Avg Grade</div>
+            <div style={{fontFamily:mono,fontSize:11,color:"#888",textTransform:"uppercase",marginBottom:6}}>Avg Grade</div>
             <div style={{fontSize:24,fontWeight:700,color:portfolio.avgGrade >= 8 ? "#00ff88" : portfolio.avgGrade >= 6 ? "#ffcc00" : "#ff6633"}}>
               {portfolio.avgGrade > 0 ? portfolio.avgGrade.toFixed(1) : '—'}
             </div>
@@ -717,7 +717,7 @@ function CameraViewfinder({ side, onCapture, onClose }) {
         <button onClick={closeCam} style={{background:"transparent",border:"none",color:"#888",fontFamily:mono,fontSize:12,cursor:"pointer"}}>✕ Cancel</button>
         <div style={{fontFamily:mono,fontSize:12,color:"#fff",textTransform:"uppercase",letterSpacing:".1em"}}>Capture {side}</div>
         <button onClick={()=>{const next=!autoSnap;setAutoSnap(next);try{localStorage.setItem(AUTO_SNAP_KEY,next?'1':'0');}catch{/* private mode */}}} aria-label={`Auto snap ${autoSnap?'on':'off'}`}
-          style={{width:60,background:"transparent",border:`1px solid ${autoSnap?"#00ff8866":"#333"}`,borderRadius:6,padding:"4px 0",color:autoSnap?"#00ff88":"#666",fontFamily:mono,fontSize:9,letterSpacing:".08em",cursor:"pointer"}}>AUTO {autoSnap?"ON":"OFF"}</button>
+          style={{width:60,background:"transparent",border:`1px solid ${autoSnap?"#00ff8866":"#333"}`,borderRadius:6,padding:"4px 0",color:autoSnap?"#00ff88":"#666",fontFamily:mono,fontSize:11,letterSpacing:".08em",cursor:"pointer"}}>AUTO {autoSnap?"ON":"OFF"}</button>
       </div>
 
       <div style={{flex:1,position:"relative",overflow:"hidden"}}>
@@ -846,7 +846,7 @@ function CameraViewfinder({ side, onCapture, onClose }) {
                 <div style={{position:"absolute",width:12,height:12,borderRadius:"50%",border:`1px solid ${lvlColor}44`}}/>
                 <div style={{width:10,height:10,borderRadius:"50%",background:lvlColor,boxShadow:`0 0 8px ${lvlColor}66`,transform:`translate(${bx}px,${by}px)`,transition:"transform .1s ease-out"}}/>
               </div>
-              <div style={{fontFamily:mono,fontSize:9,color:lvlColor,textTransform:"uppercase",letterSpacing:".1em"}}>{isLevel?"✓ Level":isClose?"Almost level":"Tilted"}</div>
+              <div style={{fontFamily:mono,fontSize:11,color:lvlColor,textTransform:"uppercase",letterSpacing:".1em"}}>{isLevel?"✓ Level":isClose?"Almost level":"Tilted"}</div>
             </div>
           )}
         {/* Bubble level permission request */}
@@ -984,8 +984,8 @@ function CaptureCardVertical({label,side,image,onImage,onOpenCamera,quality}){
         <div style={{flex:1,padding:"14px 16px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
             <span style={{fontFamily:mono,fontSize:13,fontWeight:700,color:image ? accentColor : "#666",textTransform:"uppercase"}}>{label}</span>
-            {image && !hasHighSeverity && <span style={{fontFamily:mono,fontSize:9,color:"#00ff88",background:"rgba(0,255,136,.1)",padding:"2px 6px",borderRadius:4}}>Ready</span>}
-            {image && hasHighSeverity && <span style={{fontFamily:mono,fontSize:9,color:"#ff6633",background:"rgba(255,102,51,.1)",padding:"2px 6px",borderRadius:4}}>Issues</span>}
+            {image && !hasHighSeverity && <span style={{fontFamily:mono,fontSize:11,color:"#00ff88",background:"rgba(0,255,136,.1)",padding:"2px 6px",borderRadius:4}}>Ready</span>}
+            {image && hasHighSeverity && <span style={{fontFamily:mono,fontSize:11,color:"#ff6633",background:"rgba(255,102,51,.1)",padding:"2px 6px",borderRadius:4}}>Issues</span>}
           </div>
 
           {!image ? (
@@ -993,7 +993,7 @@ function CaptureCardVertical({label,side,image,onImage,onOpenCamera,quality}){
               <div style={{fontFamily:sans,fontSize:12,color:"#666",marginBottom:8}}>Tap to capture {label.toLowerCase()} of card</div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <div style={{width:6,height:6,borderRadius:"50%",background:"#00ff8866"}}/>
-                <span style={{fontFamily:mono,fontSize:9,color:"#00ff8866"}}>Level guide + card detection</span>
+                <span style={{fontFamily:mono,fontSize:11,color:"#00ff8866"}}>Level guide + card detection</span>
               </div>
             </>
           ) : (
@@ -2120,7 +2120,7 @@ export default function SlabSense(){
             <div style={{fontFamily:mono,fontSize:24,fontWeight:800,color:gradeResult.grade.color}}>
               {Number.isInteger(gradeResult.grade.grade) ? gradeResult.grade.grade : gradeResult.grade.grade.toFixed(1)}
             </div>
-            <div style={{fontFamily:mono,fontSize:9,color:gradeResult.grade.color,opacity:0.8}}>
+            <div style={{fontFamily:mono,fontSize:11,color:gradeResult.grade.color,opacity:0.8}}>
               {gradeResult.grade.label}
             </div>
           </div>
@@ -2209,7 +2209,7 @@ export default function SlabSense(){
           }}
           showSparkles={true}
         />
-        <div><div style={{fontSize:14,fontWeight:600}}>SlabSense</div><div style={{fontFamily:mono,fontSize:9,color:"#444",textTransform:"uppercase",letterSpacing:".1em"}}>v{__APP_VERSION__}</div></div>
+        <div><div style={{fontSize:14,fontWeight:600}}>SlabSense</div><div style={{fontFamily:mono,fontSize:11,color:"#444",textTransform:"uppercase",letterSpacing:".1em"}}>v{__APP_VERSION__}</div></div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
         {/* Grading Company Selector */}
@@ -2249,7 +2249,7 @@ export default function SlabSense(){
             borderBottom:isActive?`2px solid ${activeColor}`:"2px solid transparent",
             color:isDisabled?"#333":isActive?"#ddd":"#666",
             fontFamily:mono,
-            fontSize:9,
+            fontSize:11,
             cursor:isDisabled?"default":"pointer",
             textTransform:"uppercase",
             display:"flex",
@@ -2383,7 +2383,7 @@ export default function SlabSense(){
               {gradingCompany === 'tag' && gr?.rawScore !== undefined && (
                 <div style={{textAlign:"center"}}>
                   <div style={{fontFamily:mono,fontSize:32,fontWeight:800,color:"#888"}}>{gr.rawScore}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>/ 1000</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#555"}}>/ 1000</div>
                 </div>
               )}
               {/* Grade Number */}
@@ -2403,7 +2403,7 @@ export default function SlabSense(){
               {gradingCompany === 'tag' && aiGrades?.tag?.score !== undefined && (
                 <div style={{textAlign:"center"}}>
                   <div style={{fontFamily:mono,fontSize:32,fontWeight:800,color:"#888"}}>{aiGrades.tag.score}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>/ 1000</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#555"}}>/ 1000</div>
                 </div>
               )}
               {/* AI Grade Number */}
@@ -2417,13 +2417,13 @@ export default function SlabSense(){
                   </div>
                 )}
                 {aiOverall?.capsApplied?.length > 0 && (
-                  <div style={{fontFamily:mono,fontSize:9,color:'#888',marginTop:4}}>Limited by: {formatCaps(aiOverall.capsApplied)}</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:'#888',marginTop:4}}>Limited by: {formatCaps(aiOverall.capsApplied)}</div>
                 )}
               </div>
               {/* Company Badge with AI indicator */}
               <div style={{padding:"8px 12px",background:"rgba(139,92,246,0.15)",borderRadius:8,border:"1px solid rgba(139,92,246,0.3)"}}>
                 <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:"#8b5cf6"}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
-                <div style={{fontFamily:mono,fontSize:8,color:"#6366f1",marginTop:2}}>AI ESTIMATE</div>
+                <div style={{fontFamily:mono,fontSize:11,color:"#6366f1",marginTop:2}}>AI ESTIMATE</div>
               </div>
             </div>
           ) : (
@@ -2433,7 +2433,7 @@ export default function SlabSense(){
               {gradingCompany === 'tag' && deepAiGrades?.tag?.score !== undefined && (
                 <div style={{textAlign:"center"}}>
                   <div style={{fontFamily:mono,fontSize:32,fontWeight:800,color:"#888"}}>{deepAiGrades.tag.score}</div>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#555"}}>/ 1000</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#555"}}>/ 1000</div>
                 </div>
               )}
               {/* Deep AI Grade Number */}
@@ -2447,13 +2447,13 @@ export default function SlabSense(){
                   </div>
                 )}
                 {deepAiOverall?.capsApplied?.length > 0 && (
-                  <div style={{fontFamily:mono,fontSize:9,color:'#888',marginTop:4}}>Limited by: {formatCaps(deepAiOverall.capsApplied)}</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:'#888',marginTop:4}}>Limited by: {formatCaps(deepAiOverall.capsApplied)}</div>
                 )}
               </div>
               {/* Company Badge with Deep AI indicator */}
               <div style={{padding:"8px 12px",background:"rgba(249,115,22,0.15)",borderRadius:8,border:"1px solid rgba(249,115,22,0.3)"}}>
                 <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:"#f97316"}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
-                <div style={{fontFamily:mono,fontSize:8,color:"#ea580c",marginTop:2}}>AI ESTIMATE</div>
+                <div style={{fontFamily:mono,fontSize:11,color:"#ea580c",marginTop:2}}>AI ESTIMATE</div>
               </div>
             </div>
           )}
@@ -2467,7 +2467,7 @@ export default function SlabSense(){
               {visionMode!=='normal'&&fM?.[visionMode]&&(
                 <img src={fM[visionMode]} alt="" style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
               )}
-              <div style={{position:"absolute",bottom:4,left:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>FRONT</div>
+              <div style={{position:"absolute",bottom:4,left:4,fontFamily:mono,fontSize:11,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>FRONT</div>
             </div>
             <div style={{flex:1,aspectRatio:"2.5/3.5",borderRadius:8,overflow:"hidden",background:"#0a0a0a",position:"relative"}}>
               {/* Base image - cropped preferred over original */}
@@ -2476,7 +2476,7 @@ export default function SlabSense(){
               {visionMode!=='normal'&&bM?.[visionMode]&&(
                 <img src={bM[visionMode]} alt="" style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",inset:0,opacity:visionIntensity/100}}/>
               )}
-              <div style={{position:"absolute",bottom:4,right:4,fontFamily:mono,fontSize:8,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>BACK</div>
+              <div style={{position:"absolute",bottom:4,right:4,fontFamily:mono,fontSize:11,color:"#555",background:"rgba(0,0,0,0.7)",padding:"2px 6px",borderRadius:4,zIndex:1}}>BACK</div>
             </div>
           </div>
 
@@ -2495,7 +2495,7 @@ export default function SlabSense(){
                 border:visionMode===mode?"1px solid #6366f1":"1px solid #2a2d35",
                 background:visionMode===mode?"rgba(99,102,241,0.15)":"transparent",
                 color:visionMode===mode?"#8b5cf6":"#666",
-                fontFamily:mono,fontSize:9,cursor:"pointer",textTransform:"uppercase"
+                fontFamily:mono,fontSize:11,cursor:"pointer",textTransform:"uppercase"
               }}>{label}</button>
             ))}
           </div>
@@ -2521,7 +2521,7 @@ export default function SlabSense(){
               {deepGradeStatus==='grading'?<span style={{fontSize:18,color:"#666"}}>⏳</span>:deepGradeStatus==='done'?<span style={{fontSize:18,color:"#00ff88"}}>✓</span>:(
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1.1}}>
                   <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:"#8b5cf6"}}>AI</span>
-                  <span style={{fontFamily:mono,fontSize:9,fontWeight:600,color:"#6366f1"}}>Grade</span>
+                  <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:"#6366f1"}}>Grade</span>
                 </div>
               )}
             </button>
@@ -2539,7 +2539,7 @@ export default function SlabSense(){
             }}>
               <div style={{display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1.1}}>
                 <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:gr?.totalDings>0?"#ff6633":"#666"}}>⚠</span>
-                <span style={{fontFamily:mono,fontSize:9,fontWeight:600,color:gr?.totalDings>0?"#ff9944":"#555"}}>Dings</span>
+                <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:gr?.totalDings>0?"#ff9944":"#555"}}>Dings</span>
               </div>
             </button>
           </div>
@@ -2557,19 +2557,19 @@ export default function SlabSense(){
             return (
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
                 <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>CORNERS</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>CORNERS</div>
                   <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:cornersScore ? getColor(cornersScore) : "#666"}}>{cornersScore ?? "--"}</div>
                 </div>
                 <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>EDGES</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>EDGES</div>
                   <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:edgesScore ? getColor(edgesScore) : "#666"}}>{edgesScore ?? "--"}</div>
                 </div>
                 <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>SURFACE</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>SURFACE</div>
                   <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:surfaceScore ? getColor(surfaceScore) : "#666"}}>{surfaceScore ?? "--"}</div>
                 </div>
                 <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-                  <div style={{fontFamily:mono,fontSize:8,color:"#666",marginBottom:4}}>CENTERING {frontCenteringData?.didManualCenter ? '(M)' : ''}</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>CENTERING {frontCenteringData?.didManualCenter ? '(M)' : ''}</div>
                   <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:frontCenteringData?.didManualCenter ? "#ff9944" : "#00ff88"}}>{frontCenteringData?.didManualCenter ? Math.round(frontCenteringData.lrRatio) : (fR?.centering?.lrRatio||50)}/{frontCenteringData?.didManualCenter ? Math.round(100-frontCenteringData.lrRatio) : (100-(fR?.centering?.lrRatio||50))}</div>
                 </div>
               </div>
@@ -2657,7 +2657,7 @@ export default function SlabSense(){
                   if(val==null)return null;
                   const color = val>=95?"#00ff88":val>=90?"#66dd44":val>=80?"#ffcc00":"#ff6633"; // subgrades are 0-100
                   return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
-                    <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>{l}</span>
+                    <span style={{fontFamily:mono,fontSize:11,color:"#666"}}>{l}</span>
                     <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color}}>{val}</span>
                   </div>);
                 })}
@@ -2687,7 +2687,7 @@ export default function SlabSense(){
                   // 0-100 scale: 95+ green, 90+ lime, 80+ yellow
                   const color = val>=95?"#00ff88":val>=90?"#66dd44":val>=80?"#ffcc00":"#ff6633";
                   return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
-                    <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>{l}</span>
+                    <span style={{fontFamily:mono,fontSize:11,color:"#666"}}>{l}</span>
                     <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color}}>{val?.toFixed?.(1) ?? val}</span>
                   </div>);
                 })}
@@ -2711,7 +2711,7 @@ export default function SlabSense(){
                   if(val==null)return null;
                   const color = val>=9.5?"#00ff88":val>=9?"#66dd44":val>=8?"#ffcc00":"#ff6633";
                   return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
-                    <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>{l}</span>
+                    <span style={{fontFamily:mono,fontSize:11,color:"#666"}}>{l}</span>
                     <span style={{fontFamily:mono,fontSize:12,fontWeight:600,color}}>{val}</span>
                   </div>);
                 })}
@@ -2735,7 +2735,7 @@ export default function SlabSense(){
                   if(val==null)return null;
                   const color = val>=9.5?"#00ff88":val>=9?"#66dd44":val>=8?"#ffcc00":"#ff6633";
                   return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
-                    <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>{l}</span>
+                    <span style={{fontFamily:mono,fontSize:11,color:"#666"}}>{l}</span>
                     <span style={{fontFamily:mono,fontSize:12,fontWeight:600,color}}>{val}</span>
                   </div>);
                 })}
@@ -2749,7 +2749,7 @@ export default function SlabSense(){
               <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase",marginBottom:10}}>Centering Measurements</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>FRONT {frontCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>FRONT {frontCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
                   {frontCenteringData?.didManualCenter ? (
                     <>
                       <div style={{fontFamily:mono,fontSize:11,color:"#ff9944"}}>{Math.round(frontCenteringData.lrRatio*10)/10}/{Math.round((100-frontCenteringData.lrRatio)*10)/10} L/R</div>
@@ -2763,7 +2763,7 @@ export default function SlabSense(){
                   )}
                 </div>
                 <div style={{padding:"8px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#666",marginBottom:4}}>BACK {backCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>BACK {backCenteringData?.didManualCenter ? '(Manual)' : '(Software)'}</div>
                   {backCenteringData?.didManualCenter ? (
                     <>
                       <div style={{fontFamily:mono,fontSize:11,color:"#ff9944"}}>{Math.round(backCenteringData.lrRatio*10)/10}/{Math.round((100-backCenteringData.lrRatio)*10)/10} L/R</div>
@@ -2804,27 +2804,27 @@ export default function SlabSense(){
             <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:`1px solid ${borderColor}`,marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                 <div style={{fontFamily:mono,fontSize:10,color:"#666",textTransform:"uppercase"}}>Condition (1-10 Scale)</div>
-                {isDeep && <span style={{fontFamily:mono,fontSize:8,color:"#f97316",background:"rgba(249,115,22,0.15)",padding:"2px 6px",borderRadius:4}}>DEEP AI</span>}
+                {isDeep && <span style={{fontFamily:mono,fontSize:11,color:"#f97316",background:"rgba(249,115,22,0.15)",padding:"2px 6px",borderRadius:4}}>DEEP AI</span>}
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {corners10!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Corners</span>
+                  <span style={{fontFamily:mono,fontSize:11,color:"#666"}}>Corners</span>
                   <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:getColor(corners10)}}>{corners10}/10</span>
                 </div>)}
                 {edges10!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Edges</span>
+                  <span style={{fontFamily:mono,fontSize:11,color:"#666"}}>Edges</span>
                   <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:getColor(edges10)}}>{edges10}/10</span>
                 </div>)}
                 {surface10!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Surface</span>
+                  <span style={{fontFamily:mono,fontSize:11,color:"#666"}}>Surface</span>
                   <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:getColor(surface10)}}>{surface10}/10</span>
                 </div>)}
                 {centering10!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Centering</span>
+                  <span style={{fontFamily:mono,fontSize:11,color:"#666"}}>Centering</span>
                   <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:getColor(centering10)}}>{centering10}/10</span>
                 </div>)}
                 {overall10!=null&&(<div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
-                  <span style={{fontFamily:mono,fontSize:9,color:"#666"}}>Overall</span>
+                  <span style={{fontFamily:mono,fontSize:11,color:"#666"}}>Overall</span>
                   <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:getColor(overall10)}}>{overall10}/10</span>
                 </div>)}
               </div>
@@ -2846,19 +2846,19 @@ export default function SlabSense(){
               <div style={{fontFamily:mono,fontSize:10,color:accentColor,textTransform:"uppercase",marginBottom:10}}>{isDeep ? 'Deep AI' : 'AI'} Analysis Summary</div>
               {notes?.positives?.length > 0 && (
                 <div style={{marginBottom:10}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#00ff88",marginBottom:6}}>✓ POSITIVES</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#00ff88",marginBottom:6}}>✓ POSITIVES</div>
                   {notes.positives.map((p,i)=>(<div key={i} style={{fontFamily:sans,fontSize:12,color:"#aaa",paddingLeft:12,marginBottom:3}}>• {p}</div>))}
                 </div>
               )}
               {notes?.concerns?.length > 0 && (
                 <div style={{marginBottom:10}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:"#ff9944",marginBottom:6}}>⚠ CONCERNS</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:"#ff9944",marginBottom:6}}>⚠ CONCERNS</div>
                   {notes.concerns.map((c,i)=>(<div key={i} style={{fontFamily:sans,fontSize:12,color:"#999",paddingLeft:12,marginBottom:3}}>• {c}</div>))}
                 </div>
               )}
               {summary?.recommendation && (
                 <div style={{padding:"10px 12px",background:isDeep?"rgba(249,115,22,0.05)":"rgba(0,255,136,0.05)",borderRadius:8,border:isDeep?"1px solid rgba(249,115,22,0.2)":"1px solid rgba(0,255,136,0.2)"}}>
-                  <div style={{fontFamily:mono,fontSize:9,color:isDeep?"#f97316":"#00ff88",marginBottom:6}}>💡 RECOMMENDATION</div>
+                  <div style={{fontFamily:mono,fontSize:11,color:isDeep?"#f97316":"#00ff88",marginBottom:6}}>💡 RECOMMENDATION</div>
                   <div style={{fontFamily:sans,fontSize:12,color:"#aaa",lineHeight:1.5}}>{summary.recommendation}</div>
                 </div>
               )}
@@ -2937,11 +2937,11 @@ export default function SlabSense(){
                     {hasDing&&<span style={{fontFamily:mono,fontSize:10,color:"#ff6633",fontWeight:600}}>⚠ DING</span>}
                   </div>
                   <div style={{display:"flex",gap:16}}>
-                    <div style={{flex:1}}><div style={{fontFamily:mono,fontSize:9,color:"#555",marginBottom:4}}>L / R</div><div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:"#ccc"}}>{r.centering.lrRatio}/{Math.round((100-r.centering.lrRatio)*10)/10}</div></div>
+                    <div style={{flex:1}}><div style={{fontFamily:mono,fontSize:11,color:"#555",marginBottom:4}}>L / R</div><div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:"#ccc"}}>{r.centering.lrRatio}/{Math.round((100-r.centering.lrRatio)*10)/10}</div></div>
                     <div style={{width:1,background:"#1a1c22"}}/>
-                    <div style={{flex:1}}><div style={{fontFamily:mono,fontSize:9,color:"#555",marginBottom:4}}>T / B</div><div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:"#ccc"}}>{r.centering.tbRatio}/{Math.round((100-r.centering.tbRatio)*10)/10}</div></div>
+                    <div style={{flex:1}}><div style={{fontFamily:mono,fontSize:11,color:"#555",marginBottom:4}}>T / B</div><div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:"#ccc"}}>{r.centering.tbRatio}/{Math.round((100-r.centering.tbRatio)*10)/10}</div></div>
                   </div>
-                  <div style={{marginTop:8,fontFamily:mono,fontSize:9,color:"#555"}}>
+                  <div style={{marginTop:8,fontFamily:mono,fontSize:11,color:"#555"}}>
                     Worst axis: {maxOff.toFixed(1)}/{(100-maxOff).toFixed(1)} · {GRADING_COMPANIES[gradingCompany]?.name || 'TAG'} 10 threshold: {threshDisplay}
                   </div>
                 </div>);

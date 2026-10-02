@@ -97,7 +97,7 @@ export default function DefectList({
               </div>
               <span style={{
                 fontFamily: mono,
-                fontSize: 9,
+                fontSize: 11,
                 color: '#555',
                 textTransform: 'uppercase'
               }}>
@@ -113,7 +113,7 @@ export default function DefectList({
             }}>
               <span style={{
                 fontFamily: mono,
-                fontSize: 9,
+                fontSize: 11,
                 color: '#666'
               }}>
                 Zone {defect.zone}: {defect.zoneLabel}
@@ -121,7 +121,7 @@ export default function DefectList({
               {defect.tagCoords && (
                 <span style={{
                   fontFamily: mono,
-                  fontSize: 8,
+                  fontSize: 11,
                   color: '#444'
                 }}>
                   TAG: ({defect.tagCoords.x}, {defect.tagCoords.y})

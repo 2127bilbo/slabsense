@@ -486,7 +486,7 @@ export function EdgeBreakdownPanel({ centeringResult }) {
       }}>
         <span style={{
           fontFamily: mono,
-          fontSize: 8,
+          fontSize: 11,
           color: '#555'
         }}>
           Samples: {data.samples.join(', ')}px
@@ -502,7 +502,7 @@ export function EdgeBreakdownPanel({ centeringResult }) {
       </div>
       <div style={{
         fontFamily: mono,
-        fontSize: 8,
+        fontSize: 11,
         color: '#444',
         marginTop: 2
       }}>
@@ -527,7 +527,7 @@ export function EdgeBreakdownPanel({ centeringResult }) {
       }}>
         <span style={{
           fontFamily: mono,
-          fontSize: 9,
+          fontSize: 11,
           color: '#666',
           textTransform: 'uppercase'
         }}>
@@ -559,7 +559,7 @@ export function EdgeBreakdownPanel({ centeringResult }) {
         <div style={{ textAlign: 'center' }}>
           <div style={{
             fontFamily: mono,
-            fontSize: 8,
+            fontSize: 11,
             color: '#555',
             textTransform: 'uppercase',
             marginBottom: 2
@@ -579,7 +579,7 @@ export function EdgeBreakdownPanel({ centeringResult }) {
         <div style={{ textAlign: 'center' }}>
           <div style={{
             fontFamily: mono,
-            fontSize: 8,
+            fontSize: 11,
             color: '#555',
             textTransform: 'uppercase',
             marginBottom: 2

@@ -286,7 +286,7 @@ export function CardIdentifier({
               marginBottom: 12,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>
+                <div style={{ fontFamily: mono, fontSize: 11, color: '#666' }}>
                   VISUAL MATCH
                 </div>
                 {identifyResult.topMatch && (
@@ -295,7 +295,7 @@ export function CardIdentifier({
                     background: `${getConfidenceColor(identifyResult.confidence)}22`,
                     borderRadius: 4,
                     fontFamily: mono,
-                    fontSize: 9,
+                    fontSize: 11,
                     color: getConfidenceColor(identifyResult.confidence),
                   }}>
                     {identifyResult.confidence?.toUpperCase()} CONFIDENCE
@@ -407,7 +407,7 @@ export function CardIdentifier({
                       background: `${distInfo.color}15`,
                       borderRadius: 4,
                       fontFamily: mono,
-                      fontSize: 9,
+                      fontSize: 11,
                       color: distInfo.color,
                     }}>
                       {distInfo.label}
@@ -418,7 +418,7 @@ export function CardIdentifier({
                       background: card.matchScore > 80 ? 'rgba(0,255,136,0.1)' : 'rgba(255,153,68,0.1)',
                       borderRadius: 4,
                       fontFamily: mono,
-                      fontSize: 9,
+                      fontSize: 11,
                       color: card.matchScore > 80 ? '#00ff88' : '#ff9944',
                     }}>
                       {card.matchScore}%

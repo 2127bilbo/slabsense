@@ -322,7 +322,7 @@ export default function ZoomableCardView({
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontFamily: mono,
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: 700,
                     color: type === 'surface' ? '#000' : '#fff',
                     boxShadow: '0 2px 6px rgba(0,0,0,0.5)'

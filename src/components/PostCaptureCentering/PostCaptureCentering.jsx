@@ -762,7 +762,7 @@ export function PostCaptureCentering({
             {step === 1 && (
               <button
                 onClick={handleReset}
-                style={{ fontFamily: mono, fontSize: 9, color: '#555', background: 'transparent', border: '1px solid #333', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
+                style={{ fontFamily: mono, fontSize: 11, color: '#555', background: 'transparent', border: '1px solid #333', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
               >
                 Reset
               </button>
@@ -771,7 +771,7 @@ export function PostCaptureCentering({
               <button
                 onClick={onCancel}
                 aria-label="Cancel centering changes"
-                style={{ fontFamily: mono, fontSize: 9, color: '#aaa', background: 'transparent', border: '1px solid #444', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
+                style={{ fontFamily: mono, fontSize: 11, color: '#aaa', background: 'transparent', border: '1px solid #444', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}
               >
                 ✕ Cancel
               </button>
@@ -791,7 +791,7 @@ export function PostCaptureCentering({
 
         {/* Measurement Mode Toggle (both steps) */}
         <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,.3)', borderBottom: '1px solid #1a1c22', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <span style={{ fontFamily: mono, fontSize: 9, color: '#666', textTransform: 'uppercase' }}>Mode:</span>
+          <span style={{ fontFamily: mono, fontSize: 11, color: '#666', textTransform: 'uppercase' }}>Mode:</span>
           <div style={{ display: 'flex', borderRadius: 6, overflow: 'hidden', border: '1px solid #2a2d35' }}>
             <button
               onClick={() => setMeasureMode('edge')}
@@ -801,7 +801,7 @@ export function PostCaptureCentering({
                 border: 'none',
                 color: measureMode === 'edge' ? '#ff9944' : '#555',
                 fontFamily: mono,
-                fontSize: 9,
+                fontSize: 11,
                 cursor: 'pointer',
                 borderRight: '1px solid #2a2d35',
               }}
@@ -816,7 +816,7 @@ export function PostCaptureCentering({
                 border: 'none',
                 color: measureMode === 'corner' ? '#00bcd4' : '#555',
                 fontFamily: mono,
-                fontSize: 9,
+                fontSize: 11,
                 cursor: 'pointer',
               }}
             >
@@ -828,7 +828,7 @@ export function PostCaptureCentering({
         {/* STEP 1: Rotation & Tilt Controls */}
         {step === 1 && (
           <div style={{ padding: '10px 12px', background: 'rgba(0,0,0,.3)', borderBottom: '1px solid #1a1c22' }}>
-            <div style={{ fontFamily: mono, fontSize: 9, color: '#666', marginBottom: 8, textTransform: 'uppercase' }}>
+            <div style={{ fontFamily: mono, fontSize: 11, color: '#666', marginBottom: 8, textTransform: 'uppercase' }}>
               Straighten & Correct Perspective
             </div>
 
@@ -860,7 +860,7 @@ export function PostCaptureCentering({
                   }}
                 >
                   <span>{axis.label}</span>
-                  <span style={{ fontSize: 8, opacity: 0.7 }}>{axis.desc}</span>
+                  <span style={{ fontSize: 11, opacity: 0.7 }}>{axis.desc}</span>
                 </button>
               ))}
             </div>
@@ -922,11 +922,11 @@ export function PostCaptureCentering({
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 8 }}>
-              <span style={{ fontFamily: mono, fontSize: 9, color: tiltX === 0 ? '#444' : '#ff6b6b' }}>X:{tiltX}°</span>
-              <span style={{ fontFamily: mono, fontSize: 9, color: tiltY === 0 ? '#444' : '#4ecdc4' }}>Y:{tiltY}°</span>
-              <span style={{ fontFamily: mono, fontSize: 9, color: rotation === 0 ? '#444' : '#ff9944' }}>Z:{rotation}°</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: tiltX === 0 ? '#444' : '#ff6b6b' }}>X:{tiltX}°</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: tiltY === 0 ? '#444' : '#4ecdc4' }}>Y:{tiltY}°</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: rotation === 0 ? '#444' : '#ff9944' }}>Z:{rotation}°</span>
             </div>
-            <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 8, color: '#444', marginTop: 4 }}>‹‹/›› = 1° · ‹/› = 0.05°</div>
+            <div style={{ textAlign: 'center', fontFamily: mono, fontSize: 11, color: '#444', marginTop: 4 }}>‹‹/›› = 1° · ‹/› = 0.05°</div>
           </div>
         )}
 
@@ -934,21 +934,21 @@ export function PostCaptureCentering({
         {step === 2 && (
           <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,.4)', display: 'flex', justifyContent: 'space-around', borderBottom: '1px solid #1a1c22' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: mono, fontSize: 8, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>L / R</div>
+              <div style={{ fontFamily: mono, fontSize: 11, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>L / R</div>
               <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700, color: displayLROff > 55 ? '#ff6633' : displayLROff > 53 ? '#ffcc00' : '#00ff88' }}>
                 {displayLR}<span style={{ color: '#444' }}>/</span>{Math.round((100 - displayLR) * 10) / 10}
               </div>
             </div>
             <div style={{ width: 1, background: '#1a1c22' }} />
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: mono, fontSize: 8, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>T / B</div>
+              <div style={{ fontFamily: mono, fontSize: 11, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>T / B</div>
               <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 700, color: displayTBOff > 55 ? '#ff6633' : displayTBOff > 53 ? '#ffcc00' : '#00ff88' }}>
                 {displayTB}<span style={{ color: '#444' }}>/</span>{Math.round((100 - displayTB) * 10) / 10}
               </div>
             </div>
             <div style={{ width: 1, background: '#1a1c22' }} />
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: mono, fontSize: 8, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>Status</div>
+              <div style={{ fontFamily: mono, fontSize: 11, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>Status</div>
               <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 600, color: Math.max(displayLROff, displayTBOff) > 55 ? '#ff6633' : '#00ff88' }}>
                 {Math.max(displayLROff, displayTBOff) > 55 ? '⚠ DING' : '✓ Clean'}
               </div>
@@ -961,14 +961,14 @@ export function PostCaptureCentering({
           {step === 1 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke={outerColor} strokeWidth={2} /></svg>
-              <span style={{ fontFamily: mono, fontSize: 9, color: '#ff9944' }}>Card edge</span>
-              <span style={{ fontFamily: mono, fontSize: 8, color: '#555' }}>(drag to align)</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: '#ff9944' }}>Card edge</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: '#555' }}>(drag to align)</span>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <svg width={16} height={16}><rect x={2} y={2} width={12} height={12} rx={2} fill="#111" stroke={innerColor} strokeWidth={2} strokeDasharray="3,2" /></svg>
-              <span style={{ fontFamily: mono, fontSize: 9, color: '#00ff88' }}>Artwork border</span>
-              <span style={{ fontFamily: mono, fontSize: 8, color: '#555' }}>(drag to align)</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: '#00ff88' }}>Artwork border</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: '#555' }}>(drag to align)</span>
             </div>
           )}
         </div>
@@ -987,12 +987,12 @@ export function PostCaptureCentering({
             </button>
           ))}
           <button type="button" onClick={undo} disabled={undoCount === 0} aria-label="Undo last change"
-            style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #2a2d35', background: '#1a1c22', color: undoCount ? '#ccc' : '#444', fontFamily: mono, fontSize: 9, cursor: undoCount ? 'pointer' : 'default' }}>
+            style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #2a2d35', background: '#1a1c22', color: undoCount ? '#ccc' : '#444', fontFamily: mono, fontSize: 11, cursor: undoCount ? 'pointer' : 'default' }}>
             Undo
           </button>
-          <div style={{ minWidth: 44, textAlign: 'center', fontFamily: mono, fontSize: 9, color: view.z > 1 ? '#c4b5fd' : '#555' }}>{Math.round(view.z * 100)}%</div>
+          <div style={{ minWidth: 44, textAlign: 'center', fontFamily: mono, fontSize: 11, color: view.z > 1 ? '#c4b5fd' : '#555' }}>{Math.round(view.z * 100)}%</div>
           <button type="button" onClick={resetView} disabled={view.z === 1} aria-label="Fit whole image"
-            style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #2a2d35', background: '#1a1c22', color: view.z > 1 ? '#ccc' : '#444', fontFamily: mono, fontSize: 9, cursor: view.z > 1 ? 'pointer' : 'default' }}>
+            style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #2a2d35', background: '#1a1c22', color: view.z > 1 ? '#ccc' : '#444', fontFamily: mono, fontSize: 11, cursor: view.z > 1 ? 'pointer' : 'default' }}>
             Fit
           </button>
           <button type="button" onClick={() => setShowLineSettings((v) => !v)} aria-label="Line settings" aria-expanded={showLineSettings}
@@ -1004,10 +1004,10 @@ export function PostCaptureCentering({
         {/* Line settings: halo · auto colour · swatches (remembered on this device) */}
         {showLineSettings && (
           <div style={{ padding: '6px 12px 8px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #0d0f13', flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: mono, fontSize: 8, color: '#666', textTransform: 'uppercase' }}>{step === 1 ? 'Card line' : 'Art line'}</span>
+            <span style={{ fontFamily: mono, fontSize: 11, color: '#666', textTransform: 'uppercase' }}>{step === 1 ? 'Card line' : 'Art line'}</span>
             {[['halo', 'Halo'], ['auto', 'Auto color']].map(([key, label]) => (
               <button key={key} type="button" onClick={() => updateLineStyle({ [key]: !lineStyle[key] })} aria-pressed={lineStyle[key]}
-                style={{ padding: '5px 9px', borderRadius: 6, border: `1px solid ${lineStyle[key] ? '#00ff88' : '#2a2d35'}`, background: lineStyle[key] ? '#00ff8822' : '#1a1c22', color: lineStyle[key] ? '#00ff88' : '#777', fontFamily: mono, fontSize: 9, cursor: 'pointer' }}>
+                style={{ padding: '5px 9px', borderRadius: 6, border: `1px solid ${lineStyle[key] ? '#00ff88' : '#2a2d35'}`, background: lineStyle[key] ? '#00ff8822' : '#1a1c22', color: lineStyle[key] ? '#00ff88' : '#777', fontFamily: mono, fontSize: 11, cursor: 'pointer' }}>
                 {lineStyle[key] ? '● ' : '○ '}{label}
               </button>
             ))}
@@ -1021,7 +1021,7 @@ export function PostCaptureCentering({
                 );
               })}
             </div>
-            {lineStyle.auto && <span style={{ fontFamily: mono, fontSize: 8, color: '#666' }}>picked from the card: <span style={{ color: step === 1 ? outerColor : innerColor }}>■</span></span>}
+            {lineStyle.auto && <span style={{ fontFamily: mono, fontSize: 11, color: '#666' }}>picked from the card: <span style={{ color: step === 1 ? outerColor : innerColor }}>■</span></span>}
           </div>
         )}
 
@@ -1029,15 +1029,15 @@ export function PostCaptureCentering({
         <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #0d0f13', flexWrap: 'wrap' }}>
           {[['original', 'Original'], ['emboss', 'Emboss'], ['highpass', 'Hi-pass'], ['edges', 'Edge']].map(([id, label]) => (
             <button key={id} type="button" onClick={() => setViewMode(id)}
-              style={{ flex: 1, minWidth: 60, padding: '6px 0', borderRadius: 6, border: `1px solid ${viewMode === id ? '#00ff88' : '#2a2d35'}`, background: viewMode === id ? '#00ff8822' : '#1a1c22', color: viewMode === id ? '#00ff88' : '#777', fontFamily: mono, fontSize: 9, cursor: 'pointer' }}>
+              style={{ flex: 1, minWidth: 60, padding: '6px 0', borderRadius: 6, border: `1px solid ${viewMode === id ? '#00ff88' : '#2a2d35'}`, background: viewMode === id ? '#00ff8822' : '#1a1c22', color: viewMode === id ? '#00ff88' : '#777', fontFamily: mono, fontSize: 11, cursor: 'pointer' }}>
               {label}
             </button>
           ))}
           {viewMode !== 'original' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', paddingTop: 4 }}>
-              <span style={{ fontFamily: mono, fontSize: 8, color: '#666', textTransform: 'uppercase' }}>{mapsBusy && !activeMap ? 'Building view…' : 'Intensity'}</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: '#666', textTransform: 'uppercase' }}>{mapsBusy && !activeMap ? 'Building view…' : 'Intensity'}</span>
               <input type="range" min={0} max={100} value={viewIntensity} onChange={e => setViewIntensity(Number(e.target.value))} style={{ flex: 1 }} aria-label="View intensity" />
-              <span style={{ fontFamily: mono, fontSize: 9, color: '#00ff88', minWidth: 30, textAlign: 'right' }}>{viewIntensity}%</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: '#00ff88', minWidth: 30, textAlign: 'right' }}>{viewIntensity}%</span>
             </div>
           )}
         </div>

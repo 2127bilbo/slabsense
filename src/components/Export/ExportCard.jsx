@@ -11,6 +11,7 @@ export function ExportCard({ gradeResult, frontImage, backImage, gradingCompany,
   const cardRef = useRef(null);
   const [exporting, setExporting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [exportError, setExportError] = useState(null);
 
   const gr = gradeResult;
   if (!gr) return null;
@@ -54,7 +55,7 @@ export function ExportCard({ gradeResult, frontImage, backImage, gradingCompany,
       link.click();
     } catch (err) {
       console.error('Export failed:', err);
-      alert('Export failed. Try again.');
+      setExportError('Export failed. Try again.');
     } finally {
       setExporting(false);
     }
@@ -118,6 +119,10 @@ slabsenseai.com`;
       >
         ×
       </button>
+
+      {exportError && (
+        <div role="alert" style={{ marginBottom: 12, padding: '10px 12px', background: '#2a1215', border: '1px solid #ff4444', borderRadius: 10, color: '#ffb3b3', fontFamily: mono, fontSize: 12, maxWidth: 340, width: '100%' }}>{exportError}</div>
+      )}
 
       {/* Exportable Card */}
       <div
@@ -222,7 +227,7 @@ slabsenseai.com`;
               borderRadius: 6,
               textAlign: 'center',
             }}>
-              <div style={{ fontFamily: mono, fontSize: 7, color: '#555', marginBottom: 3, textTransform: 'uppercase' }}>
+              <div style={{ fontFamily: mono, fontSize: 11, color: '#555', marginBottom: 3, textTransform: 'uppercase' }}>
                 {sg.label}
               </div>
               <div style={{
@@ -241,7 +246,7 @@ slabsenseai.com`;
         <div style={{
           textAlign: 'center',
           fontFamily: mono,
-          fontSize: 9,
+          fontSize: 11,
           color: '#333',
           paddingTop: 8,
           borderTop: '1px solid #1a1c22',

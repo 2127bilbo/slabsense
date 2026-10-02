@@ -120,7 +120,7 @@ export function Loupe({ src, imgW, imgH, point, anchorScreen, visible, stageCssP
       onPointerCancel={() => { drag.current = null; }}
     >
       <canvas ref={canvasRef} style={{ width: size, height: size, display: 'block' }} />
-      <div style={{ position: 'absolute', right: 6, top: 4, fontFamily: mono, fontSize: 9, color: '#ddd', background: 'rgba(0,0,0,0.55)', padding: '2px 5px', borderRadius: 6, pointerEvents: 'none' }}>
+      <div style={{ position: 'absolute', right: 6, top: 4, fontFamily: mono, fontSize: 11, color: '#ddd', background: 'rgba(0,0,0,0.55)', padding: '2px 5px', borderRadius: 6, pointerEvents: 'none' }}>
         {magLabel}
       </div>
     </div>

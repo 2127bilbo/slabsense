@@ -75,7 +75,7 @@ export default function DefectMap({
                 border: `1px solid ${side === s ? '#00ff8833' : '#1a1c22'}`,
                 color: side === s ? '#00ff88' : '#555',
                 fontFamily: mono,
-                fontSize: 9,
+                fontSize: 11,
                 textTransform: 'uppercase',
                 cursor: 'pointer'
               }}

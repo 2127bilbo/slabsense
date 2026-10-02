@@ -67,7 +67,7 @@ function CenteringBox({ label, lrRatio, tbRatio, isManual = false }) {
   const color = isManual ? '#ff9944' : '#00ff88';
   return (
     <div style={{ padding: '8px 10px', background: '#0a0b0e', borderRadius: 6 }}>
-      <div style={{ fontFamily: mono, fontSize: 9, color: '#666', marginBottom: 4 }}>
+      <div style={{ fontFamily: mono, fontSize: 11, color: '#666', marginBottom: 4 }}>
         {label} {isManual && '(Manual)'}
       </div>
       <div style={{ fontFamily: mono, fontSize: 11, color }}>{formatCenteringRatio(lrRatio)} L/R</div>
@@ -90,7 +90,7 @@ function ConditionBox({ label, value, maxValue = 10 }) {
       background: '#0a0b0e',
       borderRadius: 6,
     }}>
-      <span style={{ fontFamily: mono, fontSize: 9, color: '#666' }}>{label}</span>
+      <span style={{ fontFamily: mono, fontSize: 11, color: '#666' }}>{label}</span>
       <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 600, color }}>
         {value}{maxValue === 10 ? '/10' : ''}
       </span>
@@ -163,7 +163,7 @@ export function GradeResultDisplay({
                 bottom: 4,
                 left: 4,
                 fontFamily: mono,
-                fontSize: 8,
+                fontSize: 11,
                 color: '#555',
                 background: 'rgba(0,0,0,0.7)',
                 padding: '2px 6px',
@@ -190,7 +190,7 @@ export function GradeResultDisplay({
                 bottom: 4,
                 right: 4,
                 fontFamily: mono,
-                fontSize: 8,
+                fontSize: 11,
                 color: '#555',
                 background: 'rgba(0,0,0,0.7)',
                 padding: '2px 6px',
@@ -218,7 +218,7 @@ export function GradeResultDisplay({
             <div style={{ fontFamily: mono, fontSize: compact ? 24 : 32, fontWeight: 800, color: '#888' }}>
               {rawScore}
             </div>
-            <div style={{ fontFamily: mono, fontSize: 9, color: '#555' }}>/ 1000</div>
+            <div style={{ fontFamily: mono, fontSize: 11, color: '#555' }}>/ 1000</div>
           </div>
         )}
 
@@ -264,7 +264,7 @@ export function GradeResultDisplay({
           <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: style.color }}>
             {company?.toUpperCase() || 'TAG'}
           </div>
-          <div style={{ fontFamily: mono, fontSize: 8, color: style.color, opacity: 0.8, marginTop: 2 }}>
+          <div style={{ fontFamily: mono, fontSize: 11, color: style.color, opacity: 0.8, marginTop: 2 }}>
             {style.badge}
           </div>
         </div>
@@ -389,7 +389,7 @@ export function GradeResultDisplay({
           </div>
           {condition.defects?.length > 0 && (
             <div style={{ marginTop: 10 }}>
-              <div style={{ fontFamily: mono, fontSize: 9, color: '#ff9944', marginBottom: 4 }}>
+              <div style={{ fontFamily: mono, fontSize: 11, color: '#ff9944', marginBottom: 4 }}>
                 DEFECTS
               </div>
               {condition.defects.map((d, i) => {
@@ -418,7 +418,7 @@ export function GradeResultDisplay({
             <div style={{ marginBottom: summary.concerns?.length > 0 ? 12 : 0 }}>
               <div style={{
                 fontFamily: mono,
-                fontSize: 9,
+                fontSize: 11,
                 color: '#00ff88',
                 marginBottom: 6,
               }}>
@@ -435,7 +435,7 @@ export function GradeResultDisplay({
             <div>
               <div style={{
                 fontFamily: mono,
-                fontSize: 9,
+                fontSize: 11,
                 color: '#ff9944',
                 marginBottom: 6,
               }}>
@@ -461,7 +461,7 @@ export function GradeResultDisplay({
         }}>
           <div style={{
             fontFamily: mono,
-            fontSize: 9,
+            fontSize: 11,
             color: style.color,
             marginBottom: 4,
           }}>
@@ -481,7 +481,7 @@ export function GradeResultDisplay({
           borderRadius: 8,
           border: '1px solid #1a1c2233',
         }}>
-          <div style={{ fontFamily: mono, fontSize: 9, color: '#555', marginBottom: 4 }}>
+          <div style={{ fontFamily: mono, fontSize: 11, color: '#555', marginBottom: 4 }}>
             CARD INFO
           </div>
           <div style={{ fontFamily: sans, fontSize: 12, color: '#888' }}>

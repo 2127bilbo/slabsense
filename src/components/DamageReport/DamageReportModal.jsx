@@ -148,7 +148,7 @@ export default function DamageReportModal({
           <div style={{ textAlign: 'center', padding: 16 }}>
             <div style={{
               fontFamily: mono,
-              fontSize: 9,
+              fontSize: 11,
               color: '#555',
               textTransform: 'uppercase',
               letterSpacing: '0.12em',
@@ -190,7 +190,7 @@ export default function DamageReportModal({
                     border: `1px solid ${viewSide === s ? '#00ff8833' : '#1a1c22'}`,
                     color: viewSide === s ? '#00ff88' : '#555',
                     fontFamily: mono,
-                    fontSize: 9,
+                    fontSize: 11,
                     textTransform: 'uppercase',
                     cursor: 'pointer'
                   }}
@@ -234,7 +234,7 @@ export default function DamageReportModal({
                   border: `1px solid ${showBoxes ? 'rgba(255, 102, 51, 0.3)' : '#1a1c22'}`,
                   color: showBoxes ? '#ff9944' : '#555',
                   fontFamily: mono,
-                  fontSize: 9,
+                  fontSize: 11,
                   cursor: 'pointer'
                 }}
               >
@@ -345,7 +345,7 @@ function DetailGrid({ frontResult, backResult, dataKey }) {
         <div key={label}>
           <div style={{
             fontFamily: mono,
-            fontSize: 8,
+            fontSize: 11,
             color: '#666',
             marginBottom: 6
           }}>
@@ -368,14 +368,14 @@ function DetailGrid({ frontResult, backResult, dataKey }) {
               >
                 <div style={{
                   fontFamily: mono,
-                  fontSize: 9,
+                  fontSize: 11,
                   color: item.hasDing ? '#ff9944' : '#777'
                 }}>
                   {item.name}
                 </div>
                 <div style={{
                   fontFamily: mono,
-                  fontSize: 8,
+                  fontSize: 11,
                   color: '#555'
                 }}>
                   F:{item.fray || '—'} W:{item.whiteRatio || '—'}%
