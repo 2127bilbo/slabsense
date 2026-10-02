@@ -128,32 +128,52 @@ export function onAuthStateChange(callback) {
 }
 
 /**
- * Delete user account and all associated data
- * Note: This deletes the profile (which cascades to scans via FK),
- * but the auth.users entry requires admin/service role to delete.
- * For now, we just delete user data and sign them out.
+ * Delete the account completely, server-side (api/account.js, service role): stored images,
+ * scans, credits, jobs, the profile, the Stripe customer and the auth user. Slab orders keep
+ * their cert record with the person detached. Apple 5.1.1(v): in-app deletion is complete.
  */
-export async function deleteAccount(userId) {
-  if (!isSupabaseConfigured()) {
-    throw new Error('Authentication not configured');
-  }
+export async function deleteAccount() {
+  if (!isSupabaseConfigured()) throw new Error('Authentication not configured');
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not signed in');
+  const res = await fetch('/api/account', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ action: 'delete', confirm: 'DELETE' }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || data.error || `Delete failed (${res.status})`);
+  await supabase.auth.signOut().catch(() => {});
+  return data.report;
+}
 
-  // Delete all user scans first
-  const { error: scansError } = await supabase
-    .from('scans')
-    .delete()
-    .eq('user_id', userId);
+/** Download everything we hold for the signed-in user as JSON (privacy policy "Export"). */
+export async function exportAccountData() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not signed in');
+  const res = await fetch('/api/account', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ action: 'export' }),
+  });
+  if (!res.ok) throw new Error(`Export failed (${res.status})`);
+  return res.json();
+}
 
-  if (scansError) throw scansError;
+/** Email a password-reset link; the app handles the PASSWORD_RECOVERY event on return. */
+export async function requestPasswordReset(email) {
+  if (!isSupabaseConfigured()) throw new Error('Authentication not configured');
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/?recovery=1` });
+  if (error) throw error;
+}
 
-  // Delete profile (this should cascade, but being explicit)
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .delete()
-    .eq('id', userId);
+export async function updatePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
 
-  if (profileError) throw profileError;
-
-  // Sign out the user
-  await supabase.auth.signOut();
+/** Supabase sends a confirmation to the new address; the change applies after the click. */
+export async function updateEmail(newEmail) {
+  const { error } = await supabase.auth.updateUser({ email: newEmail });
+  if (error) throw error;
 }

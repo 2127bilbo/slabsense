@@ -244,6 +244,21 @@ export async function deleteScan(scanId) {
     .eq('id', scanId);
 
   if (error) throw error;
+
+  // The stored images (enhanced sides, user crop, training originals) live under
+  // <userId>/<scanId>/ in the card-images bucket; nothing removed them before (audit F-05).
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await fetch('/api/account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ action: 'purge-scan', scanId }),
+      });
+    }
+  } catch (e) {
+    console.warn('[scans] image purge skipped:', e?.message || e);
+  }
 }
 
 /**
