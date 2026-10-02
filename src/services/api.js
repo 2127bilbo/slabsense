@@ -267,6 +267,28 @@ export async function claudeGradingAnalysis(
  * Upload image to Supabase for Deep AI analysis
  * Returns public URL that Claude can fetch directly
  */
+/**
+ * Native-resolution tiles of a card crop for the tiled surface pass (api/_lib/surfacePass.js):
+ * a 2 x 3 grid, each tile at most `maxPx` on its long side (Anthropic's cap), as JPEG data URLs.
+ * Cut from the full-resolution crop, never from the 2,000 px upload copy.
+ */
+export async function cutSurfaceTiles(cropDataUrl, { cols = 2, rows = 3, maxPx = 1568, quality = 0.9 } = {}) {
+  const img = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error('tile source failed to load')); i.src = cropDataUrl; });
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+  const tw = Math.ceil(W / cols), th = Math.ceil(H / rows);
+  const out = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const sx = c * tw, sy = r * th, sw = Math.min(tw, W - sx), sh = Math.min(th, H - sy);
+    const sc = Math.min(1, maxPx / Math.max(sw, sh));
+    const canvas = document.createElement('canvas'); canvas.width = Math.round(sw * sc); canvas.height = Math.round(sh * sc);
+    const ctx = canvas.getContext('2d'); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    out.push(canvas.toDataURL('image/jpeg', quality));
+  }
+  img.src = '';
+  return out;
+}
+
 async function uploadImageForDeepAnalysis(dataUrl, side, userId) {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase not configured - required for Deep AI Grade');
@@ -957,23 +979,29 @@ export async function deepGradingAnalysisV2(
   try {
     // Step 1: Upload all images to Supabase to get public URLs
     console.log('[Deep AI V2] Uploading images to storage...');
-    const [frontOriginalUrl, backOriginalUrl, frontCroppedUrl, backCroppedUrl] = await Promise.all([
-      uploadImageForDeepAnalysis(frontOriginal, 'front-original', userId),
-      uploadImageForDeepAnalysis(backOriginal, 'back-original', userId),
+    // Tiled surface pass: six native-resolution tiles per side from the crops (surfacePass.js).
+    // The uncropped originals are no longer sent: the crop plus the tiles is everything the
+    // inspection needs, and the background was the one thing the originals added (audit F-09).
+    const [frontTiles, backTiles] = await Promise.all([cutSurfaceTiles(frontCropped), cutSurfaceTiles(backCropped)]);
+    const uploadTiles = (list, side) => Promise.all(list.map((t, i) => uploadImageForDeepAnalysis(t, `${side}-tile${i + 1}`, userId)));
+    const [frontCroppedUrl, backCroppedUrl, frontTileUrls, backTileUrls] = await Promise.all([
       uploadImageForDeepAnalysis(frontCropped, 'front-cropped', userId),
       uploadImageForDeepAnalysis(backCropped, 'back-cropped', userId),
+      uploadTiles(frontTiles, 'front'),
+      uploadTiles(backTiles, 'back'),
     ]);
+    const frontOriginalUrl = null, backOriginalUrl = null; // not uploaded any more
 
     console.log('[Deep AI V2] Images uploaded, starting two-pass analysis...');
 
     // Step 2: Call our deep-analyze-v2 endpoint (multi-provider aware)
     const requestBody = {
-      frontOriginalUrl,
-      backOriginalUrl,
       frontCroppedUrl,
       backCroppedUrl,
       frontUrl: frontCroppedUrl,
       backUrl: backCroppedUrl,
+      frontTileUrls,
+      backTileUrls,
       cardGame,
       cardType,
       jobId,

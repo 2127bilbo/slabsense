@@ -32,6 +32,7 @@ const { callClaude } = await import('../../api/_providers/anthropic.js');
 const { DETECTION_SYSTEM, buildDetectionPrompt, parseDetection, sanitizeDefects, mergeStructural, assembleUnifiedOutput } = await import('../../api/_lib/detectionPrompt.js');
 const { gradeCard } = await import('../../src/lib/gradingEngine.js');
 const { parseCornerEdgeInput } = await import('../../api/_lib/cornerEdgeInput.js');
+const { buildSurfacePassPrompt, surfaceDefectsFromTiles, mergeSurfacePass } = await import('../../api/_lib/surfacePass.js');
 const { createClient } = await import('@supabase/supabase-js');
 
 const args = process.argv.slice(2);
@@ -108,12 +109,6 @@ function sideTiles(file, cols = 2, rows = 3, maxPx = 1568) {
   }
   return tiles;
 }
-const SURFACE_PASS_PROMPT = (side, tiles) => `You are inspecting the ${side} of ONE trading card for SURFACE defects only. You are given ${tiles.length} close-up tiles that together cover the whole ${side}, in reading order (row by row from the top-left): ${tiles.map((t, i) => `tile ${i + 1} = row ${t.row + 1} col ${t.col + 1}`).join(', ')}. Each tile is a magnified crop of the same physical card, not a different card.
-
-Look for: scratches, scuffs and whitened lines in the ink, creases or bends (a line where the paper has folded), dents, pits (tiny holes in the gloss), print lines (fine straight lines of lighter ink from the press), print defects (ink spots, missing ink), stains and residue, and play wear (dull or whitened areas from handling, usually near the edges and corners). Ignore the orange background outside the card and the card's own rounded corners. Holographic foil pattern, printed texture and halftone dots are NOT defects. If a mark looks like a glare highlight, say so and do not list it.
-
-Report ONLY surface defects you can actually see. Give each one as JSON with: "side" ("${side.toUpperCase()}"), "type" (one of SCRATCH, CREASE, DENT, PIT, PRINT_DEFECT, STAIN, PLAY_WEAR, TEAR), "severity" (minor | moderate | severe | extreme), "tile" (the tile number it is in), "x","y","width","height" as fractions 0-1 of that TILE, "description" (one sentence). Write one short paragraph of what you see first, then the JSON object: {"defects": [...]}. If there are none, return {"defects": []}.`;
-
 function slotTable(cert) {
   const p = preds.cards[cert];
   const side = (s) => ({ corners: s.corners.map((x) => ({ key: x.key, wear: x.wear, deduction: x.deduction, angle: x.angle })), edges: s.edges.map((x) => ({ key: x.key, wear: x.wear, deduction: x.deduction })) });
@@ -183,19 +178,14 @@ async function runCard(cert) {
     for (const side of ['front', 'back']) {
       if (surfacePass[side]) continue;
       const tiles = sideTiles(path.join(PHOTOS, side === 'front' ? 'Front' : 'Back', side === 'front' ? g.images.front : g.images.back));
-      const r = await callClaude({ systemPrompt: DETECTION_SYSTEM, userPrompt: SURFACE_PASS_PROMPT(side, tiles), images: tiles.map((t) => t.b64), maxTokens: 2500, temperature: 0.1, ...(MODEL ? { model: MODEL } : {}) });
+      const r = await callClaude({ systemPrompt: DETECTION_SYSTEM, userPrompt: buildSurfacePassPrompt(side, tiles.length), images: tiles.map((t) => t.b64), maxTokens: 2500, temperature: 0.1, ...(MODEL ? { model: MODEL } : {}) });
       if (!r.success) throw new Error(`surface pass ${side}: ` + r.error);
       const parsed = parseDetection(r.text) || { defects: [] };
-      // tile-relative boxes -> card fractions, then the engine's percent-of-card shape
-      const defects = (parsed.defects || []).map((d) => {
-        const t = tiles[(Number(d.tile) || 1) - 1] || tiles[0];
-        const cx = t.x + (Number(d.x) || 0.5) * t.w, cy = t.y + (Number(d.y) || 0.5) * t.h;
-        return { side: side.toUpperCase(), type: d.type, severity: d.severity, location: d.location || null, x: Math.round(cx * 100), y: Math.round(cy * 100), width: Math.round((Number(d.width) || 0.05) * t.w * 100), height: Math.round((Number(d.height) || 0.05) * t.h * 100), description: d.description };
-      });
+      const defects = surfaceDefectsFromTiles(parsed.defects || [], side, tiles.length); // same mapping as production
       surfacePass[side] = { text: r.text, usage: r.usage || null, defects };
     }
     const surfaceDefects = sanitizeDefects([...surfacePass.front.defects, ...surfacePass.back.defects]);
-    pass1Defects = [...pass1Defects.filter((d) => ['CORNER', 'EDGE'].includes(d.type)), ...surfaceDefects];
+    pass1Defects = mergeSurfacePass(pass1Defects, surfaceDefects);
   }
   const est = gradeCard({ defects: pass1Defects, centering }).overall.grade;
   const references = await getReferences(est, cardType);

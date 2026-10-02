@@ -32,6 +32,7 @@ import {
   mergeStructural,
 } from './_lib/detectionPrompt.js';
 import { parseCornerEdgeInput } from './_lib/cornerEdgeInput.js';
+import { buildSurfacePassPrompt, surfaceDefectsFromTiles, mergeSurfacePass, MAX_TILES_PER_SIDE } from './_lib/surfacePass.js';
 import { gradeCard } from '../src/lib/gradingEngine.js';
 import { requireUser, AuthError, sendAuthError } from './_lib/auth.js';
 import { runGradeJob, captureHandler } from './_lib/gradeJobs.js';
@@ -159,6 +160,9 @@ async function analyzeHandler(req, res) {
     backCroppedUrl,
     frontUrl,
     backUrl,
+    // Tiled surface pass (api/_lib/surfacePass.js): native-resolution tiles of each side, cut by the client
+    frontTileUrls,
+    backTileUrls,
     cardGame = 'pokemon',
     cardType = 'modern_holo',
     // Software-calculated centering (REQUIRED)
@@ -209,10 +213,15 @@ async function analyzeHandler(req, res) {
   if (!has4Images && !hasLegacy) {
     return res.status(400).json({ error: 'Missing image URLs' });
   }
-  const imageUrls = has4Images
+  const tileList = (v) => (Array.isArray(v) ? v.filter((u) => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, MAX_TILES_PER_SIDE) : []);
+  const tiles = { front: tileList(frontTileUrls), back: tileList(backTileUrls) };
+  const hasTiles = tiles.front.length >= 2 && tiles.back.length >= 2;
+  // With tiles, the whole-card passes only need the card crops: the uncropped originals add
+  // background and nothing the surface pass does not cover (audit F-09).
+  const imageUrls = has4Images && !hasTiles
     ? [frontOriginalUrl, backOriginalUrl, frontCroppedUrl, backCroppedUrl]
-    : [frontUrl, backUrl];
-  const imageLayout = has4Images
+    : [frontCroppedUrl || frontUrl, backCroppedUrl || backUrl];
+  const imageLayout = has4Images && !hasTiles
     ? '- IMAGE 1: FRONT (full) · IMAGE 2: BACK (full) · IMAGE 3: FRONT (cropped to card) · IMAGE 4: BACK (cropped to card)'
     : '- IMAGE 1: Card FRONT · IMAGE 2: Card BACK';
 
@@ -230,13 +239,31 @@ async function analyzeHandler(req, res) {
     // ========================================================================
     console.log('[DeepAnalyzeV3] Pass 1: defect detection...');
 
-    const pass1Result = await callProvider(primaryProvider, {
-      systemPrompt: DETECTION_SYSTEM,
-      userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout, cornerEdge }),
-      images: imageUrls,
-      maxTokens: 3000, // the prompt asks for a full prose inspection before the JSON; 1500 truncated it
-      temperature: 0.1,
-    });
+    // Pass 1 and the two tiled surface passes are independent: run them together.
+    const surfacePassFor = async (side) => {
+      const list = tiles[side];
+      const r = await callProvider(primaryProvider, {
+        systemPrompt: DETECTION_SYSTEM,
+        userPrompt: buildSurfacePassPrompt(side, list.length),
+        images: list,
+        maxTokens: 2500,
+        temperature: 0.1,
+      });
+      if (!r.success) { console.warn(`[DeepAnalyzeV3] surface pass ${side} failed:`, r.error); return { defects: [], failed: true }; }
+      const parsed = parseDetection(r.text);
+      return { defects: surfaceDefectsFromTiles(parsed?.defects || [], side, list.length), failed: !parsed };
+    };
+    const [pass1Result, surfaceFront, surfaceBack] = await Promise.all([
+      callProvider(primaryProvider, {
+        systemPrompt: DETECTION_SYSTEM,
+        userPrompt: buildDetectionPrompt({ cardType, centering, imageLayout, cornerEdge }),
+        images: imageUrls,
+        maxTokens: 3000, // the prompt asks for a full prose inspection before the JSON; 1500 truncated it
+        temperature: 0.1,
+      }),
+      hasTiles ? surfacePassFor('front') : Promise.resolve(null),
+      hasTiles ? surfacePassFor('back') : Promise.resolve(null),
+    ]);
 
     if (!pass1Result.success) {
       console.error('[DeepAnalyzeV3] Pass 1 failed:', pass1Result.error);
@@ -254,8 +281,15 @@ async function analyzeHandler(req, res) {
     // DEBUG: Log AI defects immediately after parsing Pass 1
     console.log('[DeepAnalyzeV3] Pass 1 AI defects:', JSON.stringify(pass1Detection.defects, null, 2));
 
-    // DETERMINISTIC estimated grade: engine on Pass 1 defects (no AI guessing)
-    const pass1Defects = sanitizeDefects(pass1Detection.defects);
+    // DETERMINISTIC estimated grade: engine on Pass 1 defects (no AI guessing).
+    // With tiles, the surface findings come from the magnified passes; pass 1 keeps corners/edges.
+    let pass1Defects = sanitizeDefects(pass1Detection.defects);
+    const surfacePass = hasTiles ? { front: surfaceFront, back: surfaceBack } : null;
+    if (surfacePass) {
+      const tiled = sanitizeDefects([...surfacePass.front.defects, ...surfacePass.back.defects]);
+      pass1Defects = mergeSurfacePass(pass1Defects, tiled);
+      console.log('[DeepAnalyzeV3] Tiled surface pass:', { front: surfacePass.front.defects.length, back: surfacePass.back.defects.length, failed: surfacePass.front.failed || surfacePass.back.failed });
+    }
     const pass1Engine = gradeCard({ defects: pass1Defects, centering });
     const estimatedGrade = pass1Engine.overall.grade;
 
@@ -438,7 +472,8 @@ ${JSON.stringify(det2 ? { imageQuality: det2.imageQuality, defects: sanitizeDefe
         referencesUsed: references.length,
         referenceGrades: references.map((r) => r.grade),
         elapsedMs: elapsed,
-        imageMode: has4Images ? '4-image' : '2-image',
+        imageMode: hasTiles ? '2-image+tiles' : has4Images ? '4-image' : '2-image',
+        surfacePass: surfacePass ? { front: surfacePass.front.defects.length, back: surfacePass.back.defects.length, tiles: tiles.front.length + tiles.back.length, failed: Boolean(surfacePass.front.failed || surfacePass.back.failed) } : null,
         cardGame,
         cardType,
       },

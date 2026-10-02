@@ -293,8 +293,12 @@ Verdict: magnification is the lever, not more views of the same pixels. The tile
 damaged-card misses, which are the lenient middle of the batch, and leaves the subtle marks TAG's
 scanner catches (edge silvering, small dents, faint print lines) untouched; those remain the rig
 surface model's job. It roughly doubles the provider cost of a grade and is still well inside the
-price. Production needs the client to send native-resolution tiles (the 2,000 px upload cannot be
-tiled usefully); see fix group 3b task 8b.
+price. **In production since 2026-10-02** (owner's call: accuracy first): the client cuts six tiles per
+side from its full-resolution crop (`cutSurfaceTiles` in `src/services/api.js`), uploads them beside the
+two crops, and `api/deep-analyze-v2.js` runs the surface pass per side in parallel with pass 1
+(`api/_lib/surfacePass.js`: prompt, tile-to-card mapping, merge; tested). The uncropped originals are
+no longer sent (audit F-09). `meta.imageMode` is `2-image+tiles` and `meta.surfacePass` reports counts;
+without tiles the endpoint behaves as before.
 
 
 ## 2. TAG baseline (the engine's native scale)
