@@ -2046,6 +2046,7 @@ export default function SlabSense(){
         side={showPostCaptureCentering}
         onConfirm={(result) => handleCenteringConfirm(showPostCaptureCentering, result)}
         onSkip={() => handleCenteringSkip(showPostCaptureCentering)}
+        onCancel={() => setShowPostCaptureCentering(null)}   // keeps the photo, drops no data; the Center tab can reopen it (audit I-16)
         suggestOuter={modelGradingEnabled() ? suggestOuterCorners : null}
         suggestInner={modelGradingEnabled() ? suggestInnerCorners : null}
       />
@@ -3029,6 +3030,5 @@ export default function SlabSense(){
     )}
 
     <div style={{padding:"10px 16px",borderTop:"1px solid #1a1c22",textAlign:"center"}}><div style={{fontFamily:mono,fontSize:11,color:"#666",textTransform:"uppercase",letterSpacing:".12em",paddingBottom:"env(safe-area-inset-bottom)"}}>Pre-grade estimate · Not affiliated with any grading company</div></div>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   </div>);
 }

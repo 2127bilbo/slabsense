@@ -14,6 +14,7 @@ const sans = "'Inter',-apple-system,sans-serif";
 
 export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSignOut }) {
   const [modelGrading, setModelGradingState] = useState(modelGradingEnabled());
+  const [armModels, setArmModels] = useState(false); // first tap explains the download, second tap turns the models on (audit I-24)
   const [modelCrash, setModelCrash] = useState(modelPassCrashed());
   const [keepOriginals, setKeepOriginalsState] = useState(trainingCaptureEnabled());
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
@@ -284,7 +285,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
             <button
               id="settings-models-toggle"
               type="button"
-              onClick={() => { const next = !modelGrading; setModelGrading(next); setModelGradingState(next); if (next) { clearModelPassCrash(); setModelCrash(null); } }}
+              onClick={() => { const next = !modelGrading; if (next && !armModels) { setArmModels(true); return; } setArmModels(false); setModelGrading(next); setModelGradingState(next); if (next) { clearModelPassCrash(); setModelCrash(null); } }}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -311,7 +312,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
                 borderRadius: 4,
                 padding: '2px 8px',
               }}>
-                {modelGrading ? 'ON' : 'OFF'}
+                {modelGrading ? 'ON' : armModels ? 'TAP AGAIN' : 'OFF'}
               </span>
             </button>
             <div style={{
@@ -320,7 +321,7 @@ export function ProfileSettings({ user, profile, onClose, onProfileUpdate, onSig
               color: '#444',
               marginTop: 6,
             }}>
-              Finds corner and edge wear with models trained on photos of professionally graded cards instead of the pixel
+              {armModels && !modelGrading ? 'About 110 MB downloads the first time and is kept on this phone. Best on Wi-Fi. Tap the switch again to turn the models on. ' : ''}Finds corner and edge wear with models trained on photos of professionally graded cards instead of the pixel
               detectors. Downloads about 110 MB the first time, then works offline. Slower on
               phones without WebGPU.
             </div>
