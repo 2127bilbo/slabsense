@@ -223,12 +223,18 @@ guideline", and the repo facts in `docs/STATUS.md`.
   camera plugin for capture (48 MP where available, RAW optional), file handling, deep links for
   cert pages, splash and icons, Core ML export of the four models (optional for v1; WebGPU/WASM
   path remains the fallback), offline states (Review Focus 3), no-card path (Review Focus 4).
-- [ ] **3g UI for iOS.** The screen changes from audit section I: safe areas, Dynamic Type, dark
-  mode, VoiceOver labels, pricing screens rebuilt for IAP, onboarding that explains the estimate
-  nature of the grade, the single-tier flow if D1 says one.
-- [ ] **3h Metadata and assets.** App Store listing copy, screenshots per device size, privacy
-  labels filled from audit F, review notes with the demo account and a sample card, support and
-  marketing pages, age rating.
+- [ ] **3g UI for iOS** — part 1 DONE 2026-10-02 (commit after 3daf5e3): safe-area insets on
+  the sticky header and tab bar, `color-scheme: dark`, analysis-failure Try again (I-07), credit
+  shortfall explained on the store screen (I-13), first-run notice with legal links (I-25),
+  aria-labels on every icon button (I-06), company slab look-alikes removed (K-04). REMAINING
+  (needs the native shell or a design pass): Dynamic Type / 11 pt minimum across the 148 small
+  labels (I-09), bottom tab bar (I-15), alert() → in-app banners (I-19), iPad layout (I-08),
+  bundled fonts (I-14), haptics (I-22), model-download gate (I-24), capture-path cancel (I-16).
+- [x] **3h Metadata and assets** — drafts DONE 2026-10-02 in `docs/app-store/listing.md`:
+  product page (name, subtitle, promo, description, keywords, category, URLs), IAP table with the
+  ids from `products.js`, privacy labels, age rating (4+), App Review notes, screenshot plan,
+  owner checklist. `/support` page live from `docs/legal/SUPPORT.md`. OWNER: prices, copyright
+  line, demo account, sample card pair, screenshots (need the native build).
 
 Each plan ends with its own verification: tests green, the relevant Playwright driver green, and
 the audit item ids it closes listed in the commit message.
