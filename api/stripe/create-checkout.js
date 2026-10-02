@@ -7,6 +7,7 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { SLAB_PRICE_KEY, slabSessionParams } from '../_lib/slabs.js';
 import { requireUser, sendAuthError } from '../_lib/auth.js';
+import { sameOriginUrl, clampQuantity } from '../_lib/urlGuard.js';
 
 export const config = {
   api: {
@@ -54,24 +55,23 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, priceKey, quantity = 1, successUrl, cancelUrl, scanId } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID required' });
-    }
+    const { priceKey, scanId } = req.body;
+    // Identity comes from the bearer token, never from the body (audit G-04 / B-06); a body
+    // userId is accepted only when it matches the token, for older clients that still send it.
+    let payer;
+    try { payer = await requireUser({ db: supabase }, req); } catch (e) { return sendAuthError(res, e); }
+    if (req.body.userId && req.body.userId !== payer.id) return res.status(403).json({ error: 'user_mismatch' });
+    const userId = payer.id;
+    // Client-supplied redirect targets are used only on our own origins (open redirect).
+    const successUrl = sameOriginUrl(req.body.successUrl);
+    const cancelUrl = sameOriginUrl(req.body.cancelUrl);
+    const quantity = clampQuantity(req.body.quantity);
 
     if (!priceKey || !PRICES[priceKey]) {
       return res.status(400).json({ error: 'Invalid price key' });
     }
 
     const priceId = PRICES[priceKey];
-
-    // Slab orders must come from the signed-in owner; verify before any side effect.
-    if (priceKey === SLAB_PRICE_KEY) {
-      let payer;
-      try { payer = await requireUser({ db: supabase }, req); } catch (e) { return sendAuthError(res, e); }
-      if (payer.id !== userId) return res.status(403).json({ error: 'user_mismatch' });
-    }
 
     // Get user profile
     const { data: profile, error: profileError } = await supabase

@@ -5,6 +5,8 @@
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { requireUser, sendAuthError } from '../_lib/auth.js';
+import { sameOriginUrl } from '../_lib/urlGuard.js';
 
 export const config = {
   maxDuration: 10,
@@ -32,16 +34,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, returnUrl } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID required' });
-    }
+    // Identity from the bearer token only (audit G-03): the portal exposes invoices and card details.
+    let payer;
+    try { payer = await requireUser({ db: supabase }, req); } catch (e) { return sendAuthError(res, e); }
+    if (req.body?.userId && req.body.userId !== payer.id) return res.status(403).json({ error: 'user_mismatch' });
+    const userId = payer.id;
+    const returnUrl = sameOriginUrl(req.body?.returnUrl);
 
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('stripe_customer_id, email')
+      .select('stripe_customer_id')
       .eq('id', userId)
       .single();
 
