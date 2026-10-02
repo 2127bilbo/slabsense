@@ -1,201 +1,69 @@
-# SlabSense v0.2.0-beta
+# SlabSense
 
-**AI-Powered Multi-Company Card Pre-Grading Tool**
+**Card pre-grading estimates from your phone, and a path to a grading rig.**
 
-Analyze your trading cards against multiple professional grading standards including PSA, BGS, CGC, SGC, and TAG using **Claude AI** for accurate grading.
+SlabSense photographs a trading card, measures centering, corners, edges and surface, and reports an estimated grade on the PSA, BGS, CGC, SGC and TAG scales. The free grade runs on-device; the paid **AI Grade** adds a full surface inspection and a written report.
 
-> **DISCLAIMER**: SlabSense is NOT affiliated with any professional grading company. All grades are estimates only. See [docs/DISCLAIMERS.md](docs/DISCLAIMERS.md) for full details.
+> **Disclaimer.** SlabSense is not affiliated with PSA, BGS/Beckett, CGC, SGC or TAG. Every grade is an estimate, not a professional grade. Full text: `docs/legal/` (rendered at `/disclaimers`, `/terms`, `/privacy`).
 
-## Features
+Live at [slabsenseai.com](https://www.slabsenseai.com). Current state of the project: `docs/STATUS.md`.
 
-### Card Identification (OCR + TCGDex)
-- **Automatic Detection** — Upload a photo, OCR reads the card name
-- **TCGDex Integration** — Free API provides card data + high-quality images
-- **Smart Search** — Matches OCR results to database with scoring
-- **Manual Fallback** — Search by name if OCR fails
-- **Perfect Slab Images** — TCGDex provides borderless card images for 3D view
+## What it does
 
-### AI Grading (Claude Sonnet 4)
-- **Multi-Company Grades** — Get PSA, BGS, SGC, CGC, and TAG grades in ONE API call
-- **Card Recognition** — Automatically extracts name, set, number, rarity, year
-- **Centering Measurement** — L/R and T/B ratios for front and back
-- **Condition Assessment** — Corners, edges, surface scores with defect notes
-- **Detailed Summary** — Positives, concerns, and grading recommendation
-- **Subgrades** — BGS 4 subgrades, TAG 8 subgrades when selected
+- **Capture.** Live viewfinder with an on-device card detector that outlines the card and auto-snaps after a steady lock; or upload photos.
+- **Centering.** One editor for the card edge and the artwork edge; the card and centering models pre-place both lines, the user confirms.
+- **Free grade (on-device).** Corner and edge models (fp16 ONNX from the models bucket), centering from the editor, the grading engine in `src/lib/gradingEngine.js`. The one grading document is `docs/GRADING_SYSTEM.md`.
+- **AI Grade (paid, one credit).** Two Claude passes with TAG-graded reference cards, a structural floor, the slot table from the on-device models, and a tiled native-resolution surface pass per side. Surface severity comes from a regressor trained on TAG deductions, not from the model's guess.
+- **Card identification.** CLIP embedding in the browser against a bucket-served card database (TCGDex ids), re-ranked by OCR of the set number and a pixel match.
+- **Collection.** Saved cards with images, grades per company, 3D view, export card, damage report.
+- **Slabs.** Physical slab orders through Stripe, an engraving studio queue, public cert pages.
+- **Billing.** Three products shared by web and iOS (`src/lib/products.js`): a monthly plan and two packs of AI Grades. Stripe on the web, Apple in-app purchase in the iOS app; one credit ledger (`grant_credits` / `spend_credits` / `revoke_credits`).
 
-### 3D Card View (SAM 2)
-- **Clean Card Cropping** — AI-powered perspective correction
-- **Rotating Slab Preview** — See your card in a realistic slab
-- **Separate from Grading** — Avoids rate limits, user controls timing
+## Stack
 
-### Collection
-- **Visual Card Stack** — Swipe through your collection with actual card images
-- **Full Detail Modal** — Tap any card for complete AI report
-- **Company Switching** — Toggle between grading company views
-- **AI vs Software Toggle** — Compare AI grade to client-side grade
-- **TCGDex Images** — High-quality card art from database
+React 18 + Vite PWA · Vercel serverless API (`api/`, 11 functions) · Supabase (auth, Postgres, storage buckets for images, models and the card DB) · Anthropic Claude for the paid grade · Stripe and Apple StoreKit 2 for purchases · ONNX Runtime Web for the on-device models · PyTorch training pipeline in `training/` fed by the TAG dataset tooling in `scripts/tag-dataset/`.
 
-### Centering Tools
-- **Rotation Controls** — 1° and 0.05° fine-tune adjustments
-- **Manual Border Adjustment** — Drag handles for precise alignment
-- **Confirm Before Score** — No grade until you verify alignment
+## Quick start
 
-## Supported Grading Companies
-
-| Company | Scale | Subgrades | AI Supported |
-|---------|-------|-----------|--------------|
-| TAG | 1000-point → 1-10 | Yes (8) | ✅ |
-| PSA | 1-10 | No | ✅ |
-| BGS | 1-10 | Yes (4) | ✅ |
-| CGC | 1-10 | Yes (4) | ✅ |
-| SGC | 1-10 | No | ✅ |
-
-## Quick Start
-
-### 1. Clone and Install
 ```bash
-git clone https://github.com/yourusername/slabsense.git
-cd slabsense
 npm install
+cp .env.example .env.local      # fill in Supabase at minimum; see the file for every variable
+npm run dev                     # http://localhost:5173
 ```
 
-### 2. Set Environment Variables
-Create `.env.local`:
-```
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-REPLICATE_API_TOKEN=your_replicate_token
-```
+Checks:
 
-### 3. Run Development Server
 ```bash
-npm run dev
-# Opens at http://localhost:5173
+npm run check                   # ESLint (0 errors expected) + the library test suite
+npm run lint
+npm run test:lib
+npx vite build
 ```
 
-### 4. Deploy to Vercel
-```bash
-vercel --prod
-```
+Other scripts (see `package.json`): `cards:update` (weekly card-DB job), `models:upload`, `harness` and `harness:identify` (accuracy harnesses against TAG-graded cards), `storage:cleanup`, `verify:label`.
 
-## Cost Per Card
+Local data that is too big for the repo (TAG photos, the 18 GB reference card images, `card-hashes.json`) lives in `../SlabSense-data`, or wherever `SLABSENSE_DATA_DIR` points.
 
-| Feature | Cost | API |
-|---------|------|-----|
-| Card ID | FREE | TCGDex (browser OCR) |
-| AI Grade | ~$0.03 | Claude Sonnet 4 |
-| 3D View | ~$0.02 | SAM 2 |
-| **Total** | **~$0.05** | |
-
-## Architecture
+## Repository map
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Frontend (React/Vite)                                      │
-│  - Camera capture & viewfinder                              │
-│  - AI grading UI with multi-company display                 │
-│  - Collection card stack                                    │
-│  - Centering with rotation controls                         │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│  API Routes (Vercel Serverless)                             │
-│  - /api/ai-analyze → Claude Sonnet 4 (Replicate)            │
-│  - /api/detect-card → SAM 2 (Replicate)                     │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Database (Supabase)                                        │
-│  - User authentication                                      │
-│  - Scan collection with AI data                             │
-│  - Profiles & memberships                                   │
-└─────────────────────────────────────────────────────────────┘
+src/                 app (App.jsx, components/, lib/ engine + models + tools, services/ API + Supabase)
+api/                 Vercel functions; api/_lib/ shared, tested modules (credits, ledgers, prompts, surface pass)
+supabase/migrations/ schema, RLS and the credit ledger functions
+public/              static pages (studio, slab view), legal pages rendered from docs/legal
+scripts/             card-db job, harnesses, model export/upload, Playwright drivers (verify-*.cjs), TAG dataset tooling
+training/            model training, weights, export manifests (training/MODEL-ROADMAP.md)
+docs/                STATUS.md, GRADING_SYSTEM.md, RIG-PLAN.md, legal/, audits/, superpowers/ (plans, specs, runbooks)
 ```
 
-## Project Structure
+## Where to read next
 
-```
-SlabSense/
-├── src/
-│   ├── components/
-│   │   ├── Auth/              # Login, Register
-│   │   ├── CardIdentifier/    # OCR + TCGDex lookup
-│   │   ├── Collection/        # Card stack view
-│   │   ├── CardViewer/        # 3D slab viewer
-│   │   └── Export/            # Grade card export
-│   ├── services/
-│   │   ├── api.js             # AI grading & SAM functions
-│   │   ├── auth.js            # Supabase auth
-│   │   ├── ocr.js             # Tesseract.js card reading
-│   │   ├── tcgdex.js          # TCGDex API wrapper
-│   │   └── scans.js           # Save/load with AI data
-│   ├── utils/
-│   │   └── gradingScales.js   # Multi-company scales
-│   └── App.jsx                # Main application
-├── api/
-│   ├── ai-analyze.js          # Claude grading endpoint
-│   └── detect-card.js         # SAM cropping endpoint
-├── docs/
-│   └── grading-research/      # Company standards
-├── HANDOFF.md                 # Development state
-└── README.md
-```
-
-## Key Functions
-
-### Card Identification
-```javascript
-import { extractCardInfo } from './services/ocr.js';
-import { smartSearch, getFullCardData } from './services/tcgdex.js';
-
-// 1. OCR extracts card name
-const ocr = await extractCardInfo(cardImage);
-// Returns: { name, confidence, rawText }
-
-// 2. Search TCGDex
-const results = await smartSearch(ocr);
-// Returns: [{ id, name, set, image, matchScore }, ...]
-
-// 3. Get full card data
-const card = await getFullCardData(cardId);
-// Returns: { name, set, rarity, imageHigh, ... }
-```
-
-### AI Grading
-```javascript
-import { claudeGradingAnalysis } from './services/api.js';
-
-const result = await claudeGradingAnalysis(frontImage, backImage, 'pokemon');
-// Returns: { cardInfo, centering, condition, grades, summary }
-```
-
-### 3D Cropping
-```javascript
-import { samCardCropping } from './services/api.js';
-
-const result = await samCardCropping(frontImage, backImage);
-// Returns: { croppedFront, croppedBack }
-```
-
-## Development Status
-
-| Feature | Status |
-|---------|--------|
-| Card Identification (OCR) | ⚠️ Testing |
-| TCGDex Integration | ✅ Complete |
-| Claude AI Grading | ✅ Complete |
-| SAM 2 3D View | ✅ Complete |
-| Collection Card Stack | ✅ Complete |
-| Centering Rotation | ✅ Complete |
-| Multi-Company Display | ✅ Complete |
-| Stripe Payments | 🔄 Planned |
+- `docs/STATUS.md` — what is live, what is open, who owes what
+- `docs/GRADING_SYSTEM.md` — the grading engine, measured accuracy, every company scale with its source
+- `docs/RIG-PLAN.md` — the fixed capture rig that replaces the paid path with our own models
+- `docs/superpowers/plans/2026-10-01-app-store-readiness.md` — the iOS release program and its audit (`docs/audits/`)
+- `docs/superpowers/runbooks/slab-order-setup.md` — deploy, migrations, Stripe prices and go-live, slab studio
 
 ## License
 
-MIT
-
-## Contributing
-
-See [HANDOFF.md](HANDOFF.md) for current development state and next steps.
+Proprietary. All rights reserved. The code, models and grading methodology are owned by SlabSense; see the Terms of Use in `docs/legal/`.

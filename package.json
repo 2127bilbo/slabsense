@@ -1,6 +1,7 @@
 {
   "name": "slabsense",
   "private": true,
+  "license": "UNLICENSED",
   "version": "0.1.0-beta",
   "type": "module",
   "description": "SlabSense - Multi-company card pre-grading analysis tool",
