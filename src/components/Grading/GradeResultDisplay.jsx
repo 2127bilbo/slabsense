@@ -10,7 +10,7 @@ const sans = "'Inter',-apple-system,sans-serif";
 const GRADE_TYPE_STYLES = {
   software: { color: '#00ff88', badge: 'SOFTWARE', borderColor: '#00ff8833' },
   ai: { color: '#8b5cf6', badge: 'AI ESTIMATE', borderColor: '#8b5cf633' },
-  deep: { color: '#f97316', badge: 'DEEP AI', borderColor: '#f9731633' },
+  deep: { color: '#f97316', badge: 'AI ESTIMATE', borderColor: '#f9731633' },
 };
 
 // Get color based on score value

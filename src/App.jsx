@@ -23,7 +23,7 @@ import { CreditBalance, PricingPage } from "./components/Billing";
 import { NativeStore } from "./components/Billing/NativeStore.jsx";
 import { isNativeApp } from "./lib/platform.js";
 import { getGradeJob } from "./services/credits.js";
-import { GRADE_TIERS, creditsLabel } from "./lib/grade-tiers.js";
+import { GRADE_TIERS, creditsLabel, PAID_GRADE_TYPE } from "./lib/grade-tiers.js";
 import { getGyroInput } from "./lib/gyro-input.js";
 import { loadImg, genMaps, LUM, loadImageElement } from "./lib/image-utils.js";
 import { cropToOuterBounds, getBoundsFromCorners } from "./lib/centering-utils.js";
@@ -2334,7 +2334,7 @@ export default function SlabSense(){
     const jobId = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
     setStatus(isDeep ? 'grading' : 'enhancing');
     if (!isDeep) setExtractingInfo(true);
-    setProg(isDeep ? 'Deep analyzing (full-res)...' : 'AI grading card...');
+    setProg(isDeep ? 'AI grading card (two-pass inspection)...' : 'AI grading card...');
     rememberJob({ jobId, cardKey, gradeType, startedAt: Date.now() });
 
     const frontC = softwareCenteringFor('front'), backC = softwareCenteringFor('back');
@@ -2442,7 +2442,7 @@ export default function SlabSense(){
     {/* Auth Modal */}
     {resumeJob && (
       <div style={{position:"fixed",left:12,right:12,bottom:76,zIndex:1050,padding:"10px 12px",background:"#12141a",border:"1px solid #f9731666",borderRadius:10,display:"flex",alignItems:"center",gap:10,boxShadow:"0 6px 24px rgba(0,0,0,.5)"}}>
-        <div style={{flex:1,fontFamily:mono,fontSize:10,color:"#ddd",lineHeight:1.4}}>Your {resumeJob.gradeType==='deep'?'Deep AI':'AI'} grade from earlier is ready.</div>
+        <div style={{flex:1,fontFamily:mono,fontSize:10,color:"#ddd",lineHeight:1.4}}>Your {resumeJob.gradeType==='deep'?'AI':'AI (basic)'} grade from earlier is ready.</div>
         <button onClick={()=>restoreJob(resumeJob)} style={{padding:"7px 10px",borderRadius:6,border:"none",background:"#f97316",color:"#000",fontFamily:mono,fontSize:10,fontWeight:700,cursor:"pointer"}}>Load it</button>
         <button onClick={()=>{forgetJob(resumeJob.jobId);setResumeJob(null);}} aria-label="Dismiss" style={{padding:"7px 9px",borderRadius:6,border:"1px solid #333",background:"transparent",color:"#888",fontFamily:mono,fontSize:10,cursor:"pointer"}}>✕</button>
       </div>
@@ -2814,7 +2814,7 @@ export default function SlabSense(){
                   color:gradeMode==='ai'?"#fff":"#666",
                   fontFamily:mono,fontSize:10,fontWeight:600,cursor:"pointer",
                   transition:"all .2s"
-                }}>AI Grade</button>
+                }}>AI (basic)</button>
               )}
               {deepAiGrades && (
                 <button onClick={()=>setGradeMode('deep')} style={{
@@ -2823,7 +2823,7 @@ export default function SlabSense(){
                   color:gradeMode==='deep'?"#fff":"#666",
                   fontFamily:mono,fontSize:10,fontWeight:600,cursor:"pointer",
                   transition:"all .2s"
-                }}>Deep AI</button>
+                }}>AI Grade</button>
               )}
             </div>
           )}
@@ -2907,7 +2907,7 @@ export default function SlabSense(){
               {/* Company Badge with Deep AI indicator */}
               <div style={{padding:"8px 12px",background:"rgba(249,115,22,0.15)",borderRadius:8,border:"1px solid rgba(249,115,22,0.3)"}}>
                 <div style={{fontFamily:mono,fontSize:11,fontWeight:700,color:"#f97316"}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</div>
-                <div style={{fontFamily:mono,fontSize:8,color:"#ea580c",marginTop:2}}>DEEP AI</div>
+                <div style={{fontFamily:mono,fontSize:8,color:"#ea580c",marginTop:2}}>AI ESTIMATE</div>
               </div>
             </div>
           )}
@@ -2968,23 +2968,14 @@ export default function SlabSense(){
                 <path d="M4 16v4h16v-4"/><path d="M12 4v12"/><path d="M8 8l4-4 4 4"/>
               </svg>
             </button>
-            <button onClick={()=>startGradeJob('ai')} disabled={enhancingStatus==='enhancing'||enhancingStatus==='done'} title={`AI Grade (${creditsLabel(GRADE_TIERS.ai.credits)})`} style={{
-              background:"transparent",border:"none",cursor:enhancingStatus==='enhancing'?"wait":"pointer",padding:4,transition:"opacity .2s",opacity:enhancingStatus==='done'?0.5:1
-            }}>
-              {enhancingStatus==='enhancing'?<span style={{fontSize:18,color:"#666"}}>⏳</span>:enhancingStatus==='done'?<span style={{fontSize:18,color:"#00ff88"}}>✓</span>:(
-                <div style={{display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1.1}}>
-                  <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:"#8b5cf6"}}>AI</span>
-                  <span style={{fontFamily:mono,fontSize:9,fontWeight:600,color:"#6366f1"}}>Grade</span>
-                </div>
-              )}
-            </button>
-            <button onClick={()=>startGradeJob('deep')} disabled={deepGradeStatus==='grading'||deepGradeStatus==='done'} title={`Deep AI Grade — two-pass inspection with TAG reference cards (${creditsLabel(GRADE_TIERS.deep.credits)})`} style={{
-              background:"transparent",border:"none",cursor:deepGradeStatus==='grading'?"wait":"pointer",padding:4,transition:"opacity .2s",opacity:deepGradeStatus==='done'?0.5:1
+            {/* One paid tier (2026-10-02): "AI Grade" runs the two-pass flow with TAG reference cards for one credit */}
+            <button onClick={()=>startGradeJob(PAID_GRADE_TYPE)} disabled={deepGradeStatus==='grading'||deepGradeStatus==='done'} aria-label={`AI Grade, ${creditsLabel(GRADE_TIERS.deep.credits)}`} title={`AI Grade — two-pass inspection with TAG reference cards (${creditsLabel(GRADE_TIERS.deep.credits)})`} style={{
+              background:"transparent",border:"none",cursor:deepGradeStatus==='grading'?"wait":"pointer",padding:4,minWidth:44,minHeight:44,transition:"opacity .2s",opacity:deepGradeStatus==='done'?0.5:1
             }}>
               {deepGradeStatus==='grading'?<span style={{fontSize:18,color:"#666"}}>⏳</span>:deepGradeStatus==='done'?<span style={{fontSize:18,color:"#00ff88"}}>✓</span>:(
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1.1}}>
-                  <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:"#f59e0b"}}>DEEP</span>
-                  <span style={{fontFamily:mono,fontSize:9,fontWeight:600,color:"#d97706"}}>Grade</span>
+                  <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:"#8b5cf6"}}>AI</span>
+                  <span style={{fontFamily:mono,fontSize:9,fontWeight:600,color:"#6366f1"}}>Grade</span>
                 </div>
               )}
             </button>

@@ -880,7 +880,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                     cursor: 'pointer',
                   }}
                 >
-                  Deep AI
+                  AI Grade
                 </button>
               )}
             </div>
