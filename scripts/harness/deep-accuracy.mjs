@@ -205,7 +205,7 @@ function score(recs) {
 
 // ── main ─────────────────────────────────────────────────────────────────────────────────────
 if (SCORE_ONLY) {
-  const recs = fs.readdirSync(OUT_DIR).filter((f) => f.endsWith('.json') && f !== 'summary.json').map((f) => JSON.parse(fs.readFileSync(path.join(OUT_DIR, f), 'utf8')));
+  const recs = fs.readdirSync(OUT_DIR).filter((f) => f.endsWith('.json') && f !== 'summary.json' && !f.includes('.raw.')).map((f) => JSON.parse(fs.readFileSync(path.join(OUT_DIR, f), 'utf8')));
   const s = score(recs); console.log(JSON.stringify(s, null, 1)); fs.writeFileSync(path.join(OUT_DIR, 'summary.json'), JSON.stringify(s, null, 1));
 } else {
   console.log(`arm ${ARM}: ${selected.length} cards (${HELD_OUT ? 'held-out' : 'all'} splits, offset ${OFFSET})${DRY ? ' DRY RUN' : ''}; cache ${path.relative(ROOT, OUT_DIR)}`);
