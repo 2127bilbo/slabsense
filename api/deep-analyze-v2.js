@@ -168,12 +168,14 @@ async function analyzeHandler(req, res) {
     // Claude's corner/edge findings so the paid grade agrees with the free one.
     cornerEdge: cornerEdgeRaw,
 
-    // Multi-provider options
-    gradeMode = DEFAULT_CONFIG.mode,            // 'single' | 'parallel' | 'sequential' | 'synthesize'
-    primaryProvider = DEFAULT_CONFIG.primary,    // 'claude' | 'gemini' | 'gpt' | 'grok'
-    secondaryProvider = DEFAULT_CONFIG.secondary,
-    synthesizerProvider = DEFAULT_CONFIG.synthesizer,
   } = req.body;
+  // Provider routing is pinned server-side (audit G-12 / F-08 / C-01): the request body used to
+  // choose the mode and providers, which let a caller multiply the cost of one credit and send
+  // the photos to providers the privacy policy does not name. Operators override via env.
+  const gradeMode = process.env.DEEP_GRADE_MODE || DEFAULT_CONFIG.mode;            // 'single' | 'parallel' | 'sequential' | 'synthesize'
+  const primaryProvider = process.env.DEEP_PRIMARY || DEFAULT_CONFIG.primary;      // 'claude' | 'gemini' | 'gpt' | 'grok'
+  const secondaryProvider = process.env.DEEP_SECONDARY || DEFAULT_CONFIG.secondary;
+  const synthesizerProvider = process.env.DEEP_SYNTHESIZER || DEFAULT_CONFIG.synthesizer;
   const cornerEdge = parseCornerEdgeInput(cornerEdgeRaw);
 
   // Validate provider selection
