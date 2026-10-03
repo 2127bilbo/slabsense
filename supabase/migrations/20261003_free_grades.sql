@@ -49,3 +49,57 @@ END $$;
 DROP TRIGGER IF EXISTS scans_collection_limit ON public.scans;
 CREATE TRIGGER scans_collection_limit BEFORE INSERT ON public.scans
   FOR EACH ROW EXECUTE FUNCTION public.enforce_collection_limit();
+
+-- ---------------------------------------------------------------------------------------------
+-- card-images bucket rules (owner, 2026-10-02): a signed-in user may only write
+--   <their id>/<a card they own>/...             saved card photos and opted-in training photos
+--   <their id>/standard-analysis|deep-analysis/  AI Grade uploads (deleted by scripts/storage/cleanup-grade-uploads.mjs)
+-- so photos cannot be parked in storage without a saved card (which the collection cap limits).
+-- Files: 10 MB max, images plus JSON (training labels). Public URLs keep working (public bucket).
+-- The old rules were made in the dashboard with unknown names: every card-images rule is dropped
+-- and these four are created. The service role (API routes, account deletion) is not affected.
+-- ---------------------------------------------------------------------------------------------
+UPDATE storage.buckets
+   SET file_size_limit = 10485760,
+       allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/json']
+ WHERE id = 'card-images';
+
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT policyname FROM pg_policies
+            WHERE schemaname = 'storage' AND tablename = 'objects'
+              AND (coalesce(qual, '') ILIKE '%card-images%' OR coalesce(with_check, '') ILIKE '%card-images%')
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', r.policyname);
+  END LOOP;
+END $$;
+
+-- the rule both write policies share
+CREATE OR REPLACE FUNCTION public.card_images_writable(p_name text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT auth.uid() IS NOT NULL
+     AND (storage.foldername(p_name))[1] = auth.uid()::text
+     AND (
+       (storage.foldername(p_name))[2] IN ('standard-analysis', 'deep-analysis')
+       OR EXISTS (SELECT 1 FROM public.scans s
+                   WHERE s.id::text = (storage.foldername(p_name))[2] AND s.user_id = auth.uid())
+     );
+$$;
+
+CREATE POLICY "card-images: owner reads own folder" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (bucket_id = 'card-images' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+CREATE POLICY "card-images: upload to own card or grade folder" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'card-images' AND public.card_images_writable(name));
+
+CREATE POLICY "card-images: replace in own card or grade folder" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (bucket_id = 'card-images' AND public.card_images_writable(name))
+  WITH CHECK (bucket_id = 'card-images' AND public.card_images_writable(name));
+
+CREATE POLICY "card-images: owner deletes own files" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (bucket_id = 'card-images' AND (storage.foldername(name))[1] = auth.uid()::text);
