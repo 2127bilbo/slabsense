@@ -14,6 +14,9 @@
  *
  *   node --expose-gc scripts/harness/surface-detector-audit.mjs [--limit N]
  *
+ * HISTORICAL: ran at commit 2700da7. The check was removed on 2026-10-03 because of this audit, so to rerun it
+ * restore the old detectors first:  git show 2700da7:src/lib/detectors.js > src/lib/detectors.js  (then revert).
+ *
  * Writes results/<date>-surface-detector-audit.json. Studio scans, not phone photos: phone noise and
  * glare can only add false flags, so this is the check's best case.
  */
@@ -66,6 +69,7 @@ for (const cert of certs) {
   try {
     const fr = analyzePixels(await loadPixels(path.join(PHOTOS, 'Front', g.images.front)), 'front', null, fc);
     const br = analyzePixels(await loadPixels(path.join(PHOTOS, 'Back', g.images.back)), 'back', null, bc);
+    if (!fr.surface) throw new Error('detectSurfaceDings was removed on 2026-10-03; see the header to rerun this audit at 2700da7');
     for (const [side, r, tagScore] of [['FRONT', fr, g.tag.surfaceFront], ['BACK', br, g.tag.surfaceBack]]) {
       const sev = r.surface.dings[0]?.severity || 0;
       const tagMarks = g.dings.filter((d) => d.side === side && !['CORNER', 'EDGE'].includes(d.engineType)).length;

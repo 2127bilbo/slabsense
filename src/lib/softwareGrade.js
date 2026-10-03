@@ -135,7 +135,10 @@ export function computeGrade(frontDings, backDings, frontCenter, backCenter, com
 
   // ── 2) Run the engine (ALL math happens in gradingEngine.js) ───────────
   // Defensive 50/50 default mirrors the old PERFECT_CENTER behavior.
+  // No surface check runs on this path: the legacy pixel check was near-random against TAG (AUC 0.59,
+  // scripts/harness/surface-detector-audit.mjs) and was removed 2026-10-03. Surface is inspected by the AI Grade.
   const engine = gradeCard({
+    surfaceInspected: false,
     defects,
     centering: {
       front: frontCenter || { lrRatio: 50, tbRatio: 50 },
@@ -155,17 +158,10 @@ export function computeGrade(frontDings, backDings, frontCenter, backCenter, com
     Math.min(
       subgrades.frontCorners, subgrades.backCorners ?? 100,
       subgrades.frontEdges, subgrades.backEdges ?? 100,
-      subgrades.frontSurface, subgrades.backSurface ?? 100
+      subgrades.frontSurface ?? 100, subgrades.backSurface ?? 100
     )
   ).grade;
   const defectCountCap = engine.defects.counts.total >= 5 ? 8.5 : 10.0;
-
-  // weightedScore: unchanged legacy display metric (numeric severity × side).
-  let weightedScore = 0;
-  for (const ding of allDings) {
-    const sw = ding.side === "FRONT" ? 1.5 : 1.0;
-    weightedScore += (typeof ding.severity === "number" ? ding.severity : 1) * sw;
-  }
 
   const confidenceResult = calculateSoftwareConfidence(imageQuality, {
     manualCentering: false, // Will be set by caller if applicable
@@ -179,7 +175,6 @@ export function computeGrade(frontDings, backDings, frontCenter, backCenter, com
     companyId,
     companyName: company.name,
     totalDings,
-    weightedScore: Math.round(weightedScore * 10) / 10,
     allDings,
     defectCounts: engine.defects.counts,          // superset of legacy {total,corner,edge,surface}
     centeringDeviation: {

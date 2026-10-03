@@ -252,9 +252,27 @@ const merged = mergeSubgrades({
   frontEdges: 80, backEdges: 100,
   frontSurface: 100, backSurface: 50,
 });
-check('corners merge 0.65/0.35 → 93.5', merged.corners, 93.5);
-check('edges merge → 87', merged.edges, 87.0);
-check('surface merge → 82.5', merged.surface, 82.5);
+// One back discount only: BACK ×0.7 is applied per defect, so the merge is an even blend (owner, 2026-10-03).
+check('corners merge 50/50 → 95', merged.corners, 95);
+check('edges merge → 90', merged.edges, 90);
+check('surface merge → 75', merged.surface, 75);
+check('surface not inspected merges to null', mergeSubgrades({ frontCorners: 90, backCorners: 90, frontEdges: 90, backEdges: 90, frontSurface: null, backSurface: null }).surface, null);
+
+section('Surface not inspected (free grade, owner 2026-10-03)');
+{
+  const cornerOnly = [{ side: 'FRONT', type: 'CORNER', severity: 'minor' }];
+  const cent = { front: { lrRatio: 52, tbRatio: 51 }, back: { lrRatio: 53, tbRatio: 50 } };
+  const ni = gradeCard({ defects: cornerOnly, centering: cent, surfaceInspected: false });
+  check('front/back surface subgrades are null', [ni.subgrades.frontSurface, ni.subgrades.backSurface], [null, null]);
+  for (const co of ['psa', 'bgs', 'cgc', 'sgc']) check(`${co}: surface subgrade null`, ni.companyGrades[co].subgrades.surface, null);
+  check('every company still grades', ['psa', 'bgs', 'cgc', 'sgc'].every((co) => Number.isFinite(ni.companyGrades[co].grade)), true);
+  const withWear = gradeCard({ defects: [...cornerOnly, { side: 'FRONT', type: 'PLAY_WEAR', severity: 'minor' }], centering: cent, surfaceInspected: false });
+  check('surface defects are ignored when surface was not inspected', withWear.companyGrades.bgs.grade, ni.companyGrades.bgs.grade);
+  check('...and do not appear as scored defects', withWear.defects.counts.surface, 0);
+  const inspected = gradeCard({ defects: cornerOnly, centering: cent });
+  check('default is inspected: surface subgrades are numbers', [inspected.subgrades.frontSurface, inspected.subgrades.backSurface], [100, 100]);
+  check('leaving surface out never raises the TAG score', ni.overall.score <= inspected.overall.score, true);
+}
 
 /* ------------------------------------------------------------------ */
 section('Invariants (output schema, GRADING_SYSTEM.md)');

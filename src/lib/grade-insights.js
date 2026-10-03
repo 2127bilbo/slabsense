@@ -21,51 +21,39 @@ export function calcConfidence(gradeResult, frontResult, backResult) {
     if (Math.abs(score - b) < 20) { confidence -= 15; reasons.push(`Score ${score} is near the ${b}-point grade boundary`); break; }
   }
   
-  // Check if holo was detected (surface analysis less reliable)
-  if (frontResult.surface.isHolo) { confidence -= 10; reasons.push("Holo card detected — surface analysis adjusted"); }
-  if (backResult.surface.isHolo) { confidence -= 5; reasons.push("Back has high variance pattern"); }
-  
-  // Check surface anomaly rates (high rates even below DING threshold suggest noise)
-  if (frontResult.surface.anomalyRate > 10 && frontResult.surface.dings.length === 0) {
-    confidence -= 10; reasons.push("Front surface has elevated noise but no DING flagged");
-  }
-  
   const level = confidence >= 80 ? "HIGH" : confidence >= 55 ? "MEDIUM" : "LOW";
   const color = confidence >= 80 ? "#00ff88" : confidence >= 55 ? "#ffcc00" : "#ff6633";
   
   return { confidence: Math.max(0, confidence), level, color, reasons };
 }
 
-/* Next Grade Comparison */
+/* Grade analysis tips (free grade): only what the engine measured. No weights, typical-grade patterns or
+   surface verdicts; the old-engine wording ("front defects weigh 2x", "usually estimates in the 6-7 range")
+   was removed 2026-10-03 along with the legacy surface check. */
+const SUBGRADE_LABELS = {
+  frontCentering: 'front centering', backCentering: 'back centering',
+  frontCorners: 'front corners', backCorners: 'back corners',
+  frontEdges: 'front edges', backEdges: 'back edges',
+  frontSurface: 'front surface', backSurface: 'back surface',
+};
+const tone = (v) => (v >= 90 ? '#66dd44' : v >= 75 ? '#ffcc00' : v >= 60 ? '#ff9900' : '#ff6633');
+
 export function getNextGradeInfo(gradeResult) {
-  const score = gradeResult.rawScore;
-  const dings = gradeResult.allDings;
-  const totalDings = gradeResult.totalDings;
-  const frontDings = dings.filter(d => d.side === "FRONT");
-  const surfaceDings = dings.filter(d => d.type.includes("SURFACE"));
-  const centerDings = dings.filter(d => d.type === "CENTERING");
-  
   const tips = [];
-  
-  if (score >= 950) {
-    tips.push({ text: "Card is in Gem Mint range — potential Pristine if centering is near-perfect", color: "#00ff88" });
-  } else if (score >= 900) {
-    if (centerDings.length > 0) tips.push({ text: "Centering is the only DING — improve framing won't fix the card, but it's close to a 10", color: "#66dd44" });
-    if (totalDings <= 1) tips.push({ text: "Only 1 DING away from Gem Mint 10", color: "#66dd44" });
-  } else if (score >= 800) {
-    if (frontDings.length > 0) tips.push({ text: `${frontDings.length} front defect${frontDings.length>1?"s":""} — front defects weigh 2x. A clean front pushes toward Mint 9`, color: "#ffcc00" });
-    if (surfaceDings.length > 0) tips.push({ text: "Surface wear is the heaviest grade penalty — this is what separates 8 from 9+", color: "#ffcc00" });
-    tips.push({ text: `${totalDings} defects in total — 0-1 is where Mint 9 estimates sit`, color: "#ffcc00" });
-  } else if (score >= 700) {
-    if (frontDings.length >= 2) tips.push({ text: `Multiple front defects detected — cards with back-only defects estimate significantly higher`, color: "#ff9900" });
-    tips.push({ text: `${Math.max(0, totalDings - 4)} fewer defects would reach the NM-MT 8 range`, color: "#ff9900" });
-  } else if (score >= 600) {
-    tips.push({ text: `${totalDings} defects with front surface wear — this pattern usually estimates in the 6-7 range`, color: "#ff6633" });
-    if (surfaceDings.length > 0) tips.push({ text: "Front surface play wear is the biggest grade limiter", color: "#ff6633" });
+  const counts = gradeResult?.defects?.counts || gradeResult?.defectCounts || {};
+  const front = counts.frontTotal || 0, back = counts.backTotal || 0;
+  if (front + back === 0) {
+    tips.push({ text: 'No corner or edge wear found.', color: '#00ff88' });
   } else {
-    tips.push({ text: `Heavy defect load (${totalDings} defects) — card shows significant wear`, color: "#ff4444" });
-    if (surfaceDings.length >= 2) tips.push({ text: "Surface wear on both sides — characteristic of grade 5 range", color: "#ff4444" });
+    const parts = [front && `${front} on the front`, back && `${back} on the back`].filter(Boolean).join(' and ');
+    tips.push({ text: `Corner and edge wear found: ${parts}.`, color: '#ffcc00' });
   }
-  
+  const min = gradeResult?.overall?.minSubgrade;
+  if (min && min.value < 100 && SUBGRADE_LABELS[min.key]) {
+    tips.push({ text: `Lowest score: ${SUBGRADE_LABELS[min.key]} (${Math.round(min.value)}/100). The grade cannot go above the band this score falls in.`, color: tone(min.value) });
+  }
+  if (gradeResult?.gradePath === 'software') {
+    tips.push({ text: 'The surface was not inspected in this grade. An AI Grade inspects it for scratches, print lines and dents.', color: '#888' });
+  }
   return tips;
 }

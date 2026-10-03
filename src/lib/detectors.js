@@ -489,154 +489,9 @@ export function detectEdgeDings(d, w, h, bn, side) {
   return { dings, details };
 }
 
-// Surface defect detection
-export function detectSurfaceDings(d, w, h, bn, side) {
-  const { left:cl, right:cr, top:ct, bottom:cb, cardW:cW, cardH:cH } = bn;
-  const mg=0.10;
-  const sx=cl+~~(cW*mg), sy=ct+~~(cH*mg), ex=cr-~~(cW*mg), ey=cb-~~(cH*mg);
-  const sw=ex-sx, sh=ey-sy;
-  const gX=24, gY=32, cellW=~~(sw/gX), cellH=~~(sh/gY);
-  const sideLabel = side === "front" ? "FRONT" : "BACK";
-  const dings = [];
-  const defectCells = [];
-  
-  let gSum=0, gSq=0, gN=0;
-  const step=2;
-  
-  // Global stats
-  for(let gy=0;gy<gY;gy++) for(let gx=0;gx<gX;gx++){
-    const bx=sx+gx*cellW, by=sy+gy*cellH;
-    for(let dy=0;dy<cellH;dy+=step) for(let dx=0;dx<cellW;dx+=step){
-      const l=LUM(...PX(d,w,Math.min(w-1,bx+dx),Math.min(h-1,by+dy)));
-      gSum+=l; gSq+=l*l; gN++;
-    }
-  }
-  const gMean=gN>0?gSum/gN:128, gVar=gN>0?gSq/gN-gMean**2:0;
-  
-  // Cell analysis
-  const cells=[];
-  for(let gy=0;gy<gY;gy++){cells[gy]=[];for(let gx=0;gx<gX;gx++){
-    const bx=sx+gx*cellW, by=sy+gy*cellH;
-    let sm=0,n=0,lv=0; const vs=[];
-    for(let dy=0;dy<cellH;dy+=step) for(let dx=0;dx<cellW;dx+=step){
-      const l=LUM(...PX(d,w,Math.min(w-1,bx+dx),Math.min(h-1,by+dy)));
-      sm+=l; n++; vs.push(l);
-    }
-    const mean=n>0?sm/n:128; for(const v of vs) lv+=(v-mean)**2;
-    cells[gy][gx]={mean, variance:n>0?lv/n:0};
-  }}
-  
-  // Detect anomalous regions
-  let anomCount=0, scratchCount=0, totalCells=0;
-  
-  // Holo/foil detection: check if image has high global variance (holo shimmer)
-  const isHolo = gVar > 800;
-  // Card back detection: the standard Pokemon card back (pokeball design) has very high
-  // cell-to-cell variance from the design itself. Detect by checking if it's a back AND
-  // has high structured variance (not random like play wear, but organized like design).
-  // We use the side label + variance pattern to detect.
-  const isBack = side === 'back';
-  // High-design card back: high global variance but not a holo front
-  const isHighDesignBack = isBack && gVar > 400;
-  
-  // All-metallic / fully-embossed detection (e.g. Ancient Mew):
-  // If >70% of surface cells have high variance, the entire card is metallic by design.
-  // Ancient Mew's 17.8% front anomaly rate crossed the normal holo DING threshold (14%)
-  // but TAG says the card is fine — the entire surface IS the design, not damage.
-  let highVarCellCount=0, allCellCount=0;
-  for(let gy=0;gy<gY;gy++) for(let gx=0;gx<gX;gx++){
-    allCellCount++;
-    if(cells[gy]&&cells[gy][gx]&&cells[gy][gx].variance>300) highVarCellCount++;
-  }
-  const isAllMetallic = isHolo && !isBack && (allCellCount>0) && (highVarCellCount/allCellCount)>0.70;
-  
-  // Set thresholds — high-design backs get much higher thresholds since pokeball/logo
-  // create massive cell variance that has nothing to do with surface wear
-  const baseHigh = isHolo ? 35 : 25;
-  const baseLow  = isHolo ? 22 : 15;
-  const diffThreshHigh = isHighDesignBack ? 55 : isAllMetallic ? 48 : baseHigh;
-  const diffThreshLow  = isHighDesignBack ? 38 : isAllMetallic ? 32 : baseLow;
-  const varMultiplier  = isHolo ? 3.5 : isHighDesignBack ? 4.5 : 2.8;
-  const varFloor       = isHolo ? 400 : isHighDesignBack ? 600 : 250;
-  
-  for(let gy=1;gy<gY-1;gy++) for(let gx=1;gx<gX-1;gx++){
-    totalCells++;
-    const c=cells[gy][gx];
-    const nbs=[cells[gy-1][gx],cells[gy+1][gx],cells[gy][gx-1],cells[gy][gx+1]];
-    const nMean=nbs.reduce((s,n)=>s+n.mean,0)/4;
-    const diff=Math.abs(c.mean-nMean);
-    
-    if(diff>diffThreshHigh){anomCount++;defectCells.push({gx,gy,type:"anomaly",x:sx+gx*cellW,y:sy+gy*cellH,w:cellW,h:cellH,severity:diff});}
-    else if(diff>diffThreshLow){anomCount+=0.3;defectCells.push({gx,gy,type:"mark",x:sx+gx*cellW,y:sy+gy*cellH,w:cellW,h:cellH,severity:diff});}
-    if(c.variance>gVar*varMultiplier && c.variance>varFloor){scratchCount++;defectCells.push({gx,gy,type:"scratch",x:sx+gx*cellW,y:sy+gy*cellH,w:cellW,h:cellH,severity:c.variance});}
-  }
-  
-  const anomRate = totalCells>0 ? anomCount/totalCells : 0;
-  const scratchRate = totalCells>0 ? scratchCount/totalCells : 0;
-  
-  // Classify as DINGS — card backs with high-design artwork get very high thresholds
-  // Holo fronts get elevated thresholds. Standard fronts get base thresholds.
-  if (isAllMetallic) {
-    // Ancient Mew / all-metallic embossed: entire surface has high variance by design.
-    // Thresholds raised substantially — only flag actual damage, not metallic shimmer.
-    if (anomRate > 0.40 || scratchRate > 0.32) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:3, desc:"Surface play wear / multiple defects" });
-    } else if (anomRate > 0.28 || scratchRate > 0.22) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:2, desc:"Surface wear visible" });
-    } else if (anomRate > 0.20 || scratchRate > 0.14) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:1, desc:"Minor surface imperfection" });
-    }
-  } else if (isHighDesignBack) {
-    // Card back: pokeball/logo design creates massive false variance. Only flag obvious damage.
-    if (anomRate > 0.45 || scratchRate > 0.35) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:3, desc:"Surface play wear / multiple defects" });
-    } else if (anomRate > 0.30 || scratchRate > 0.22) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:2, desc:"Surface wear visible" });
-    } else if (anomRate > 0.20 || scratchRate > 0.14) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:1, desc:"Minor surface imperfection" });
-    }
-  } else if (isHolo) {
-    // Holo front: only flag severe/obvious damage
-    if (anomRate > 0.35 || scratchRate > 0.28) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:3, desc:"Surface play wear / multiple defects" });
-    } else if (anomRate > 0.22 || scratchRate > 0.18) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:2, desc:"Surface wear visible" });
-    } else if (anomRate > 0.14 || scratchRate > 0.10) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:1, desc:"Minor surface imperfection" });
-    }
-  } else {
-    // Standard non-holo front
-    if (anomRate > 0.15 || scratchRate > 0.12) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:3, desc:"Surface play wear / multiple defects" });
-    } else if (anomRate > 0.08 || scratchRate > 0.06) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:2, desc:"Surface wear visible" });
-    } else if (anomRate > 0.04 || scratchRate > 0.03) {
-      dings.push({ side:sideLabel, type:"SURFACE / PLAY WEAR", location:sideLabel, severity:1, desc:"Minor surface imperfection" });
-    }
-  }
-  
-  // Cluster defect cells for crop previews
-  const regions = clusterDefects(defectCells, cellW);
-  
-  return { dings, anomalyRate:Math.round(anomRate*10000)/100, scratchRate:Math.round(scratchRate*10000)/100, defectRegions:regions, isHolo };
-}
-
-export function clusterDefects(cells,cW){
-  if(!cells.length)return[];
-  const used=new Set(), regions=[], sorted=[...cells].sort((a,b)=>b.severity-a.severity);
-  for(const c of sorted){
-    const k=`${c.gx},${c.gy}`; if(used.has(k))continue; used.add(k);
-    let mX=c.x,mY=c.y,MX=c.x+c.w,MY=c.y+c.h,ms=c.severity;
-    const ty=new Set([c.type]);
-    for(const o of sorted){const ok=`${o.gx},${o.gy}`;if(!used.has(ok)&&Math.abs(o.gx-c.gx)<=2&&Math.abs(o.gy-c.gy)<=2){
-      used.add(ok);mX=Math.min(mX,o.x);mY=Math.min(mY,o.y);MX=Math.max(MX,o.x+o.w);MY=Math.max(MY,o.y+o.h);ms=Math.max(ms,o.severity);ty.add(o.type);
-    }}
-    const pad=cW*3;
-    regions.push({x:mX-pad,y:mY-pad,w:(MX-mX)+pad*2,h:(MY-mY)+pad*2,severity:ms,types:[...ty]});
-    if(regions.length>=6)break;
-  }
-  return regions;
-}
+// Surface: no pixel check. The legacy grid-variance check (detectSurfaceDings) was removed 2026-10-03 after the
+// harness audit showed it near-random against TAG (scripts/harness/surface-detector-audit.mjs, run at 2700da7).
+// Surface is inspected by the AI Grade; the free grade reports it as not inspected.
 
 /* ═══════════════════════════════════════════
    PIXEL-LEVEL PIPELINE (what analyzeCardFull does after loadImg)
@@ -650,7 +505,6 @@ export function analyzePixels({ data, w, h }, side, overrideBounds = null, overr
   const centerDings = checkCenteringDings(centering, side);
   const corners = detectCornerDings(d, w, h, bounds, side);
   const edges = detectEdgeDings(d, w, h, bounds, side);
-  const surface = detectSurfaceDings(d, w, h, bounds, side);
-  const allDings = [...centerDings, ...corners.dings, ...edges.dings, ...surface.dings];
-  return { centering, centerDings, corners, edges, surface, allDings, bounds, imgW: w, imgH: h };
+  const allDings = [...centerDings, ...corners.dings, ...edges.dings];
+  return { centering, centerDings, corners, edges, allDings, bounds, imgW: w, imgH: h };
 }

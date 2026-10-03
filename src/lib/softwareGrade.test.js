@@ -34,8 +34,17 @@ check('gradePath software', clean.gradePath === 'software');
 const worn = computeGrade(
   [{ side: 'FRONT', type: 'CORNER WEAR', location: 'FRONT / TOP LEFT', severity: 2 }],
   [], { lrRatio: 50, tbRatio: 50 }, { lrRatio: 50, tbRatio: 50 }, 'tag', null);
-check('one moderate front corner → TAG 921 / grade 9', worn.rawScore === 921 && worn.overall.grade === 9, `got ${worn.rawScore}`);
+// 920, not 921, since 2026-10-03: surface is not inspected on this path, so two unmeasured 100s no longer lift the mean.
+check('one moderate front corner → TAG 920 / grade 9', worn.rawScore === 920 && worn.overall.grade === 9, `got ${worn.rawScore}`);
 check('defect counted', worn.defectCounts.total === 1 && worn.defectCounts.corner === 1);
+{
+  // The free grade inspects no surface (2026-10-03): a surface ding changes nothing and surface subgrades are null.
+  const wear = { side: 'FRONT', type: 'SURFACE / PLAY WEAR', severity: 1 };
+  const base = computeGrade([], [], { lrRatio: 50, tbRatio: 50 }, { lrRatio: 50, tbRatio: 50 }, 'bgs', null);
+  const withWear = computeGrade([wear], [], { lrRatio: 50, tbRatio: 50 }, { lrRatio: 50, tbRatio: 50 }, 'bgs', null);
+  check('surface ding ignored by the free grade', withWear.grade.grade === base.grade.grade && withWear.rawScore === base.rawScore, `got ${withWear.grade.grade}`);
+  check('free grade surface subgrades are null', base.subgrades.frontSurface === null && base.subgrades.backSurface === null);
+}
 
 console.log('— F1 company-aware grade');
 const oneEdge = [{ side: 'FRONT', type: 'EDGE WEAR', location: 'FRONT / TOP', severity: 1 }];

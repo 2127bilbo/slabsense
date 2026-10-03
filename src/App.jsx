@@ -376,7 +376,7 @@ export default function SlabSense(){
       } : null;
       const grade=computeGrade(fr.allDings,br.allDings,effFront,effBack,gradingCompany,imageQuality);
       setGradeResult({...grade, source: 'client'});
-      setProg("Generating surface vision maps...");await new Promise(r=>setTimeout(r,30));
+      setProg("Preparing the inspection views...");await new Promise(r=>setTimeout(r,30));
       // Vision maps are generated from the same image the detectors saw (the crop when one exists)
       setFM(await genMaps(frontSrc)); setBM(await genMaps(backSrc));
       if (opts.beforeShow && !(await opts.beforeShow())) return;   // free grade refused: the gate is already showing
@@ -1625,7 +1625,9 @@ export default function SlabSense(){
             // Compute combined scores (average front+back, 0-100 scale → display as 0-100)
             const cornersScore = subgrades ? Math.round(((subgrades.frontCorners ?? 100) + (subgrades.backCorners ?? 100)) / 2) : null;
             const edgesScore = subgrades ? Math.round(((subgrades.frontEdges ?? 100) + (subgrades.backEdges ?? 100)) / 2) : null;
-            const surfaceScore = subgrades ? Math.round(((subgrades.frontSurface ?? 100) + (subgrades.backSurface ?? 100)) / 2) : null;
+            // Free grades inspect no surface (both null): say so instead of showing a perfect 100.
+            const surfaceInspected = subgrades && (subgrades.frontSurface != null || subgrades.backSurface != null);
+            const surfaceScore = surfaceInspected ? Math.round(((subgrades.frontSurface ?? subgrades.backSurface) + (subgrades.backSurface ?? subgrades.frontSurface)) / 2) : null;
             // Color thresholds for 0-100 scale
             const getColor = (val) => val >= 95 ? "#00ff88" : val >= 90 ? "#66dd44" : val >= 80 ? "#ffcc00" : "#ff6633";
             return (
@@ -1640,7 +1642,9 @@ export default function SlabSense(){
                 </div>
                 <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
                   <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>SURFACE</div>
-                  <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:surfaceScore ? getColor(surfaceScore) : "#666"}}>{surfaceScore ?? "--"}</div>
+                  {surfaceInspected
+                    ? <div style={{fontFamily:mono,fontSize:18,fontWeight:700,color:getColor(surfaceScore)}}>{surfaceScore}</div>
+                    : <div style={{fontFamily:sans,fontSize:12,color:"#888",lineHeight:1.35,marginTop:2}}>Not inspected<br/><span style={{color:"#d9b56a"}}>AI Grade checks it</span></div>}
                 </div>
                 <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
                   <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>CENTERING {frontCenteringData?.didManualCenter ? '(M)' : ''}</div>
@@ -1730,6 +1734,10 @@ export default function SlabSense(){
                   {k:"backSurface",l:"Back Surface"},
                 ].map(({k,l})=>{
                   const val = gr?.subgrades?.[k];
+                  if(val==null&&k.endsWith("Surface"))return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>
+                    <span style={{fontFamily:mono,fontSize:11,color:"#666"}}>{l}</span>
+                    <span style={{fontFamily:mono,fontSize:11,color:"#777"}}>Not inspected</span>
+                  </div>);
                   if(val==null)return null;
                   const color = val>=95?"#00ff88":val>=90?"#66dd44":val>=80?"#ffcc00":"#ff6633"; // subgrades are 0-100
                   return(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#0a0b0e",borderRadius:6}}>

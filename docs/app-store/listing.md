@@ -22,7 +22,7 @@ accuracy, measured") and may be quoted only with "on our test set".
 
 **Description** (about 2,100 characters):
 
-> SlabSense is a pre-grading tool for Pokémon trading cards. Photograph the front and back of a card and SlabSense measures centering, inspects the corners and edges, and lists the surface defects it can see. It turns those measurements into an estimate of how a card like yours would score on the published grading scales of PSA, BGS, CGC, SGC and TAG, with sub-scores so you can see what is holding the card back.
+> SlabSense is a pre-grading tool for Pokémon trading cards. Photograph the front and back of a card and SlabSense measures centering and inspects the corners and edges; an optional AI Grade adds a full surface inspection. It turns those measurements into an estimate of how a card like yours would score on the published grading scales of PSA, BGS, CGC, SGC and TAG, with sub-scores so you can see what is holding the card back.
 >
 > What you get for free: a live viewfinder that outlines the card and snaps when it is steady; a centering tool where you place the card and artwork lines yourself, with the lines pre-placed for you; an on-device estimate for every card, with centering ratios front and back; a defect map showing where corner and edge wear was found; a collection with your photos, estimates and market value (Cardmarket, via TCGdex); and an export card to share the estimate.
 >
@@ -34,7 +34,7 @@ accuracy, measured") and may be quoted only with "on our test set".
 >
 > Terms: https://www.slabsenseai.com/terms · Privacy: https://www.slabsenseai.com/privacy
 
-**What's New (1.0):** First App Store release. Photograph a Pokémon card to get a pre-grade estimate with centering, corner, edge and surface sub-scores; keep a collection; optional AI Grades by in-app purchase. All grades are estimates; SlabSense is not affiliated with any grading company.
+**What's New (1.0):** First App Store release. Photograph a Pokémon card to get a pre-grade estimate with centering, corner and edge sub-scores; keep a collection; optional AI Grades by in-app purchase add a surface inspection. All grades are estimates; SlabSense is not affiliated with any grading company.
 
 ## 2. In-app purchases (App Store Connect → Monetization)
 

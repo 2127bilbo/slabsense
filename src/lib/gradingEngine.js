@@ -25,7 +25,7 @@
  * ============================================================================
  */
 
-export const ENGINE_VERSION = '1.1';
+export const ENGINE_VERSION = '1.2';
 
 /* ============================================================================
  * SECTION 1 — CONSTANTS (GRADING_SYSTEM.md, "Defect deductions")
@@ -216,7 +216,7 @@ export function centeringScore(maxDev, side) {
  * @param centering { front:{maxDev}, back:{maxDev}|null }
  * @param frontOnly boolean — back subgrades become null
  */
-export function computeSubgrades(defects, centering, frontOnly = false) {
+export function computeSubgrades(defects, centering, frontOnly = false, surfaceInspected = true) {
   const groups = {
     frontCorners: [], backCorners: [],
     frontEdges: [], backEdges: [],
@@ -233,7 +233,7 @@ export function computeSubgrades(defects, centering, frontOnly = false) {
   const scoredAll = [];
   const sub = {};
   for (const key of Object.keys(groups)) {
-    if (frontOnly && key.startsWith('back')) {
+    if ((frontOnly && key.startsWith('back')) || (!surfaceInspected && key.endsWith('Surface'))) {
       sub[key] = null;
       continue;
     }
@@ -341,9 +341,18 @@ export function snapDown(raw, allowedList) {
   return best;
 }
 
-/** 8 → 3 condition subgrades, front-weighted 0.65/0.35 (SlabSense-internal; GRADING_SYSTEM.md). */
+/**
+ * 8 → 3 condition subgrades: an even blend of front and back (SlabSense-internal; GRADING_SYSTEM.md).
+ * The back's lower standard is already applied once, per defect (SIDE_MULTIPLIERS.BACK); weighting the
+ * front again here would discount the back twice (owner decision 2026-10-03). A missing side is skipped;
+ * both missing (surface not inspected) gives null.
+ */
 export function mergeSubgrades(sub) {
-  const merge = (f, b) => (b === null || b === undefined ? f : f * 0.65 + b * 0.35);
+  const merge = (f, b) => {
+    const has = (v) => v !== null && v !== undefined;
+    if (!has(f)) return has(b) ? b : null;
+    return has(b) ? (f + b) / 2 : f;
+  };
   return {
     corners: merge(sub.frontCorners, sub.backCorners),
     edges: merge(sub.frontEdges, sub.backEdges),
@@ -353,6 +362,7 @@ export function mergeSubgrades(sub) {
 
 /** Merged 0–100 → company subgrade: score/10 snapped down to the company's grade steps. */
 export function toCompanySubgrade(score100, company) {
+  if (score100 === null || score100 === undefined) return null;   // not inspected
   return snapDown(score100 / 10, ALLOWED_SUBGRADES[company]);
 }
 
@@ -403,6 +413,8 @@ export const SGC_LABELS = { ...PSA_LABELS, 9.5: 'Mint+', 10: 'Gem Mint' };
 export const COMPANY_LABELS = { psa: PSA_LABELS, bgs: BGS_LABELS, cgc: CGC_LABELS, sgc: SGC_LABELS };
 
 const sevRank = { minor: 0, moderate: 1, severe: 2, extreme: 3 };
+/** Subgrades that were measured (a surface that was not inspected is null). */
+const present = (...v) => v.filter((x) => x !== null && x !== undefined);
 
 /** PSA — lowest subgrade wins + caps from psacard.com (sources/PSA_gradingstandards_verbatim.md). */
 function convertPSA(merged, centering, defects) {
@@ -412,7 +424,7 @@ function convertPSA(merged, centering, defects) {
     edges: toCompanySubgrade(merged.edges, 'psa'),
     surface: toCompanySubgrade(merged.surface, 'psa'),
   };
-  let grade = Math.min(subs.centering, subs.corners, subs.edges, subs.surface);
+  let grade = Math.min(...present(subs.centering, subs.corners, subs.edges, subs.surface));
   // Source: docs/grading-research/sources/PSA_gradingstandards_verbatim.md (psacard.com, captured 2026-09-15)
   if (defects.length >= 1) grade = Math.min(grade, 9);            // 10 = virtually perfect
   if (defects.length >= 3) grade = Math.min(grade, 8);            // 9 = "only one" minor flaw
@@ -444,7 +456,7 @@ function convertBGS(merged, centering, defects) {
     edges: toCompanySubgrade(merged.edges, 'bgs'),
     surface: toCompanySubgrade(merged.surface, 'bgs'),
   };
-  const vals = [subs.centering, subs.corners, subs.edges, subs.surface].sort((a, b) => a - b);
+  const vals = present(subs.centering, subs.corners, subs.edges, subs.surface).sort((a, b) => a - b);
   const lowest = vals[0];
   const secondLowest = vals[1];
   let grade;
@@ -498,7 +510,7 @@ function convertCGC(merged, centering, defects) {
     edges: toCompanySubgrade(merged.edges, 'cgc'),
     surface: toCompanySubgrade(merged.surface, 'cgc'),
   };
-  const base = Math.min(subs.corners, subs.edges, subs.surface);
+  const base = Math.min(...present(subs.corners, subs.edges, subs.surface));
   let grade = subs.centering >= base ? base : Math.max(subs.centering, base - 1.0);
   // Source: docs/grading-research/sources/CGC_gradingscale_verbatim.md (cgccards.com, fetched 2026-09-15)
   const sevOf = (type) => Math.max(-1, ...defects.filter((d) => d.type === type).map((d) => sevRank[d.severity]));
@@ -548,7 +560,7 @@ function convertSGC(merged, centering, defects) {
     edges: toCompanySubgrade(merged.edges, 'sgc'),
     surface: toCompanySubgrade(merged.surface, 'sgc'),
   };
-  let grade = Math.min(subs.centering, subs.corners, subs.edges, subs.surface);
+  let grade = Math.min(...present(subs.centering, subs.corners, subs.edges, subs.surface));
   // Caps from the published scale (docs/grading-research/sources/SGC_gradingscale_verbatim.md)
   const sevOf = (type) => Math.max(-1, ...defects.filter((d) => d.type === type).map((d) => sevRank[d.severity]));
   const countOf = (type, minSev = 0) => defects.filter((d) => d.type === type && sevRank[d.severity] >= minSev).length;
@@ -615,12 +627,15 @@ export function convertToCompany(subgrades, centering, defects, company) {
  *                                      description? }]
  * @param {Object}   input.centering { front:{lrRatio,tbRatio} , back:{lrRatio,tbRatio}|null }
  * @param {boolean} [input.frontOnly=false]
+ * @param {boolean} [input.surfaceInspected=true]  false for the free grade: no surface check runs, so
+ *                   surface subgrades are null and any surface defects are ignored (owner 2026-10-03)
  *
  * @returns {Object} { centering, defects, subgrades, overall, companyGrades }
  *                   — drop-in sections of the output schema (GRADING_SYSTEM.md)
  */
-export function gradeCard({ defects = [], centering, frontOnly = false }) {
+export function gradeCard({ defects: inputDefects = [], centering, frontOnly = false, surfaceInspected = true }) {
   if (!centering?.front) throw new Error('gradeCard: centering.front is required (manual tool values)');
+  const defects = surfaceInspected ? inputDefects : inputDefects.filter((d) => categoryForType(d.type) !== 'SURFACE');
 
   // 1) Centering block (deviation = |ratio − 50|, worst axis per side)
   const buildSide = (c) => {
@@ -636,7 +651,7 @@ export function gradeCard({ defects = [], centering, frontOnly = false }) {
   };
 
   // 2) Subgrades (defect inspection first; centering scored last by design)
-  const { subgrades, scoredDefects } = computeSubgrades(defects, cent, frontOnly);
+  const { subgrades, scoredDefects } = computeSubgrades(defects, cent, frontOnly, surfaceInspected);
 
   // 3) Compounding + caps + clamp
   const combined = combineSubgrades(subgrades);

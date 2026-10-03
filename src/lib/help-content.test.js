@@ -34,4 +34,10 @@ ok('honest about being an estimate and not affiliated', () => {
   const official = FAQ.find((q) => q.key === 'official');
   assert.match(official.a, /estimate/i); assert.match(official.a, /not affiliated/i);
 });
+ok('the free grade is described without a surface check (removed 2026-10-03)', () => {
+  const free = GRADE_KINDS.find((g) => g.key === 'grade');
+  const text = [free.summary, ...free.details].join(' ');
+  assert.match(text, /surface is not inspected/i);
+  assert.doesNotMatch(text, /basic (check|surface)/i);
+});
 console.log(`${passed} passed, 0 failed`);

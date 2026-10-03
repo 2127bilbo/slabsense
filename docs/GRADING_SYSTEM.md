@@ -14,7 +14,7 @@ or in the verbatim company standards next to it. Nothing else in the repo may de
 - Rule: **no grading number without a citation.** Every per-company rule in the engine cites a `sources/*` file.
   Values marked *internal* below are SlabSense choices (calibrated against DIG reports), not company rules.
 
-Last updated 2026-09-21 (engine 1.1; phone-augmented corner/edge models on every path; TAG-calibrated surface severity on the paid paths).
+Last updated 2026-10-03 (engine 1.2; the free grade no longer inspects the surface; company conversions blend front and back evenly so the back is discounted once).
 
 ---
 
@@ -24,7 +24,7 @@ Three grade paths, one engine:
 
 | Path | Who finds the defects | Who grades | Cost |
 |---|---|---|---|
-| Software | corner/edge models on TAG-framed crops + `detectors.js` for surface wear; centering from the app | engine | free |
+| Software | corner/edge models on TAG-framed crops; centering from the app; **no surface inspection** (`surfaceInspected: false`) | engine | free |
 | AI | Claude, one pass, surface detection; corners/edges from the models when the app ran them | engine | 1 credit |
 | Deep AI | Claude, two passes (pass 2 sees pass 1 + TAG-graded reference cards); corners/edges from the models when the app ran them | engine | 2 credits |
 
@@ -56,8 +56,19 @@ Category: CORNER → corners, EDGE → edges, everything else → surface.
 Corner and edge wear comes from two trained models instead of the pixel detectors — on **every path**.
 Nothing downstream changes: the models emit the same `CORNER` / `EDGE` defects the engine already accepts, so
 the engine math, the damage report and the saved-card shape are untouched. The detectors' own corner and edge
-dings are dropped when the models run; their surface dings (creases, scratches, stains) are kept, because no
-surface model is wired in yet.
+dings are dropped when the models run.
+
+### No surface inspection on the free grade *(2026-10-03, engine 1.2)*
+
+The legacy pixel surface check (`detectSurfaceDings`) was removed. Against 507 TAG cards it flagged only holo
+fronts (27 of 506), found 7% of the fronts TAG marked, separated marked from clean sides no better than chance
+(AUC 0.59 fronts, 0.51 backs) and never fired on a back; its false flags then hit BGS's play-wear cap
+(25 estimates capped to 3–4). Audit: `scripts/harness/surface-detector-audit.mjs`, results
+`2026-10-03-surface-detector-audit.json`. The software path now calls `gradeCard({ surfaceInspected: false })`:
+front and back surface subgrades are **null** (not 100), any surface defect passed in is ignored, compounding
+and company conversions skip the missing subgrade, and the app shows surface as "Not inspected — AI Grade
+checks it". The paid paths are unchanged (`surfaceInspected` defaults to true). Surface on the free grade
+returns when the rig's surface model exists.
 
 **Paid paths agree with the free one by construction** *(2026-09-17)*. When the app has run the models, a paid
 grade sends every slot's prediction in the request (`cornerEdge`, the way centering is sent). The server
@@ -390,8 +401,11 @@ No 9.5 (TAG: "half points on every grade level except between 9 and 10"). The en
 Same defects and centering, converted per company. Order: merge → company subgrades → company combination →
 company caps → snap down to the company's allowed grade steps.
 
-**Merge 8 → 3 condition subgrades** *(internal)*: `front × 0.65 + back × 0.35` for corners, edges, surface
-(front only when the back is null). **Company subgrade** = merged score ÷ 10, snapped **down** to that company's
+**Merge 8 → 3 condition subgrades** *(internal)*: `(front + back) / 2` for corners, edges, surface (the side
+that exists when one is null; null when both are, i.e. surface not inspected). The back's lower standard is
+applied once, per defect (`BACK ×0.7`, §2.3); until engine 1.2 the merge was `front × 0.65 + back × 0.35`,
+which discounted back defects a second time in every company conversion (owner decision 2026-10-03: one
+discount, TAG's standard, for all companies). **Company subgrade** = merged score ÷ 10, snapped **down** to that company's
 grade steps. **Centering subgrade** = the highest grade whose front AND back limits the card meets, from the
 company table below.
 

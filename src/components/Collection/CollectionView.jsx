@@ -1433,6 +1433,11 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
                   {edges != null && (
                     <ConditionBox label="Edges" value={edges} isTAG={isTAG} />
                   )}
+                  {surface == null && gradeMode === 'software' && (
+                    <div style={{ padding: 10, background: '#0a0b0e', borderRadius: 8, fontFamily: "'Inter',-apple-system,sans-serif", fontSize: 12, color: '#888', lineHeight: 1.4 }}>
+                      Surface not inspected in the free grade. An AI Grade checks it.
+                    </div>
+                  )}
                   {surface != null && (
                     <ConditionBox label="Surface" value={surface} isTAG={isTAG} />
                   )}
@@ -2005,6 +2010,7 @@ export function CollectionView({ userId, onClose, isInline = false, onCollection
 function SubgradeBox({ label, value, small = false }) {
   // Get color based on score value (100-point scale)
   const getScoreColor = (val) => {
+    if (val == null) return '#666';   // not inspected (free-grade surface)
     if (val >= 95) return '#00ff88';
     if (val >= 90) return '#66dd44';
     if (val >= 80) return '#ffcc00';
