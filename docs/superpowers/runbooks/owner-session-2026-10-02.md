@@ -5,6 +5,8 @@ click and what to paste. Tick them off here; I update `docs/STATUS.md` from this
 
 ## A. Supabase (15 min)
 
+0. [ ] **New (pricing decision):** apply `supabase/migrations/20261003_free_grades.sql` (free-grade counter). Safe to re-run. Check: `select proname from pg_proc where proname = 'use_free_grade';` returns one row.
+
 1. **Apply three migrations** in the SQL editor (Dashboard → SQL → New query), one file at a
    time, in this order. Each is safe to re-run.
    - [ ] `supabase/migrations/20261001_lockdown.sql` — closes the self-granted-credits hole
@@ -37,15 +39,15 @@ click and what to paste. Tick them off here; I update `docs/STATUS.md` from this
 7. [ ] Create three products with one price each (Products → Add product):
    | Product | Type | Price | Env var |
    |---|---|---|---|
-   | SlabSense Plus | recurring, monthly | your number (code default $9.99) | `STRIPE_PRICE_PLUS_MONTHLY` |
-   | 5 AI Grades | one-time | your number (code default $7.99) | `STRIPE_PRICE_GRADES_5` |
-   | 20 AI Grades | one-time | your number (code default $24.99) | `STRIPE_PRICE_GRADES_20` |
+   | SlabSense Plus | recurring, monthly | $9.99 | `STRIPE_PRICE_PLUS_MONTHLY` |
+   | 5 AI Grades | one-time | $4.99 | `STRIPE_PRICE_GRADES_5` |
+   | 20 AI Grades | one-time | $14.99 | `STRIPE_PRICE_GRADES_20` |
    Copy each **price** id (`price_…`, not `prod_…`) into Vercel under the env var name. Redeploy.
 8. [ ] Webhook endpoint (Developers → Webhooks → the `https://www.slabsenseai.com/api/stripe/webhook`
    endpoint): add the events `invoice.paid`, `invoice.payment_failed`,
    `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`
    (`checkout.session.completed` is already there).
-9. [ ] Tell me the final three prices so `src/lib/products.js` matches (web display uses them).
+9. [x] Prices decided 2026-10-02 and set in `src/lib/products.js`. Stripe needs no trial setting on the product: the 5-day trial is attached at checkout. In App Store Connect add the trial as the subscription's introductory offer (Free, 5 days).
 10. [ ] The old nine `STRIPE_PRICE_*` variables (trial, hobby, pro, dealer, single, pack_10…50)
     can be deleted from Vercel; nothing reads them.
 11. [ ] Test: buy the 5-pack in test mode with card `4242 4242 4242 4242`; the balance should rise

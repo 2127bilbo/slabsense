@@ -26,7 +26,7 @@ accuracy, measured") and may be quoted only with "on our test set".
 >
 > What you get for free: a live viewfinder that outlines the card and snaps when it is steady; a centering tool where you place the card and artwork lines yourself, with the lines pre-placed for you; an on-device estimate for every card, with centering ratios front and back; a defect map showing where corner and edge wear was found; a collection with your photos, estimates and market value (Cardmarket, via TCGdex); and an export card to share the estimate.
 >
-> AI Grade (in-app purchase, one credit per card): a vision model inspects the full-resolution surface of both sides for scratches, print lines, creases and whitening, compares the card against professionally graded reference photos, and returns a written report with sub-scores. Buy credits in packs that never expire, or a monthly plan with a renewing allowance.
+> AI Grade (in-app purchase, one credit per card): a vision model inspects the full-resolution surface of both sides for scratches, print lines, creases and whitening, compares the card against professionally graded reference photos, and returns a written report with sub-scores. Free accounts get 10 on-device grades a month. SlabSense Plus ($9.99/month after a 5-day free trial) gives unlimited grades and 5 AI Grades a month; packs of 5 or 20 AI Grades never expire.
 >
 > SlabSense can also engrave a label with your estimate and ship the card back to you in a SlabSense display slab. The label carries a QR code to a page that records the estimate, the measurements and the photos.
 >
@@ -43,9 +43,9 @@ Product ids and names come from `src/lib/products.js` and must not change once c
 
 | Reference name | Product id | Type | Display name | Description (≤ 45 for the review note; full in-app) | Web default |
 |---|---|---|---|---|---|
-| SlabSense Plus monthly | `com.slabsense.app.plus.monthly` | Auto-renewable, group "SlabSense Plus" | SlabSense Plus | 15 AI Grades every month. Unused grades expire at the end of the period. | $9.99 / month |
-| 5 AI Grades | `com.slabsense.app.grades.5` | Consumable | 5 AI Grades | Five AI Grade credits that never expire. | $7.99 |
-| 20 AI Grades | `com.slabsense.app.grades.20` | Consumable | 20 AI Grades | Twenty AI Grade credits that never expire. | $24.99 |
+| SlabSense Plus monthly | `com.slabsense.app.plus.monthly` | Auto-renewable, group "SlabSense Plus" | SlabSense Plus | Unlimited grades and 5 AI Grades every month. Unused AI Grades expire at the end of the period. Introductory offer: 5-day free trial (includes 2 AI Grades). | $9.99 / month |
+| 5 AI Grades | `com.slabsense.app.grades.5` | Consumable | 5 AI Grades | Five AI Grade credits that never expire. | $4.99 |
+| 20 AI Grades | `com.slabsense.app.grades.20` | Consumable | 20 AI Grades | Twenty AI Grade credits that never expire. | $14.99 |
 
 Each IAP needs one screenshot of the store screen in the app (`NativeStore.jsx`) and a review
 note: "One credit = one AI Grade of one card. The free estimate stays free."
