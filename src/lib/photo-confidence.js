@@ -139,7 +139,8 @@ export function blurEffect(g, w, h) {
  * @param {{data: Uint8ClampedArray, width: number, height: number}} img  the full photo
  * @param {{tl,tr,br,bl: {x,y}}} corners  normalised 0..1
  * @param {{deskewed?: boolean}} [opts]  deskewed: a pre-cropped scan (TAG studio images): skip framing and angle
- * @returns {{score: number, issues: Record<string, number>, measures: object, cutoff: boolean}}
+ * @returns {{score: number|null, issues: Record<string, number>, measures: object, cutoff: boolean, notCard?: boolean}}
+ *   score is null (notCard) when the outline is not card-shaped
  */
 export function photoConfidence(img, corners, opts = {}) {
   const P = ['tl', 'tr', 'br', 'bl'].map((k) => corners[k]);
@@ -148,6 +149,12 @@ export function photoConfidence(img, corners, opts = {}) {
   const px = P.map((p) => ({ x: p.x * img.width, y: p.y * img.height }));
   const top = dist(px[0], px[1]), right = dist(px[1], px[2]), bottom = dist(px[2], px[3]), left = dist(px[3], px[0]);
   const shortSide = Math.min((top + bottom) / 2, (left + right) / 2);
+  // A card is 63 x 88 mm (0.716). An outline far from that is a slab, a holder or a mis-detection:
+  // say nothing rather than score the wrong object (a slab touching the frame read as a cut-off card).
+  const aspect = shortSide / Math.max((top + bottom) / 2, (left + right) / 2);
+  if (!opts.deskewed && (aspect < 0.64 || aspect > 0.8)) {
+    return { score: null, notCard: true, cutoff: false, issues: {}, measures: { aspect: +aspect.toFixed(3), edgeGap: +edgeGap.toFixed(4) } };
+  }
 
   const R = rectify(img, corners, 300, 420);
   const g = grayOf(R), w = R.width, h = R.height;

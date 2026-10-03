@@ -41,6 +41,8 @@ for (const dir of fs.readdirSync(VAL).sort()) {
   const corners = L.sides?.front?.corners; if (!corners) continue;
   const { img: px, thumb } = await pixels(img);
   const r = photoConfidence(px, corners);
+  if (r.score == null) { console.log(`
+${dir}: outline not card-shaped, no score`); continue; }
   rows.push({ set: 'phone', name: dir, tags: (L.tags || []).join('|'), raw: r.score, shown: capForSource(r.score, 'phone'), cutoff: r.cutoff, issues: r.issues, measures: r.measures, thumb, corners });
   process.stdout.write('.');
 }

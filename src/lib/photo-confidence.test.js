@@ -76,4 +76,9 @@ ok('a pre-cropped studio scan skips framing and angle', () => {
 ok('phones stop at 9.4; the rig can reach 10', () => {
   assert.equal(capForSource(9.9, 'phone'), PHONE_CAP); assert.equal(capForSource(9.9, 'rig'), 9.9); assert.equal(capForSource(6.2), 6.2);
 });
+ok('an outline that is not card-shaped (a slab or holder) gives no score instead of a wrong one', () => {
+  const tall = { tl: { x: 0.0, y: 0.0 }, tr: { x: 0.75, y: 0.0 }, br: { x: 0.75, y: 1.0 }, bl: { x: 0.0, y: 1.0 } };          // 900 x 1560 px: aspect 0.58, a slab
+  const r = photoConfidence(photo({ corners: tall }), tall);
+  assert.equal(r.score, null); assert.equal(r.notCard, true);
+});
 console.log(`${passed} passed, 0 failed`);

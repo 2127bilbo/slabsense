@@ -28,6 +28,8 @@ import { isNativeApp } from "./lib/platform.js";
 import { getGradeJob, getCreditsBalance, spendFreeGrade } from "./services/credits.js";
 import { chargeFreeGrade } from "./lib/free-grade-charge.js";
 import { GradeGate } from "./components/Grading/GradeGate.jsx";
+import { PhotoConfidenceCard } from "./components/Grading/ConfidenceMedallion.jsx";
+import { measurePhotoConfidence } from "./services/photoConfidence.js";
 import { WelcomePrompt } from "./components/WelcomePrompt.jsx";
 import { COLLECTION_LIMIT_EVENT, collectionLimitMessage } from "./lib/collection-limit.js";
 import { gradeButtonLabel } from "./components/Grading/gradeButtonLabel.js";
@@ -147,6 +149,7 @@ export default function SlabSense(){
   const[showCropModal,setShowCropModal]=useState(false); // Show crop modal for missing TCGDex images
   const[showPricing,setShowPricing]=useState(false); // Pricing/credits modal visibility
   const[insufficientCredits,setInsufficientCredits]=useState(null); // { type: 'ai'|'deep', needed: number }
+  const[photoConf,setPhotoConf]=useState(null); // photo confidence for the current card (null while measuring or unknown)
   const[gate,setGate]=useState(null); // null | {kind:'signin'} | {kind:'limit', freeGrades} — shown instead of a grade (pricing plan Task 6)
   const[gradeAccess,setGradeAccess]=useState(null); // {unlimited, remaining} from the balance endpoint; null until loaded
   const[justPurchased]=useState(()=>{ try { return new URLSearchParams(window.location.search).get('success')==='true'; } catch { return false; } }); // web checkout returns with ?success=true
@@ -311,6 +314,9 @@ export default function SlabSense(){
   }, [applyManualCorrection]);
 
   const run=useCallback(async(opts={})=>{ // opts.beforeShow: async () => boolean, checked before the result shows
+    setPhotoConf(null);
+    measurePhotoConfidence({ front: fI, back: bI, frontCentering: frontCenteringData, backCentering: backCenteringData })
+      .then(setPhotoConf).catch((e) => console.warn('[photo confidence] skipped:', e?.message || e));
     if(!fI||!bI)return; setAnalysisFailed(false); setStep(1);
     try{
       // Manual centering from the tool overrides the measured ratios (the crop it made is analyzed below)
@@ -491,7 +497,7 @@ export default function SlabSense(){
   // Used by "New", "Scan New Card" and job restore, so no path can leave a stale status behind
   // (the Deep button used to stay disabled for the whole session after one Deep grade).
   const resetGradingState=()=>{setGradeResult(null);setFR(null);setBR(null);setFM(null);setBM(null);setCardInfo(null);setAiSubgrades(null);setAiOverall(null);setAiGrades(null);setAiConfidence(null);setAiGradingNotes(null);setAiSummary(null);setAiCentering(null);setAiDefects(null);setDeepAiSubgrades(null);setDeepAiOverall(null);setDeepAiGrades(null);setDeepAiConfidence(null);setDeepAiCentering(null);setDeepAiSummary(null);setDeepGradeStatus(null);setDeepGradeResult(null);setEnhancingStatus(null);setExtractingInfo(false);setGradeMode('software');setUseAiCentering(false);setCenteringConfirmed(false);setIgnoreCentering(false);setSavingStatus(null);setSavedScanId(null);savedScanIdRef.current=null;savedImagesRef.current=null;autosaveArmedRef.current=null;gradeRunRef.current+=1;};
-  const reset=()=>{pendingGradeRef.current=false;setGate(null);setStep(0);setFI(null);setBI(null);resetGradingState();setTab("scan");setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setShow3DViewer(false);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
+  const reset=()=>{pendingGradeRef.current=false;setGate(null);setPhotoConf(null);setStep(0);setFI(null);setBI(null);resetGradingState();setTab("scan");setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setShow3DViewer(false);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -1682,6 +1688,8 @@ export default function SlabSense(){
           )}
 
           {/* Confidence Notes - Different for each mode */}
+          {photoConf && <PhotoConfidenceCard result={photoConf} />}
+
           {(()=>{
             try {
               // AI / Deep AI: the model's observations (concerns, positives, recommendation)
