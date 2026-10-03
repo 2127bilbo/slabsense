@@ -256,7 +256,8 @@ the audit item ids it closes listed in the commit message.
 
 ## Phase 5: Submission
 
-- [ ] Pricing final sign-off by the owner (Phase 2 table, revisited).
+- [x] Pricing final sign-off by the owner: 2026-10-02 (Plus $9.99 with 5 AI Grades and a 5-day trial with 2; packs $4.99/5, $14.99/20; free 10 grades a month, 25 saved cards).
+- [ ] **Stripe from test to live BEFORE submitting to Apple** (owner, 2026-10-03: stays in test mode until then). In live mode: recreate the three prices and the slab price, set `STRIPE_PRICE_PLUS_MONTHLY`, `STRIPE_PRICE_GRADES_5`, `STRIPE_PRICE_GRADES_20`, `STRIPE_PRICE_SLAB`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` in Vercel together, create the live webhook endpoint with all seven events, redeploy, one real purchase to confirm, clean test certs (runbook `slab-order-setup.md` "Going live").
 - [ ] App Store Connect: app record, products live, agreements signed, tax and banking.
 - [ ] TestFlight build to the owner's phone and two other devices (old and new iPhone); one week of
   real use; crash-free.
