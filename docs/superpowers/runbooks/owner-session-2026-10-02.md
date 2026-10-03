@@ -45,7 +45,7 @@ click and what to paste. Tick them off here; I update `docs/STATUS.md` from this
    Copy each **price** id (`price_…`, not `prod_…`) into Vercel under the env var name. Redeploy.
 8. [ ] Webhook endpoint (Developers → Webhooks → the `https://www.slabsenseai.com/api/stripe/webhook`
    endpoint): add the events `invoice.paid`, `invoice.payment_failed`,
-   `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`
+   `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`, `checkout.session.async_payment_succeeded` (bank payments that clear later)
    (`checkout.session.completed` is already there).
 9. [x] Prices decided 2026-10-02 and set in `src/lib/products.js`. Stripe needs no trial setting on the product: the 5-day trial is attached at checkout. In App Store Connect add the trial as the subscription's introductory offer (Free, 5 days).
 10. [ ] The old nine `STRIPE_PRICE_*` variables (trial, hobby, pro, dealer, single, pack_10…50)
@@ -85,3 +85,10 @@ click and what to paste. Tick them off here; I update `docs/STATUS.md` from this
 
 When you are done, tell me which boxes are ticked and I will verify each one from my side
 (migration functions present, webhook events, env vars via a redeploy log) and update STATUS.
+
+## Test results 2026-10-03 (Stripe test mode, demo account)
+
+- 5 AI Grades: paid with 4242, returned to the site, credits 10 → 15.
+- SlabSense Plus: trial started, 2 AI Grades, status trialing until 2026-10-08, trial marked used.
+- Second Plus checkout for the same account: $9.99 due today, no trial.
+- Still to do in Stripe: Settings → Public details → business name **SlabSense** (checkout shows 'Flanders Automation'); add the webhook event `checkout.session.async_payment_succeeded`; the demo account's test subscription converts on Oct 8 in test mode (harmless; cancel it in the dashboard if you prefer).

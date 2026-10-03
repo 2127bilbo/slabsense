@@ -78,6 +78,9 @@ export default async function handler(req, res) {
     let outcome = null;
     switch (event.type) {
       case 'checkout.session.completed':
+      // Delayed methods (bank debit) complete the session unpaid, then send this once the money clears;
+      // the same handler grants (decideCheckout requires payment_status 'paid'; the grant is idempotent per session).
+      case 'checkout.session.async_payment_succeeded':
         outcome = await handleCheckoutComplete(obj);
         break;
       case 'invoice.paid':
