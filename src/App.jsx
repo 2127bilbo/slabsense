@@ -27,6 +27,7 @@ import { NativeStore } from "./components/Billing/NativeStore.jsx";
 import { isNativeApp } from "./lib/platform.js";
 import { getGradeJob, getCreditsBalance, spendFreeGrade } from "./services/credits.js";
 import { GradeGate } from "./components/Grading/GradeGate.jsx";
+import { WelcomePrompt } from "./components/WelcomePrompt.jsx";
 import { gradeButtonLabel } from "./components/Grading/gradeButtonLabel.js";
 import { GRADE_TIERS, creditsLabel, PAID_GRADE_TYPE } from "./lib/grade-tiers.js";
 import { getGyroInput } from "./lib/gyro-input.js";
@@ -146,6 +147,7 @@ export default function SlabSense(){
   const[insufficientCredits,setInsufficientCredits]=useState(null); // { type: 'ai'|'deep', needed: number }
   const[gate,setGate]=useState(null); // null | {kind:'signin'} | {kind:'limit', freeGrades} — shown instead of a grade (pricing plan Task 6)
   const[gradeAccess,setGradeAccess]=useState(null); // {unlimited, remaining} from the balance endpoint; null until loaded
+  const[justPurchased]=useState(()=>{ try { return new URLSearchParams(window.location.search).get('success')==='true'; } catch { return false; } }); // web checkout returns with ?success=true
   const pendingGradeRef=useRef(false); // a signed-out user tapped Grade: run it once they are signed in
   const creditNotice = insufficientCredits ? `This AI Grade needs ${insufficientCredits.needed} credit${insufficientCredits.needed === 1 ? '' : 's'}. Buy a pack or a plan to continue.` : null;
   const[,setPendingSaveData]=useState(null); // Pending save data while waiting for crop
@@ -1035,6 +1037,7 @@ export default function SlabSense(){
         <button onClick={()=>{forgetJob(resumeJob.jobId);setResumeJob(null);}} aria-label="Dismiss" style={{padding:"7px 9px",borderRadius:6,border:"1px solid #333",background:"transparent",color:"#888",fontFamily:mono,fontSize:10,cursor:"pointer"}}>✕</button>
       </div>
     )}
+    {auth.user?.id && !showDisclaimer && <WelcomePrompt userId={auth.user.id} trigger={justPurchased ? 'purchase' : 'signup'} />}
     {showAuthModal && (
       <AuthModal
         isOpen={showAuthModal}

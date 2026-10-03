@@ -27,11 +27,12 @@ Do not: reverse-engineer or scrape the Service; use it to misrepresent a card's 
 ## 5. Free and paid features
 
 - **Free**: capturing and aligning a card and the on-device condition estimate.
+- **Free account**: 10 on-device grades per calendar month, unlimited centering and collection, no AI Grades.
 - **AI Grade**: a paid inspection in which your card photos are sent to an AI provider for a surface inspection and written summary. Paid grades are sold as a subscription allowance or as a pack of credits.
 - **Physical slab**: a display case engraved with a SlabSense estimate and a public cert page, sold as a physical product.
 
 ### Purchases on the iOS app
-Subscriptions and credit packs bought in the iOS app are sold by Apple through the App Store under Apple's terms. Prices, renewal, cancellation, refunds and restoring purchases are handled in your Apple ID settings. A subscription renews automatically at the shown price until you cancel at least 24 hours before the end of the current period.
+Subscriptions and credit packs bought in the iOS app are sold by Apple through the App Store under Apple's terms. Prices, renewal, cancellation, refunds and restoring purchases are handled in your Apple ID settings. A subscription renews automatically at the shown price until you cancel at least 24 hours before the end of the current period. SlabSense Plus begins with a 5-day free trial that includes 2 AI Grades; if you do not cancel before the trial ends, the monthly price is charged and the plan includes 5 AI Grades per month. One trial per customer.
 
 ### Purchases on the website
 Website purchases and physical slab orders are processed by Stripe. Prices are shown in US dollars before you confirm. A website subscription renews monthly until cancelled from Settings; cancelling stops the next renewal and access continues to the end of the paid period.

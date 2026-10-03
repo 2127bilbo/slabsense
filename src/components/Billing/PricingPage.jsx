@@ -51,7 +51,7 @@ export function PricingPage({ userId, onClose, notice = null }) {
           <button onClick={onClose} aria-label="Close" style={{ minWidth: 44, minHeight: 44, background: 'transparent', border: '1px solid #2a2d35', borderRadius: 10, color: '#888', fontSize: 18, cursor: 'pointer' }}>×</button>
         </div>
         <div style={{ fontFamily: sans, fontSize: 13, color: '#aaa', lineHeight: 1.5, marginBottom: 16 }}>
-          An AI Grade sends your card photos for a full surface inspection and a written report. The free grade (corners, edges and centering) stays free. Grades are estimates, not official grades.
+          Free accounts get 10 on-device grades a month; centering and your collection are always free. SlabSense Plus has unlimited grades and 5 AI Grades a month, starting with a 5-day free trial that includes 2. An AI Grade sends your photos for a full surface inspection and a written report. Packs add AI Grades that never expire. Grades are estimates, not official grades.
         </div>
         {notice && <div role="alert" style={{ ...card, color: '#ffcc00', fontFamily: sans, fontSize: 13 }}>{notice}</div>}
         {balance && (
@@ -79,6 +79,7 @@ export function PricingPage({ userId, onClose, notice = null }) {
           <div key={p.key} style={card}>
             <div style={{ fontFamily: sans, fontSize: 16, color: '#fff', fontWeight: 600 }}>{p.name}</div>
             <div style={{ fontFamily: sans, fontSize: 13, color: '#aaa', marginTop: 4 }}>{p.tagline}</div>
+            {p.trial && <div style={{ fontFamily: sans, fontSize: 12, color: '#8b5cf6', marginTop: 4 }}>{p.trial.days}-day free trial with {p.trial.grades} AI Grades, then {p.displayPrice || 'the monthly price'} / {p.period}</div>}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
               <span style={{ fontFamily: mono, fontSize: 14, color: '#fff' }}>{p.displayPrice} / {p.period}</span>
               <button disabled={!!busy || balance?.subscription === p.key} onClick={() => buy(p.key)} style={btn(true)}>
