@@ -4,7 +4,7 @@
  * Proprietary and confidential; see LICENSE at the repository root.
  */
 import assert from 'node:assert/strict';
-import { bandFor, problemsFor, lensLayers } from './confidence-copy.js';
+import { BANDS, bandFor, problemsFor, lensLayers } from './confidence-copy.js';
 
 let passed = 0;
 const ok = (n, f) => { f(); passed++; console.log(`  ✓ ${n}`); };
@@ -27,5 +27,11 @@ ok('a cut-off card is the only problem that matters', () => {
 ok('lens layers map the measurements onto the medallion renders', () => {
   assert.deepEqual(lensLayers({ ...none, glare: 0.5, grain: 0.2 }, false), { glare: 0.5, blur: 0, dark: 0, fog: 0, grain: 0.2, finger: 0 });
   assert.equal(lensLayers(none, true).finger, 0.85);
+});
+ok('no message promises a margin or an outcome (owner, 2026-10-03)', () => {
+  for (const b of BANDS) {
+    assert.doesNotMatch(b.msg, /\d|off by|within|half a grade|two grades/i, b.name);
+  }
+  for (const b of BANDS.filter((x) => x.min < 7)) assert.match(b.msg, /do(es)? not change the card/i, b.name);
 });
 console.log(`${passed} passed, 0 failed`);

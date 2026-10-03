@@ -6,15 +6,16 @@
 /**
  * Words and lens layers for the photo-confidence medallion (src/lib/photo-confidence.js).
  * Bands as agreed with the owner 2026-10-03; Studio (9.5+) is only reachable from the rig.
- * The margins in the messages are guidance until the rig calibration measures them.
+ * Messages never quote a margin or promise an outcome (owner, 2026-10-03): a clearer photo of a worn
+ * card can still grade low, and SlabSense must not be read as promising otherwise.
  */
 export const BANDS = [
-  { min: 9.5, name: 'Studio', msg: 'Captured under controlled studio light. The highest confidence SlabSense gives.' },
-  { min: 9.0, name: 'Brilliant', msg: 'As good as a phone photo gets. This is the most reliable phone grade SlabSense can give.' },
-  { min: 7.0, name: 'Sharp', msg: 'Good photos. The grade is a reliable estimate, within about half a grade.' },
-  { min: 5.0, name: 'Clear', msg: 'A fair read. The grade could be off by about a grade.' },
-  { min: 3.0, name: 'Hazy', msg: 'Usable, but the grade could be off by up to two grades.' },
-  { min: 0, name: 'Cloudy', msg: 'This grade could be off by two grades or more. Retake before trusting it.' },
+  { min: 9.5, name: 'Studio', msg: 'Studio-quality photos. Estimates are most reliable at this level.' },
+  { min: 9.0, name: 'Brilliant', msg: 'Excellent photos for a phone. This is as reliable as a phone estimate gets.' },
+  { min: 7.0, name: 'Sharp', msg: 'Good photos. The estimate should reflect what the camera can see of the card.' },
+  { min: 5.0, name: 'Clear', msg: 'Fair photos. The estimate may vary. Better photos make it more reliable but do not change the card itself.' },
+  { min: 3.0, name: 'Hazy', msg: 'Photo issues may affect this estimate. Better photos make it more reliable but do not change the card itself.' },
+  { min: 0, name: 'Cloudy', msg: 'Photo issues likely affect this estimate. Retake before relying on it. Better photos do not change the card itself.' },
 ];
 export function bandFor(score) { return BANDS.find((b) => score >= b.min - 1e-9); }
 
