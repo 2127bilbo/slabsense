@@ -111,13 +111,21 @@ export default userRoute({ label: 'Checkout' }, async ({ req, res, db: supabase,
       },
     };
 
-    // For subscriptions, allow promotion codes
+    // For subscriptions, allow promotion codes and attach the free trial (one per customer:
+    // Stripe enforces it per customer, profiles.used_trial blocks a second checkout for the account).
+    let trialAttached = false;
     if (isSubscription) {
       sessionParams.allow_promotion_codes = true;
+      const trialDays = PRODUCTS[priceKey]?.trial?.days;
+      if (trialDays && !profile.used_trial) {
+        sessionParams.subscription_data = { ...(sessionParams.subscription_data || {}), trial_period_days: trialDays };
+        trialAttached = true;
+      }
     }
 
     // Create checkout session
     const session = await stripe.checkout.sessions.create(sessionParams);
+    if (trialAttached) await supabase.from('profiles').update({ used_trial: true }).eq('id', userId);
 
     return res.status(200).json({
       success: true,

@@ -84,10 +84,15 @@ export function decideInvoicePaid(invoice, env = process.env) {
   const product = PRODUCTS[key];
   if (!product || product.kind !== 'subscription') return { ops: [], status: null, reason: `invoice for unknown or non-subscription price ${invoicePriceId(invoice)}` };
   const expiresAt = new Date(invoicePeriodEnd(invoice)).toISOString();
+  // A free trial starts with a $0 invoice for the first period: grant the trial allowance and mark
+  // the account trialing; the first paid invoice (or any later one) grants the full allowance.
+  const trial = !!product.trial && !(invoice.amount_paid > 0) && !(invoice.amount_due > 0)
+    && (invoice.billing_reason === 'subscription_create' || invoice.billing_reason === 'subscription_update');
+  const amount = trial ? product.trial.grades : product.allowance;
   return {
-    ops: [{ op: 'grant', bucket: 'sub', amount: product.allowance, externalId: ext.invoice(invoice.id), description: `${product.name} ${product.period} (web)`, expiresAt, paymentRef: invoice.payment_intent || null }],
-    status: { subscription_status: key, subscription_source: 'stripe', subscription_id: invoiceSubscriptionId(invoice) || undefined, subscription_renews_at: expiresAt },
-    reason: `subscription paid (${invoice.billing_reason || 'invoice'})`,
+    ops: [{ op: 'grant', bucket: 'sub', amount, externalId: ext.invoice(invoice.id), description: trial ? `${product.name} trial (web)` : `${product.name} ${product.period} (web)`, expiresAt, paymentRef: invoice.payment_intent || null }],
+    status: { subscription_status: trial ? 'trialing' : key, subscription_source: 'stripe', subscription_id: invoiceSubscriptionId(invoice) || undefined, subscription_renews_at: expiresAt },
+    reason: trial ? 'trial started' : `subscription paid (${invoice.billing_reason || 'invoice'})`,
   };
 }
 
@@ -99,11 +104,13 @@ export function decideSubscriptionUpdated(subscription, env = process.env) {
   const key = productKeyForPrice(subscription?.items?.data?.[0]?.price?.id, env);
   const st = subscription?.status;
   let status;
-  if (st === 'active' || st === 'trialing') status = key || 'active';
+  if (st === 'trialing') status = 'trialing';
+  else if (st === 'active') status = key || 'active';
   else if (st === 'past_due' || st === 'unpaid') status = 'past_due';
   else if (st === 'canceled' || st === 'incomplete_expired') status = 'expired';
   else status = undefined;
-  const periodEnd = subscription?.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : undefined;
+  const endTs = subscription?.current_period_end || (st === 'trialing' ? subscription?.trial_end : null);
+  const periodEnd = endTs ? new Date(endTs * 1000).toISOString() : undefined;
   return { ops: [], status: { ...(status ? { subscription_status: status } : {}), subscription_source: 'stripe', subscription_id: subscription?.id, ...(periodEnd ? { subscription_renews_at: periodEnd } : {}) }, reason: `subscription ${st}${subscription?.cancel_at_period_end ? ' (cancels at period end)' : ''}` };
 }
 

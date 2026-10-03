@@ -38,7 +38,7 @@ await ok('free grade spend: unlimited accounts skip the counter; free accounts h
   const calls = [];
   const db = (status, reply) => ({
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { subscription_status: status } }) }) }) }),
-    rpc: async (fn, args) => { calls.push(fn); return { data: reply, error: null }; },
+    rpc: async (fn) => { calls.push(fn); return { data: reply, error: null }; },
   });
   let r = await spendFreeGradeWithDb(db('trialing'), { userId: 'u1', limit: 10 });
   assert.deepEqual([r.status, r.body], [200, { success: true, unlimited: true }]); assert.deepEqual(calls, []);

@@ -54,4 +54,18 @@ ok('a refunded charge revokes by payment intent; an unrefunded one does nothing'
   assert.deepEqual(decideChargeRefunded({ refunded: true, payment_intent: 'pi_1' }).ops[0], { op: 'revokeByPayment', paymentRef: 'pi_1', reason: 'stripe refund' });
   assert.equal(decideChargeRefunded({ refunded: false, amount_refunded: 0 }).ops.length, 0);
 });
+ok('the $0 trial-start invoice grants the trial allowance and marks the account trialing', () => {
+  const inv = { id: 'in_t', billing_reason: 'subscription_create', amount_paid: 0, amount_due: 0, parent: { subscription_details: { subscription: 'sub_t' } }, lines: { data: [{ price: { id: 'price_plus' }, period: { end: 1_800_432_000 } }] } };
+  const d = decideInvoicePaid(inv, env);
+  assert.equal(d.ops[0].amount, PRODUCTS.sub_monthly.trial.grades); assert.equal(d.ops[0].bucket, 'sub'); assert.equal(d.status.subscription_status, 'trialing');
+});
+ok('the first paid invoice after the trial grants the full allowance and marks the plan active', () => {
+  const inv = { id: 'in_p', billing_reason: 'subscription_cycle', amount_paid: 999, amount_due: 999, parent: { subscription_details: { subscription: 'sub_t' } }, lines: { data: [{ price: { id: 'price_plus' }, period: { end: 1_803_000_000 } }] } };
+  const d = decideInvoicePaid(inv, env);
+  assert.equal(d.ops[0].amount, PRODUCTS.sub_monthly.allowance); assert.equal(d.status.subscription_status, 'sub_monthly');
+});
+ok('subscription status trialing is kept as trialing with the trial end as the renewal date', () => {
+  const d = decideSubscriptionUpdated({ id: 'sub_t', status: 'trialing', items: { data: [{ price: { id: 'price_plus' } }] }, trial_end: 1_800_432_000 }, env);
+  assert.equal(d.status.subscription_status, 'trialing'); assert.equal(d.status.subscription_renews_at, new Date(1_800_432_000 * 1000).toISOString());
+});
 console.log(`${passed} passed, 0 failed`);
