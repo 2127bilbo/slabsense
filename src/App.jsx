@@ -1647,8 +1647,17 @@ export default function SlabSense(){
                     : <div style={{fontFamily:sans,fontSize:12,color:"#888",lineHeight:1.35,marginTop:2}}>Not inspected<br/><span style={{color:"#d9b56a"}}>AI Grade checks it</span></div>}
                 </div>
                 <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-                  <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>CENTERING {frontCenteringData?.didManualCenter ? '(M)' : ''}</div>
-                  <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:frontCenteringData?.didManualCenter ? "#ff9944" : "#00ff88"}}>{frontCenteringData?.didManualCenter ? Math.round(frontCenteringData.lrRatio) : Math.round(fR?.centering?.lrRatio||50)}/{frontCenteringData?.didManualCenter ? Math.round(100-frontCenteringData.lrRatio) : Math.round(100-(fR?.centering?.lrRatio||50))}</div>
+                  {(() => {
+                    // Front centering on its worse axis, the one the engine grades (deviation = |ratio - 50|).
+                    const c = frontCenteringData?.didManualCenter ? frontCenteringData : (fR?.centering || {});
+                    const lr = c.lrRatio ?? 50, tb = c.tbRatio ?? 50;
+                    const tbWorse = Math.abs(tb - 50) > Math.abs(lr - 50);
+                    const r = Math.round(tbWorse ? tb : lr);
+                    return (<>
+                      <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>CENTERING {frontCenteringData?.didManualCenter ? '(M)' : ''}</div>
+                      <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:frontCenteringData?.didManualCenter ? "#ff9944" : "#00ff88"}}>{r}/{100 - r} <span style={{fontSize:10,fontWeight:400,color:"#777"}}>{tbWorse ? 'T/B' : 'L/R'} front</span></div>
+                    </>);
+                  })()}
                 </div>
               </div>
             );
@@ -1658,7 +1667,7 @@ export default function SlabSense(){
           {(() => {
             const count = gradeMode === 'deep' ? deepGradeResult?.defects?.counts?.total
               : gradeMode === 'ai' ? aiDefects?.counts?.total
-              : gr?.totalDings;
+              : (gr?.defects?.counts?.total ?? gr?.totalDings);   // engine count: centering is measured, not a defect
             if (count === undefined || count === null) return null;
             return (
               <div style={{padding:14,background:"#0d0f13",borderRadius:10,border:"1px solid #1a1c22",marginBottom:12}}>
