@@ -52,7 +52,7 @@ export const PRODUCTS = {
     appleId: 'com.slabsense.app.grades.20',
     stripeKey: 'pack_20', stripeEnv: 'STRIPE_PRICE_GRADES_20',
     webPrice: 14.99,
-    tagline: 'Never expire · best value',
+    tagline: 'Never expire · Best value',
   },
 };
 

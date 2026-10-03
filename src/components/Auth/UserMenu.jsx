@@ -5,10 +5,15 @@
  */
 /**
  * SlabSense - User Menu
- * Dropdown menu for logged-in users
+ * Dropdown menu for logged-in users: who is signed in, their plan (PlanCard, loaded when the
+ * menu opens so the counts are current), Collection, Settings and Sign Out.
  */
 
 import { useState } from 'react';
+import { PlanCard } from '../Billing/PlanCard.jsx';
+import { getCreditsBalance } from '../../services/credits';
+import { manageSubscription } from '../../services/purchases.js';
+import { isNativeApp } from '../../lib/platform.js';
 
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
@@ -18,25 +23,24 @@ export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSet
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
   const initial = displayName.charAt(0).toUpperCase();
-  const tier = profile?.tier || 'free';
+  const [balance, setBalance] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const tierColors = {
-    free: { bg: '#2a2d35', color: '#888' },
-    beta_lifetime: { bg: 'rgba(139,92,246,0.2)', color: '#a78bfa' },
-    pro_monthly: { bg: 'rgba(0,255,136,0.2)', color: '#00ff88' },
+  const toggle = async () => {
+    const next = !isOpen;
+    setIsOpen(next);
+    if (!next || !user?.id) return;
+    setLoading(true);
+    try { setBalance(await getCreditsBalance(user.id)); } catch { setBalance(null); }
+    setLoading(false);
   };
-
-  const tierLabels = {
-    free: 'Free',
-    beta_lifetime: 'Beta Lifetime',
-    pro_monthly: 'Pro',
-  };
+  const openStore = () => { setIsOpen(false); onBuyCredits?.(); };
 
   return (
     <div style={{ position: 'relative' }}>
       {/* Avatar Button */}
       <button aria-label="Account menu" aria-haspopup="menu" aria-expanded={isOpen}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggle}
         style={{
           width: 32,
           height: 32,
@@ -78,9 +82,10 @@ export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSet
             background: '#0d0f13',
             border: '1px solid #2a2d35',
             borderRadius: 10,
-            minWidth: 200,
+            width: 'min(320px, calc(100vw - 32px))',
+            maxHeight: 'calc(100vh - 80px)',
+            overflowY: 'auto',
             zIndex: 100,
-            overflow: 'hidden',
             boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
           }}>
             {/* User Info */}
@@ -91,19 +96,14 @@ export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSet
               <div style={{ fontFamily: mono, fontSize: 10, color: '#555' }}>
                 {user?.email}
               </div>
-              <div style={{
-                marginTop: 8,
-                display: 'inline-block',
-                padding: '3px 8px',
-                borderRadius: 4,
-                background: tierColors[tier]?.bg || tierColors.free.bg,
-                fontFamily: mono,
-                fontSize: 11,
-                color: tierColors[tier]?.color || tierColors.free.color,
-                textTransform: 'uppercase',
-              }}>
-                {tierLabels[tier] || 'Free'}
-              </div>
+
+            </div>
+
+            {/* Plan */}
+            <div style={{ padding: 10, borderBottom: '1px solid #1a1c22' }}>
+              <PlanCard balance={balance} loading={loading} native={isNativeApp()} onPlus={openStore} onPacks={openStore}
+                onManage={() => { setIsOpen(false); manageSubscription({ userId: user?.id }).catch(() => openStore()); }}
+                style={{ background: '#08090c' }} />
             </div>
 
             {/* Menu Items */}
@@ -156,31 +156,6 @@ export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSet
                 Settings
               </button>
 
-              {tier === 'free' && onBuyCredits && (
-                <button
-                  onClick={() => { onBuyCredits(); setIsOpen(false); }}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    background: 'rgba(139,92,246,0.1)',
-                    border: 'none',
-                    borderRadius: 6,
-                    color: '#a78bfa',
-                    fontFamily: sans,
-                    fontSize: 13,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                  }}
-                  onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.2)'}
-                  onMouseLeave={(e) => e.target.style.background = 'rgba(139,92,246,0.1)'}
-                >
-                  <span style={{ fontSize: 14 }}>⭐</span>
-                  Get AI Grades
-                </button>
-              )}
             </div>
 
             {/* Sign Out */}
