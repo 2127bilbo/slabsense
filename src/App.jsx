@@ -1652,7 +1652,7 @@ export default function SlabSense(){
                 </div>
                 <div style={{padding:12,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
                   <div style={{fontFamily:mono,fontSize:11,color:"#666",marginBottom:4}}>CENTERING {frontCenteringData?.didManualCenter ? '(M)' : ''}</div>
-                  <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:frontCenteringData?.didManualCenter ? "#ff9944" : "#00ff88"}}>{frontCenteringData?.didManualCenter ? Math.round(frontCenteringData.lrRatio) : (fR?.centering?.lrRatio||50)}/{frontCenteringData?.didManualCenter ? Math.round(100-frontCenteringData.lrRatio) : (100-(fR?.centering?.lrRatio||50))}</div>
+                  <div style={{fontFamily:mono,fontSize:14,fontWeight:700,color:frontCenteringData?.didManualCenter ? "#ff9944" : "#00ff88"}}>{frontCenteringData?.didManualCenter ? Math.round(frontCenteringData.lrRatio) : Math.round(fR?.centering?.lrRatio||50)}/{frontCenteringData?.didManualCenter ? Math.round(100-frontCenteringData.lrRatio) : Math.round(100-(fR?.centering?.lrRatio||50))}</div>
                 </div>
               </div>
             );
