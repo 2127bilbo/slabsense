@@ -78,3 +78,6 @@ scripts/Tag scraper/
 # Deep accuracy harness: raw provider responses stay local; the scored records are tracked
 scripts/harness/results/deep-accuracy/**/*.raw.json
 scripts/harness/results/deep-accuracy/run.log
+
+# photo-confidence contact sheets are large; regenerate with npm run harness:photo-confidence
+scripts/harness/results/photo-confidence/*-sheet.jpg
