@@ -179,4 +179,42 @@ BEGIN
                             'from_sub', v_from_sub, 'from_pack', v_from_pack);
 END $$;
 
+-- ---------------------------------------------------------------------------
+-- WHO MAY CALL THESE.
+--
+-- Postgres grants EXECUTE on a new function to PUBLIC, and in Supabase both
+-- `anon` and `authenticated` inherit that, with PostgREST exposing every
+-- public-schema function at /rest/v1/rpc/<name>. So a SECURITY DEFINER
+-- function left at the default is callable from any browser holding the anon
+-- key - and being SECURITY DEFINER, it runs as the owner and bypasses every
+-- table grant.
+--
+-- These three take p_user_id as a PARAMETER and never consult auth.uid(), so
+-- at the default they would let any signed-in user mint credits for
+-- themselves, and zero out any other user's balance. That is exactly the hole
+-- 20261001_lockdown.sql closed by revoking UPDATE on profiles and INSERT on
+-- credit_transactions; defining these without revoking would re-open it
+-- through the front door.
+--
+-- Same pattern 20260915_credits_atomic.sql already uses for spend_credits.
+-- Every caller is server-side via serviceDb() (api/_lib/route.js), and
+-- service_role bypasses these grants, so nothing legitimate loses access.
+--
+-- spend_credits is re-revoked belt-and-braces: CREATE OR REPLACE preserves the
+-- existing ACL and the signature is unchanged, so its 20260915 revoke already
+-- survives - but stating it here keeps the file true on its own.
+-- ---------------------------------------------------------------------------
+
+REVOKE ALL ON FUNCTION public.grant_credits(uuid, integer, text, text, text, timestamptz, text) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.grant_credits(uuid, integer, text, text, text, timestamptz, text) TO service_role;
+
+REVOKE ALL ON FUNCTION public.revoke_credits(uuid, text, text) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.revoke_credits(uuid, text, text) TO service_role;
+
+REVOKE ALL ON FUNCTION public.revoke_credits_by_payment(uuid, text, text) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.revoke_credits_by_payment(uuid, text, text) TO service_role;
+
+REVOKE ALL ON FUNCTION public.spend_credits(uuid, text, integer, uuid) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.spend_credits(uuid, text, integer, uuid) TO service_role;
+
 COMMIT;
