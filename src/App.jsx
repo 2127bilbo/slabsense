@@ -1035,7 +1035,7 @@ export default function SlabSense(){
 
   const gr = gradeResult;
 
-  return(<div style={{minHeight:"100vh",maxWidth:480,margin:"0 auto",background:"#0a0b0e",color:"#e0e0e0",fontFamily:sans,display:"flex",flexDirection:"column"}}>
+  return(<div style={{minHeight:"100vh",maxWidth:480,margin:"0 auto",background:"#0a0b0e",color:"#e0e0e0",fontFamily:sans,display:"flex",flexDirection:"column",paddingBottom:"calc(58px + env(safe-area-inset-bottom))"}}>
     {/* Auth Modal */}
     {resumeJob && (
       <div style={{position:"fixed",left:12,right:12,bottom:76,zIndex:1050,padding:"10px 12px",background:"#12141a",border:"1px solid #f9731666",borderRadius:10,display:"flex",alignItems:"center",gap:10,boxShadow:"0 6px 24px rgba(0,0,0,.5)"}}>
@@ -1045,7 +1045,7 @@ export default function SlabSense(){
       </div>
     )}
     {collectionFull && (
-      <div role="alert" style={{position:"fixed",left:16,right:16,bottom:"calc(16px + env(safe-area-inset-bottom))",zIndex:1050,maxWidth:448,margin:"0 auto",padding:"14px 16px",background:"#1a1530",border:"1px solid #6366f1",borderRadius:12,fontFamily:sans,fontSize:14,color:"#ddd",lineHeight:1.5}}>
+      <div role="alert" style={{position:"fixed",left:16,right:16,bottom:"calc(74px + env(safe-area-inset-bottom))",zIndex:1050,maxWidth:448,margin:"0 auto",padding:"14px 16px",background:"#1a1530",border:"1px solid #6366f1",borderRadius:12,fontFamily:sans,fontSize:14,color:"#ddd",lineHeight:1.5}}>
         {collectionLimitMessage()}
         <div style={{display:"flex",gap:10,marginTop:10}}>
           <button onClick={()=>{setCollectionFull(false);setShowPricing(true);}} style={{flex:1,minHeight:44,borderRadius:10,border:"none",background:"#6366f1",color:"#fff",fontFamily:mono,fontSize:12,fontWeight:600,cursor:"pointer"}}>See SlabSense Plus</button>
@@ -1301,8 +1301,8 @@ export default function SlabSense(){
       </div>
     </div>
 
-    {/* UNIFIED TAB BAR */}
-    <div style={{display:"flex",borderBottom:"1px solid #1a1c22",background:"#0a0b0e",position:"sticky",top:"calc(54px + env(safe-area-inset-top))",zIndex:99}}>
+    {/* UNIFIED TAB BAR — bottom of the screen, above the home indicator (HIG tab bars; audit I-15) */}
+    <div role="tablist" aria-label="Sections" style={{display:"flex",borderTop:"1px solid #1a1c22",background:"rgba(10,11,14,0.96)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",position:"fixed",left:0,right:0,bottom:0,maxWidth:480,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom)",zIndex:99}}>
       {tabs.map(t=>{
         const isActive = tab===t.id;
         const isAnalysis = t.analysis;
@@ -1310,12 +1310,13 @@ export default function SlabSense(){
         const isDisabled = isAnalysis && !hasResults;
         const activeColor = hasResults && gr?.grade?.color ? gr.grade.color : "#6366f1";
         return(
-          <button key={t.id} onClick={()=>!isDisabled && setTab(t.id)} style={{
+          <button key={t.id} role="tab" aria-selected={isActive} aria-disabled={isDisabled} onClick={()=>!isDisabled && setTab(t.id)} style={{
             flex:1,
-            padding:"10px 0 8px",
+            minHeight:54,
+            padding:"8px 0 6px",
             background:"transparent",
             border:"none",
-            borderBottom:isActive?`2px solid ${activeColor}`:"2px solid transparent",
+            borderTop:isActive?`2px solid ${activeColor}`:"2px solid transparent",
             color:isDisabled?"#333":isActive?"#ddd":"#666",
             fontFamily:mono,
             fontSize:11,
@@ -1328,7 +1329,7 @@ export default function SlabSense(){
             opacity:isDisabled?0.4:1,
             transition:"all .2s",
           }}>
-            <span style={{fontSize:14}}>{t.i}</span>
+            <span aria-hidden="true" style={{fontSize:18,lineHeight:1}}>{t.i}</span>
             {t.l}
           </button>
         );
