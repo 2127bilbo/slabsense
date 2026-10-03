@@ -9,7 +9,7 @@ const sans="'Inter',-apple-system,sans-serif";
 /* ═══════════════════════════════════════════
    HOME TAB - Portfolio & Dashboard
    ═══════════════════════════════════════════ */
-export function HomeTab({ auth, onOpenCollection, onStartScan, collectionStats }) {
+export function HomeTab({ auth, onOpenCollection, onStartScan, onOpenHelp, collectionStats }) {
   // Real data from collection (passed from parent)
   const portfolio = {
     totalValue: collectionStats?.totalValue || 0,
@@ -56,6 +56,20 @@ export function HomeTab({ auth, onOpenCollection, onStartScan, collectionStats }
         </svg>
         Grade a Card
       </button>
+
+      {/* Help: photo tips, how grading works, FAQ */}
+      {onOpenHelp && (
+        <button
+          onClick={onOpenHelp}
+          style={{width:"100%",minHeight:48,padding:"12px 16px",marginBottom:16,borderRadius:12,border:"1px solid rgba(217,181,106,0.3)",background:"#0d0f13",color:"#ddd",fontFamily:sans,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}
+        >
+          <span style={{display:"flex",alignItems:"center",gap:10}}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d9b56a" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17h.01"/></svg>
+            Photo tips, how grading works and FAQ
+          </span>
+          <span style={{color:"#666"}}>→</span>
+        </button>
+      )}
 
       {/* Portfolio Summary */}
       {auth?.isAuthenticated && (

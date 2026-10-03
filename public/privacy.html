@@ -17,6 +17,7 @@
   p,li{color:#d7dbe3}a{color:var(--accent)}hr{border:0;border-top:1px solid var(--line);margin:24px 0}
   code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;background:#14161c;padding:1px 5px;border-radius:4px}
   .updated{color:var(--muted);font-size:14px}
+  .tw{overflow-x:auto;margin:12px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line);color:#d7dbe3}th{color:var(--fg);font-weight:600}
   footer{margin-top:40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
 </style>
 </head>
@@ -54,7 +55,16 @@
 <hr>
 <h2>Who else receives your data</h2>
 <p>We do not sell personal data. The following providers process it on our behalf, each under its own privacy terms:</p>
-<p>| Provider | What they receive | Why | |---|---|---| | Supabase | account data, saved cards, photos, grade results | database, authentication and file storage | | Vercel | request data, including photos submitted for a grade while the request is processed | hosting for the website and the API | | Anthropic | the card photos and the measurements for a <strong>paid AI Grade</strong>, plus the card's name once identified | the AI inspection of the card's surface and the written summary | | Stripe | payment details you enter on Stripe's pages, your email, and order amounts | payments on the website and physical slab orders. We never see your card number. | | Apple | purchases made inside the iOS app | in-app purchases are handled by Apple's App Store | | TCGdex | the name and set of the card being identified | reference images and card details |</p>
+<div class="tw"><table>
+<thead><tr><th>Provider</th><th>What they receive</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Supabase</td><td>account data, saved cards, photos, grade results</td><td>database, authentication and file storage</td></tr>
+<tr><td>Vercel</td><td>request data, including photos submitted for a grade while the request is processed</td><td>hosting for the website and the API</td></tr>
+<tr><td>Anthropic</td><td>the card photos and the measurements for a <strong>paid AI Grade</strong>, plus the card's name once identified</td><td>the AI inspection of the card's surface and the written summary</td></tr>
+<tr><td>Stripe</td><td>payment details you enter on Stripe's pages, your email, and order amounts</td><td>payments on the website and physical slab orders. We never see your card number.</td></tr>
+<tr><td>Apple</td><td>purchases made inside the iOS app</td><td>in-app purchases are handled by Apple's App Store</td></tr>
+<tr><td>TCGdex</td><td>the name and set of the card being identified</td><td>reference images and card details</td></tr>
+</tbody></table></div>
 <p>The free software grade runs on your own device and on our servers without any AI provider. Only a paid AI Grade sends your photos to Anthropic. We do not use other AI providers for your photos.</p>
 <p>We may also disclose data if the law requires it, or to a successor if SlabSense is sold, in which case this policy continues to apply.</p>
 <hr>

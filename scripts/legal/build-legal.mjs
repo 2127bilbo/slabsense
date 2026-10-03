@@ -11,7 +11,7 @@
  *
  *   node scripts/legal/build-legal.mjs
  *
- * Deliberately tiny: headings, paragraphs, bold, links, bullet lists, horizontal rules.
+ * Deliberately tiny: headings, paragraphs, bold, links, bullet lists, tables, horizontal rules.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -33,11 +33,21 @@ const inline = (s) => esc(s)
 export function mdToHtml(md) {
   const lines = md.replace(/\r\n/g, '\n').split('\n');
   const out = [];
-  let list = null, para = [];
+  let list = null, para = [], table = [];
   const flushPara = () => { if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para = []; } };
+  const cells = (row) => row.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => inline(c.trim()));
+  const flushTable = () => {
+    if (!table.length) return;
+    const [head, , ...body] = table;   // the second row is the |---| separator
+    out.push('<div class="tw"><table>', `<thead><tr>${cells(head).map((c) => `<th>${c}</th>`).join('')}</tr></thead>`, '<tbody>',
+      ...body.map((r) => `<tr>${cells(r).map((c) => `<td>${c}</td>`).join('')}</tr>`), '</tbody></table></div>');
+    table = [];
+  };
   const flushList = () => { if (list) { out.push(`</${list}>`); list = null; } };
   for (const raw of lines) {
     const line = raw.trimEnd();
+    if (/^\s*\|.*\|\s*$/.test(line)) { flushPara(); flushList(); table.push(line.trim()); continue; }
+    flushTable();
     const h = /^(#{1,3})\s+(.*)$/.exec(line);
     if (h) { flushPara(); flushList(); out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); continue; }
     if (/^---+$/.test(line)) { flushPara(); flushList(); out.push('<hr>'); continue; }
@@ -48,7 +58,7 @@ export function mdToHtml(md) {
     if (!line.trim()) { flushPara(); flushList(); continue; }
     para.push(line.trim());
   }
-  flushPara(); flushList();
+  flushPara(); flushList(); flushTable();
   return out.join('\n');
 }
 
@@ -71,6 +81,7 @@ const shell = (title, body, updated) => `<!DOCTYPE html>
   p,li{color:#d7dbe3}a{color:var(--accent)}hr{border:0;border-top:1px solid var(--line);margin:24px 0}
   code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;background:#14161c;padding:1px 5px;border-radius:4px}
   .updated{color:var(--muted);font-size:14px}
+  .tw{overflow-x:auto;margin:12px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line);color:#d7dbe3}th{color:var(--fg);font-weight:600}
   footer{margin-top:40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
 </style>
 </head>
@@ -83,11 +94,16 @@ ${body}
 </div></body></html>
 `;
 
-for (const [name, file] of Object.entries(PAGES)) {
-  const md = fs.readFileSync(path.join(SRC, file), 'utf8');
-  const title = (/^#\s+(.*)$/m.exec(md) || [null, name])[1].replace(/^SlabSense\s*[-—]\s*/, '');
-  const updated = (/\*(Effective|Last updated)[^*]*\*/i.exec(md) || [''])[0].replace(/\*/g, '');
-  const html = shell(title, mdToHtml(md), updated);
-  fs.writeFileSync(path.join(OUT, `${name}.html`), html);
-  console.log(`wrote public/${name}.html (${html.length} bytes)`);
+function build() {
+  for (const [name, file] of Object.entries(PAGES)) {
+    const md = fs.readFileSync(path.join(SRC, file), 'utf8');
+    const title = (/^#\s+(.*)$/m.exec(md) || [null, name])[1].replace(/^SlabSense\s*[-—]\s*/, '');
+    const updated = (/\*(Effective|Last updated)[^*]*\*/i.exec(md) || [''])[0].replace(/\*/g, '');
+    const html = shell(title, mdToHtml(md), updated);
+    fs.writeFileSync(path.join(OUT, `${name}.html`), html);
+    console.log(`wrote public/${name}.html (${html.length} bytes)`);
+  }
 }
+
+// Build only when run directly; importing (the test) has no side effects.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) build();

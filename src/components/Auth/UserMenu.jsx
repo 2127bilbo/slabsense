@@ -18,7 +18,7 @@ import { isNativeApp } from '../../lib/platform.js';
 const mono = "'JetBrains Mono','SF Mono',monospace";
 const sans = "'Inter',-apple-system,sans-serif";
 
-export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSettings, onBuyCredits }) {
+export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSettings, onOpenHelp, onBuyCredits }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
@@ -154,6 +154,30 @@ export function UserMenu({ user, profile, onSignOut, onOpenCollection, onOpenSet
               >
                 <span style={{ fontSize: 14 }}>⚙️</span>
                 Settings
+              </button>
+
+              <button
+                onClick={() => { onOpenHelp?.(); setIsOpen(false); }}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: 6,
+                  color: '#ccc',
+                  fontFamily: sans,
+                  fontSize: 13,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+                onMouseEnter={(e) => e.target.style.background = '#1a1c22'}
+                onMouseLeave={(e) => e.target.style.background = 'transparent'}
+              >
+                <span style={{ fontSize: 14 }}>❔</span>
+                Help &amp; Tips
               </button>
 
             </div>

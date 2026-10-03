@@ -11,6 +11,7 @@ import { useAuth } from "./hooks/useAuth.js";
 import { AuthModal } from "./components/Auth/AuthModal.jsx";
 import { SetPasswordModal } from "./components/Auth/SetPasswordModal.jsx";
 import { UserMenu } from "./components/Auth/UserMenu.jsx";
+import { HelpScreen } from "./components/Help/HelpScreen.jsx";
 import { CollectionView } from "./components/Collection/CollectionView.jsx";
 import { ExportCard } from "./components/Export/ExportCard.jsx";
 import { ProfileSettings } from "./components/Settings/ProfileSettings.jsx";
@@ -148,6 +149,7 @@ export default function SlabSense(){
   const[,setIdentifyingCard]=useState(false); // Card identification in progress
   const[showCropModal,setShowCropModal]=useState(false); // Show crop modal for missing TCGDex images
   const[showPricing,setShowPricing]=useState(false); // Pricing/credits modal visibility
+  const[showHelp,setShowHelp]=useState(false); // Help: photo tips, how grading works, FAQ
   const[insufficientCredits,setInsufficientCredits]=useState(null); // { type: 'ai'|'deep', needed: number }
   const[photoConf,setPhotoConf]=useState(null); // photo confidence for the current card (null while measuring or unknown)
   const[gate,setGate]=useState(null); // null | {kind:'signin'} | {kind:'limit', freeGrades} — shown instead of a grade (pricing plan Task 6)
@@ -1238,6 +1240,7 @@ export default function SlabSense(){
       />
     )}
     {/* Pricing/Credits Modal */}
+    {showHelp && <HelpScreen onClose={() => setShowHelp(false)} />}
     {showPricing && isNativeApp() && (
       <NativeStore userId={auth.user?.id} notice={creditNotice} onClose={() => { setShowPricing(false); setInsufficientCredits(null); refreshGradeAccess(); }} />
     )}
@@ -1299,7 +1302,7 @@ export default function SlabSense(){
         {/* Auth UI */}
         {auth.isConfigured && (
           auth.isAuthenticated ? (
-            <UserMenu user={auth.user} profile={auth.profile} onSignOut={auth.signOut} onOpenCollection={() => setShowCollection(true)} onOpenSettings={() => setShowSettings(true)} onBuyCredits={() => setShowPricing(true)} />
+            <UserMenu user={auth.user} profile={auth.profile} onSignOut={auth.signOut} onOpenCollection={() => setShowCollection(true)} onOpenSettings={() => setShowSettings(true)} onOpenHelp={() => setShowHelp(true)} onBuyCredits={() => setShowPricing(true)} />
           ) : (
             <button onClick={() => setShowAuthModal(true)} style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:6,color:"#fff",fontFamily:mono,fontSize:10,padding:"6px 12px",cursor:"pointer",textTransform:"uppercase"}}>Sign In</button>
           )
@@ -2089,6 +2092,7 @@ export default function SlabSense(){
         auth={auth}
         onOpenCollection={()=>setTab("cards")}
         onStartScan={()=>setTab("scan")}
+        onOpenHelp={()=>setShowHelp(true)}
         collectionStats={collectionStats}
       />
     )}
