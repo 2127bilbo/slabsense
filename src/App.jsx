@@ -28,6 +28,7 @@ import { isNativeApp } from "./lib/platform.js";
 import { getGradeJob, getCreditsBalance, spendFreeGrade } from "./services/credits.js";
 import { GradeGate } from "./components/Grading/GradeGate.jsx";
 import { WelcomePrompt } from "./components/WelcomePrompt.jsx";
+import { COLLECTION_LIMIT_EVENT, collectionLimitMessage } from "./lib/collection-limit.js";
 import { gradeButtonLabel } from "./components/Grading/gradeButtonLabel.js";
 import { GRADE_TIERS, creditsLabel, PAID_GRADE_TYPE } from "./lib/grade-tiers.js";
 import { getGyroInput } from "./lib/gyro-input.js";
@@ -148,7 +149,9 @@ export default function SlabSense(){
   const[gate,setGate]=useState(null); // null | {kind:'signin'} | {kind:'limit', freeGrades} — shown instead of a grade (pricing plan Task 6)
   const[gradeAccess,setGradeAccess]=useState(null); // {unlimited, remaining} from the balance endpoint; null until loaded
   const[justPurchased]=useState(()=>{ try { return new URLSearchParams(window.location.search).get('success')==='true'; } catch { return false; } }); // web checkout returns with ?success=true
-  const pendingGradeRef=useRef(false); // a signed-out user tapped Grade: run it once they are signed in
+  const pendingGradeRef=useRef(false);
+  const[collectionFull,setCollectionFull]=useState(false); // a save hit the free collection cap
+  useEffect(()=>{ const on=()=>setCollectionFull(true); window.addEventListener(COLLECTION_LIMIT_EVENT,on); return ()=>window.removeEventListener(COLLECTION_LIMIT_EVENT,on); },[]); // a signed-out user tapped Grade: run it once they are signed in
   const creditNotice = insufficientCredits ? `This AI Grade needs ${insufficientCredits.needed} credit${insufficientCredits.needed === 1 ? '' : 's'}. Buy a pack or a plan to continue.` : null;
   const[,setPendingSaveData]=useState(null); // Pending save data while waiting for crop
 
@@ -1039,6 +1042,15 @@ export default function SlabSense(){
         <div style={{flex:1,fontFamily:mono,fontSize:10,color:"#ddd",lineHeight:1.4}}>Your {resumeJob.gradeType==='deep'?'AI':'AI (basic)'} grade from earlier is ready.</div>
         <button onClick={()=>restoreJob(resumeJob)} style={{padding:"7px 10px",borderRadius:6,border:"none",background:"#f97316",color:"#000",fontFamily:mono,fontSize:10,fontWeight:700,cursor:"pointer"}}>Load it</button>
         <button onClick={()=>{forgetJob(resumeJob.jobId);setResumeJob(null);}} aria-label="Dismiss" style={{padding:"7px 9px",borderRadius:6,border:"1px solid #333",background:"transparent",color:"#888",fontFamily:mono,fontSize:10,cursor:"pointer"}}>✕</button>
+      </div>
+    )}
+    {collectionFull && (
+      <div role="alert" style={{position:"fixed",left:16,right:16,bottom:"calc(16px + env(safe-area-inset-bottom))",zIndex:1050,maxWidth:448,margin:"0 auto",padding:"14px 16px",background:"#1a1530",border:"1px solid #6366f1",borderRadius:12,fontFamily:sans,fontSize:14,color:"#ddd",lineHeight:1.5}}>
+        {collectionLimitMessage()}
+        <div style={{display:"flex",gap:10,marginTop:10}}>
+          <button onClick={()=>{setCollectionFull(false);setShowPricing(true);}} style={{flex:1,minHeight:44,borderRadius:10,border:"none",background:"#6366f1",color:"#fff",fontFamily:mono,fontSize:12,fontWeight:600,cursor:"pointer"}}>See SlabSense Plus</button>
+          <button onClick={()=>setCollectionFull(false)} style={{flex:1,minHeight:44,borderRadius:10,border:"1px solid #2a2d35",background:"transparent",color:"#aaa",fontFamily:mono,fontSize:12,cursor:"pointer"}}>Close</button>
+        </div>
       </div>
     )}
     {auth.user?.id && !showDisclaimer && <WelcomePrompt userId={auth.user.id} trigger={justPurchased ? 'purchase' : 'signup'} />}

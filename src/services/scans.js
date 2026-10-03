@@ -8,6 +8,7 @@
  * Handles saving and retrieving card scan data
  */
 
+import { isCollectionLimitError, COLLECTION_LIMIT_EVENT } from '../lib/collection-limit.js';
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { scanAiColumns } from '../lib/grade-records.js';
 
@@ -126,7 +127,14 @@ export async function upsertScan(userId, scanData, existingId = null, { skipImag
       .insert({ user_id: userId, ...scanRowFromSaveData(scanData) })
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      // The database refuses a free account's save past FREE_TIER.collectionLimit; tell the app once.
+      if (isCollectionLimitError(error)) {
+        try { window.dispatchEvent(new CustomEvent(COLLECTION_LIMIT_EVENT)); } catch { /* non-browser */ }
+        const e = new Error('collection_limit_reached'); e.code = 'collection_limit_reached'; throw e;
+      }
+      throw error;
+    }
     scan = data;
   }
 

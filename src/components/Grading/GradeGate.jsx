@@ -19,7 +19,7 @@ export function GradeGate({ kind, freeGrades, onSignIn, onPlus, onBack }) {
       <div style={{ fontFamily: mono, fontSize: 11, color: '#8b5cf6', letterSpacing: 1 }}>{signin ? 'ALMOST THERE' : 'FREE LIMIT REACHED'}</div>
       <div style={{ fontFamily: sans, fontSize: 15, color: '#fff', marginTop: 8, lineHeight: 1.5 }}>
         {signin
-          ? `Your photos and centering are ready. Sign in or create a free account to see the grade. Free accounts get ${FREE_TIER.gradesPerMonth} grades a month; centering and your collection are always free.`
+          ? `Your photos and centering are ready. Sign in or create a free account to see the grade. Free accounts get ${FREE_TIER.gradesPerMonth} grades a month and save up to ${FREE_TIER.collectionLimit} cards; centering is always free.`
           : `You have used ${freeGrades?.used ?? FREE_TIER.gradesPerMonth} of ${freeGrades?.limit ?? FREE_TIER.gradesPerMonth} free grades this month. SlabSense Plus has unlimited grades and 5 AI Grades a month, with a 5-day free trial.`}
       </div>
       {signin

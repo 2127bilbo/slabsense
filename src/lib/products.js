@@ -56,8 +56,13 @@ export const PRODUCTS = {
   },
 };
 
-/** Free accounts: on-device grades per calendar month (UTC); no AI Grades. Signed-out users get capture + centering only. */
-export const FREE_TIER = { gradesPerMonth: 10, aiGrades: 0 };
+/**
+ * Free accounts: on-device grades per calendar month (UTC); no AI Grades; saved cards capped so free
+ * accounts cannot fill the storage buckets (owner 2026-10-02). Signed-out users get capture + centering only.
+ * collectionLimit is also enforced by the database (migration 20261003_free_grades.sql, v_collection_limit);
+ * change both together (a test checks they match).
+ */
+export const FREE_TIER = { gradesPerMonth: 10, aiGrades: 0, collectionLimit: 25 };
 /** Statuses with unlimited on-device grades. Paid statuses also need a current period (below). */
 export const LIFETIME_STATUSES = ['lifetime', 'beta_lifetime'];
 export const PAID_STATUSES = ['sub_monthly', 'trialing', 'grace'];   // grace: Apple billing grace period keeps access

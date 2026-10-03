@@ -54,7 +54,7 @@ export function NativeStore({ userId, onClose, notice = null }) {
           <button onClick={onClose} aria-label="Close" style={{ minWidth: 44, minHeight: 44, background: 'transparent', border: '1px solid #2a2d35', borderRadius: 10, color: '#888', fontSize: 18, cursor: 'pointer' }}>×</button>
         </div>
         <div style={{ fontFamily: sans, fontSize: 13, color: '#aaa', lineHeight: 1.5, marginBottom: 16 }}>
-          Free accounts get 10 on-device grades a month; centering and your collection are always free. SlabSense Plus has unlimited grades and 5 AI Grades a month, starting with a 5-day free trial that includes 2. An AI Grade sends your photos for a full surface inspection and a written report. Packs add AI Grades that never expire. Grades are estimates, not official grades.
+          Free accounts get 10 on-device grades a month and save up to 25 cards; centering is always free. SlabSense Plus has unlimited grades, an unlimited collection and 5 AI Grades a month, starting with a 5-day free trial that includes 2. An AI Grade sends your photos for a full surface inspection and a written report. Packs add AI Grades that never expire. Grades are estimates, not official grades.
         </div>
         {notice && <div role="alert" style={{ ...card, color: '#ffcc00', fontFamily: sans, fontSize: 13 }}>{notice}</div>}
         {balance && (

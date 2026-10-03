@@ -48,7 +48,9 @@ export default userRoute({ methods: ['GET', 'POST'], label: 'Balance' }, async (
     const subCredits = subExpires && subExpires < now ? 0 : (profile.sub_credits_balance || 0);
 
     const isLifetime = ['lifetime', 'beta_lifetime'].includes(profile.subscription_status);
-    const cardLimit = null; // collection is unlimited for every account (owner decision 2026-10-02)
+    const ent = entitlementFields(profile, FREE_TIER.gradesPerMonth);
+    const { count: savedCards } = await supabase.from('scans').select('id', { count: 'exact', head: true }).eq('user_id', userId);
+    const cardLimit = ent.unlimitedGrades ? null : FREE_TIER.collectionLimit; // also enforced by the database trigger
 
     return res.status(200).json({
       success: true,
@@ -63,11 +65,11 @@ export default userRoute({ methods: ['GET', 'POST'], label: 'Balance' }, async (
       renewsAt: profile.subscription_renews_at,
       trialUsed: profile.used_trial,
       bonusEligible: profile.signup_bonus_eligible,
-      cardsSaved: profile.cards_saved_count || 0,
+      cardsSaved: savedCards || 0,
       cardLimit,
-      canSaveMore: cardLimit === null || (profile.cards_saved_count || 0) < cardLimit,
+      canSaveMore: cardLimit === null || (savedCards || 0) < cardLimit,
       isLifetime,
       canUseAI: isLifetime || balance + subCredits > 0,   // free accounts have no AI Grades; a pack or allowance enables the button
-      ...entitlementFields(profile, FREE_TIER.gradesPerMonth),
+      ...ent,
     });
 });

@@ -27,7 +27,7 @@ Do not: reverse-engineer or scrape the Service; use it to misrepresent a card's 
 ## 5. Free and paid features
 
 - **Free**: capturing and aligning a card and the on-device condition estimate.
-- **Free account**: 10 on-device grades per calendar month, unlimited centering and collection, no AI Grades.
+- **Free account**: 10 on-device grades per calendar month, up to 25 saved cards, unlimited centering, no AI Grades.
 - **AI Grade**: a paid inspection in which your card photos are sent to an AI provider for a surface inspection and written summary. Paid grades are sold as a subscription allowance or as a pack of credits.
 - **Physical slab**: a display case engraved with a SlabSense estimate and a public cert page, sold as a physical product.
 

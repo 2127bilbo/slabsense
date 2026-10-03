@@ -19,7 +19,7 @@ ok('plan allowance 5, trial 5 days with 2 grades', () => {
   assert.deepEqual(PRODUCTS.sub_monthly.trial, { days: 5, grades: 2 });
 });
 ok('free tier: 10 on-device grades a month, no AI grades', () => {
-  assert.deepEqual(FREE_TIER, { gradesPerMonth: 10, aiGrades: 0 });
+  assert.deepEqual(FREE_TIER, { gradesPerMonth: 10, aiGrades: 0, collectionLimit: 25 });
 });
 ok('unlimited on-device grades for plan, trial and lifetime; not for free', () => {
   for (const s of ['sub_monthly', 'trialing', 'lifetime', 'beta_lifetime']) assert.equal(isUnlimited(s), true, s);

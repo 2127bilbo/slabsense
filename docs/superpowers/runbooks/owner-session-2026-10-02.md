@@ -5,7 +5,7 @@ click and what to paste. Tick them off here; I update `docs/STATUS.md` from this
 
 ## A. Supabase (15 min)
 
-0. [ ] **New (pricing decision):** apply `supabase/migrations/20261003_free_grades.sql` (free-grade counter). Safe to re-run. Check: `select proname from pg_proc where proname = 'use_free_grade';` returns one row.
+0. [ ] **New (pricing decision):** apply `supabase/migrations/20261003_free_grades.sql` (free-grade counter + 25-card free collection cap). Safe to re-run. Check: `select proname from pg_proc where proname in ('use_free_grade','enforce_collection_limit');` returns two rows. Then tell Claude, who pushes the code to main.
 
 1. **Apply three migrations** in the SQL editor (Dashboard → SQL → New query), one file at a
    time, in this order. Each is safe to re-run.
