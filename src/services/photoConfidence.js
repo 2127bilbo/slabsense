@@ -36,12 +36,29 @@ async function measureSide(src, centeringData) {
   if (det?.ok) corners = det.corners;
   if (!corners) corners = cornersFromCentering(centeringData);
   if (!corners) return null;
+  return scoreImage(img, corners);
+}
+
+function scoreImage(img, corners) {
   const k = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
   const c = document.createElement('canvas');
   c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
   const ctx = c.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(img, 0, 0, c.width, c.height);
   return photoConfidence(ctx.getImageData(0, 0, c.width, c.height), corners);
+}
+
+/**
+ * One photo on the camera's review screen, with the corners the capture check already found.
+ * Phone-capped like the grade screen. Null when the outline is not card-shaped or the photo will not load.
+ */
+export async function measureCaptureConfidence(src, corners, source = 'phone') {
+  if (!src || !corners) return null;
+  const img = await loadImageElement(src);
+  if (!img) return null;
+  const r = scoreImage(img, corners);
+  if (!r || r.score == null) return null;
+  return { score: capForSource(r.score, source), issues: r.issues, cutoff: r.cutoff };
 }
 
 /** @returns {Promise<null | {score:number, issues:Record<string,number>, cutoff:boolean, sides:{front:object|null, back:object|null}}>} */

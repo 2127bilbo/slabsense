@@ -9,6 +9,12 @@ import { loadImg } from "../../lib/image-utils.js";
 import { findBounds } from "../../lib/detectors.js";
 import { markModelPass } from "../../services/cornerEdgeModels.js";
 import { preloadCardModel, liveCardQuad, detectCardInSource } from "../../services/cardModels.js";
+import { measureCaptureConfidence } from "../../services/photoConfidence.js";
+import { captureAdvice } from "../../lib/capture-advice.js";
+import { bandFor, problemsFor } from "../../lib/confidence-copy.js";
+import { shouldAutoShowGuide, markGuideSeen } from "../../lib/scan-guide.js";
+import { ConfidenceMedallion } from "../Grading/ConfidenceMedallion.jsx";
+import { ScanGuide } from "./ScanGuide.jsx";
 const mono="'JetBrains Mono','SF Mono',monospace";
 /* ═══════════════════════════════════════════
    MANUAL BOUNDARY EDITOR
@@ -70,6 +76,10 @@ export function CameraViewfinder({ side, onCapture, onClose }) {
   const [captured, setCaptured] = useState(null);
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState(null);
+  const [conf, setConf] = useState(null);               // photo confidence of the captured photo, phone-capped
+  const [confChecking, setConfChecking] = useState(false);
+  const checkToken = useRef(0);                          // drops results for a photo that was already retaken
+  const [showGuide, setShowGuide] = useState(shouldAutoShowGuide);
   const [camError, setCamError] = useState(null);
   const [cardOutline, setCardOutline] = useState(null);
   const [cardStable, setCardStable] = useState(0); // frames card has been stable
@@ -193,7 +203,7 @@ export function CameraViewfinder({ side, onCapture, onClose }) {
   // Pressing the shutter is what shakes the phone, so a lock that holds for AUTO_SNAP_MS takes the
   // photo by itself. Only the model's lock counts (the grid box can lock on a patterned table), and
   // any drop of the lock resets the countdown.
-  const autoArmed = autoSnap && cardLocked && !captured && cardOutline?.source !== 'grid';
+  const autoArmed = autoSnap && cardLocked && !captured && !showGuide && cardOutline?.source !== 'grid';
   useEffect(() => {
     if (!autoArmed) { setAutoProgress(0); return; }
     const t0 = performance.now();
@@ -212,15 +222,34 @@ export function CameraViewfinder({ side, onCapture, onClose }) {
     c.width=v.videoWidth; c.height=v.videoHeight;
     c.getContext("2d").drawImage(v,0,0);
     const dataUrl=c.toDataURL("image/jpeg",0.92);
-    setCaptured(dataUrl); setValidating(true);
-    validateCap(dataUrl).then(r=>{setValidation(r);setValidating(false);});
+    setCaptured(dataUrl);
+    checkCapture(dataUrl);
   };
+
+  /** Card detection, then photo confidence on the corners it found. A retake drops a late result. */
+  function checkCapture(src) {
+    const token = ++checkToken.current;
+    setValidating(true); setConf(null); setConfChecking(false);
+    validateCap(src).then(r => {
+      if (token !== checkToken.current) return;
+      setValidation(r); setValidating(false);
+      if (!r.corners) return;
+      setConfChecking(true);
+      measureCaptureConfidence(src, r.corners)
+        .then(c => { if (token === checkToken.current) setConf(c); })
+        .catch(() => {})
+        .finally(() => { if (token === checkToken.current) setConfChecking(false); });
+    });
+  }
+  const closeGuide = ({ dontShow }) => { if (dontShow) markGuideSeen(); setShowGuide(false); };
 
   captureRef.current = captureFrame;
   const acceptCapture = () => { streamRef.current?.getTracks().forEach(t=>t.stop()); onCapture(captured); };
   const retake = () => {
+    checkToken.current++;
     setCaptured(null);
     setValidation(null);
+    setConf(null); setConfChecking(false);
     setCardOutline(null);
     setCardStable(0);
     // Restart video playback after unhiding
@@ -293,8 +322,7 @@ export function CameraViewfinder({ side, onCapture, onClose }) {
             const d = c.toDataURL('image/jpeg', 0.95); // Higher quality for full-res
             setCaptured(d);
             setIsUploading(false);
-            setValidating(true);
-            validateCap(d).then(r => { setValidation(r); setValidating(false); });
+            checkCapture(d);
           } catch (err) {
             setUploadError('Failed to process image');
             setIsUploading(false);
@@ -313,10 +341,14 @@ export function CameraViewfinder({ side, onCapture, onClose }) {
       <div style={{padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(0,0,0,.8)",zIndex:10}}>
         <button onClick={closeCam} style={{background:"transparent",border:"none",color:"#888",fontFamily:mono,fontSize:12,cursor:"pointer"}}>✕ Cancel</button>
         <div style={{fontFamily:mono,fontSize:12,color:"#fff",textTransform:"uppercase",letterSpacing:".1em"}}>Capture {side}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <button onClick={()=>setShowGuide(true)} aria-label="Scanning tips" style={{width:32,height:32,borderRadius:"50%",background:"transparent",border:"1px solid #444",color:"#ccc",fontFamily:mono,fontSize:14,fontWeight:700,cursor:"pointer"}}>?</button>
         <button onClick={()=>{const next=!autoSnap;setAutoSnap(next);try{localStorage.setItem(AUTO_SNAP_KEY,next?'1':'0');}catch{/* private mode */}}} aria-label={`Auto snap ${autoSnap?'on':'off'}`}
           style={{width:60,background:"transparent",border:`1px solid ${autoSnap?"#00ff8866":"#333"}`,borderRadius:6,padding:"4px 0",color:autoSnap?"#00ff88":"#666",fontFamily:mono,fontSize:11,letterSpacing:".08em",cursor:"pointer"}}>AUTO {autoSnap?"ON":"OFF"}</button>
+        </div>
       </div>
 
+      {showGuide&&<ScanGuide onClose={closeGuide}/>}
       <div style={{flex:1,position:"relative",overflow:"hidden"}}>
         {/* Checking for camera */}
         {hasCamera === null && !captured && (
@@ -456,16 +488,26 @@ export function CameraViewfinder({ side, onCapture, onClose }) {
           <div style={{width:"100%",height:"100%",position:"relative"}}>
             <img src={captured} alt="Captured card" style={{width:"100%",height:"100%",objectFit:"contain"}}/>
             {validating&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.6)"}}><div style={{fontFamily:mono,fontSize:12,color:"#00ff88"}}>Checking card detection...</div></div>}
-            {validation&&(
-              <div style={{position:"absolute",bottom:0,left:0,right:0,padding:16,background:"linear-gradient(transparent,rgba(0,0,0,.9))"}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:validation.valid?"#00ff88":"#ff4444"}}/>
-                  <span style={{fontFamily:mono,fontSize:12,color:validation.valid?"#00ff88":"#ff4444"}}>{validation.valid?"Card detected — good capture":"Issues detected"}</span>
+            {validation&&(()=>{
+              const advice=captureAdvice(validation,conf);
+              const color=advice.verdict==="good"?"#00ff88":advice.verdict==="fair"?"#ffcc00":"#ff6b6b";
+              const fixes=conf?problemsFor(conf.issues,conf.cutoff).slice(0,2):[];
+              return(
+              <div role="status" style={{position:"absolute",bottom:0,left:0,right:0,padding:"28px 16px 14px",background:"linear-gradient(transparent,rgba(0,0,0,.92) 28%)",display:"flex",gap:12,alignItems:"center"}}>
+                {conf&&<ConfidenceMedallion score={conf.score} issues={conf.issues} cutoff={conf.cutoff} size={78}/>}
+                <div style={{minWidth:0,display:"grid",gap:4}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                    <div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>
+                    <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color}}>{advice.headline}</span>
+                    {conf&&<span style={{fontFamily:mono,fontSize:10,color:"#d9b56a",letterSpacing:".08em",textTransform:"uppercase"}}>{bandFor(conf.score).name}</span>}
+                  </div>
+                  {confChecking&&<div style={{fontFamily:mono,fontSize:10,color:"#888"}}>Checking photo quality...</div>}
+                  {!confChecking&&advice.verdict!=="good"&&<div style={{fontFamily:"'Inter',-apple-system,sans-serif",fontSize:12,color:"#ccc",lineHeight:1.4}}>{advice.message}</div>}
+                  {fixes.map(p=><div key={p.key} style={{fontFamily:"'Inter',-apple-system,sans-serif",fontSize:11,color:"#aaa",lineHeight:1.35}}><span style={{color:"#ffd89a"}}>{p.label}.</span> {p.fix}</div>)}
+                  {!conf&&!confChecking&&!validation.valid&&validation.issues.slice(1).map((is,i)=><div key={i} style={{fontFamily:mono,fontSize:10,color:"#ff9944"}}>⚠ {is}</div>)}
                 </div>
-                {validation.valid&&<div style={{fontFamily:mono,fontSize:10,color:"#666"}}>Card fills {validation.fillRatio}% of frame</div>}
-                {!validation.valid&&validation.issues.map((is,i)=><div key={i} style={{fontFamily:mono,fontSize:10,color:"#ff9944"}}>⚠ {is}</div>)}
-              </div>
-            )}
+              </div>);
+            })()}
           </div>
         )}
       </div>
@@ -498,8 +540,11 @@ export function CameraViewfinder({ side, onCapture, onClose }) {
         ) : (
           /* Image captured - show retake/use buttons */
           <>
-            <button onClick={retake} style={{padding:"12px 24px",background:"transparent",border:"1px solid #444",borderRadius:10,color:"#fff",fontFamily:mono,fontSize:12,cursor:"pointer"}}>{hasCamera === false ? "Choose Different" : "Retake"}</button>
-            <button onClick={acceptCapture} style={{padding:"12px 24px",background:validation?.valid?"#00ff88":"rgba(0,255,136,.3)",border:"none",borderRadius:10,color:"#000",fontFamily:mono,fontSize:12,fontWeight:700,cursor:"pointer"}}>{validation?.valid?"✓ Use Photo":"Use Anyway"}</button>
+            {(()=>{const advice=captureAdvice(validation,conf);const retakeFirst=advice?.primary==="retake";
+              return(<>
+              <button onClick={retake} style={{minHeight:44,padding:"12px 24px",background:retakeFirst?"#fff":"transparent",border:retakeFirst?"none":"1px solid #444",borderRadius:10,color:retakeFirst?"#000":"#fff",fontFamily:mono,fontSize:12,fontWeight:retakeFirst?700:400,cursor:"pointer"}}>{hasCamera === false ? "Choose Different" : "Retake"}</button>
+              <button onClick={acceptCapture} disabled={validating} style={{minHeight:44,padding:"12px 24px",background:retakeFirst?"transparent":advice?"#00ff88":"rgba(0,255,136,.3)",border:retakeFirst?"1px solid #444":"none",borderRadius:10,color:retakeFirst?"#ccc":"#000",fontFamily:mono,fontSize:12,fontWeight:700,cursor:"pointer"}}>{advice?(advice.useLabel==="Use Photo"?"✓ Use Photo":"Use Anyway"):"Use Photo"}</button>
+              </>);})()}
           </>
         )}
       </div>
