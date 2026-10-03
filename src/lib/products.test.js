@@ -29,4 +29,12 @@ ok('feedback address and trial wording in the Apple terms', () => {
   assert.equal(FEEDBACK_EMAIL, 'support@slabsenseai.com');
   assert.match(APPLE_SUBSCRIPTION_TERMS, /5-day free trial/);
 });
+ok('review #6: unlimited needs a current period; lifetime ignores dates; grace keeps access', () => {
+  const now = new Date('2026-10-10T00:00:00Z');
+  assert.equal(isUnlimited('sub_monthly', '2026-11-01T00:00:00Z', now), true);
+  assert.equal(isUnlimited('trialing', '2026-10-09T00:00:00Z', now), true, 'inside the 3-day slack');
+  assert.equal(isUnlimited('sub_monthly', '2026-09-30T00:00:00Z', now), false, 'a missed expiry notice does not mean unlimited forever');
+  assert.equal(isUnlimited('lifetime', null, now), true);
+  assert.equal(isUnlimited('grace', '2026-10-12T00:00:00Z', now), true);
+});
 console.log(`${passed} passed, 0 failed`);

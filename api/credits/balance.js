@@ -48,8 +48,7 @@ export default userRoute({ methods: ['GET', 'POST'], label: 'Balance' }, async (
     const subCredits = subExpires && subExpires < now ? 0 : (profile.sub_credits_balance || 0);
 
     const isLifetime = ['lifetime', 'beta_lifetime'].includes(profile.subscription_status);
-    const isFree = profile.subscription_status === 'free';
-    const cardLimit = isFree ? 5 : null; // null = unlimited
+    const cardLimit = null; // collection is unlimited for every account (owner decision 2026-10-02)
 
     return res.status(200).json({
       success: true,

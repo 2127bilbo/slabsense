@@ -22,13 +22,13 @@ export function freeGradeView(profile, limit, now = new Date()) {
 
 /** What the balance endpoint adds for the grade flow: unlimited flag and the monthly counter. */
 export function entitlementFields(profile, limit, now = new Date()) {
-  return { unlimitedGrades: isUnlimited(profile?.subscription_status), freeGrades: freeGradeView(profile, limit, now) };
+  return { unlimitedGrades: isUnlimited(profile?.subscription_status, profile?.subscription_renews_at, now), freeGrades: freeGradeView(profile, limit, now) };
 }
 
 /** The spend route's `gradeType: 'free'` branch: unlimited accounts never touch the counter. */
 export async function spendFreeGradeWithDb(db, { userId, limit }) {
-  const { data: profile } = await db.from('profiles').select('subscription_status').eq('id', userId).maybeSingle();
-  if (isUnlimited(profile?.subscription_status)) return { status: 200, body: { success: true, unlimited: true } };
+  const { data: profile } = await db.from('profiles').select('subscription_status, subscription_renews_at').eq('id', userId).maybeSingle();
+  if (isUnlimited(profile?.subscription_status, profile?.subscription_renews_at)) return { status: 200, body: { success: true, unlimited: true } };
   return useFreeGradeWithDb(db, { userId, limit });
 }
 

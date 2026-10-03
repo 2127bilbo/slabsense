@@ -58,9 +58,23 @@ export const PRODUCTS = {
 
 /** Free accounts: on-device grades per calendar month (UTC); no AI Grades. Signed-out users get capture + centering only. */
 export const FREE_TIER = { gradesPerMonth: 10, aiGrades: 0 };
-/** Statuses with unlimited on-device grades. */
-export const UNLIMITED_STATUSES = ['sub_monthly', 'trialing', 'lifetime', 'beta_lifetime'];
-export function isUnlimited(subscriptionStatus) { return UNLIMITED_STATUSES.includes(subscriptionStatus); }
+/** Statuses with unlimited on-device grades. Paid statuses also need a current period (below). */
+export const LIFETIME_STATUSES = ['lifetime', 'beta_lifetime'];
+export const PAID_STATUSES = ['sub_monthly', 'trialing', 'grace'];   // grace: Apple billing grace period keeps access
+export const UNLIMITED_STATUSES = [...PAID_STATUSES, ...LIFETIME_STATUSES];
+/** Slack after the period end before a paid status stops counting (late renewal notices). */
+export const RENEWAL_SLACK_MS = 3 * 86400e3;
+/**
+ * Unlimited on-device grades. A paid status counts only while its period is current (plus slack),
+ * so one missed expiry notice cannot leave an account unlimited forever (review finding #6).
+ * A paid status with no renewal date (older rows) is trusted.
+ */
+export function isUnlimited(subscriptionStatus, renewsAt = null, now = new Date()) {
+  if (LIFETIME_STATUSES.includes(subscriptionStatus)) return true;
+  if (!PAID_STATUSES.includes(subscriptionStatus)) return false;
+  if (!renewsAt) return true;
+  return new Date(renewsAt).getTime() > now.getTime() - RENEWAL_SLACK_MS;
+}
 /** Where the welcome prompt sends suggestions and bug reports. */
 export const FEEDBACK_EMAIL = 'support@slabsenseai.com';
 

@@ -68,4 +68,8 @@ ok('subscription status trialing is kept as trialing with the trial end as the r
   const d = decideSubscriptionUpdated({ id: 'sub_t', status: 'trialing', items: { data: [{ price: { id: 'price_plus' } }] }, trial_end: 1_800_432_000 }, env);
   assert.equal(d.status.subscription_status, 'trialing'); assert.equal(d.status.subscription_renews_at, new Date(1_800_432_000 * 1000).toISOString());
 });
+ok('review #2: the Stripe trial invoice marks the account as having used its trial', () => {
+  const inv = { id: 'in_t2', billing_reason: 'subscription_create', amount_paid: 0, amount_due: 0, parent: { subscription_details: { subscription: 'sub_t' } }, lines: { data: [{ price: { id: 'price_plus' }, period: { end: 1_800_432_000 } }] } };
+  assert.equal(decideInvoicePaid(inv, env).status.used_trial, true);
+});
 console.log(`${passed} passed, 0 failed`);

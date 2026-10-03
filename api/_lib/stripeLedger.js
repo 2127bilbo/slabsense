@@ -91,7 +91,7 @@ export function decideInvoicePaid(invoice, env = process.env) {
   const amount = trial ? product.trial.grades : product.allowance;
   return {
     ops: [{ op: 'grant', bucket: 'sub', amount, externalId: ext.invoice(invoice.id), description: trial ? `${product.name} trial (web)` : `${product.name} ${product.period} (web)`, expiresAt, paymentRef: invoice.payment_intent || null }],
-    status: { subscription_status: trial ? 'trialing' : key, subscription_source: 'stripe', subscription_id: invoiceSubscriptionId(invoice) || undefined, subscription_renews_at: expiresAt },
+    status: { subscription_status: trial ? 'trialing' : key, ...(trial ? { used_trial: true } : {}), subscription_source: 'stripe', subscription_id: invoiceSubscriptionId(invoice) || undefined, subscription_renews_at: expiresAt },
     reason: trial ? 'trial started' : `subscription paid (${invoice.billing_reason || 'invoice'})`,
   };
 }

@@ -74,13 +74,16 @@ export function decide(tx, note = {}) {
   if (type === 'DID_CHANGE_RENEWAL_STATUS' || type === 'DID_CHANGE_RENEWAL_PREF' || type === 'RENEWAL_EXTENDED') {
     return { ops, status: { subscription_source: 'apple', ...(tx.expiresDate ? { subscription_renews_at: new Date(tx.expiresDate).toISOString() } : {}) }, reason: `subscription ${type}` };
   }
+  // A client-sent (verify/restore) transaction whose period is over changes nothing: an old trial or
+  // lapsed plan must not bring back access (review finding #1). Notifications carry their own meaning.
+  if (!type && tx.expiresDate && tx.expiresDate < Date.now()) return { ops, status: null, reason: 'expired transaction (no change)' };
   if (!type || GRANTING.has(type)) {
     const expiresAt = tx.expiresDate ? new Date(tx.expiresDate).toISOString() : null;
     // Introductory free trial (offerType 1 = introductory offer, no charge): the trial allowance only.
     const isTrial = !!product.trial && (tx.offerDiscountType === 'FREE_TRIAL' || (tx.offerType === 1 && !(tx.price > 0)));
     const amount = isTrial ? product.trial.grades : product.allowance;
     ops.push({ op: 'grant', bucket: 'sub', amount, externalId: externalId(tx.transactionId), description: isTrial ? `${product.name} trial (App Store)` : `${product.name} ${product.period} (App Store)`, expiresAt });
-    return { ops, status: { subscription_status: isTrial ? 'trialing' : key, subscription_source: 'apple', subscription_renews_at: expiresAt, apple_original_transaction_id: tx.originalTransactionId }, reason: isTrial ? 'trial started' : `subscription ${type || 'verify'}` };
+    return { ops, status: { subscription_status: isTrial ? 'trialing' : key, ...(isTrial ? { used_trial: true } : {}), subscription_source: 'apple', subscription_renews_at: expiresAt, apple_original_transaction_id: tx.originalTransactionId }, reason: isTrial ? 'trial started' : `subscription ${type || 'verify'}` };
   }
   return { ops, status: null, reason: `ignored ${type}/${sub || ''}` };
 }
