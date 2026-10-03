@@ -25,7 +25,9 @@ import { DamageReportModal } from "./components/DamageReport";
 import { CreditBalance, PricingPage } from "./components/Billing";
 import { NativeStore } from "./components/Billing/NativeStore.jsx";
 import { isNativeApp } from "./lib/platform.js";
-import { getGradeJob } from "./services/credits.js";
+import { getGradeJob, getCreditsBalance, spendFreeGrade } from "./services/credits.js";
+import { GradeGate } from "./components/Grading/GradeGate.jsx";
+import { gradeButtonLabel } from "./components/Grading/gradeButtonLabel.js";
 import { GRADE_TIERS, creditsLabel, PAID_GRADE_TYPE } from "./lib/grade-tiers.js";
 import { getGyroInput } from "./lib/gyro-input.js";
 import { genMaps } from "./lib/image-utils.js";
@@ -142,6 +144,9 @@ export default function SlabSense(){
   const[showCropModal,setShowCropModal]=useState(false); // Show crop modal for missing TCGDex images
   const[showPricing,setShowPricing]=useState(false); // Pricing/credits modal visibility
   const[insufficientCredits,setInsufficientCredits]=useState(null); // { type: 'ai'|'deep', needed: number }
+  const[gate,setGate]=useState(null); // null | {kind:'signin'} | {kind:'limit', freeGrades} — shown instead of a grade (pricing plan Task 6)
+  const[gradeAccess,setGradeAccess]=useState(null); // {unlimited, remaining} from the balance endpoint; null until loaded
+  const pendingGradeRef=useRef(false); // a signed-out user tapped Grade: run it once they are signed in
   const creditNotice = insufficientCredits ? `This AI Grade needs ${insufficientCredits.needed} credit${insufficientCredits.needed === 1 ? '' : 's'}. Buy a pack or a plan to continue.` : null;
   const[,setPendingSaveData]=useState(null); // Pending save data while waiting for crop
 
@@ -364,6 +369,35 @@ export default function SlabSense(){
     }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);setAnalysisFailed(true);}
   },[fI,bI,frontCroppedImage,backCroppedImage,ignoreCentering,gradingCompany,frontCenteringData,backCenteringData,frontQuality,backQuality]);
 
+  // The free grade costs one of the month's free grades for free accounts (unlimited for Plus, trial and
+  // lifetime) and needs an account. run() itself stays ungated: the paid-job restore path re-runs it.
+  const refreshGradeAccess = useCallback(async () => {
+    if (!auth.isAuthenticated || !auth.user?.id) { setGradeAccess(null); return; }
+    try { const b = await getCreditsBalance(auth.user.id); setGradeAccess({ unlimited: !!b.unlimitedGrades, remaining: b.freeGrades?.remaining ?? null }); }
+    catch { setGradeAccess(null); }
+  }, [auth.isAuthenticated, auth.user?.id]);
+  useEffect(() => { refreshGradeAccess(); }, [refreshGradeAccess]);
+
+  const requestGrade = useCallback(async () => {
+    if (!fI || !bI) return;
+    if (!auth.isAuthenticated) { setGate({ kind: 'signin' }); setStep(1); return; }
+    try {
+      const r = await spendFreeGrade(auth.user.id);
+      if (r?.freeGrades) setGradeAccess({ unlimited: false, remaining: r.freeGrades.remaining });
+    } catch (e) {
+      if (e.status === 402) { setGate({ kind: 'limit', freeGrades: e.data?.freeGrades }); setGradeAccess({ unlimited: false, remaining: 0 }); setStep(1); return; }
+      if (e.status === 401) { setGate({ kind: 'signin' }); setStep(1); return; }
+      setProg(`Error: ${e.message || 'could not start the grade'}`); setAnalysisFailed(true); setStep(1); return;
+    }
+    setGate(null);
+    run();
+  }, [fI, bI, auth.isAuthenticated, auth.user?.id, run]);
+
+  // A signed-out user who tapped Grade and then signed in gets the grade without re-capturing
+  useEffect(() => {
+    if (auth.isAuthenticated && pendingGradeRef.current) { pendingGradeRef.current = false; requestGrade(); }
+  }, [auth.isAuthenticated, requestGrade]);
+
   // Restore step 1: once the restored photos are in state, run the software analysis
   useEffect(() => {
     if (!pendingApplyRef.current || !fI || !bI || step !== 0) return;
@@ -448,7 +482,7 @@ export default function SlabSense(){
   // Used by "New", "Scan New Card" and job restore, so no path can leave a stale status behind
   // (the Deep button used to stay disabled for the whole session after one Deep grade).
   const resetGradingState=()=>{setGradeResult(null);setFR(null);setBR(null);setFM(null);setBM(null);setCardInfo(null);setAiSubgrades(null);setAiOverall(null);setAiGrades(null);setAiConfidence(null);setAiGradingNotes(null);setAiSummary(null);setAiCentering(null);setAiDefects(null);setDeepAiSubgrades(null);setDeepAiOverall(null);setDeepAiGrades(null);setDeepAiConfidence(null);setDeepAiCentering(null);setDeepAiSummary(null);setDeepGradeStatus(null);setDeepGradeResult(null);setEnhancingStatus(null);setExtractingInfo(false);setGradeMode('software');setUseAiCentering(false);setCenteringConfirmed(false);setIgnoreCentering(false);setSavingStatus(null);setSavedScanId(null);savedScanIdRef.current=null;savedImagesRef.current=null;autosaveArmedRef.current=null;gradeRunRef.current+=1;};
-  const reset=()=>{setStep(0);setFI(null);setBI(null);resetGradingState();setTab("scan");setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setShow3DViewer(false);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
+  const reset=()=>{setGate(null);setStep(0);setFI(null);setBI(null);resetGradingState();setTab("scan");setFrontQuality(null);setBackQuality(null);setEnhancedCards(null);setShow3DViewer(false);setTcgdexData(null);setTcgdexImage(null);setShowCardIdentifier(false);setIdentifyingCard(false);setShowPostCaptureCentering(null);setFrontCenteringData(null);setBackCenteringData(null);setFrontCroppedImage(null);setBackCroppedImage(null);};
 
   // Analyze photo quality when images are captured
   const handleSetFrontImage = useCallback(async (img) => {
@@ -1180,7 +1214,7 @@ export default function SlabSense(){
     )}
     {/* Pricing/Credits Modal */}
     {showPricing && isNativeApp() && (
-      <NativeStore userId={auth.user?.id} notice={creditNotice} onClose={() => { setShowPricing(false); setInsufficientCredits(null); }} />
+      <NativeStore userId={auth.user?.id} notice={creditNotice} onClose={() => { setShowPricing(false); setInsufficientCredits(null); refreshGradeAccess(); }} />
     )}
     {showPricing && !isNativeApp() && (
       <PricingPage
@@ -1289,7 +1323,7 @@ export default function SlabSense(){
         <CaptureCardVertical label="Front" side="front" image={fI} onImage={handleSetFrontImage} onOpenCamera={setCamTarget} quality={frontQuality}/>
         <CaptureCardVertical label="Back" side="back" image={bI} onImage={handleSetBackImage} onOpenCamera={setCamTarget} quality={backQuality}/>
       </div>
-      <button onClick={run} disabled={!fI||!bI} style={{width:"100%",padding:"14px 0",borderRadius:10,border:"none",background:fI&&bI?"linear-gradient(135deg,#00ff88,#0088ff)":"#1a1c22",color:fI&&bI?"#000":"#444",fontFamily:mono,fontSize:13,fontWeight:700,cursor:fI&&bI?"pointer":"default",textTransform:"uppercase",letterSpacing:".08em",transition:"all .3s"}}>{fI&&bI?"▶  Analyze Card":"Capture both sides"}</button>
+      {(()=>{const atCap=!!auth.isAuthenticated&&gradeAccess&&!gradeAccess.unlimited&&gradeAccess.remaining===0;const ready=fI&&bI;return <button onClick={atCap?()=>{setGate({kind:"limit",freeGrades:{used:10,limit:10,remaining:0}});setStep(1);}:requestGrade} disabled={!ready} style={{width:"100%",padding:"14px 0",borderRadius:10,border:"none",background:fI&&bI?"linear-gradient(135deg,#00ff88,#0088ff)":"#1a1c22",color:fI&&bI?"#000":"#444",fontFamily:mono,fontSize:13,fontWeight:700,cursor:fI&&bI?"pointer":"default",textTransform:"uppercase",letterSpacing:".08em",transition:"all .3s"}}>{gradeButtonLabel({hasPhotos:!!ready,signedIn:!!auth.isAuthenticated,unlimited:!!gradeAccess?.unlimited,remaining:gradeAccess?gradeAccess.remaining:null})}</button>;})()}
       <div style={{marginTop:16,padding:14,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
         <div style={{fontFamily:mono,fontSize:10,color:"#6366f1",textTransform:"uppercase",marginBottom:6}}>Multi-Company Grade Estimation</div>
         <div style={{fontSize:12,color:"#666",lineHeight:1.7}}>
@@ -1304,7 +1338,13 @@ export default function SlabSense(){
     </div>)}
 
     {/* ANALYZING */}
-    {tab==="scan"&&step===1&&(<div role="status" aria-live="polite" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
+    {tab==="scan"&&step===1&&gate&&(
+      <GradeGate kind={gate.kind} freeGrades={gate.freeGrades}
+        onSignIn={()=>{pendingGradeRef.current=true; setShowAuthModal(true);}}
+        onPlus={()=>{setInsufficientCredits(null); setShowPricing(true);}}
+        onBack={()=>{setGate(null); setStep(0);}} />
+    )}
+    {tab==="scan"&&step===1&&!gate&&(<div role="status" aria-live="polite" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
       {analysisFailed
         ? <div aria-hidden="true" style={{width:48,height:48,borderRadius:"50%",border:"3px solid #ff4444",display:"flex",alignItems:"center",justifyContent:"center",color:"#ff4444",fontSize:22}}>!</div>
         : <div aria-hidden="true" style={{width:48,height:48,borderRadius:"50%",border:"3px solid #1a1c22",borderTopColor:"#00ff88",animation:"spin .8s linear infinite"}}/>}
