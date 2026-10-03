@@ -43,7 +43,7 @@ export const GRADE_KINDS = [
     summary: 'A full estimate from your two photos in seconds, with no AI service involved.',
     details: [
       'Trained models look for wear on all eight corners and every edge.',
-      `The grading engine combines corner wear, edge wear and your centering into an estimate on the scale of the company you pick (${COMPANIES}).`,
+      `The grading engine combines corner and edge wear, a basic check for visible surface wear, and your centering into an estimate on the scale of the company you pick (${COMPANIES}).`,
       'A grade is counted only when the result is ready. If it fails, it is not counted.',
     ],
   },
@@ -67,7 +67,7 @@ export const CONFIDENCE_NOTE = {
 export const FAQ = [
   { key: 'official', q: 'Is this an official grade?', a: `No. Every SlabSense grade is an estimate made by software from your photos, using the published scales of ${COMPANIES}. SlabSense is not a grading company and is not affiliated with any of them. A professional grader may grade the same card differently.` },
   { key: 'accuracy', q: 'How reliable is the estimate?', a: 'It depends most on the photos, which is why each one gets a photo confidence score. Centering, corner wear and edge wear show up well in clear photos. Very fine surface marks can be hard to see in any photo, so the estimate may vary from an in-hand grade. Better photos make the estimate more reliable; they do not change the card itself.' },
-  { key: 'difference', q: 'What is the difference between a SlabSense Grade and an AI Grade?', a: `A SlabSense Grade uses our own trained models and runs in seconds; free accounts get ${FREE_TIER.gradesPerMonth} a month. An AI Grade adds a closer inspection of the full-resolution photos, compares the card with professionally graded reference cards and writes a report. It uses one AI Grade from your plan or a pack.` },
+  { key: 'difference', q: 'What is the difference between a SlabSense Grade and an AI Grade?', a: `A SlabSense Grade uses our own trained models for corners and edges, plus a basic surface check, and runs in seconds. Free accounts get ${FREE_TIER.gradesPerMonth} a month. An AI Grade adds a closer inspection of the full-resolution photos, compares the card with professionally graded reference cards and writes a report. It uses one AI Grade from your plan or a pack.` },
   { key: 'disagree', q: 'What if I disagree with my grade?', a: 'Check the photo confidence first. If it shows glare, blur or a dark photo, retake on a plain background in soft light. You can also adjust the centering lines in the Center tab and grade again.' },
   { key: 'failed', q: 'Does a failed grade use up my grades?', a: 'No. A free grade is counted only when the result is ready, and a failed AI Grade goes back to your balance automatically.' },
   { key: 'close', q: 'Can I close the app during an AI Grade?', a: 'Yes. The AI Grade keeps running. When you open SlabSense again on the same device within a day, it offers you the finished result.' },

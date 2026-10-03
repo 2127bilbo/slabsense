@@ -1353,17 +1353,6 @@ export default function SlabSense(){
         <CaptureCardVertical label="Back" side="back" image={bI} onImage={handleSetBackImage} onOpenCamera={setCamTarget} quality={backQuality}/>
       </div>
       {(()=>{const ready=fI&&bI;return <button onClick={requestGrade} disabled={!ready} style={{width:"100%",padding:"14px 0",borderRadius:10,border:"none",background:fI&&bI?"linear-gradient(135deg,#00ff88,#0088ff)":"#1a1c22",color:fI&&bI?"#000":"#444",fontFamily:mono,fontSize:13,fontWeight:700,cursor:fI&&bI?"pointer":"default",textTransform:"uppercase",letterSpacing:".08em",transition:"all .3s"}}>{gradeButtonLabel({hasPhotos:!!ready,signedIn:!!auth.isAuthenticated,unlimited:!!gradeAccess?.unlimited,remaining:gradeAccess?gradeAccess.remaining:null})}</button>;})()}
-      <div style={{marginTop:16,padding:14,background:"#0d0f13",borderRadius:8,border:"1px solid #1a1c22"}}>
-        <div style={{fontFamily:mono,fontSize:10,color:"#6366f1",textTransform:"uppercase",marginBottom:6}}>Multi-Company Grade Estimation</div>
-        <div style={{fontSize:12,color:"#666",lineHeight:1.7}}>
-          Analyze cards against <span style={{color:"#ff9944"}}>{GRADING_COMPANIES[gradingCompany]?.name || 'TAG'}</span> grading standards.
-          Detects centering, corners, edges, and surface defects. Front defects weighted ~2x heavier than back.
-          Holo card detection adjusts thresholds automatically.
-        </div>
-        <div style={{marginTop:8,fontSize:10,color:"#555",fontStyle:"italic"}}>
-          Select grading company in header to compare against different scales.
-        </div>
-      </div>
     </div>)}
 
     {/* ANALYZING */}
