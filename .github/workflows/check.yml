@@ -1,0 +1,26 @@
+name: check
+
+# Every push and pull request: the same steps Vercel's build needs (clean install from the lockfile)
+# plus lint, ownership headers, the library tests and a production build. Added 2026-10-03 after a
+# dependency conflict that only a clean install hit made every deploy fail for a day unnoticed.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Clean install (as Vercel does)
+        run: npm ci
+      - name: Lint, headers, tests
+        run: npm run check
+      - name: Production build
+        run: npx vite build
