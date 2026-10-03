@@ -118,5 +118,13 @@ console.log('— legacy path (migration not applied)');
   check('legacy expired → 402', e.status === 402 && dbE.tables.profiles[0].credits_balance === 5);
 }
 
+{
+  // the free on-device grade is not a credit spend: the route handles it before reaching the ledger
+  let called = false;
+  const dbFree = { rpc: async () => { called = true; return { data: { success: true }, error: null }; } };
+  const r = await spendWithDb(dbFree, { userId: 'u1', gradeType: 'free' });
+  check('gradeType free is refused by the credit ledger (400) without touching the database', r.status === 400 && !called, JSON.stringify(r));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

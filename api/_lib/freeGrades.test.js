@@ -4,7 +4,7 @@
  * Proprietary and confidential; see LICENSE at the repository root.
  */
 import assert from 'node:assert/strict';
-import { monthKey, freeGradeView, useFreeGradeWithDb } from './freeGrades.js';
+import { monthKey, freeGradeView, useFreeGradeWithDb, entitlementFields, spendFreeGradeWithDb } from './freeGrades.js';
 
 let passed = 0;
 const ok = async (n, f) => { await f(); passed++; console.log(`  ✓ ${n}`); };
@@ -28,5 +28,21 @@ await ok('spend route shape: 200 with the counter, 402 when exhausted, 404 unkno
   assert.equal(r.status, 402); assert.equal(r.body.error, 'free_grades_exhausted'); assert.equal(r.body.freeGrades.remaining, 0);
   r = await useFreeGradeWithDb(db({ success: false, error: 'user_not_found' }), { userId: 'u1', limit: 10 });
   assert.equal(r.status, 404);
+});
+await ok('entitlement fields: unlimited for plan/trial/lifetime, counter for free accounts', async () => {
+  const now = new Date('2026-10-05T00:00:00Z');
+  assert.deepEqual(entitlementFields({ subscription_status: 'sub_monthly', free_grades_month: '2026-10', free_grades_used: 9 }, 10, now), { unlimitedGrades: true, freeGrades: { month: '2026-10', used: 9, limit: 10, remaining: 1 } });
+  assert.deepEqual(entitlementFields({ subscription_status: 'free' }, 10, now), { unlimitedGrades: false, freeGrades: { month: '2026-10', used: 0, limit: 10, remaining: 10 } });
+});
+await ok('free grade spend: unlimited accounts skip the counter; free accounts hit it; other types fall through', async () => {
+  const calls = [];
+  const db = (status, reply) => ({
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { subscription_status: status } }) }) }) }),
+    rpc: async (fn, args) => { calls.push(fn); return { data: reply, error: null }; },
+  });
+  let r = await spendFreeGradeWithDb(db('trialing'), { userId: 'u1', limit: 10 });
+  assert.deepEqual([r.status, r.body], [200, { success: true, unlimited: true }]); assert.deepEqual(calls, []);
+  r = await spendFreeGradeWithDb(db('free', { success: true, used: 1, limit: 10, remaining: 9, month: '2026-10' }), { userId: 'u1', limit: 10 });
+  assert.equal(r.status, 200); assert.equal(r.body.freeGrades.remaining, 9); assert.deepEqual(calls, ['use_free_grade']);
 });
 console.log(`${passed} passed, 0 failed`);

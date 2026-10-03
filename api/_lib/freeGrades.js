@@ -8,6 +8,7 @@
  * The SQL function use_free_grade() (migration 20261003_free_grades.sql) is the only writer;
  * this module shapes its answers for the spend route and the balance endpoint.
  */
+import { isUnlimited } from '../../src/lib/products.js';
 
 /** 'YYYY-MM' in UTC, the key the counter is kept under. */
 export function monthKey(date = new Date()) { return date.toISOString().slice(0, 7); }
@@ -17,6 +18,18 @@ export function freeGradeView(profile, limit, now = new Date()) {
   const month = monthKey(now);
   const used = profile?.free_grades_month === month ? (profile.free_grades_used || 0) : 0;
   return { month, used, limit, remaining: Math.max(0, limit - used) };
+}
+
+/** What the balance endpoint adds for the grade flow: unlimited flag and the monthly counter. */
+export function entitlementFields(profile, limit, now = new Date()) {
+  return { unlimitedGrades: isUnlimited(profile?.subscription_status), freeGrades: freeGradeView(profile, limit, now) };
+}
+
+/** The spend route's `gradeType: 'free'` branch: unlimited accounts never touch the counter. */
+export async function spendFreeGradeWithDb(db, { userId, limit }) {
+  const { data: profile } = await db.from('profiles').select('subscription_status').eq('id', userId).maybeSingle();
+  if (isUnlimited(profile?.subscription_status)) return { status: 200, body: { success: true, unlimited: true } };
+  return useFreeGradeWithDb(db, { userId, limit });
 }
 
 /** Spend one free grade. Same {status, body} shape as spendWithDb so the spend route can return it directly. */

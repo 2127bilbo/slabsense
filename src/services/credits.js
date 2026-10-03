@@ -37,6 +37,26 @@ export async function getCreditsBalance(userId) {
 }
 
 /**
+ * One free on-device grade for a signed-in account. Unlimited accounts (Plus, trial, lifetime)
+ * return { unlimited: true }; free accounts return { freeGrades: { used, limit, remaining, month } }.
+ * Throws with .status 402 and .data.freeGrades when the month's free grades are used up.
+ */
+export async function spendFreeGrade(userId) {
+  const response = await fetch(`${API_BASE}/api/credits/spend`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+    body: JSON.stringify({ userId, gradeType: 'free' }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const e = new Error(data.message || data.error || 'Free grade refused');
+    e.status = response.status; e.data = data;
+    throw e;
+  }
+  return data;
+}
+
+/**
  * Spend credits (kept for non-grade uses; grade endpoints spend for themselves)
  * @param {'ai' | 'deep'} gradeType
  */

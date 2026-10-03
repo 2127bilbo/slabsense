@@ -9,6 +9,8 @@
  * The user comes from the Supabase JWT; a userId in the query/body must match it.
  */
 import { userRoute } from '../_lib/route.js';
+import { entitlementFields } from '../_lib/freeGrades.js';
+import { FREE_TIER } from '../../src/lib/products.js';
 
 export const config = { maxDuration: 10 };
 
@@ -66,6 +68,7 @@ export default userRoute({ methods: ['GET', 'POST'], label: 'Balance' }, async (
       cardLimit,
       canSaveMore: cardLimit === null || (profile.cards_saved_count || 0) < cardLimit,
       isLifetime,
-      canUseAI: !isFree || isLifetime,
+      canUseAI: isLifetime || balance + subCredits > 0,   // free accounts have no AI Grades; a pack or allowance enables the button
+      ...entitlementFields(profile, FREE_TIER.gradesPerMonth),
     });
 });
