@@ -57,4 +57,10 @@ ok('renewal-preference changes only update the renewal date', () => {
   const d = decide(subTx(), { notificationType: 'DID_CHANGE_RENEWAL_STATUS', subtype: 'AUTO_RENEW_DISABLED' });
   assert.equal(d.ops.length, 0); assert.ok(d.status.subscription_renews_at);
 });
+ok('a free-trial transaction grants the trial allowance as trialing; the renewal grants the full allowance', () => {
+  const t = decide(subTx({ offerDiscountType: 'FREE_TRIAL', offerType: 1, price: 0 }));
+  assert.equal(t.ops[0].amount, PRODUCTS.sub_monthly.trial.grades); assert.equal(t.status.subscription_status, 'trialing');
+  const r = decide(subTx({ transactionId: '2000000000000002', price: 9990 }), { notificationType: 'DID_RENEW' });
+  assert.equal(r.ops[0].amount, PRODUCTS.sub_monthly.allowance); assert.equal(r.status.subscription_status, 'sub_monthly');
+});
 console.log(`${passed} passed, 0 failed`);

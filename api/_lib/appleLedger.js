@@ -76,8 +76,11 @@ export function decide(tx, note = {}) {
   }
   if (!type || GRANTING.has(type)) {
     const expiresAt = tx.expiresDate ? new Date(tx.expiresDate).toISOString() : null;
-    ops.push({ op: 'grant', bucket: 'sub', amount: product.allowance, externalId: externalId(tx.transactionId), description: `${product.name} ${product.period} (App Store)`, expiresAt });
-    return { ops, status: { subscription_status: key, subscription_source: 'apple', subscription_renews_at: expiresAt, apple_original_transaction_id: tx.originalTransactionId }, reason: `subscription ${type || 'verify'}` };
+    // Introductory free trial (offerType 1 = introductory offer, no charge): the trial allowance only.
+    const isTrial = !!product.trial && (tx.offerDiscountType === 'FREE_TRIAL' || (tx.offerType === 1 && !(tx.price > 0)));
+    const amount = isTrial ? product.trial.grades : product.allowance;
+    ops.push({ op: 'grant', bucket: 'sub', amount, externalId: externalId(tx.transactionId), description: isTrial ? `${product.name} trial (App Store)` : `${product.name} ${product.period} (App Store)`, expiresAt });
+    return { ops, status: { subscription_status: isTrial ? 'trialing' : key, subscription_source: 'apple', subscription_renews_at: expiresAt, apple_original_transaction_id: tx.originalTransactionId }, reason: isTrial ? 'trial started' : `subscription ${type || 'verify'}` };
   }
   return { ops, status: null, reason: `ignored ${type}/${sub || ''}` };
 }
