@@ -62,6 +62,10 @@ async function walk(prefix, out) {
   return out;
 }
 
+// Any failure prints one readable line (the 2026-09-28 weekly run failed with only "exit code 1").
+process.on('unhandledRejection', (e) => { console.error(`cleanup failed: ${e?.message || e}`); process.exit(1); });
+process.on('uncaughtException', (e) => { console.error(`cleanup failed: ${e?.message || e}`); process.exit(1); });
+
 const cutoff = Date.now() - DAYS * 86400e3;
 const files = await walk('', []);
 const uploads = files.filter((f) => /\/(standard|deep)-analysis\//.test(f.path));
