@@ -86,7 +86,9 @@ export function decideInvoicePaid(invoice, env = process.env) {
   const expiresAt = new Date(invoicePeriodEnd(invoice)).toISOString();
   // A free trial starts with a $0 invoice for the first period: grant the trial allowance and mark
   // the account trialing; the first paid invoice (or any later one) grants the full allowance.
-  const trial = !!product.trial && invoice.amount_paid === 0 && !(invoice.amount_due > 0)
+  // A 100%-off promo code also makes a $0 first invoice; it carries a discount, a trial does not.
+  const discounted = (invoice.discounts?.length > 0) || (invoice.total_discount_amounts || []).some((d) => d.amount > 0);
+  const trial = !!product.trial && invoice.amount_paid === 0 && !(invoice.amount_due > 0) && !discounted
     && (invoice.billing_reason === 'subscription_create' || invoice.billing_reason === 'subscription_update');
   const amount = trial ? product.trial.grades : product.allowance;
   return {

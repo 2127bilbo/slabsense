@@ -26,6 +26,7 @@ import { CreditBalance, PricingPage } from "./components/Billing";
 import { NativeStore } from "./components/Billing/NativeStore.jsx";
 import { isNativeApp } from "./lib/platform.js";
 import { getGradeJob, getCreditsBalance, spendFreeGrade } from "./services/credits.js";
+import { chargeFreeGrade } from "./lib/free-grade-charge.js";
 import { GradeGate } from "./components/Grading/GradeGate.jsx";
 import { WelcomePrompt } from "./components/WelcomePrompt.jsx";
 import { COLLECTION_LIMIT_EVENT, collectionLimitMessage } from "./lib/collection-limit.js";
@@ -309,7 +310,7 @@ export default function SlabSense(){
     setCenteringConfirmed(true);
   }, [applyManualCorrection]);
 
-  const run=useCallback(async()=>{
+  const run=useCallback(async(opts={})=>{ // opts.beforeShow: async () => boolean, checked before the result shows
     if(!fI||!bI)return; setAnalysisFailed(false); setStep(1);
     try{
       // Manual centering from the tool overrides the measured ratios (the crop it made is analyzed below)
@@ -370,6 +371,7 @@ export default function SlabSense(){
       setProg("Generating surface vision maps...");await new Promise(r=>setTimeout(r,30));
       // Vision maps are generated from the same image the detectors saw (the crop when one exists)
       setFM(await genMaps(frontSrc)); setBM(await genMaps(backSrc));
+      if (opts.beforeShow && !(await opts.beforeShow())) return;   // free grade refused: the gate is already showing
       setStep(2);
     }catch(e){console.error("Analysis error:",e);setProg(`Error: ${e.message || "try better photos"}`);setAnalysisFailed(true);}
   },[fI,bI,frontCroppedImage,backCroppedImage,ignoreCentering,gradingCompany,frontCenteringData,backCenteringData,frontQuality,backQuality]);
@@ -389,16 +391,14 @@ export default function SlabSense(){
     gradeBusyRef.current = true;
     try {
     if (!auth.isAuthenticated) { setGate({ kind: 'signin' }); setStep(1); return; }
-    try {
-      const r = await spendFreeGrade(auth.user.id);
-      if (r?.freeGrades) setGradeAccess({ unlimited: false, remaining: r.freeGrades.remaining });
-    } catch (e) {
-      if (e.status === 402) { setGate({ kind: 'limit', freeGrades: e.data?.freeGrades }); setGradeAccess({ unlimited: false, remaining: 0 }); setStep(1); return; }
-      if (e.status === 401) { setGate({ kind: 'signin' }); setStep(1); return; }
-      setProg(`Error: ${e.message || 'could not start the grade'}`); setAnalysisFailed(true); setStep(1); return;
-    }
     setGate(null);
-    run();
+    // Analyse first; charge the free grade only when there is a result to show (a failed analysis is free).
+    await run({ beforeShow: async () => {
+      const c = await chargeFreeGrade(spendFreeGrade, auth.user.id);
+      if (c.show) { setGradeAccess({ unlimited: c.unlimited, remaining: c.remaining }); return true; }
+      if (c.gate) { setGate(c.gate); if (c.gate.kind === 'limit') setGradeAccess({ unlimited: false, remaining: 0 }); return false; }
+      setProg(c.error); setAnalysisFailed(true); return false;
+    } });
     } finally { gradeBusyRef.current = false; }
   }, [fI, bI, auth.isAuthenticated, auth.user?.id, run]);
 

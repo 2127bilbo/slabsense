@@ -72,4 +72,9 @@ ok('review #2: the Stripe trial invoice marks the account as having used its tri
   const inv = { id: 'in_t2', billing_reason: 'subscription_create', amount_paid: 0, amount_due: 0, parent: { subscription_details: { subscription: 'sub_t' } }, lines: { data: [{ price: { id: 'price_plus' }, period: { end: 1_800_432_000 } }] } };
   assert.equal(decideInvoicePaid(inv, env).status.used_trial, true);
 });
+ok('a $0 first invoice from a 100%-off promo code is a paid period, not a trial', () => {
+  const inv = { id: 'in_promo', billing_reason: 'subscription_create', amount_paid: 0, amount_due: 0, discounts: ['di_123'], total_discount_amounts: [{ amount: 999, discount: 'di_123' }], parent: { subscription_details: { subscription: 'sub_p' } }, lines: { data: [{ price: { id: 'price_plus' }, period: { end: 1_803_000_000 } }] } };
+  const d = decideInvoicePaid(inv, env);
+  assert.equal(d.ops[0].amount, PRODUCTS.sub_monthly.allowance); assert.equal(d.status.subscription_status, 'sub_monthly'); assert.equal(d.status.used_trial, undefined);
+});
 console.log(`${passed} passed, 0 failed`);
