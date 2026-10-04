@@ -13,7 +13,7 @@ from PIL import Image, ImageEnhance
 from torch.utils.data import Dataset, get_worker_info
 
 from .cache import resized_path
-from .phone_aug import (apply_phone, phone_sim as phone_sim_fn, phone_sim_soft, resolution_loss as phone_resolution_loss,
+from .phone_aug import (apply_phone, apply_phone_whole_card, phone_sim as phone_sim_fn, phone_sim_soft, resolution_loss as phone_resolution_loss,
                         soften as phone_soften)
 from .tables import TASKS
 
@@ -59,10 +59,11 @@ def load_crop(
         img = img.transpose(Image.Transpose.ROTATE_90)
     if train:
         rng = rng or np.random.default_rng()
+    whole_card = spec.get("whole_card", False)   # Step 13.7: card-cropped image, no backdrop or slot stem
     if phone_sim:
-        img = phone_sim_fn(img, stem, (w, h))
+        img = phone_sim_soft(img, (w, h)) if whole_card else phone_sim_fn(img, stem, (w, h))
     elif train and aug == "phone":
-        img = apply_phone(img, stem, rng, (w, h))
+        img = apply_phone_whole_card(img, rng, (w, h)) if whole_card else apply_phone(img, stem, rng, (w, h))
     elif train and aug == "strong":
         s = float(rng.uniform(0.88, 1.0))
         cw, ch = max(1, int(round(img.width * s))), max(1, int(round(img.height * s)))

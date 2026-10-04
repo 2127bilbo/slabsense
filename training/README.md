@@ -633,6 +633,18 @@ the image cache):
 
 `mae < baseline_mae` for CREASE, DENT, SCRATCH, PIT as required by Task 9.
 
+## Surface from the colour photo (Step 13.7, 2026-10-03)
+
+`surface_damage_card` and `surface_front_card` (`trainlib/tables.py`) read the card-cropped colour
+image the centering task caches (`resized/896x1248-card/`), the closest thing in the dataset to
+what a phone produces. `surface_damage_card` is one row per side with six binary targets from
+TAG's markers on that side (crease incl. tear, dent, stain, scratch, print, play wear) and the
+summed surface deduction; clean rows are sides with no surface marker on certs that have a report
+(any marker, or grade 9+). `surface_front_card` is Step 8.1b's front score + rollup on the same
+image. Training uses `--aug phone`, which for whole-card tasks is
+`phone_aug.apply_phone_whole_card` (glare, softness/JPEG, resolution loss). Commands, class rates
+and acceptance bars are in the handoff, Step 13.7.
+
 ## Surface score (per side)
 
 The surface detector (above) finds and classifies individual defect boxes,

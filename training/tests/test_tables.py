@@ -12,7 +12,8 @@ from trainlib import surface_tables as st
 
 def test_tasks_spec():
     assert set(tables.TASKS) == {"corners", "edges", "surface_sfx", "surface_rgb", "surface_front_sfx",
-                                 "surface_front_rgb", "centering_rgb", "edges_hr"}
+                                 "surface_front_rgb", "centering_rgb", "edges_hr",
+                                 "surface_damage_card", "surface_front_card"}
     assert tables.TASKS["corners"]["targets"] == [
         tables.Target("wear", "binary", "ding_count"),
         tables.Target("deduction", "regress", "marker_deduction"),

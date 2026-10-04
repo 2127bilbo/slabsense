@@ -1108,7 +1108,7 @@ data from the TAG scans, real-photo acceptance set collected by the app);
 Step 11 retrains `centering_rgb` so it stops shrinking off-centre cards toward
 50/50. Read that document from the top; it is self-contained.
 
-## Step 13: centering v3 on the foil-border data, edges HR, card v1.1, rollup — one rental
+## Step 13: centering v3 on the foil-border data, edges HR, card v1.1, rollup, colour surface — one rental
 
 Written 2026-10-01 by the app session. Read `training/MODEL-ROADMAP.md` first (the per-model
 state and gates) and `docs/grading-research/e-reader-centering.md` §3 (the finding that drives
@@ -1220,13 +1220,108 @@ test; dump the trees to JSON the way `deduction_model` does (`api/_lib/surfaceDe
 walks that format) as `api/_lib/models/grade-rollup-v1.json` with test vectors. Accept at
 90 % exact on test or better. The app session wires it behind a flag.
 
+### 13.7 Surface from the colour photo: two models on the centering cache (added 2026-10-03)
+
+**Why.** Since engine 1.2 (2026-10-03) the app's free grade inspects no surface: the legacy pixel
+check was removed after a 507-card audit showed it no better than chance. The app harness splits
+the remaining free-grade error by what TAG marked on the card: corners/edges only, mean error 0.6;
+creased or torn, 2.8 (too generous by 2.6); stained or dented, 3.0 (+2.8); other surface marks,
+1.3 (+1.2). Surface is the whole gap. Earlier surface work failed for reasons that do not apply
+here: detectors v1-v3 learned from the `sfx` relief image a phone cannot take, and the per-side
+score regressor learned from TAG's back score, which does not follow the back image (8.1b).
+These two models read the **colour, card-cropped image** (what the phone pipeline produces), with
+**targets that follow the image**, and train with phone augmentation.
+
+**Code: done on the PC** (commit in the next `git pull`; `pytest -q` expects **254 passed**).
+Nothing to write on the box.
+
+- `surface_damage_card` (new): one row per side, front and back. Targets from TAG's markers on
+  that side: six binaries `crease` (CREASE or TEAR), `dent`, `stain`, `scratch`, `print`
+  (PRINT_DEFECT), `wear` (PLAY_WEAR), plus `pts` = summed surface deduction, capped at 1000.
+  Corner/edge markers are not surface. A side with no surface markers is a clean row when the
+  cert has any TAG marker at all, or none and a grade of 9+; marker-less certs below 9 are
+  dropped as missing reports. `tables.surface_damage_rows`, tests in
+  `tests/test_surface_damage.py`.
+- `surface_front_card` (new): Step 8.1b's never-run targets (`score_front`, `rollup`), front only.
+- Both use `cache_variant: card` and the centering boxes, so they read **the same resized files
+  13.2 caches** (`resized/896x1248-card/`). `--aug phone` on these tasks is
+  `phone_aug.apply_phone_whole_card` (synthetic glare 30 %, softness + JPEG 50 %, resolution loss
+  30 %); `--phone-sim` uses `phone_sim_soft`. No edge jitter. `export_onnx.py` accepts both tasks.
+
+Rows (sides with an ok card box):
+
+| split | sides | crease | dent | stain | scratch | print | wear | any surface |
+|---|---|---|---|---|---|---|---|---|
+| train | 43,532 | 11.2 % | 7.9 % | 1.2 % | 4.2 % | 10.0 % | 27.7 % | 50.8 % |
+| val | 5,475 | 11.4 % | 7.9 % | 1.3 % | 4.1 % | 9.1 % | 27.5 % | 50.0 % |
+| foil2026-train | 5,851 | 2.2 % | 0.8 % | 0.0 % | 4.4 % | 4.8 % | 8.1 % | 19.0 % |
+| foil2026-val | 1,451 | 1.9 % | 1.0 % | 0.0 % | 4.6 % | 4.1 % | 9.0 % | 18.5 % |
+
+`surface_front_card` has 2,778 val rows.
+
+```bash
+cd /workspace/SlabSense && git pull && cd training && .venv/bin/python -m pytest -q   # expect 254 passed
+source /workspace/env.sh
+# 1. Cache: run AFTER 13.2's centering cache. Existing resized files are skipped, so this only adds
+#    the sides centering left out (no TAG border distances); expect a few thousand, not 60k.
+.venv/bin/python -m trainlib.cache_cli --task surface_damage_card --splits train,val,test,foil2026-train,foil2026-val --from-cache --workers 32
+.venv/bin/python -m trainlib.cache_cli --task surface_front_card --splits train,val,test --from-cache --workers 32
+# 2. Train (same recipe as centering v3, minus the centering-only flags)
+.venv/bin/python -m trainlib.train --task surface_damage_card --run-name v1 --epochs 10 --batch-size 8 --workers 8 \
+  --drop-path 0.1 --ema-decay 0.999 --aug phone --train-splits train,foil2026-train --val-splits val
+.venv/bin/python -m trainlib.train --task surface_front_card --run-name v1 --epochs 10 --batch-size 8 --workers 8 \
+  --drop-path 0.1 --ema-decay 0.999 --aug phone
+# 3. Evaluate on val, clean and phone-sim, plus the foil split for the damage model
+for T in surface_damage_card surface_front_card; do
+  .venv/bin/python -m trainlib.evaluate --task $T --checkpoint runs/$T/v1/best.pt --split val --workers 8 --batch-size 16
+  .venv/bin/python -m trainlib.evaluate --task $T --checkpoint runs/$T/v1/best.pt --split val --workers 8 --batch-size 16 --phone-sim
+done
+.venv/bin/python -m trainlib.evaluate --task surface_damage_card --checkpoint runs/surface_damage_card/v1/best.pt --split foil2026-val --workers 8 --batch-size 16
+```
+
+**Accept `surface_damage_card` v1** per class, on val `ALL`, clean and phone-sim. A class that
+misses its bar is still reported; the app simply does not use it.
+
+| class | AUROC (clean) | phone-sim | note |
+|---|---|---|---|
+| crease | ≥ 0.85 | within 0.03 of clean | the one that matters most (structural, caps the grade) |
+| stain | ≥ 0.85 | within 0.03 | only ~70 val positives; report the count beside it |
+| wear | ≥ 0.80 | within 0.03 | play wear is the most common surface marker |
+| dent, scratch, print | report only | report only | expected weak in colour (dents show in relief, scratches are label-limited) |
+
+Also report, on the `9 MINT` and `10 GEM MINT` rows, the share of sides scored ≥ 0.5 on crease
+or stain (the clean-card false-alarm rate; the app needs it low), and `mae_pts` beside its
+baseline (predicting the train median for every row; compute it once from the table).
+
+**Accept `surface_front_card` v1** when val `ALL` `mae_rollup` ≤ 119 (8.1b's bar) and
+`mae_score_front` is below the median baseline, phone-sim within 10 % of clean.
+
+Either model, accepted: `--split test --final-eval` once, then export with
+`export_onnx.py --task <task> --checkpoint runs/<task>/v1/best.pt --run-name v1 --parity-rows 200
+--batch-size 4` (fp16 and the WebGPU NaN check, as for centering). Neither ships from the box: the
+app session wires it behind a flag and runs the 507-card harness (gates: the creased/torn and
+stained/dented groups' error must fall, the corners/edges-only group and the 9-10 bucket must not
+get worse by more than 0.1) and the owner's phone photos before anything reaches users.
+
+**If a model does not converge** (val AUROC near 0.5 on every class after 3 epochs, or the
+regressor sitting on the median like 8.1b): stop that run, keep the box for the others, report the
+log. Do not tune targets or thresholds on the box.
+
+**Budget.** Same input size and backbone as centering v3: about 25-45 min/epoch for the damage
+model (~49k sides) and half that for the front model, so roughly 6-8 h and 3-4 h of GPU. No
+extra egress beyond the small top-up cache. On a 48 GB card the front model can run beside
+another job (check `nvidia-smi` after the first epoch; batch 8 at 896×1248 used ~11.5 GB for
+centering).
+
 ### 13.6 Order, budget, bring home
 
-Chain (13.1 and 13.5 are already done): 13.2 cache and baselines, 13.4 cutouts (CPU-heavy, overlaps), 13.2 train,
-13.3 cache (network-heavy, overlaps the 13.2 train), 13.4 train, 13.3 train, evals, exports. On a two-GPU box run
-13.2 train on GPU 0 and 13.3 on GPU 1 concurrently (as in the September rental), 13.4 after whichever finishes first.
-Roughly 10 to 14 GPU hours, about $60 to $80 including egress. Bring home per Steps 11.3 and
-12.6: run folders into `training/weights/{centering_rgb/v3, edges_hr/v3-hr, card/v1.1}`, ONNX
+Chain (13.1 and 13.5 are already done): 13.2 cache and baselines, **13.7 top-up caches (seconds to minutes; they
+reuse 13.2's files)**, 13.4 cutouts (CPU-heavy, overlaps), 13.2 train, 13.3 cache (network-heavy, overlaps the 13.2
+train), **13.7 damage train**, 13.4 train, 13.3 train, **13.7 front train (or beside another run if VRAM allows)**,
+evals, exports. On a two-GPU box run 13.2 then 13.7-damage on GPU 0 and 13.3 then 13.7-front on GPU 1, 13.4 after
+whichever finishes first. Roughly 20 to 26 GPU hours with 13.7, about $80 to $105 including egress. Bring home per Steps 11.3 and
+12.6: run folders into `training/weights/{centering_rgb/v3, edges_hr/v3-hr, card/v1.1, surface_damage_card/v1, surface_front_card/v1}`, ONNX
 and sidecars into `training/weights/onnx/`, the rollup JSON into `api/_lib/models/`, and the
 box-computed v2b baselines on `foil2026-val`. Report in the Step 11 format with one table per
-model and the `foil2026-val` column beside `val`.
+model and the `foil2026-val` column beside `val`; for 13.7 one row per damage class (AUROC clean / phone-sim,
+precision and recall at 0.5, positives) plus the 9/10 false-alarm share and the `pts` MAE beside its baseline.

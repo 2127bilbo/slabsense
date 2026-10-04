@@ -138,6 +138,33 @@ def phone_sim(img: Image.Image, stem: str, input_size) -> Image.Image:
     return resolution_loss(img, None, scale=0.5)
 
 
+def add_glare(img: Image.Image, rng, strength=None) -> Image.Image:
+    """A soft elliptical highlight, the way a lamp or window reflects off a card (Step 13.7). Pixels
+    outside the ellipse are untouched; inside they move toward white by up to `strength`."""
+    W, H = img.size
+    a = float(rng.uniform(0.25, 0.6)) if strength is None else strength
+    cx, cy = float(rng.uniform(0.15, 0.85)) * W, float(rng.uniform(0.15, 0.85)) * H
+    rx, ry = float(rng.uniform(0.08, 0.3)) * W, float(rng.uniform(0.05, 0.2)) * H
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    d = ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2
+    w = np.clip(1.0 - d, 0.0, 1.0) ** 1.5 * a
+    arr = np.asarray(img.convert("RGB"), dtype=np.float32)
+    out = arr + (255.0 - arr) * w[..., None]
+    return Image.fromarray(np.clip(out + 0.5, 0, 255).astype(np.uint8))
+
+
+def apply_phone_whole_card(img: Image.Image, rng, input_size) -> Image.Image:
+    """`phone` augmentation for a card-cropped whole-card image (no backdrop, no crop stem): glare,
+    softness/JPEG and resolution loss, the three ways a phone photo of a card differs from a scan."""
+    if rng.random() < 0.3:
+        img = add_glare(img, rng)
+    if rng.random() < 0.5:
+        img = soften(img, rng, input_size)
+    if rng.random() < 0.3:
+        img = resolution_loss(img, rng)
+    return img
+
+
 def phone_sim_soft(img: Image.Image, input_size) -> Image.Image:
     """Deterministic phone-photo softness with no backdrop recolour (there is no crop stem to
     seed a flood fill from for the centering task's whole-card image). Used for eval only

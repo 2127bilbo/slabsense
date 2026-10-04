@@ -136,6 +136,14 @@ severity. Rejected so far: box detectors v1–v3 (creases only, ~6 false boxes p
 TAG's markers never matched) and whole-side score regressors (TAG's back surface score does not
 follow the back image).
 
+**Update 2026-10-03.** The legacy pixel check is gone from the free path (engine 1.2: surface is
+"not inspected", not 100). Two colour models are queued for the Step 13 rental as **13.7**
+(`surface_damage_card`: per-side crease / dent / stain / scratch / print / wear + summed points;
+`surface_front_card`: front score + surface rollup), both on the centering card-crop cache with
+whole-card phone augmentation (glare, softness, resolution loss). They aim at the big damage that
+drives the free grade's error (creased/torn cards +2.6 grades, stained/dented +2.8); the tile
+classifier below stays the plan for fine marks and for the rig.
+
 **Why it is the biggest gap.** Surface is where low grades come from, and it is the subgrade the
 owner's harness shows the software grade being lenient on. The assets are there: ~27,000 certs
 with typed markers (type, box, deduction, manual/automatic) at native resolution.

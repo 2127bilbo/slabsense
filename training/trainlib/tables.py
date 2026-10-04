@@ -45,6 +45,56 @@ def surface_front_rows(manifest: pd.DataFrame, view: str) -> pd.DataFrame:
     return rows.sort_values("cert").reset_index(drop=True)
 
 
+# Step 13.7: per-side surface damage from the colour image. Marker types grouped the way the app scores
+# them; corner/edge markers are not surface. TEAR has 35 markers in all, so it rides with CREASE (both are
+# structural and both cap the grade). PIT is left out (9 px boxes, invisible at 896x1248).
+DAMAGE_TARGETS = {"crease": ("CREASE", "TEAR"), "dent": ("DENT",), "stain": ("STAIN",), "scratch": ("SCRATCH",),
+                  "print": ("PRINT_DEFECT",), "wear": ("PLAY_WEAR",)}
+_SURFACE_TYPES = {t for ts in DAMAGE_TARGETS.values() for t in ts} | {"PIT"}
+CLEAN_MIN_GRADE = 9.0   # a cert with no markers at all counts as clean only at grade 9+ (below, the report is missing)
+
+
+def surface_damage_rows(manifest: pd.DataFrame, surface: pd.DataFrame) -> pd.DataFrame:
+    """One row per cert per side (colour image): marker counts per damage group and the summed surface
+    deduction (`pts`, capped at 1000). A side with no surface markers is a clean row (all zeros) when the
+    cert has any TAG marker at all, or none but a grade of 9+; other marker-less certs are dropped as
+    missing data. Sides without a colour image are dropped."""
+    has_report = set(surface.cert)
+    keep = manifest.cert.isin(has_report) | (manifest.grade_num.astype("float64") >= CLEAN_MIN_GRADE)
+    m = manifest[keep]
+    parts = []
+    for side, col in (("F", "path_front"), ("B", "path_back")):
+        parts.append(pd.DataFrame({"cert": m.cert, "side": side, "crop_path": m[col]}))
+    rows = pd.concat(parts)
+    rows = rows[rows.crop_path.notna()]
+    s = surface[surface.engine_type.isin(_SURFACE_TYPES)]
+    for name, types in DAMAGE_TARGETS.items():
+        c = s[s.engine_type.isin(types)].groupby(["cert", "side"]).size().rename(name)
+        rows = rows.merge(c, on=["cert", "side"], how="left")
+    pts = s.groupby(["cert", "side"]).deduction.sum().rename("pts")
+    rows = rows.merge(pts, on=["cert", "side"], how="left")
+    for name in DAMAGE_TARGETS:
+        rows[name] = rows[name].fillna(0).astype("int64")
+    rows["pts"] = rows["pts"].fillna(0.0).astype("float64").clip(0.0, 1000.0)
+    return rows.sort_values(["cert", "side"]).reset_index(drop=True)[
+        ["cert", "side", "crop_path", *DAMAGE_TARGETS, "pts"]]
+
+
+def _surface_damage_rows_from_dir(df: pd.DataFrame, dataset_dir: Path) -> pd.DataFrame:
+    return surface_damage_rows(df, pd.read_parquet(Path(dataset_dir) / "surface.parquet"))
+
+
+_CARD_CACHE = {   # Step 13.7: the centering task's card-cropped 896x1248 cache, shared (no extra download)
+    "view": "rgb",
+    "input_size": (896, 1248),
+    "long_side_horizontal": False,
+    "cache_resize": (896, 1248),
+    "cache_variant": "card",
+    "crop_boxes": "derived/centering_boxes_rgb.parquet",
+    "whole_card": True,
+}
+
+
 _DTE = {"F": ("dte_front_left", "dte_front_right", "dte_front_top", "dte_front_bottom"),
         "B": ("dte_back_left", "dte_back_right", "dte_back_top", "dte_back_bottom")}
 
@@ -147,6 +197,23 @@ TASKS = {
     },
     "surface_front_sfx": _surface_front_task("sfx"),
     "surface_front_rgb": _surface_front_task("rgb"),
+    "surface_damage_card": {
+        # Step 13.7: which surface damage each side shows, from the colour card image (phone-like input).
+        "table": "manifest.parquet",
+        "rows": _surface_damage_rows_from_dir,
+        "rows_need_dataset_dir": True,
+        "targets": [*(Target(n, "binary", n) for n in DAMAGE_TARGETS), Target("pts", "regress", "pts")],
+        "key_cols": ["side"],
+        **_CARD_CACHE,
+    },
+    "surface_front_card": {
+        # Step 13.7: Step 8.1b's front score + surface rollup, on the card-cropped colour image.
+        "table": "manifest.parquet",
+        "rows": lambda df: surface_front_rows(df, "rgb"),
+        "targets": [Target("score_front", "regress", "score_front"), Target("rollup", "regress", "rollup")],
+        "key_cols": ["side"],
+        **_CARD_CACHE,
+    },
     "centering_rgb": {
         "table": "manifest.parquet",
         "rows": _centering_rows_from_manifest,
@@ -227,7 +294,7 @@ def load_task_table(task: str, dataset_dir: Path, splits_path: Path, split: str,
     spec = TASKS[task]
     df = pd.read_parquet(Path(dataset_dir) / spec["table"])
     if spec.get("rows") is not None:
-        df = spec["rows"](df)
+        df = spec["rows"](df, Path(dataset_dir)) if spec.get("rows_need_dataset_dir") else spec["rows"](df)
     splits = pd.read_parquet(splits_path)[["cert", "split"]]
     known = sorted(splits.split.unique())
     if split not in known:
